@@ -99,3 +99,10 @@
   * 连接上下文的使用
     * [关于连接上下文](docs/about-connection-context.md)
 
+## Authors
+
+* **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
+* **Wu Jiaxu** - *[wujiaxu@sogou-inc.com](mailto:wujiaxu@sogou-inc.com)*
+* **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*
+
+

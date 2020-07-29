@@ -1,3 +1,8 @@
+[![license MIT](https://img.shields.io/badge/License-Apache-yellow.svg)](https://git.sogou-inc.com/wujiaxu/Filter/blob/master/LICENSE)
+[![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
+[![code style](https://img.shields.io/badge/code%20style-google-blue.svg)](https://google.github.io/styleguide/cppguide.html)
+[![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#12-%E8%B7%A8%E5%B9%B3%E5%8F%B0%E6%94%AF%E6%8C%81)
+
 # Sogou C++ Workflow
 #### 搜狗公司的后端C++编程标准，是一套企业级的程序引擎。主要功能和特点：
   * 这是一个基于C++11 std::function的异步引擎。用于解决一切关于串行，并行和异步的问题。

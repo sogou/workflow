@@ -98,6 +98,8 @@
     * [Upstream更多文档](docs/about-upstream.md)
   * 连接上下文的使用
     * [关于连接上下文](docs/about-connection-context.md)
+  * 内置协议用法
+    * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
 
 ## Authors
 

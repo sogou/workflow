@@ -9,7 +9,7 @@
   * 作为网络框架，完全协议无关，并且直接面向应用。
     * 可以当作一个异步redis客户端，也可以快速搭建一个Http服务器。
     * 自定义协议非常方便，你可以快速的建立一个自己的RPC系统。
-      * Sogou RPC就是以它为基础开发，作为独立项目开源。该项目支持srpc，brpc和thrift等协议。
+      * Sogou RPC就是以它为基础开发，作为独立项目开源。该项目支持srpc，brpc和thrift等协议（[benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)）。
     * 支持SSL(依赖openssl)。支持TCP, UDP，SCTP等常用传输层协议。可支持SCTP上的SSL。但不支持UDP server。
   * 原生包含了多种常有互联网协议的实现，并且以统一的方式使用。
     * 目前支持http，redis，mysql和kafka协议，可以直接访问这些资源或搭建这些协议的server。

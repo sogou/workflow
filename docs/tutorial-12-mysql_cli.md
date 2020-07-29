@@ -13,21 +13,23 @@
 
 # MySQL URL的格式
 
-mysql://username:password@host:port/dbname
+mysql://username:password@host:port/dbname?character_set=charset
 
 - username和password按需填写；
 
-- port默认为3306;
+- port默认为3306；
 
 - dbname为要用的数据库名，一般如果SQL语句只操作一个db的话建议填写；
 
-- 如果用户在这一层有upstream选取需求，可以参考[upstream文档](../docs/about-upstream.md)。
+- 如果用户在这一层有upstream选取需求，可以参考[upstream文档](../docs/about-upstream.md)；
+
+- charset为字符集，默认utf8，具体可以参考MySQL官方文档[character-set.html](https://dev.mysql.com/doc/internals/en/character-set.html)。
 
 MySQL URL示例：
 
 mysql://root@127.0.0.1/
 
-mysql://:1412@test.mysql.com:3306/db1
+mysql://@test.mysql.com:3306/db1?character_set=utf8
 
 # 创建并启动MySQL任务
 

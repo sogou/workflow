@@ -71,7 +71,8 @@ void wget_callback(WFHttpTask *task)
 在这个callback里，task就是我们通过工厂产生的task。  
 task->get_state()与task->get_error()分别获得任务的运行状态和错误码。我们先略过错误处理的部分。  
 task->get_resp()得到任务的response，这个和request区别不大，都是HttpMessage的派生。  
-之后通过HttpHeaderCursor对象，对request和response的header进行扫描。在[HttpUtil.h](../src/util/HttpUtil.h)可以看到Cursor的定义。
+之后通过HttpHeaderCursor对象，对request和response的header进行扫描。在[HttpUtil.h](../src/protocol/HttpUtil.h)可以看到Cursor的定义。
+
 ~~~cpp
 class HttpHeaderCursor
 {
@@ -84,4 +85,4 @@ public:
 ~~~
 相信这个cursor在使用上应该不会有什么疑惑。  
 之后一行resp->get_parsed_body()获得response的http body。这个调用在任务成功的状态下，必然返回true，body指向数据区。  
-这个调用得到的是原始的http body，不解码chunk编码。如需解码chunk编码，可使用[HttpUtil.h](../src/util/HttpUtil.h)里的HttpChunkCursor。
+这个调用得到的是原始的http body，不解码chunk编码。如需解码chunk编码，可使用[HttpUtil.h](../src/protocol/HttpUtil.h)里的HttpChunkCursor。

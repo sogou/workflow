@@ -1,0 +1,2 @@
+mkdir -p build
+cd build && cmake3 .. || cmake ..

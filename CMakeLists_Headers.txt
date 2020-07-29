@@ -1,0 +1,85 @@
+cmake_minimum_required(VERSION 3.6)
+
+set(COMMOM_KERNEL_HEADERS
+	src/kernel/CommRequest.h
+	src/kernel/CommScheduler.h
+	src/kernel/Communicator.h
+	src/kernel/SleepRequest.h
+	src/kernel/ExecRequest.h
+	src/kernel/IORequest.h
+	src/kernel/Executor.h
+	src/kernel/list.h
+	src/kernel/mpoller.h
+	src/kernel/poller.h
+	src/kernel/rbtree.h
+	src/kernel/SubTask.h
+	src/kernel/thrdpool.h
+)
+
+if (WIN32)
+	set(INCLUDE_KERNEL_HEADERS
+		src/kernel_win/list.h
+	)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(INCLUDE_KERNEL_HEADERS
+		${COMMOM_KERNEL_HEADERS}
+		src/kernel/IOService_linux.h
+	)
+elseif (UNIX)
+	set(INCLUDE_KERNEL_HEADERS
+		${COMMOM_KERNEL_HEADERS}
+		src/kernel/IOService_thread.h
+	)
+else ()
+	message(FATAL_ERROR "IOService unsupported.")
+endif ()
+
+set(INCLUDE_HEADERS
+	src/algorithm/DNSRoutine.h
+	src/algorithm/MapReduce.h
+	src/algorithm/MapReduce.inl
+	src/protocol/ProtocolMessage.h
+	src/protocol/http_parser.h
+	src/protocol/HttpMessage.h
+	src/protocol/HttpUtil.h
+	src/protocol/redis_parser.h
+	src/protocol/RedisMessage.h
+	src/protocol/mysql_stream.h
+	src/protocol/MySQLMessage.h
+	src/protocol/MySQLMessage.inl
+	src/protocol/MySQLResult.h
+	src/protocol/MySQLResult.inl
+	src/protocol/mysql_parser.h
+	src/protocol/mysql_types.h
+	src/protocol/mysql_byteorder.h
+	src/server/WFServer.h
+	src/server/WFHttpServer.h
+	src/server/WFRedisServer.h
+	src/server/WFMySQLServer.h
+	src/client/WFMySQLConnection.h
+	src/manager/DNSCache.h
+	src/manager/WFGlobal.h
+	src/manager/UpstreamManager.h
+	src/manager/RouteManager.h
+	src/manager/EndpointParams.h
+	src/manager/WFFuture.h
+	src/manager/WFFacilities.h
+	src/manager/WFFacilities.inl
+	src/util/EncodeStream.h
+	src/util/LRUCache.h
+	src/util/Mutex.h
+	src/util/StringUtil.h
+	src/util/URIParser.h
+	src/util/MD5Util.h
+	src/factory/WFConnection.h
+	src/factory/WFTask.h
+	src/factory/WFTask.inl
+	src/factory/WFTaskError.h
+	src/factory/WFTaskFactory.h
+	src/factory/WFTaskFactory.inl
+	src/factory/WFAlgoTaskFactory.h
+	src/factory/WFAlgoTaskFactory.inl
+	src/factory/Workflow.h
+	src/factory/WFOperator.h
+)
+

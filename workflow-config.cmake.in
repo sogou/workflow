@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+set(WORKFLOW_VERSION "@workflow_VERSION@")
+set_and_check(WORKFLOW_INCLUDE_DIR "@PACKAGE_CONFIG_INC_DIR@")
+set_and_check(WORKFLOW_LIB_DIR "@PACKAGE_CONFIG_LIB_DIR@")
+
+check_required_components(workflow)
+

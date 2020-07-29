@@ -5,9 +5,9 @@
 
 # 关于mysql_cli
 
-教程中的mysql_cli使用方式与官方客户端相似，是一个命令行交互式的异步MySQL客户端：
+教程中的mysql_cli使用方式与官方客户端相似，是一个命令行交互式的异步MySQL客户端。
 
-./mysql_cli \<URL\>
+程序运行方式：./mysql_cli \<URL\>
 
 启动之后可以直接在终端输入mysql命令与db进行交互，输入quit或Ctrl-C退出。
 
@@ -49,20 +49,18 @@ void set_query(const std::string& query);
 ~~~cpp
 int main(int argc, char *argv[])
 {
-	...
-	WFMySQLTask *task = WFTaskFactory::create_mysql_task(url, RETRY_MAX, mysql_callback);
-	task->get_req()->set_query("SHOW TABLES;");
-	...
-	task->start();
-	...
+    ...
+    WFMySQLTask *task = WFTaskFactory::create_mysql_task(url, RETRY_MAX, mysql_callback);
+    task->get_req()->set_query("SHOW TABLES;");
+    ...
+    task->start();
+    ...
 }
 ~~~
 
 # 支持的命令
 
 目前支持的命令为**COM_QUERY**，已经能涵盖用户基本的增删改查、建库删库、建表删表、预处理、使用存储过程和使用事务的需求。
-
-暂时不支持statement相关的命令。
 
 因为我们的交互命令中不支持选库（**USE**命令），所以，如果SQL语句中有涉及到**跨库**的操作，则可以通过**db_name.table_name**的方式指定具体哪个库的哪张表。
 
@@ -72,7 +70,7 @@ int main(int argc, char *argv[])
 
 - 也可以是一条多结果集语句（比如CALL存储过程）
 
-- 其他情况建议把SQL语句分开多次请求。
+- 其他情况建议把SQL语句分开多次请求
 
 举个例子：
 ~~~cpp
@@ -95,9 +93,9 @@ req->set_query("CALL procedure1(); SELECT * FROM table1;");
 1. 判断任务状态（代表通信层面状态）：用户通过判断 **task->get_state()** 等于WFT_STATE_SUCCESS来查看任务执行是否成功；
 
 2. 判断回复包类型（代表返回包解析状态）：调用 **resp->get_packet_type()** 查看MySQL返回包类型，常见的几个类型为：
-	- MYSQL_PACKET_OK：返回非结果集的请求: 解析成功
-	- MYSQL_PACKET_EOF：返回结果集的请求: 解析成功
-	- MYSQL_PACKET_ERROR：请求:失败
+	- MYSQL_PACKET_OK：返回非结果集的请求: 解析成功；
+	- MYSQL_PACKET_EOF：返回结果集的请求: 解析成功；
+	- MYSQL_PACKET_ERROR：请求:失败；
 
 3. 判断结果集状态（代表结果集读取状态）：用户可以使用cursor读取结果集中的内容，因为MySQL server返回的数据是多结果集的，因此一开始cursor会**自动指向第一个结果集**的读取位置。通过 **get_cursor_status()** 可以拿到的几种状态：
 	- MYSQL_STATUS_GET_RESULT：有数据可读；
@@ -137,87 +135,91 @@ req->set_query("CALL procedure1(); SELECT * FROM table1;");
 ~~~cpp
 void task_callback(WFMySQLTask *task)
 {
-	// step-1. 判断任务状态 
-	if (task->get_state() != WFT_STATE_SUCCESS)
-	{
-		fprintf(stderr, "task error = %d\n", task->get_error());
-		return;
-	}
+    // step-1. 判断任务状态 
+    if (task->get_state() != WFT_STATE_SUCCESS)
+    {
+        fprintf(stderr, "task error = %d\n", task->get_error());
+        return;
+    }
 
-	MySQLResultCursor cursor(task->get_resp());
-	bool test_first_result_set_flag = false;
-	bool test_rewind_flag = false;
+    MySQLResultCursor cursor(task->get_resp());
+    bool test_first_result_set_flag = false;
+    bool test_rewind_flag = false;
+
 begin:
-	// step-2. 判断回复包状态
-	switch (resp->get_packet_type())
-	{
-	case MYSQL_PACKET_OK:
-		fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
-				task->get_resp()->get_affected_rows(),
-				task->get_resp()->get_warnings(),
-				task->get_resp()->get_last_insert_id());
-		break;
+    // step-2. 判断回复包状态
+    switch (resp->get_packet_type())
+    {
+    case MYSQL_PACKET_OK:
+        fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
+                task->get_resp()->get_affected_rows(),
+                task->get_resp()->get_warnings(),
+                task->get_resp()->get_last_insert_id());
+        break;
 
-	case MYSQL_PACKET_EOF:
-		do {
-			fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u ",
-					cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
-			// step-3. 判断结果集状态
-			if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
-				break;
+    case MYSQL_PACKET_EOF:
+        do {
+            fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u ",
+                    cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
+            // step-3. 判断结果集状态
+            if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
+                break;
 
-			// step-4. 读取每个fields。这是个nocopy api
-			const MySQLField *const *fields = cursor.fetch_fields();
-			for (int i = 0; i < cursor.get_field_count(); i++)
-			{
-				fprintf(stderr, "db=%s table=%s name[%s] type[%s]\n",
-						fields[i]->get_db().c_str(), fields[i]->get_table().c_str(),
-						fields[i]->get_name().c_str(), datatype2str(fields[i]->get_data_type()));
-			}
+            // step-4. 读取每个fields。这是个nocopy api
+            const MySQLField *const *fields = cursor.fetch_fields();
+            for (int i = 0; i < cursor.get_field_count(); i++)
+            {
+                fprintf(stderr, "db=%s table=%s name[%s] type[%s]\n",
+                        fields[i]->get_db().c_str(), fields[i]->get_table().c_str(),
+                        fields[i]->get_name().c_str(), datatype2str(fields[i]->get_data_type()));
+            }
 
-			// step-6. 把所有行读出，也可以while (cursor.fetch_row(map/vector)) 按step-5拿每一行
-			std::vector<std::vector<MySQLCell>> rows;
-			cursor.fetch_all(rows);
-			for (unsigned int j = 0; j < rows.size(); j++)
-			{
-				// step-10. 具体每个cell的读取
-				for (unsigned int i = 0; i < rows[j].size(); i++)
-				{
-					fprintf(stderr, "[%s][%s]", fields[i]->get_name().c_str(),
-							datatype2str(rows[j][i].get_data_type()));
-					if (rows[j][i].is_string())
-					{
-						std::string res = rows[j][i].as_string();
-						fprintf(stderr, "[%s]\n", res.c_str());
-					} else if (rows[j][i].is_int()) {
-						fprintf(stderr, "[%d]\n", rows[j][i].as_int());
-					} // else if ...
-				}
-			}
-		// step-8. 拿下一个结果集
-		} while (cursor.next_result_set());
+            // step-6. 把所有行读出，也可以while (cursor.fetch_row(map/vector)) 按step-5拿每一行
+            std::vector<std::vector<MySQLCell>> rows;
 
-		if (test_first_result_set_flag == false)
-		{
-			test_first_result_set_flag = true;
-			// step-9. 返回第一个结果集
-			cursor.first_result_set();
-			goto begin;
-		}
+            cursor.fetch_all(rows);
+            for (unsigned int j = 0; j < rows.size(); j++)
+            {
+                // step-10. 具体每个cell的读取
+                for (unsigned int i = 0; i < rows[j].size(); i++)
+                {
+                    fprintf(stderr, "[%s][%s]", fields[i]->get_name().c_str(),
+                            datatype2str(rows[j][i].get_data_type()));
+                    // step-10. 判断具体类型is_string()和转换具体类型as_string()
+                    if (rows[j][i].is_string())
+                    {
+                        std::string res = rows[j][i].as_string();
+                        fprintf(stderr, "[%s]\n", res.c_str());
+                    } else if (rows[j][i].is_int()) {
+                        fprintf(stderr, "[%d]\n", rows[j][i].as_int());
+                    } // else if ...
+                }
+            }
+        // step-8. 拿下一个结果集
+        } while (cursor.next_result_set());
 
-		if (test_rewind_flag == false)
-		{
-			test_rewind_flag = true;
-			// step-7. 返回当前结果集头部
-			cursor.rewind();
-			goto begin;
-		}
-		break;
-	default:
-		fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
-		break;
-	}
-	return;
+        if (test_first_result_set_flag == false)
+        {
+            test_first_result_set_flag = true;
+            // step-9. 返回第一个结果集
+            cursor.first_result_set();
+            goto begin;
+        }
+
+        if (test_rewind_flag == false)
+        {
+            test_rewind_flag = true;
+            // step-7. 返回当前结果集头部
+            cursor.rewind();
+            goto begin;
+        }
+        break;
+
+    default:
+        fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
+        break;
+    }
+    return;
 }
 ~~~
 
@@ -235,9 +237,9 @@ begin:
 class WFMySQLConnection
 {
 public:
-	WFMySQLConnection(int id);
-	int init(const std::string& url);
-	...
+    WFMySQLConnection(int id);
+    int init(const std::string& url);
+    ...
 };
 ~~~
 
@@ -252,10 +254,10 @@ public:
 class WFMySQLConnection
 {
 public:
-	...
-	WFMySQLTask *create_query_task(const std::string& query,
-								   mysql_callback_t callback);
-	WFMySQLTask *create_disconnect_task(mysql_callback_t callback);
+    ...
+    WFMySQLTask *create_query_task(const std::string& query,
+                                   mysql_callback_t callback);
+    WFMySQLTask *create_disconnect_task(mysql_callback_t callback);
 }
 ~~~
 
@@ -270,19 +272,19 @@ public:
 ### 5. 完整示例
 
 ~~~cpp
-	WFMySQLConnection conn(1);
-	conn.init("mysql://root@127.0.0.1/test");
+WFMySQLConnection conn(1);
+conn.init("mysql://root@127.0.0.1/test");
 
-	// test transaction
-	Const char *query = "begin;";
-	WFMySQLTask *t1 = conn.create_query_task(query, task_callback);
-	query = "select * from check_tiny for update;";
-	WFMySQLTask *t2 = conn.create_query_task(query, task_callback);
-	query = "insert into check_tiny values (8);";
-	WFMySQLTask *t3 = conn.create_query_task(query, task_callback);
-	query = "commit;";
-	WFMySQLTask *t4 = conn.create_query_task(query, task_callback);
-	WFMySQLTask *t5 = conn.create_disconnect_task(task_callback);
-	((*t1) > t2 > t3 > t4 > t5).start();
+// test transaction
+const char *query = "BEGIN;";
+WFMySQLTask *t1 = conn.create_query_task(query, task_callback);
+query = "SELECT * FROM check_tiny FOR UPDATE;";
+WFMySQLTask *t2 = conn.create_query_task(query, task_callback);
+query = "INSERT INTO check_tiny VALUES (8);";
+WFMySQLTask *t3 = conn.create_query_task(query, task_callback);
+query = "COMMIT;";
+WFMySQLTask *t4 = conn.create_query_task(query, task_callback);
+WFMySQLTask *t5 = conn.create_disconnect_task(task_callback);
+((*t1) > t2 > t3 > t4 > t5).start();
 ~~~
 

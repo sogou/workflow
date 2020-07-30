@@ -44,7 +44,7 @@ enum
   * SUCCESS：任务成功。client接收到完整的回复，或server把回复完全写进入发送缓冲（但不能确保对方一定能收到）。
   * SYS_ERROR: 系统错误。这种情况，task->get_error()得到的是系统错误码errno。
     * 当get_error()得到ETIMEDOUT，可以调用task->get_timeout_reason()进一步得到超时原因。
-  * DNS_ERROR: DNS解析错误。get_error()得到的是getaddrinfo()调用的返回码。关于DNS，有一篇文档专门说明[about_dns.md](./about_dns.md)。
+  * DNS_ERROR: DNS解析错误。get_error()得到的是getaddrinfo()调用的返回码。关于DNS，有一篇文档专门说明[about-dns.md](./about-dns.md)。
     * server任务永远不会有DNS_ERROR。
   * SSL_ERROR: SSL错误。get_error()得到的是SSL_get_error()的返回值。
     * 目前SSL错误信息没有做得很全，得不到ERR_get_error()的值。所以，基本上get_error()返回值也就三个可能：

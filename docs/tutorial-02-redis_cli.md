@@ -111,7 +111,7 @@ callback需要特别解释的，是series_of(task)->push_back(next)这个语句�
 ~~~cpp
 static inline SeriesWork *series_of(const SubTask *task)
 {
-    return (SeriesWork *)task->get_series();
+    return (SeriesWork *)task->get_pointer();
 }
 ~~~
 任何task都是SubTask类型的派生。而任何运行中的task，一定属于某个series。通过series_of调用，得到了任务所在的series。  

@@ -1,6 +1,6 @@
 # 关于服务治理
 
-我们拥有一套完整的机制，来管理我们的所依赖的服务。这套机制包括以下的几个功能：
+我们拥有一套完整的机制，来管理我们所依赖的服务。这套机制包括以下的几个功能：
 * 用户级DNS。
 * 服务地址的选取
   * 包括多种选取机制，如权重随机，一致性哈希，用户指定选取方式等。
@@ -9,19 +9,19 @@
 * 单个服务的独立参数配置。
 * 服务的主备关系等。
 
-所有这些功能都依赖于我们的upstream子系统。利用好这个系统，我们可以轻易的实现更复杂的服务网格功能。
+所有这些功能都依赖于我们的upstream子系统。利用好这个系统，我们可以轻易地实现更复杂的服务网格功能。
 
-# Upstream名
+# upstream名
 
-Upstream名相当于程序内部的域名，但相比一般的域名，upstream拥有更多的功能，包括：
+upstream名相当于程序内部的域名，但相比一般的域名，upstream拥有更多的功能，包括：
 * 域名通常只能指向一组ip地址，upstream名可以指向一组ip地址或域名。
-* Upstream指向的对象（域名或ip），可以包括端口信息。
-* Upstream有管理和选择目标的强大功能，每个目标可以包含大量属性。
-* Upstream的更新，是实时而且完全线程安全的，而域名的DNS信息，并不能实时更新。
+* upstream指向的对象（域名或ip），可以包括端口信息。
+* upstream有管理和选择目标的强大功能，每个目标可以包含大量属性。
+* upstream的更新，是实时而且完全线程安全的，而域名的DNS信息，并不能实时更新。
 
-实现上，如果无需访问外网，用Upstream可以完全代替域名和DNS。
+实现上，如果无需访问外网，用upstream可以完全代替域名和DNS。
 
-# Upstream的创建与删除
+# upstream的创建与删除
 
 在[UpstreamMananer.h](../src/manager/UpstreamManager.h)里，包括几个upstream创建接口：
 ~~~cpp
@@ -45,13 +45,13 @@ public:
     ...
 };
 ~~~
-三个创建函数分别为3种类型的upstream，一致性hash，权重随机和用户手动选取。  
+三个函数创建分别为3种类型的upstream：一致性hash，权重随机和用户手动选取。  
 参数name为upstream名，创建之后，就和域名一样的使用了。  
 consistent_hash和select参数，都是一个类型为upstream_route_t的std::function，用于指定路由方式。  
 而try_another表示，如果选取到的目标不可用（熔断），是否继续尝试找到一个可用目标。consistent_hash模式没有这个属性。  
 upstream_route_t参数接收的3个参数分别是url里的path, query和fragment部分。例如URL为：http://abc.com/home/index.html?a=1#bottom  
 则这三个参数分别为"/home/index.html", "a=1"和"bottom"。用户可以根据这三个部分，选择目标服务器，或者进行一致性hash。  
-注意，以上接口中，consitent_hash参数都可以传nullptr，我们将使用默认的一致性哈希算法。  
+注意，以上接口中，consistent_hash参数都可以传nullptr，我们将使用默认的一致性哈希算法。  
 
 # 示例1：权重分配
 
@@ -119,7 +119,7 @@ int main()
 由于我们原生提供了redis和mysql协议，用这个方法，可以极其方便的实现数据库的读写分离功能（注：非事务的操作）。  
 以上两个例子，upstream名用的是www.sogou.com，这本身也是一个域名。当然用户可以更简单的用字符串sogou，这样创建任务时：
 ~~~cpp
-    WFHttpTask *task = WFTaskFactory::create_http_task("http://sogou/home/1.html?abc", ...)
+    WFHttpTask *task = WFTaskFactory::create_http_task("http://sogou/home/1.html?abc", ...);
 ~~~
 总之url的host部分，如果是一个已经创建的upstream，则会被当作upstream使用。  
 
@@ -146,7 +146,7 @@ int main()
 upstream里的服务器没有指定端口号，于是将使用url里的端口。redis默认为6379。  
 consitent_hash并没有try_another选项，如果目标熔断，将自动选取另一个。相同url还将得到相同选择（cache友好）。  
 
-# Upstream Server的参数
+# upstream server的参数
 
 示例１中，我们通过params参数设置了server的权重。当然server参数远不止权重一项。这个结构定义如下：
 ~~~cpp
@@ -189,8 +189,8 @@ struct AddressParams
 ~~~
 max_fails参数为最大出错次数，如果选取目标连续出错达到max_fails则熔断，如果upstream的try_another属性为false，则任务失败，  
 在任务callback里，get_state()=WFT_STATE_TASK_ERROR，get_error()=WFT_ERR_UPSTREAM_UNAVAILABLE。  
-如果try_another为true，并且所有server都熔断，会得到同样错误。熔断时间为30秒。  
+如果try_another为true，并且所有server都熔断的话，会得到同样错误。熔断时间为30秒。  
 server_type和group_id用于主备功能。所有upstream必需有type为MASTER的server，否则upstream不可用。  
 类型为SLAVE的server，会在同group_id的MASTER熔断情况下被使用。  
 
-# [更多Upstream功能查询](./about-upstream.md)
+更多upstream功能查询：[about-upstream.md](./about-upstream.md)。

@@ -1,7 +1,7 @@
 # 关于错误处理
 
 任何软件系统里，错误处理都是一个重要而复杂的问题。在我们框架内部，错误处理可以说是无处不在并且极其繁琐的。  
-而在我们暴露给用户的接口里，我们尽可能的让事情变简单，但用户还是不可避免的需要了解一些错误信息。
+而在我们暴露给用户的接口里，我们尽可能地让事情变简单，但用户还是不可避免地需要了解一些错误信息。
 
 ### 禁用C++异常
 
@@ -35,25 +35,26 @@ enum
     WFT_STATE_NOREPLY = CS_STATE_TOREPLY + 1,    /* for server task only */
     WFT_STATE_SYS_ERROR = CS_STATE_ERROR,
     WFT_STATE_SSL_ERROR = 65,
-    WFT_STATE_DNS_ERROR = 66,                   /* for client task only */
-    WFT_STATE_TASK_ERROR = 67
+    WFT_STATE_DNS_ERROR = 66,                    /* for client task only */
+    WFT_STATE_TASK_ERROR = 67,
+    WFT_STATE_ABORTED = CS_STATE_STOPPED         /* main process terminated */
 };
 ~~~
 ##### 需要关注的几个状态：
   * SUCCESS：任务成功。client接收到完整的回复，或server把回复完全写进入发送缓冲（但不能确保对方一定能收到）。
   * SYS_ERROR: 系统错误。这种情况，task->get_error()得到的是系统错误码errno。
     * 当get_error()得到ETIMEDOUT，可以调用task->get_timeout_reason()进一步得到超时原因。
-  * DNS_ERROR: DNS解析错误。get_error()得到的是getaddrinfo()调用的返回码。关于DNS，后面有一篇文档会专门说明。
+  * DNS_ERROR: DNS解析错误。get_error()得到的是getaddrinfo()调用的返回码。关于DNS，有一篇文档专门说明[about_dns.md](./about_dns.md)。
     * server任务永远不会有DNS_ERROR。
   * SSL_ERROR: SSL错误。get_error()得到的是SSL_get_error()的返回值。
-    * 目前SSL错误信息没有做得很全，得不到ERR_get_error()的值。所以，基本上get_error()也就返回值也就三个可能：
+    * 目前SSL错误信息没有做得很全，得不到ERR_get_error()的值。所以，基本上get_error()返回值也就三个可能：
       * SSL_ERROR_ZERO_RETURN, SSL_ERROR_X509_LOOKUP, SSL_ERROR_SSL。
     * 更加详细的SSL错误信息，我们在后续版本会考虑加入。
-  * TASK_ERROR: 任务错误。常见的例如URL不合法，登录失败等。get_error()的返回值可以[WFTaskError.h](../src/factory/WFTaskError.h)中查看。
+  * TASK_ERROR: 任务错误。常见的例如URL不合法，登录失败等。get_error()的返回值可以在[WFTaskError.h](../src/factory/WFTaskError.h)中查看。
 
 ##### 用户一般无需关注的几个状态：
   * UNDEFINED: 刚创建完，还没有运行的client任务，状态是UNDEFINED。
-  * TOREPLY: server任务回复之前，没有被调用noreply()，都是TOREPLY状态。
+  * TOREPLY: server任务回复之前，没有被调用过task->noreply()，都是TOREPLY状态。
   * NOREPLY: server任务被调用了task->noreply()之后，一直是NOREPLY状态。callback里也是这个状态。连接会被关闭。
 
 ### 其它错误处理需求

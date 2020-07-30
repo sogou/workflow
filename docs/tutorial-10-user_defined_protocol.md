@@ -86,65 +86,65 @@ namespace protocol
 
 int TutorialMessage::encode(struct iovec vectors[], int max/*max==8192*/)
 {
-	uint32_t n = htonl(this->body_size);
+    uint32_t n = htonl(this->body_size);
 
-	memcpy(this->head, &n, 4);
-	vectors[0].iov_base = this->head;
-	vectors[0].iov_len = 4;
-	vectors[1].iov_base = this->body;
-	vectors[1].iov_len = this->body_size;
+    memcpy(this->head, &n, 4);
+    vectors[0].iov_base = this->head;
+    vectors[0].iov_len = 4;
+    vectors[1].iov_base = this->body;
+    vectors[1].iov_len = this->body_size;
 
-	return 2;	/* return the number of vectors used, no more then max. */
+    return 2;    /* return the number of vectors used, no more then max. */
 }
 
 int TutorialMessage::append(const void *buf, size_t size)
 {
-	if (this->head_received < 4)
-	{
-		size_t head_left;
-		void *p;
+    if (this->head_received < 4)
+    {
+        size_t head_left;
+        void *p;
 
-		p = &this->head[head_received];
-		head_left = 4 - this->head_received;
-		if (size < 4 - this->head_received)
-		{
-			memcpy(p, buf, size);
-			this->head_received += size;
-			return 0;
-		}
+        p = &this->head[head_received];
+        head_left = 4 - this->head_received;
+        if (size < 4 - this->head_received)
+        {
+            memcpy(p, buf, size);
+            this->head_received += size;
+            return 0;
+        }
 
-		memcpy(p, buf, head_left);
-		size -= head_left;
-		buf = (const char *)buf + head_left;
+        memcpy(p, buf, head_left);
+        size -= head_left;
+        buf = (const char *)buf + head_left;
 
-		p = this->head;
-		this->body_size = ntohl(*(uint32_t *)p);
-		if (this->body_size > this->size_limit)
-		{
-			errno = EMSGSIZE;
-			return -1;
-		}
+        p = this->head;
+        this->body_size = ntohl(*(uint32_t *)p);
+        if (this->body_size > this->size_limit)
+        {
+            errno = EMSGSIZE;
+            return -1;
+        }
 
-		this->body = (char *)malloc(this->body_size);
-		if (!this->body)
-			return -1;
+        this->body = (char *)malloc(this->body_size);
+        if (!this->body)
+            return -1;
 
-		this->body_received = 0;
-	}
+        this->body_received = 0;
+    }
 
-	size_t body_left = this->body_size - this->body_received;
+    size_t body_left = this->body_size - this->body_received;
 
-	if (size > body_left)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
+    if (size > body_left)
+    {
+        errno = EBADMSG;
+        return -1;
+    }
 
-	memcpy(this->body, buf, body_left);
-	if (size < body_left)
-		return 0;
+    memcpy(this->body, buf, body_left);
+    if (size < body_left)
+        return 0;
 
-	return 1;
+    return 1;
 }
 
 }
@@ -193,25 +193,25 @@ template<class REQ, class RESP>
 class WFNetworkTaskFactory
 {
 private:
-	using T = WFNetworkTask<REQ, RESP>;
+    using T = WFNetworkTask<REQ, RESP>;
 
 public:
-	static T *create_client_task(TransportType type,
-								 const std::string& host,
-								 unsigned short port,
-								 int retry_max,
-								 std::function<void (T *)> callback);
+    static T *create_client_task(TransportType type,
+                                 const std::string& host,
+                                 unsigned short port,
+                                 int retry_max,
+                                 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
-								 const std::string& url,
-								 int retry_max,
-								 std::function<void (T *)> callback);
+    static T *create_client_task(TransportType type,
+                                 const std::string& url,
+                                 int retry_max,
+                                 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
-								 const URI& uri,
-								 int retry_max,
-								 std::function<void (T *)> callback);
-	...
+    static T *create_client_task(TransportType type,
+                                 const URI& uri,
+                                 int retry_max,
+                                 std::function<void (T *)> callback);
+    ...
 };
 ~~~
 其中，TransportType指定传输层协议，目前可选的值包括TT_TCP，TT_UDP，TT_SCTP和TT_TCP_SSL。  
@@ -223,18 +223,18 @@ using namespace protocol;
 class MyFactory : public WFTaskFactory
 {
 public:
-	static WFTutorialTask *create_tutorial_task(const std::string& host,
-												unsigned short port,
-												int retry_max,
-												tutorial_callback_t callback)
-	{
-		using NTF = WFNetworkTaskFactory<TutorialRequest, TutorialResponse>;
-		WFTutorialTask *task = NTF::create_client_task(TT_TCP, host, port,
-													   retry_max,
-													   std::move(callback));
-		task->set_keep_alive(30 * 1000);
-		return task;
-	}
+    static WFTutorialTask *create_tutorial_task(const std::string& host,
+                                                unsigned short port,
+                                                int retry_max,
+                                                tutorial_callback_t callback)
+    {
+        using NTF = WFNetworkTaskFactory<TutorialRequest, TutorialResponse>;
+        WFTutorialTask *task = NTF::create_client_task(TT_TCP, host, port,
+                                                       retry_max,
+                                                       std::move(callback));
+        task->set_keep_alive(30 * 1000);
+        return task;
+    }
 };
 ~~~
 可以看到我们用了WFNetworkTaskFactory<TutorialRequest, TutorialResponse>类来创建client任务。  

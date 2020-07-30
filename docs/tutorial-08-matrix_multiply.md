@@ -51,15 +51,15 @@ using Matrix = std::vector<std::vector<double>>;
 
 struct MMInput
 {
-	Matrix a;
-	Matrix b;
+    Matrix a;
+    Matrix b;
 };
 
 struct MMOutput
 {
-	int error;
-	size_t m, n, k;
-	Matrix c;
+    int error;
+    size_t m, n, k;
+    Matrix c;
 };
 
 void matrix_multiply(const MMInput *in, MMOutput *out)
@@ -80,12 +80,12 @@ template <class INPUT, class OUTPUT>
 class WFThreadTaskFactory
 {
 private:
-	using T = WFThreadTask<INPUT, OUTPUT>;
+    using T = WFThreadTask<INPUT, OUTPUT>;
 
 public:
-	static T *create_thread_task(const std::string& queue_name,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+    static T *create_thread_task(const std::string& queue_name,
+                                 std::function<void (INPUT *, OUTPUT *)> routine,
+                                 std::function<void (T *)> callback);
     ...
 };
 ~~~
@@ -101,15 +101,15 @@ using namespace algorithm;
 int main()
 {
     typedef WFThreadTaskFactory<MMInput, MMOutput> MMFactory;
-	MMTask *task = MMFactory::create_thread_task("matrix_multiply_task",
-												 matrix_multiply,
-												 callback);
+    MMTask *task = MMFactory::create_thread_task("matrix_multiply_task",
+                                                 matrix_multiply,
+                                                 callback);
 
-	MMInput *input = task->get_input();
+    MMInput *input = task->get_input();
 
-	input->a = {{1, 2, 3}, {4, 5, 6}};
-	input->b = {{7, 8}, {9, 10}, {11, 12}};
-	...
+    input->a = {{1, 2, 3}, {4, 5, 6}};
+    input->b = {{7, 8}, {9, 10}, {11, 12}};
+    ...
 }
 ~~~
 产生了task之后，通过get_input()接口得到输入数据的指针。这个可以类比网络任务的get_req()。  
@@ -117,22 +117,22 @@ int main()
 ~~~cpp
 void callback(MMTask *task)     // MMtask = WFThreadTask<MMInput, MMOutput>
 {
-	MMInput *input = task->get_input();
-	MMOutput *output = task->get_output();
+    MMInput *input = task->get_input();
+    MMOutput *output = task->get_output();
 
-	assert(task->get_state() == WFT_STATE_SUCCESS);
+    assert(task->get_state() == WFT_STATE_SUCCESS);
 
-	if (output->error)
-		printf("Error: %d %s\n", output->error, strerror(output->error));
-	else
-	{
-		printf("Matrix A\n");
-		print_matrix(input->a, output->m, output->k);
-		printf("Matrix B\n");
-		print_matrix(input->b, output->k, output->n);
-		printf("Matrix A * Matrix B =>\n");
-		print_matrix(output->c, output->m, output->n);
-	}
+    if (output->error)
+        printf("Error: %d %s\n", output->error, strerror(output->error));
+    else
+    {
+        printf("Matrix A\n");
+        print_matrix(input->a, output->m, output->k);
+        printf("Matrix B\n");
+        print_matrix(input->b, output->k, output->n);
+        printf("Matrix A * Matrix B =>\n");
+        print_matrix(output->c, output->m, output->n);
+    }
 }
 ~~~
 普通的计算任务可以忽略失败的可能性，结束状态肯定是SUCCESS。  
@@ -154,3 +154,4 @@ HTTP协议的实现上，也只关心序列化反序列化，无需要关心什�
 但在上一个示例里我们看到，我们可以通过算法工厂产生一个并行排序任务，这显然不是通过一个routine就能做到的。  
 对于网络任务，比如一个kafka任务，可能要经过与多台机器的交互才能得到结果，但用户来讲是完全透明的。  
 所以，我们的任务都是具有复合性的，如果你熟练使用我们的框架，可以设计出很多复杂的组件出来。
+

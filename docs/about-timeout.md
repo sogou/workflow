@@ -13,18 +13,18 @@
 ~~~cpp
 struct EndpointParams
 {
-	size_t max_connections;
-	int connect_timeout;
-	int response_timeout;
-	int ssl_connect_timeout;
+    size_t max_connections;
+    int connect_timeout;
+    int response_timeout;
+    int ssl_connect_timeout;
 };
 
 static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
 {
-	.max_connections		= 200,
-	.connect_timeout		= 10 * 1000,
-	.response_timeout		= 10 * 1000,
-	.ssl_connect_timeout	= 10 * 1000,
+    .max_connections        = 200,
+    .connect_timeout        = 10 * 1000,
+    .response_timeout       = 10 * 1000,
+    .ssl_connect_timeout    = 10 * 1000,
 };
 ~~~
 其中，与超时相关的配置包括以下3项。
@@ -40,24 +40,24 @@ static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
 ~~~cpp
 struct WFGlobalSettings
 {
-	EndpointParams endpoint_params;
-	unsigned int dns_ttl_default;
-	unsigned int dns_ttl_min;
-	int dns_threads;
-	int poller_threads;
-	int handler_threads;
-	int compute_threads;
+    EndpointParams endpoint_params;
+    unsigned int dns_ttl_default;
+    unsigned int dns_ttl_min;
+    int dns_threads;
+    int poller_threads;
+    int handler_threads;
+    int compute_threads;
 };
 
 static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 {
-	.endpoint_params	=	ENDPOINT_PARAMS_DEFAULT,
-	.dns_ttl_default	=	12 * 3600,	/* in seconds */
-	.dns_ttl_min		=	180,		/* reacquire when communication error */
-	.dns_threads		=	8,
-	.poller_threads		=	2,
-	.handler_threads	=	20,
-	.compute_threads	=	-1
+    .endpoint_params    =    ENDPOINT_PARAMS_DEFAULT,
+    .dns_ttl_default    =    12 * 3600,    /* in seconds */
+    .dns_ttl_min        =    180,          /* reacquire when communication error */
+    .dns_threads        =    8,
+    .poller_threads     =    2,
+    .handler_threads    =    20,
+    .compute_threads    =    -1
 };
 //compute_threads<=0 means auto-set by system cpu number
 ~~~
@@ -97,10 +97,10 @@ class WFNetworkTask : public CommRequest
 {
 ...
 public:
-	/* All in milleseconds. timeout == -1 for unlimited. */
-	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
-	void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
-	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
+    /* All in milleseconds. timeout == -1 for unlimited. */
+    void set_send_timeout(int timeout) { this->send_timeo = timeout; }
+    void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
+    void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
 ...
 }
 ~~~

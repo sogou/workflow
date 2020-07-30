@@ -30,19 +30,18 @@ using upstream_route_t = std::function<unsigned int (const char *, const char *,
 class UpstreamManager
 {
 public:
-	static int upstream_create_consistent_hash(const std::string& name,
-											   upstream_route_t consitent_hash);
+    static int upstream_create_consistent_hash(const std::string& name,
+                                               upstream_route_t consitent_hash);
 
-	static int upstream_create_weighted_random(const std::string& name,
-	                                           bool try_another);
-	
-	static int upstream_create_manual(const std::string& name,
-									  upstream_route_t select,
-									  bool try_another,
-									  upstream_route_t consitent_hash);
+    static int upstream_create_weighted_random(const std::string& name,
+                                               bool try_another);
 
+    static int upstream_create_manual(const std::string& name,
+                                      upstream_route_t select,
+                                      bool try_another,
+                                      upstream_route_t consitent_hash);
 
-	static int upstream_delete(const std::string& name);
+    static int upstream_delete(const std::string& name);
     ...
 };
 ~~~
@@ -137,7 +136,6 @@ int main()
     UpstreamManager::upstream_add_server("redis.name", "10.135.35.55");
     ...
     UpstreamManager::upstream_add_server("redis.name", "10.135.35.62");
-    
 
     auto *task = WFTaskFactory::create_redis_task("redis://:mypassword@redis.name/2?a=hello#111", ...);
     ...
@@ -164,21 +162,21 @@ struct EndpointParams
 // In UpstreamMananger.h
 struct AddressParams
 {
-	struct EndpointParams endpoint_params; ///< Connection config
-	unsigned int dns_ttl_default;          ///< in seconds, DNS TTL when network request success
-	unsigned int dns_ttl_min;              ///< in seconds, DNS TTL when network request fail
+    struct EndpointParams endpoint_params; ///< Connection config
+    unsigned int dns_ttl_default;          ///< in seconds, DNS TTL when network request success
+    unsigned int dns_ttl_min;              ///< in seconds, DNS TTL when network request fail
 /**
  * - The max_fails directive sets the number of consecutive unsuccessful attempts to communicate with the server.
  * - After 30s following the server failure, upstream probe the server with some live client’s requests.
  * - If the probes have been successful, the server is marked as a live one.
  * - If max_fails is set to 1, it means server would out of upstream selection in 30 seconds when failed only once
  */
-	unsigned int max_fails;                ///< [1, INT32_MAX] max_fails = 0 means max_fails = 1
-	unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for master
-#define SERVER_TYPE_MASTER	0
-#define SERVER_TYPE_SLAVE	1
-	int server_type;                       ///< default is SERVER_TYPE_MASTER
-	int group_id;                          ///< -1 means no group. Slave without group will backup for any master
+    unsigned int max_fails;                ///< [1, INT32_MAX] max_fails = 0 means max_fails = 1
+    unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for master
+#define SERVER_TYPE_MASTER    0
+#define SERVER_TYPE_SLAVE     1
+    int server_type;                       ///< default is SERVER_TYPE_MASTER
+    int group_id;                          ///< -1 means no group. Slave without group will backup for any master
 };
 ~~~
 大多数参数的作用一眼了然。其中endpoint_params和dns相关参数，可以覆盖全局的配置。  

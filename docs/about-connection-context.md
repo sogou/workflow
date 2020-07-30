@@ -105,4 +105,4 @@ int some_function()
 }
 ~~~
 在这个示例中，当http task是连接上的首个请求是，我们设置了cookie。如果不是首个请求，根据约定，不再设置cookie。  
-另外，prepare函数里，可以安全的使用连接上下文。同一个连接上，prepare不会并发。  
+另外，prepare函数里，可以安全的使用连接上下文。同一个连接上，prepare不会并发。

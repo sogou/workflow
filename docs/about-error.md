@@ -29,14 +29,14 @@ void callback(WFXxxTask *task)
 ~~~cpp
 enum
 {
-	WFT_STATE_UNDEFINED = -1,
-	WFT_STATE_SUCCESS = CS_STATE_SUCCESS,
-	WFT_STATE_TOREPLY = CS_STATE_TOREPLY,		/* for server task only */
-	WFT_STATE_NOREPLY = CS_STATE_TOREPLY + 1,	/* for server task only */
-	WFT_STATE_SYS_ERROR = CS_STATE_ERROR,
-	WFT_STATE_SSL_ERROR = 65,
-	WFT_STATE_DNS_ERROR = 66,                   /* for client task only */
-	WFT_STATE_TASK_ERROR = 67
+    WFT_STATE_UNDEFINED = -1,
+    WFT_STATE_SUCCESS = CS_STATE_SUCCESS,
+    WFT_STATE_TOREPLY = CS_STATE_TOREPLY,        /* for server task only */
+    WFT_STATE_NOREPLY = CS_STATE_TOREPLY + 1,    /* for server task only */
+    WFT_STATE_SYS_ERROR = CS_STATE_ERROR,
+    WFT_STATE_SSL_ERROR = 65,
+    WFT_STATE_DNS_ERROR = 66,                   /* for client task only */
+    WFT_STATE_TASK_ERROR = 67
 };
 ~~~
 ##### 需要关注的几个状态：

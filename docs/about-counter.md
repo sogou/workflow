@@ -203,4 +203,4 @@ public:
     ...
 };
 ~~~
-有需要的用户可以自行查阅相关代码。由于WFTaskFactory没有提供工厂函数，创造container任务需要自己调用new。  
+有需要的用户可以自行查阅相关代码。由于WFTaskFactory没有提供工厂函数，创造container任务需要自己调用new。

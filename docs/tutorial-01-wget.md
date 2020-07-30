@@ -86,3 +86,4 @@ public:
 相信这个cursor在使用上应该不会有什么疑惑。  
 之后一行resp->get_parsed_body()获得response的http body。这个调用在任务成功的状态下，必然返回true，body指向数据区。  
 这个调用得到的是原始的http body，不解码chunk编码。如需解码chunk编码，可使用[HttpUtil.h](../src/protocol/HttpUtil.h)里的HttpChunkCursor。
+

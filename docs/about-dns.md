@@ -57,7 +57,7 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
 
 全局的DNS配置，可以通过upstream功能，被单独的地址配置覆盖。  
 Upstream每一个AddressParams也有dns_ttl_default和dns_ttl_min配置项，使用方式与Global相仿。  
-具体结构详见[upstream文档](tutorial-10-upstream.md#Address属性)
+具体结构详见[upstream文档](./about-upstream.md#Address属性)
 
 ### 高并发场景下TTL过期瞬间的处理
 

@@ -251,10 +251,10 @@ http_task->start();
 
 当发起请求的url的URIHost填UpstreamName时，视做对与名字对应的Upstream发起请求，接下来将会在Upstream记录的这组Address中进行选择：
 1. 权重随机策略：按照权重随机选择
-2. 一致性哈希策略：框架使用标准的一致性哈希算法，用户可以自定义对请求uri的一致性哈希函数consitent_hash
+2. 一致性哈希策略：框架使用标准的一致性哈希算法，用户可以自定义对请求uri的一致性哈希函数consistent_hash
 3. 手动策略：根据用户提供的对请求uri的select函数进行确定的选择，如果选中了已经熔断的目标：
   a. 如果try_another为false，这次请求将返回失败
-  b. 如果try_another为true，框架使用标准的一致性哈希算法重新选取，用户可以自定义对请求uri的一致性哈希函数consitent_hash
+  b. 如果try_another为true，框架使用标准的一致性哈希算法重新选取，用户可以自定义对请求uri的一致性哈希函数consistent_hash
 4. 主备策略：按照先主后备的优先级，只要主可以用就选择主。此策略可以与[1]、[2]、[3]中的任何一个同时生效，相互影响。
 
 round-robin/weighted-round-robin：视为与[1]等价，暂不提供  
@@ -306,8 +306,8 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
 ~~~
 每个Addreess都可以配置自己的自定义参数：
   * EndpointParams的max_connections, connect_timeout, response_timeout, ssl_connect_timeout：连接相关的参数
-  * dns_ttl_default：dns cache中默认的ttl，时间秒，默认12小时，dns cache是针对当前进程的，即进程退出就会消失，配置也仅对当前进程有效
-  * dns_ttl_min：dns最短生效时间，时间秒，默认3分钟，用于在通信失败重试时是否进行重新dns的决策
+  * dns_ttl_default：dns cache中默认的ttl，单位秒，默认12小时，dns cache是针对当前进程的，即进程退出就会消失，配置也仅对当前进程有效
+  * dns_ttl_min：dns最短生效时间，单位秒，默认3分钟，用于在通信失败重试时是否进行重新dns的决策
   * max_fails：触发熔断的【连续】失败次数（注：每次通信成功，计数会清零）
   * weight：权重，默认1，仅对master有效，用于Upstream随机策略选取，权重越大越容易被选中；其他策略下此参数无意义
   * server_type：主备配置，默认主。无论什么时刻，同组的主优先级永远高于其他的备
@@ -343,9 +343,9 @@ Address在熔断期间，一旦被策略选中，Upstream会根据具体配置�
 2. 一致性哈希策略，全部目标都处于熔断期
 3. 手动策略 && try_another==true，全部目标都处于熔断期  
 4. 手动策略 && try_another==false，且同时满足下面三个条件：  
-  1) select函数选中的master处于熔断期，，且游离的备都处于熔断期  
-  2) 这个master是游离的主，或者这个master所在的group其他目标都处于熔断期  
-  3) 所有游离的备都处于熔断期  
+  1). select函数选中的master处于熔断期，，且游离的备都处于熔断期  
+  2). 这个master是游离的主，或者这个master所在的group其他目标都处于熔断期  
+  3). 所有游离的备都处于熔断期  
 
 # Upstream端口优先级
 

@@ -234,8 +234,8 @@ int main(int argc, char *argv[])
 	if (argc != 2)
 	{
 		fprintf(stderr, "USAGE: %s <url>\n"
-				"      url format: mysql://:password@host:port/dbname\n"
-				"      example: mysql://root@10.135.35.53/test\n",
+				"      url format: mysql://root:password@host:port/dbname?character_set=charset\n"
+				"      example: mysql://root@test.mysql.com/test\n",
 				argv[0]);
 		return 0;
 	}

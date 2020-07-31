@@ -35,7 +35,7 @@ public:
     int start(int family, unsigned short port);
     int start(const char *host, unsigned short port);
     int start(int family, const char *host, unsigned short port);
-	int start(const struct sockaddr *bind_addr, socklen_t addrlen);
+    int start(const struct sockaddr *bind_addr, socklen_t addrlen);
 
     /* To start an SSL server */
     int start(unsigned short port, const char *cert_file, const char *key_file);
@@ -45,8 +45,8 @@ public:
               const char *cert_file, const char *key_file);
     int start(int family, const char *host, unsigned short port,
               const char *cert_file, const char *key_file);
-	int start(const struct sockaddr *bind_addr, socklen_t addrlen,
-			  const char *cert_file, const char *key_file);
+    int start(const struct sockaddr *bind_addr, socklen_t addrlen,
+              const char *cert_file, const char *key_file);
 
     /* For graceful restart. */
     int serve(int listen_fd);
@@ -92,38 +92,38 @@ WFHttpServer::WFServer(http_process_t proc) :
 ~~~cpp
 void process(WFHttpTask *server_task)
 {
-	protocol::HttpRequest *req = server_task->get_req();
-	protocol::HttpResponse *resp = server_task->get_resp();
-	long seq = server_task->get_task_seq();
-	protocol::HttpHeaderCursor cursor(req);
-	std::string name;
-	std::string value;
-	char buf[8192];
-	int len;
+    protocol::HttpRequest *req = server_task->get_req();
+    protocol::HttpResponse *resp = server_task->get_resp();
+    long seq = server_task->get_task_seq();
+    protocol::HttpHeaderCursor cursor(req);
+    std::string name;
+    std::string value;
+    char buf[8192];
+    int len;
 
-	/* Set response message body. */
-	resp->append_output_body_nocopy("<html>", 6);
-	len = snprintf(buf, 8192, "<p>%s %s %s</p>", req->get_method(),
-				   req->get_request_uri(), req->get_http_version());
-	resp->append_output_body(buf, len);
+    /* Set response message body. */
+    resp->append_output_body_nocopy("<html>", 6);
+    len = snprintf(buf, 8192, "<p>%s %s %s</p>", req->get_method(),
+                   req->get_request_uri(), req->get_http_version());
+    resp->append_output_body(buf, len);
 
-	while (cursor.next(name, value))
-	{
-		len = snprintf(buf, 8192, "<p>%s: %s</p>", name.c_str(), value.c_str());
-		resp->append_output_body(buf, len);
-	}
+    while (cursor.next(name, value))
+    {
+        len = snprintf(buf, 8192, "<p>%s: %s</p>", name.c_str(), value.c_str());
+        resp->append_output_body(buf, len);
+    }
 
-	resp->append_output_body_nocopy("</html>", 7);
+    resp->append_output_body_nocopy("</html>", 7);
 
-	/* Set status line if you like. */
-	resp->set_http_version("HTTP/1.1");
-	resp->set_status_code("200");
-	resp->set_reason_phrase("OK");
+    /* Set status line if you like. */
+    resp->set_http_version("HTTP/1.1");
+    resp->set_status_code("200");
+    resp->set_reason_phrase("OK");
 
-	resp->add_header_pair("Content-Type", "text/html");
-	resp->add_header_pair("Server", "Sogou WFHttpServer");
-	if (seq == 9) /* no more than 10 requests on the same connection. */
-		resp->add_header_pair("Connection", "close");
+    resp->add_header_pair("Content-Type", "text/html");
+    resp->add_header_pair("Server", "Sogou WFHttpServer");
+    if (seq == 9) /* no more than 10 requests on the same connection. */
+        resp->add_header_pair("Connection", "close");
 
     // print log
     ...
@@ -147,8 +147,8 @@ public:
 函数中另外一个变量seq，通过server_task->get_task_seq()得到，表示该请求是当前连接上的第几次请求，从0开始计。  
 程序中，完成10次请求之后就强行关闭连接，于是：
 ~~~cpp
-	if (seq == 9) /* no more than 10 requests on the same connection. */
-		resp->add_header_pair("Connection", "close");
+    if (seq == 9) /* no more than 10 requests on the same connection. */
+        resp->add_header_pair("Connection", "close");
 ~~~
 关闭连接还可以通过task->set_keep_alive()接口来完成，但对于http协议，还是推荐使用设置header的方式。  
 这个示例中，因为返回的页面很小，我们没有关注回复成功与否。下一个示例http_proxy我们将看到如果获得回复的状态。

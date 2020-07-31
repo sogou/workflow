@@ -27,7 +27,7 @@ WFHttpTask *create_http_task(const std::string& url,
 ~~~cpp
 using http_callback_t = std::function<void (WFHttpTask *)>;
 ~~~
-说白了，就是一个参数为Task本身，没有返回值函数。这个callback可以传NULL，表示无需callback。我们一切任务的callback都是这个风格。  
+说白了，就是一个参数为Task本身，没有返回值的函数。这个callback可以传NULL，表示无需callback。我们一切任务的callback都是这个风格。  
 需要说明的是，所有工厂函数不会返回失败，所以不用担心task为空指针，哪怕是url不合法。一切错误都在callback再处理。  
 task->get_req()函数得到任务的request，默认是GET方法，HTTP/1.1，长连接。框架会自动加上request_uri，Host等。
 并在发送前根据需要加上Content-Length或Connection这些http header。用户也要以通过add_header_pair()方法添加自己的header。
@@ -71,17 +71,23 @@ void wget_callback(WFHttpTask *task)
 在这个callback里，task就是我们通过工厂产生的task。  
 task->get_state()与task->get_error()分别获得任务的运行状态和错误码。我们先略过错误处理的部分。  
 task->get_resp()得到任务的response，这个和request区别不大，都是HttpMessage的派生。  
-之后通过HttpHeaderCursor对象，对request和response的header进行扫描。在[HttpUtil.h](../src/util/HttpUtil.h)可以看到Cursor的定义。
+之后通过HttpHeaderCursor对象，对request和response的header进行扫描。在[HttpUtil.h](../src/protocol/HttpUtil.h)可以看到Cursor的定义。
+
 ~~~cpp
 class HttpHeaderCursor
 {
 public:
     HttpHeaderCursor(const HttpMessage *message);
     ...
+    void rewind();
+    ...
     bool next(std::string& name, std::string& value);
+    bool find(const std::string& name, std::string& value);
     ...
 };
 ~~~
 相信这个cursor在使用上应该不会有什么疑惑。  
 之后一行resp->get_parsed_body()获得response的http body。这个调用在任务成功的状态下，必然返回true，body指向数据区。  
-这个调用得到的是原始的http body，不解码chunk编码。如需解码chunk编码，可使用[HttpUtil.h](../src/util/HttpUtil.h)里的HttpChunkCursor。
+这个调用得到的是原始的http body，不解码chunk编码。如需解码chunk编码，可使用[HttpUtil.h](../src/protocol/HttpUtil.h)里的HttpChunkCursor。
+另外需要说明的是，find()接口会修改cursor内部的指针，即使用过find()过后如果仍然想对header进行遍历，需要通过rewind()接口回到cursor头部。
+

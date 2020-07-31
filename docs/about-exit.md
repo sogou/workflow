@@ -1,8 +1,8 @@
 # 关于程序退出
 
 由于我们的大多数调用都是非阻塞的，所以在之前的示例里我们都需要用一些机制来防止main函数提前退出。  
-例如wget示例中等待用户的Ctrl-C，或者像parallel_wget在所有抓取结束之后唤醒主进程。  
-而在几个server的示例中，stop()操作是阻塞的，可以确保所有server task的正常结束，主进程可安全退出。
+例如wget示例中等待用户的Ctrl-C，或者像parallel_wget在所有抓取结束之后唤醒主线程。  
+而在几个server的示例中，stop()操作是阻塞的，可以确保所有server task的正常结束，主线程可安全退出。
 
 # 程序安全退出的原则
 
@@ -35,7 +35,7 @@ void log_callback(WFFileIOTask *log_task)
     mutex.unlock();
 }
 
-void reply_callback(HttpTask *server_task)
+void reply_callback(WFHttpTask *server_task)
 {
     WFFileIOTask *log_task = WFTaskFactory::create_pwrite_task(..., log_callback);
 

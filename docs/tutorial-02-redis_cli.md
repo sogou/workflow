@@ -43,7 +43,7 @@ struct tutorial_task_data data;
 data.url = argv[1];
 data.key = argv[2];
 
-WFReidsTask *task = WFTaskFactor::create_redis_task(data.url, RETRY_MAX, redis_callback);
+WFRedisTask *task = WFTaskFactory::create_redis_task(data.url, RETRY_MAX, redis_callback);
 
 protocol::RedisRequest *req = task->get_req();
 req->set_request("SET", { data.key, argv[3] });
@@ -106,12 +106,12 @@ callback需要特别解释的，是series_of(task)->push_back(next)这个语句�
     * series是可以设置callback的，虽然在示例中没有用到。
     * 在并行任务里，series是并行任务的一个分枝，series结束就会认为分枝结束。并行相关内容在后续教程中讲解。
 
-总之，如果你想在一个任务之后启动下一个任务，一般是使用push_back操作来完成（还些情况可能要用到push_front）。  
+总之，如果你想在一个任务之后启动下一个任务，一般是使用push_back操作来完成（还有些情况可能要用到push_front）。  
 而series_of()则是一个非常重要的调用，是一个不属于任何类的全局函数。其定义和实现在[Workflow.h](../src/factory/Workflow.h#L140)里：
 ~~~cpp
 static inline SeriesWork *series_of(const SubTask *task)
 {
-    return (SeriesWork *)task->get_series();
+    return (SeriesWork *)task->get_pointer();
 }
 ~~~
 任何task都是SubTask类型的派生。而任何运行中的task，一定属于某个series。通过series_of调用，得到了任务所在的series。  

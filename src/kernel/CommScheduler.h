@@ -121,7 +121,7 @@ public:
 		this->comm.deinit();
 	}
 
-	/* wait_timeout in microseconds, -1 for no timeout. */
+	/* wait_timeout in milliseconds, -1 for no timeout. */
 	int request(CommSession *session, CommSchedObject *object,
 				int wait_timeout, CommTarget **target)
 	{

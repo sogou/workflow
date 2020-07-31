@@ -22,14 +22,14 @@ class Workflow
 {
     ...
 public:
-	static ParallelWork *
-	create_parallel_work(parallel_callback_t callback);
+    static ParallelWork *
+    create_parallel_work(parallel_callback_t callback);
 
-	static ParallelWork *
-	create_parallel_work(SeriesWork *const all_series[], size_t n,
-						 parallel_callback_t callback);
+    static ParallelWork *
+    create_parallel_work(SeriesWork *const all_series[], size_t n,
+                         parallel_callback_t callback);
 
-	...
+    ...
 }
 ~~~
 第一个接口创建一个空的并行任务，第二个接口用一个series数组创建并行任务。  
@@ -38,34 +38,34 @@ public:
 ~~~cpp
 int main(int argc, char *argv[])
 {
-	ParallelWork *pwork = Workflow::create_parallel_work(callback);
-	SeriesWork *series;
-	WFHttpTask *task;
-	HttpRequest *req;
-	tutorial_series_context *ctx;
-	int i;
+    ParallelWork *pwork = Workflow::create_parallel_work(callback);
+    SeriesWork *series;
+    WFHttpTask *task;
+    HttpRequest *req;
+    tutorial_series_context *ctx;
+    int i;
 
-	for (i = 1; i < argc; i++)
-	{
-		std::string url(argv[i]);
+    for (i = 1; i < argc; i++)
+    {
+        std::string url(argv[i]);
         ...
-		task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-			[](WFHttpTask *task)
-		{
-    		// store resp to ctx.
-		});
+        task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
+            [](WFHttpTask *task)
+        {
+            // store resp to ctx.
+        });
 
-		req = task->get_req();
-		// add some headers.
-		...
+        req = task->get_req();
+        // add some headers.
+        ...
 
-		ctx = new tutorial_series_context;
-		ctx->url = std::move(url);
-		series = Workflow::create_series_work(task, NULL);
-		series->set_context(ctx);
-		pwork->add_series(series);
-	}
-	...
+        ctx = new tutorial_series_context;
+        ctx->url = std::move(url);
+        series = Workflow::create_series_work(task, NULL);
+        series->set_context(ctx);
+        pwork->add_series(series);
+    }
+    ...
 }
 ~~~
 从代码中看到，我们先创建http任务，但http任务并不能直接加入到并行任务里，需要先用它创建一个series。  
@@ -76,41 +76,41 @@ int main(int argc, char *argv[])
 http任务的callback是一个简单的lambda函数，把抓取结果保存在自己的series context里，以便并行任务获取。
 ~~~cpp
     task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-    	[](WFHttpTask *task)
+        [](WFHttpTask *task)
     {
-	    tutorial_series_context *ctx =
-			(tutorial_series_context *)series_of(task)->get_context();
-		ctx->state = task->get_state();
-		ctx->error = task->get_error();
-		ctx->resp = std::move(*task->get_resp());
-	});
+        tutorial_series_context *ctx =
+            (tutorial_series_context *)series_of(task)->get_context();
+        ctx->state = task->get_state();
+        ctx->error = task->get_error();
+        ctx->resp = std::move(*task->get_resp());
+    });
 ~~~
 这个做法是必须的，因为http任务在callback之后就会被回收，我们只能把resp通过std::move()操作移走。  
 而在并行任务的callback里，我们可以很方便的获得结果：
 ~~~cpp
 void callback(ParallelWork *pwork)
 {
-	tutorial_series_context *ctx;
-	const void *body;
-	size_t size;
-	size_t i;
+    tutorial_series_context *ctx;
+    const void *body;
+    size_t size;
+    size_t i;
 
-	for (i = 0; i < pwork->size(); i++)
-	{
-		ctx = (tutorial_series_context *)pwork->series_at(i)->get_context();
-		printf("%s\n", ctx->url.c_str());
-		if (ctx->state == WFT_STATE_SUCCESS)
-		{
-			ctx->resp.get_parsed_body(&body, &size);
-			printf("%zu%s\n", size, ctx->resp.is_chunked() ? " chunked" : "");
-			fwrite(body, 1, size, stdout);
-			printf("\n");
-		}
-		else
-			printf("ERROR! state = %d, error = %d\n", ctx->state, ctx->error);
+    for (i = 0; i < pwork->size(); i++)
+    {
+        ctx = (tutorial_series_context *)pwork->series_at(i)->get_context();
+        printf("%s\n", ctx->url.c_str());
+        if (ctx->state == WFT_STATE_SUCCESS)
+        {
+            ctx->resp.get_parsed_body(&body, &size);
+            printf("%zu%s\n", size, ctx->resp.is_chunked() ? " chunked" : "");
+            fwrite(body, 1, size, stdout);
+            printf("\n");
+        }
+        else
+            printf("ERROR! state = %d, error = %d\n", ctx->state, ctx->error);
 
-		delete ctx;
-	}
+        delete ctx;
+    }
 }
 ~~~
 在这里，我们看到ParallelWork的两个新接口，size()和series_at(i)，分别获得它的并行series个数，和第i个并行series。  
@@ -124,3 +124,4 @@ void callback(ParallelWork *pwork)
 并行任务是一种任务，所以并行任务的启动并没有什么特别，可以直接调用start()，也可以用它建立或启动一个series。  
 在这个示例里，我们启动一个series，在这个series的callback里唤醒主进程，正常退出程序。  
 我们也可以在并行任务的callback里唤醒主进程，程序行为上区别不大。但在series callback里唤醒更加规范一点。
+

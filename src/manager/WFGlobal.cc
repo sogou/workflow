@@ -21,10 +21,8 @@
 #include <openssl/engine.h>
 #include <openssl/conf.h>
 #include <openssl/crypto.h>
-#include <assert.h>
-#include <unistd.h>
 #include <signal.h>
-#include <pthread.h>
+#include <thread>
 #include <string>
 #include <unordered_map>
 #include <atomic>
@@ -36,6 +34,7 @@
 #include "DNSCache.h"
 #include "RouteManager.h"
 #include "Executor.h"
+#include "RWLock.h"
 #include "WFTask.h"
 #include "WFTaskError.h"
 
@@ -115,7 +114,26 @@ private:
 		static_scheme_port_["kafka"] = "9092";
 		sync_count_ = 0;
 		sync_max_ = 0;
+
+#ifdef _WIN32
+		WSADATA wsaData;
+		WORD wVersionRequested = MAKEWORD(2, 2);
+		int err = WSAStartup(wVersionRequested, &wsaData);
+
+		if (err != 0)
+			abort();
+
+		if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2)
+			abort();
+#endif
 	}
+
+#ifdef _WIN32
+	~__WFGlobal()
+	{
+		WSACleanup();
+	}
+#endif
 
 private:
 	struct WFGlobalSettings settings_;
@@ -126,6 +144,8 @@ private:
 	int sync_count_;
 	int sync_max_;
 };
+
+static __WFGlobal *_g_global = __WFGlobal::get_instance();
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 static std::mutex *__ssl_mutex;
@@ -425,55 +445,52 @@ public:
 
 	ExecQueue *get_exec_queue(const std::string& queue_name)
 	{
-		ExecQueue *queue = NULL;
+		ExecQueue *queue;
+		ExecQueueMap::iterator iter;
 
-		pthread_rwlock_rdlock(&rwlock_);
-		const auto iter = queue_map_.find(queue_name);
-
-		if (iter != queue_map_.cend())
-			queue = iter->second;
-
-		pthread_rwlock_unlock(&rwlock_);
-
-		if (!queue)
 		{
-			queue = new ExecQueue();
-			if (queue->init() < 0)
-			{
-				delete queue;
-				queue = NULL;
-			}
-			else
-			{
-				pthread_rwlock_wrlock(&rwlock_);
-				const auto ret = queue_map_.emplace(queue_name, queue);
+			ReadLock lock(rwlock_);
 
-				if (!ret.second)
-				{
-					queue->deinit();
-					delete queue;
-					queue = ret.first->second;
-				}
-
-				pthread_rwlock_unlock(&rwlock_);
-			}
+			iter = queue_map_.find(queue_name);
+			if (iter != queue_map_.end())
+				return iter->second;
 		}
 
-		return queue;
+		queue = new ExecQueue();
+		if (queue->init() >= 0)
+		{
+			WriteLock lock(rwlock_);
+			auto ret = queue_map_.emplace(queue_name, queue);
+
+			if (!ret.second)
+			{
+				queue->deinit();
+				delete queue;
+				queue = ret.first->second;
+			}
+
+			return queue;
+		}
+
+		delete queue;
+		return NULL;
 	}
 
 	Executor *get_compute_executor() { return &compute_executor_; }
 
 private:
-	__ExecManager():
-		rwlock_(PTHREAD_RWLOCK_INITIALIZER)
+	__ExecManager()
 	{
 		int compute_threads = __WFGlobal::get_instance()->
 										  get_global_settings()->
 										  compute_threads;
 
 		if (compute_threads <= 0)
-			compute_threads = sysconf(_SC_NPROCESSORS_ONLN);
+		{
+			compute_threads = std::thread::hardware_concurrency();
+			//if is 0, use something
+			//compute_threads = sysconf(_SC_NPROCESSORS_ONLN);
+		}
 
 		if (compute_executor_.init(compute_threads) < 0)
 			abort();
@@ -491,7 +508,7 @@ private:
 	}
 
 private:
-	pthread_rwlock_t rwlock_;
+	RWLock rwlock_;
 	ExecQueueMap queue_map_;
 	Executor compute_executor_;
 };

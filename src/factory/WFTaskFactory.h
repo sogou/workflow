@@ -21,6 +21,7 @@
 #define _WFTASKFACTORY_H_
 
 #include <functional>
+#include "PlatformSocket.h"
 #include "URIParser.h"
 #include "RedisMessage.h"
 #include "HttpMessage.h"

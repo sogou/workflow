@@ -16,12 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com;63350856@qq.com)
 */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <signal.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +25,10 @@
 #include "workflow/HttpUtil.h"
 #include "workflow/WFServer.h"
 #include "workflow/WFHttpServer.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 void process(WFHttpTask *server_task)
 {
@@ -110,7 +109,11 @@ int main(int argc, char *argv[])
 	port = atoi(argv[1]);
 	if (server.start(port) == 0)
 	{
+#ifndef _WIN32
 		pause();
+#else
+		getchar();
+#endif
 		server.stop();
 	}
 	else

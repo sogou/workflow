@@ -20,12 +20,11 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 #include <vector>
 #include <map>
 #include <mutex>
 #include <condition_variable>
-
-#include <signal.h>
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/MySQLResult.h"
@@ -259,8 +258,9 @@ int main(int argc, char *argv[])
 	series->start();
 
 	std::unique_lock<std::mutex> lock(mutex);
-	while (task_finished == false)
+	while (!task_finished)
 		cond.wait(lock);
+
 	lock.unlock();
 	return 0;
 }

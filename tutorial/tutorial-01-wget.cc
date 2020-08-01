@@ -16,8 +16,6 @@
   Author: Xie Han (xiehan@sogou-inc.com;63350856@qq.com)
 */
 
-#include <netdb.h>
-#include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,6 +24,10 @@
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
 #include "workflow/WFTaskFactory.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #define REDIRECT_MAX    5
 #define RETRY_MAX       2
@@ -125,7 +127,11 @@ int main(int argc, char *argv[])
 	req->add_header_pair("User-Agent", "Wget/1.14 (linux-gnu)");
 	req->add_header_pair("Connection", "close");
 	task->start();
+#ifndef _WIN32
 	pause();
+#else
+	getchar();
+#endif
 	return 0;
 }
 

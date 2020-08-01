@@ -70,13 +70,13 @@ struct AddressParams
  */
 static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
 {
-	.endpoint_params	=	ENDPOINT_PARAMS_DEFAULT,
-	.dns_ttl_default	=	12 * 3600,
-	.dns_ttl_min		=	180,
-	.max_fails			=	200,
-	.weight				=	1,
-	.server_type		=	SERVER_TYPE_MASTER,
-	.group_id			=	-1,
+/*	.endpoint_params	=	*/	ENDPOINT_PARAMS_DEFAULT,
+/*	.dns_ttl_default	=	*/	12 * 3600,
+/*	.dns_ttl_min		=	*/	180,
+/*	.max_fails			=	*/	200,
+/*	.weight				=	*/	1,
+/*	.server_type		=	*/	SERVER_TYPE_MASTER,
+/*	.group_id			=	*/	-1
 };
 
 /**

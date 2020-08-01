@@ -18,16 +18,15 @@
            Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <time.h>
-#include <netdb.h>
 #include <stdio.h>
+#include <time.h>
+#include <errno.h>
+#include <string>
 #include <new>
 #include <string>
 #include <functional>
 #include <utility>
+#include "PlatformSocket.h"
 #include "WFGlobal.h"
 #include "Workflow.h"
 #include "WFTask.h"
@@ -62,9 +61,10 @@ inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 													 timer_callback_t callback)
 {
 	struct timespec value = {
-		.tv_sec		=	(time_t)microseconds / 1000000,
-		.tv_nsec	=	(long)microseconds % 1000000 * 1000
+	/*	.tv_sec		=	*/	(time_t)microseconds / 1000000,
+	/*	.tv_nsec	=	*/	(long)microseconds % 1000000 * 1000
 	};
+
 	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
 							 std::move(callback));
 }

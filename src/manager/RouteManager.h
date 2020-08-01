@@ -19,11 +19,9 @@
 #ifndef _ROUTEMANAGER_H_
 #define _ROUTEMANAGER_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <string>
 #include <mutex>
+#include "PlatformSocket.h"
 #include "rbtree.h"
 #include "WFConnection.h"
 #include "EndpointParams.h"

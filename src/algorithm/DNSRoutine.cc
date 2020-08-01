@@ -17,7 +17,8 @@
 */
 
 #include <stdio.h>
-#include <sys/un.h>
+#include <string.h>
+#include "PlatformSocket.h"
 #include "DNSRoutine.h"
 
 #define PORT_STR_MAX	5
@@ -50,6 +51,12 @@ DNSOutput& DNSOutput::operator= (DNSOutput&& move)
 
 void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 {
+	struct addrinfo hints;
+	char port_str[PORT_STR_MAX + 1];
+
+	memset(&hints, 0, sizeof (hints));
+
+#ifdef __linux__
 	if (!in->host_.empty() && in->host_[0] == '/')
 	{
 		out->error_ = 0;
@@ -69,15 +76,13 @@ void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 		strcpy(sun->sun_path, in->host_.c_str());
 		return;
 	}
-
-	struct addrinfo hints = {
-#ifdef AI_ADDRCONFIG
-		.ai_flags    = AI_ADDRCONFIG,
 #endif
-		.ai_family   = AF_UNSPEC,
-		.ai_socktype = SOCK_STREAM
-	};
-	char port_str[PORT_STR_MAX + 1];
+
+#ifdef AI_ADDRCONFIG
+	hints.ai_flags = AI_ADDRCONFIG;
+#endif
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
 
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", in->port_);
 	out->error_ = getaddrinfo(in->host_.c_str(),

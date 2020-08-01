@@ -18,7 +18,6 @@
 
 #include <signal.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <utility>
@@ -27,6 +26,18 @@
 #include "workflow/WFHttpServer.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/Workflow.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
+#ifdef _WIN32
+#include <io.h>
+# define open _open
+# define O_RDONLY _O_RDONLY
+# define close _close
+# define lseek _lseek
+#endif
 
 using namespace protocol;
 
@@ -113,7 +124,11 @@ int main(int argc, char *argv[])
 
 	if (ret == 0)
 	{
+#ifndef _WIN32
 		pause();
+#else
+		getchar();
+#endif
 		server.stop();
 	}
 	else

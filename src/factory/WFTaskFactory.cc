@@ -18,11 +18,9 @@
 */
 
 #include <ctype.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <string>
 #include <mutex>
+#include "PlatformSocket.h"
 #include "list.h"
 #include "rbtree.h"
 #include "DNSRoutine.h"
@@ -546,7 +544,7 @@ void WFRouterTask::dispatch()
 			ret = inet_pton(AF_INET6, host_.c_str(), &addr);
 		else if (isdigit(back) && isdigit(front))
 			ret = inet_pton(AF_INET, host_.c_str(), &addr);
-#ifdef AF_UNIX
+#ifdef __linux__
 		else if (front == '/')
 			ret = 1;
 #endif

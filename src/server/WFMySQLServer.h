@@ -30,12 +30,12 @@ class MySQLServer;
 
 static constexpr struct WFServerParams MYSQL_SERVER_PARAMS_DEFAULT =
 {
-	.max_connections		=	2000,
-	.peer_response_timeout	=	10 * 1000,
-	.receive_timeout		=	-1,
-	.keep_alive_timeout		=	28800 * 1000,
-	.request_size_limit		=	(size_t)-1,
-	.ssl_accept_timeout		=	10 * 1000,
+/*	.max_connections		=	*/	2000,
+/*	.peer_response_timeout	=	*/	10 * 1000,
+/*	.receive_timeout		=	*/	-1,
+/*	.keep_alive_timeout		=	*/	28800 * 1000,
+/*	.request_size_limit		=	*/	(size_t)-1,
+/*	.ssl_accept_timeout		=	*/	10 * 1000
 };
 
 class WFMySQLServer : public WFServer<protocol::MySQLRequest,

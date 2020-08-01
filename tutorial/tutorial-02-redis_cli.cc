@@ -16,8 +16,6 @@
   Author: Xie Han (xiehan@sogou-inc.com;63350856@qq.com)
 */
 
-#include <netdb.h>
-#include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,6 +23,10 @@
 #include <string>
 #include "workflow/RedisMessage.h"
 #include "workflow/WFTaskFactory.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #define RETRY_MAX       2
 
@@ -145,7 +147,11 @@ int main(int argc, char *argv[])
 	 * Workflow::start_series_work(task, nullptr) or
 	 * Workflow::create_series_work(task, nullptr)->start() */
 	task->start();
+#ifndef _WIN32
 	pause();
+#else
+	getchar();
+#endif
 	return 0;
 }
 

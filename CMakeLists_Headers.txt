@@ -18,7 +18,18 @@ set(COMMOM_KERNEL_HEADERS
 
 if (WIN32)
 	set(INCLUDE_KERNEL_HEADERS
+		src/kernel_win/CommRequest.h
+		src/kernel_win/CommScheduler.h
+		src/kernel_win/Communicator.h
+		src/kernel_win/SleepRequest.h
+		src/kernel_win/ExecRequest.h
+		src/kernel_win/IORequest.h
+		src/kernel_win/Executor.h
 		src/kernel_win/list.h
+		src/kernel_win/rbtree.h
+		src/kernel_win/SubTask.h
+		src/kernel_win/thrdpool.h
+		src/kernel_win/WinPoller.h
 	)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	set(INCLUDE_KERNEL_HEADERS
@@ -35,6 +46,7 @@ else ()
 endif ()
 
 set(INCLUDE_HEADERS
+	src/PlatformSocket.h
 	src/algorithm/DNSRoutine.h
 	src/algorithm/MapReduce.h
 	src/algorithm/MapReduce.inl
@@ -70,6 +82,7 @@ set(INCLUDE_HEADERS
 	src/util/StringUtil.h
 	src/util/URIParser.h
 	src/util/MD5Util.h
+	src/util/RWLock.h
 	src/factory/WFConnection.h
 	src/factory/WFTask.h
 	src/factory/WFTask.inl

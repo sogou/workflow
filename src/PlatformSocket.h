@@ -16,40 +16,34 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#ifndef _CONNECTIONPARAMS_H_
-#define _CONNECTIONPARAMS_H_
+#ifndef _PLATFORMSOCKET_H_
+#define _PLATFORMSOCKET_H_
 
-#include <stddef.h>
+#include <sys/types.h>
 
-/**
- * @file   EndpointParams.h
- * @brief  Network config for client task
- */
-
-enum TransportType
+#ifdef _WIN32
+# include <Ws2tcpip.h>
+# include <Ws2def.h>
+/*
+typedef struct _WSABUF {
+	ULONG len;
+	CHAR  *buf;
+} WSABUF, *LPWSABUF;
+*/
+struct iovec
 {
-	TT_TCP,
-	TT_UDP,
-	TT_SCTP,
-	TT_TCP_SSL,
-	TT_SCTP_SSL,
+	void *iov_base;
+	size_t iov_len;
 };
 
-struct EndpointParams
-{
-	size_t max_connections;
-	int connect_timeout;
-	int response_timeout;
-	int ssl_connect_timeout;
-};
+#else
+# include <arpa/inet.h>
+# include <sys/socket.h>
+# include <sys/un.h>
+# include <sys/uio.h>
+# include <netdb.h>
 
-static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
-{
-/*	.max_connections		=	*/	200,
-/*	.connect_timeout		=	*/	10 * 1000,
-/*	.response_timeout		=	*/	10 * 1000,
-/*	.ssl_connect_timeout	=	*/	10 * 1000
-};
+#endif
 
 #endif
 

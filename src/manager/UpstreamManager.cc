@@ -16,7 +16,6 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
@@ -31,40 +30,13 @@
 #include "rbtree.h"
 #include "URIParser.h"
 #include "StringUtil.h"
+#include "RWLock.h"
 #include "EndpointParams.h"
 #include "UpstreamManager.h"
 
 #define GET_CURRENT_SECOND	std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 #define MTTR_SECOND			30
 #define VIRTUAL_GROUP_SIZE	16
-
-namespace //anoymous namespace, for safe, avoid conflict
-{
-// RAII: YES
-class ReadLock
-{
-public:
-	ReadLock(pthread_rwlock_t& rwlock): rwlock_(&rwlock) { pthread_rwlock_rdlock(rwlock_); }
-	ReadLock(pthread_rwlock_t *rwlock): rwlock_(rwlock) { pthread_rwlock_rdlock(rwlock_); }
-	~ReadLock() { pthread_rwlock_unlock(rwlock_); }
-
-private:
-	pthread_rwlock_t *rwlock_;
-};
-
-// RAII: YES
-class WriteLock
-{
-public:
-	WriteLock(pthread_rwlock_t& rwlock): rwlock_(&rwlock) { pthread_rwlock_wrlock(rwlock_); }
-	WriteLock(pthread_rwlock_t *rwlock): rwlock_(rwlock) { pthread_rwlock_wrlock(rwlock_); }
-	~WriteLock() { pthread_rwlock_unlock(rwlock_); }
-
-private:
-	pthread_rwlock_t *rwlock_;
-};
-
-}
 
 class UpstreamAddress;
 class UpstreamGroup;
@@ -140,7 +112,7 @@ public:
 	static void notify_available(UpstreamAddress *ua);
 
 protected:
-	pthread_rwlock_t rwlock_;
+	RWLock rwlock_;
 	int total_weight_;
 	int available_weight_;
 	std::vector<UpstreamAddress *> masters_;
@@ -209,7 +181,7 @@ static unsigned int __default_consistent_hash(const char *path,
 
 	str += query;
 	str += fragment;
-	return std_hash(str);
+	return (unsigned int)std_hash(str);
 }
 
 UpstreamAddress::UpstreamAddress(const std::string& address,
@@ -223,7 +195,7 @@ UpstreamAddress::UpstreamAddress(const std::string& address,
 	this->params = *address_params;
 	this->address = address;
 	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
-		this->consistent_hash[i] = std_hash(address + "|v" + std::to_string(i));
+		this->consistent_hash[i] = (unsigned int)std_hash(address + "|v" + std::to_string(i));
 
 	if (this->params.weight == 0)
 		this->params.weight = 1;
@@ -252,7 +224,6 @@ UpstreamAddress::UpstreamAddress(const std::string& address,
 }
 
 Upstream::Upstream():
-	rwlock_(PTHREAD_RWLOCK_INITIALIZER),
 	total_weight_(0),
 	available_weight_(0),
 	select_callback_(nullptr),
@@ -1013,10 +984,6 @@ public:
 	}
 
 private:
-	__UpstreamManager():
-		rwlock_(PTHREAD_RWLOCK_INITIALIZER)
-	{}
-
 	~__UpstreamManager()
 	{
 		for (auto *ua : addresses_)
@@ -1024,7 +991,7 @@ private:
 	}
 
 private:
-	pthread_rwlock_t rwlock_;
+	RWLock rwlock_;
 	std::unordered_map<std::string, Upstream> upstream_map_;
 	std::vector<UpstreamAddress *> addresses_;
 };

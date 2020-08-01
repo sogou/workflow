@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <signal.h>
-#include <unistd.h>
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFServer.h"
@@ -70,7 +69,7 @@ int main(int argc, char *argv[])
 	if (server.start(AF_INET6, port) == 0 ||
 		server.start(AF_INET, port) == 0)
 	{
-		pause();
+		getchar();
 		server.stop();
 	}
 	else

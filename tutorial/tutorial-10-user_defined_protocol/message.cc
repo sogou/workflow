@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <arpa/inet.h>
+#include "workflow/PlatformSocket.h"
 #include "message.h"
 
 namespace protocol

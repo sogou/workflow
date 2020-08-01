@@ -20,12 +20,11 @@
 #ifndef _WFSERVER_H_
 #define _WFSERVER_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <functional>
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include "PlatformSocket.h"
 #include "CommScheduler.h"
 #include "WFTaskFactory.h"
 
@@ -41,12 +40,12 @@ struct WFServerParams
 
 static constexpr struct WFServerParams SERVER_PARAMS_DEFAULT =
 {
-	.max_connections		=	2000,
-	.peer_response_timeout	=	10 * 1000,
-	.receive_timeout		=	-1,
-	.keep_alive_timeout		=	60 * 1000,
-	.request_size_limit		=	(size_t)-1,
-	.ssl_accept_timeout		=	10 * 1000,
+/*	.max_connections		=	*/	2000,
+/*	.peer_response_timeout	=	*/	10 * 1000,
+/*	.receive_timeout		=	*/	-1,
+/*	.keep_alive_timeout		=	*/	60 * 1000,
+/*	.request_size_limit		=	*/	(size_t)-1,
+/*	.ssl_accept_timeout		=	*/	10 * 1000,
 };
 
 class WFServerBase : protected CommService

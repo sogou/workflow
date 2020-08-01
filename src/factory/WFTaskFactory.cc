@@ -407,6 +407,8 @@ public:
 	}
 };
 
+#ifndef _WIN32
+
 WFFileIOTask *WFTaskFactory::create_pread_task(int fd,
 											   void *buf,
 											   size_t count,
@@ -466,6 +468,8 @@ WFFileSyncTask *WFTaskFactory::create_fdsync_task(int fd,
 								WFGlobal::get_io_service(),
 								std::move(callback));
 }
+
+#endif
 
 /********RouterTask*************/
 

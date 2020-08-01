@@ -19,9 +19,11 @@
 #ifndef _WFGLOBAL_H_
 #define _WFGLOBAL_H_
 
-#if __cplusplus < 201100
-#error CPLUSPLUS VERSION required at least C++11. Please use "-std=c++11".
-#include <C++11_REQUIRED>
+#ifndef _WIN32
+# if __cplusplus < 201100
+#  error CPLUSPLUS VERSION required at least C++11. Please use "-std=c++11".
+#  include <C++11_REQUIRED>
+# endif
 #endif
 
 #include <openssl/ssl.h>

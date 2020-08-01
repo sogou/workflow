@@ -74,24 +74,24 @@ void process(WFHttpTask *server_task, const char *root)
 		abs_path += "index.html";
 
 	resp->add_header_pair("Server", "Sogou C++ Workflow Server");
-
-	int fd = open(abs_path.c_str(), O_RDONLY);
-	if (fd >= 0)
-	{
-		size_t size = lseek(fd, 0, SEEK_END);
-		void *buf = malloc(size); /* As an example, assert(buf != NULL); */
-		WFFileIOTask *pread_task;
-
-		pread_task = WFTaskFactory::create_pread_task(fd, buf, size, 0,
-													  pread_callback);
-		/* To implement a more complicated server, please use series' context
-		 * instead of tasks' user_data to pass/store internal data. */
-		pread_task->user_data = resp;	/* pass resp pointer to pread task. */
-		server_task->user_data = buf;	/* to free() in callback() */
-		server_task->set_callback([](WFHttpTask *t){ free(t->user_data); });
-		series_of(server_task)->push_back(pread_task);
-	}
-	else
+// ------ we will support fileio with iocp as soon as possible
+//	int fd = open(abs_path.c_str(), O_RDONLY);
+//	if (fd >= 0)
+//	{
+//		size_t size = lseek(fd, 0, SEEK_END);
+//		void *buf = malloc(size); /* As an example, assert(buf != NULL); */
+//		WFFileIOTask *pread_task;
+//
+//		pread_task = WFTaskFactory::create_pread_task(fd, buf, size, 0,
+//													  pread_callback);
+//		/* To implement a more complicated server, please use series' context
+//		 * instead of tasks' user_data to pass/store internal data. */
+//		pread_task->user_data = resp;	/* pass resp pointer to pread task. */
+//		server_task->user_data = buf;	/* to free() in callback() */
+//		server_task->set_callback([](WFHttpTask *t){ free(t->user_data); });
+//		series_of(server_task)->push_back(pread_task);
+//	}
+//	else
 	{
 		resp->set_status_code("404");
 		resp->append_output_body("<html>404 Not Found.</html>");

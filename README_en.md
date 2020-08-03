@@ -5,13 +5,13 @@
 [![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
 
 # Sogou C++ Workflow
-#### As the back-end C++ programming standard in Sogou, Workflow is an enterprise-level programming engine. 
+#### As the backend C++ programming standard in Sogou, Workflow is an industrial-grade programming engine. 
 #### Main functions and features:
   * An **asynchronous engine** based on **C++11** ``std::function`` which aims to solve all the **serial, parallel and asynchronous** problems.
   * As a network framework, it is completely **protocol-agnostic** and directly facing applications.
     * It can either be used as a Redis **client** or an Http **server**.
     * Convinient to **customize protocols**, so you can quickly build your own RPC systems.
-      * Sogou RPC is developed based on Workflow and is open source as an independent project. The project supports srpc, brpc and thrift protocols ([benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)).
+      * Sogou RPC is developed based on Sogou Workflow and is open source as an independent project. The project supports srpc, brpc and thrift protocols ([benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)).
     * Support **SSL** (depends on openssl). Support **TCP, UDP, SCTP** and other common transport layer protocols. Support SSL on **SCTP**. Not support UDP server.
   * A variety of **common Internet protocol** implementations are natively contained and used in a unified way.
     * Currently support **http, redis, mysql** and **kafka** protocols. You can directly access these resources or build **servers** for these protocols.

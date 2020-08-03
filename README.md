@@ -31,7 +31,7 @@
 
 #### 相关的技术要点：
   * 目前项目支持Linux，macOS，FreeBSD，Windows等系统。需要安装cmake。
-    * Windows版暂时以独立branch发布，以iocp为异步通讯基础，对外接口一致。
+    * Windows版暂时以独立[branch](https://github.com/sogou/workflow/tree/windows)发布，以iocp为异步通讯基础，对外接口一致。
   * 该项目使用C/C++编写，使用者需要能比较熟练的使用C++编程。不依赖boost或asio，编译速度极快。
   * 用到少量的C++11特征，用户需要会使用 ``std::function`` 和 ``std::move()`` 。
   * 理论支持一切CPU架构，可以在32位或64位arm处理器上编译运行。Big endian CPU未测试。

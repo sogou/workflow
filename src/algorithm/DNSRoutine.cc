@@ -56,7 +56,7 @@ void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 
 	memset(&hints, 0, sizeof (hints));
 
-#ifdef __linux__
+#if defined(AF_UNIX) && !defined(_WIN32)
 	if (!in->host_.empty() && in->host_[0] == '/')
 	{
 		out->error_ = 0;

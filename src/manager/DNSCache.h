@@ -19,13 +19,11 @@
 #ifndef _DNSCACHE_H_
 #define _DNSCACHE_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdint.h>
 #include <string>
 #include <mutex>
 #include <utility>
+#include "PlatformSocket.h"
 #include "LRUCache.h"
 
 #define GET_TYPE_TTL		0

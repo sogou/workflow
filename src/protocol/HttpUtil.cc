@@ -407,8 +407,8 @@ bool HttpHeaderCursor::next(std::string& name, std::string& value)
 bool HttpHeaderCursor::find(const std::string& name, std::string& value)
 {
 	struct HttpMessageHeader header = {
-		.name		=	name.c_str(),
-		.name_len	=	name.size()
+	/*	.name		=	*/	name.c_str(),
+	/*	.name_len	=	*/	name.size()
 	};
 
 	if (this->find(&header))

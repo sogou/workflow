@@ -18,11 +18,9 @@
 */
 
 #include <ctype.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <string>
 #include <mutex>
+#include "PlatformSocket.h"
 #include "list.h"
 #include "rbtree.h"
 #include "DNSRoutine.h"
@@ -409,6 +407,8 @@ public:
 	}
 };
 
+#ifndef _WIN32
+
 WFFileIOTask *WFTaskFactory::create_pread_task(int fd,
 											   void *buf,
 											   size_t count,
@@ -468,6 +468,8 @@ WFFileSyncTask *WFTaskFactory::create_fdsync_task(int fd,
 								WFGlobal::get_io_service(),
 								std::move(callback));
 }
+
+#endif
 
 /********RouterTask*************/
 
@@ -546,7 +548,7 @@ void WFRouterTask::dispatch()
 			ret = inet_pton(AF_INET6, host_.c_str(), &addr);
 		else if (isdigit(back) && isdigit(front))
 			ret = inet_pton(AF_INET, host_.c_str(), &addr);
-#ifdef AF_UNIX
+#ifdef __linux__
 		else if (front == '/')
 			ret = 1;
 #endif

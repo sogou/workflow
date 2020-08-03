@@ -17,8 +17,6 @@
 */
 
 /* Tuturial-03. Store wget result in redis: key=URL, value=Http Body*/
-#include <netdb.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -178,6 +176,7 @@ int main(int argc, char *argv[])
 	std::unique_lock<std::mutex> lock(mutex);
 	while (!finished)
 		cond.wait(lock);
+
 	lock.unlock();
 	return 0;
 }

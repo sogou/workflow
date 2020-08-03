@@ -17,14 +17,10 @@
            Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <openssl/ssl.h>
 #include <atomic>
-#include <mutex>
-#include <condition_variable>
+#include "PlatformSocket.h"
 #include "CommScheduler.h"
 #include "WFConnection.h"
 #include "WFGlobal.h"
@@ -93,11 +89,11 @@ int WFServerBase::create_listen_fd()
 		int reuse = 1;
 
 		this->get_addr(&bind_addr, &addrlen);
-		listen_fd = socket(bind_addr->sa_family, SOCK_STREAM, 0);
+		listen_fd = (int)socket(bind_addr->sa_family, SOCK_STREAM, 0);
 		if (listen_fd >= 0)
 		{
 			setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
-					   &reuse, sizeof (int));
+					   (const char *)(&reuse), sizeof (int));
 		}
 	}
 
@@ -111,7 +107,7 @@ CommConnection *WFServerBase::new_connection(int accept_fd)
 	{
 		int reuse = 1;
 		setsockopt(accept_fd, SOL_SOCKET, SO_REUSEADDR,
-				   &reuse, sizeof (int));
+				   (const char *)(&reuse), sizeof (int));
 		return new WFServerConnection(&this->conn_count);
 	}
 
@@ -145,15 +141,15 @@ int WFServerBase::start(const struct sockaddr *bind_addr, socklen_t addrlen,
 int WFServerBase::start(int family, const char *host, unsigned short port,
 						const char *cert_file, const char *key_file)
 {
-	struct addrinfo hints = {
-		.ai_flags		=	AI_PASSIVE,
-		.ai_family		=	family,
-		.ai_socktype	=	SOCK_STREAM,
-	};
+	struct addrinfo hints;
 	struct addrinfo *addrinfo;
 	char port_str[PORT_STR_MAX + 1];
 	int ret;
 
+	memset(&hints, 0, sizeof (hints));
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_family = family;
+	hints.ai_socktype = SOCK_STREAM;
 	snprintf(port_str, PORT_STR_MAX + 1, "%d", port);
 	ret = getaddrinfo(host, port_str, &hints, &addrinfo);
 	if (ret == 0)
@@ -164,8 +160,10 @@ int WFServerBase::start(int family, const char *host, unsigned short port,
 	}
 	else
 	{
+#ifdef EAI_SYSTEM
 		if (ret != EAI_SYSTEM)
 			errno = EINVAL;
+#endif
 		ret = -1;
 	}
 
@@ -197,6 +195,12 @@ static int __get_addr_bound(int sockfd, struct sockaddr *addr, socklen_t *len)
 	addr->sa_family = family;
 	return 0;
 }
+
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 int WFServerBase::serve(int listen_fd,
 						const char *cert_file, const char *key_file)

@@ -29,12 +29,12 @@ using WFRedisServer = WFServer<protocol::RedisRequest,
 
 static constexpr struct WFServerParams REDIS_SERVER_PARAMS_DEFAULT =
 {
-	.max_connections		=	2000,
-	.peer_response_timeout	=	10 * 1000,
-	.receive_timeout		=	-1,
-	.keep_alive_timeout		=	300 * 1000,
-	.request_size_limit		=	(size_t)-1,
-	.ssl_accept_timeout		=	5000,
+/*	.max_connections		=	*/	2000,
+/*	.peer_response_timeout	=	*/	10 * 1000,
+/*	.receive_timeout		=	*/	-1,
+/*	.keep_alive_timeout		=	*/	300 * 1000,
+/*	.request_size_limit		=	*/	(size_t)-1,
+/*	.ssl_accept_timeout		=	*/	10 * 1000
 };
 
 template<>

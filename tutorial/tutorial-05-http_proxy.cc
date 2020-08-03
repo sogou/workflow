@@ -17,7 +17,6 @@
 */
 
 #include <signal.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <utility>
@@ -25,6 +24,10 @@
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
 #include "workflow/WFHttpServer.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 struct tutorial_series_context
 {
@@ -160,7 +163,11 @@ int main(int argc, char *argv[])
 
 	if (server.start(port) == 0)
 	{
+#ifndef _WIN32
 		pause();
+#else
+		getchar();
+#endif
 		server.stop();
 	}
 	else

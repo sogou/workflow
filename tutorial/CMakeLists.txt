@@ -16,7 +16,7 @@ link_directories(${WORKFLOW_LIB_DIR})
 
 if (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /std:c++14")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /Zc:__cplusplus /std:c++14")
 else ()
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -fPIC -pipe -std=gnu90")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++11 -fno-exceptions")
@@ -37,6 +37,8 @@ set(TUTORIAL_LIST
 
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+elseif (WIN32)
+	set(WORKFLOW_LIB workflow ws2_32 wsock32 OpenSSL::SSL OpenSSL::Crypto)
 else ()
 	set(WORKFLOW_LIB workflow ${LIBRT})
 endif ()
@@ -46,6 +48,14 @@ foreach(src ${TUTORIAL_LIST})
 	list(GET arr -1 bin_name)
 	add_executable(${bin_name} ${src}.cc)
 	target_link_libraries(${bin_name} ${WORKFLOW_LIB})
+	if (WIN32)
+		target_compile_definitions(
+			${bin_name} PRIVATE
+			strdup=_strdup
+			strcasecmp=_stricmp
+			strncasecmp=_strnicmp
+		)
+	endif ()
 endforeach()
 
 set(DIR10 tutorial-10-user_defined_protocol)
@@ -58,3 +68,4 @@ set_target_properties(server PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR10})
 set_target_properties(client PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR10})
+

@@ -18,10 +18,8 @@
 
 #ifndef _DNSROUTINE_H_
 #define _DNSROUTINE_H_
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <string>
+#include "PlatformSocket.h"
 
 class DNSInput
 {

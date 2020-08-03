@@ -18,6 +18,10 @@
 
 #include "WFMySQLServer.h"
 
+#ifdef _WIN32
+#include <io.h>
+#endif
+
 CommConnection *WFMySQLServer::new_connection(int accept_fd)
 {
 	CommConnection *conn = this->WFServer::new_connection(accept_fd);
@@ -33,8 +37,15 @@ CommConnection *WFMySQLServer::new_connection(int accept_fd)
 		count = resp.encode(vec, 8);
 		if (count >= 0)
 		{
+#ifdef _WIN32
+			for (int i = 0; i < count; i++)
+				_write(accept_fd, vec[i].iov_base, (unsigned int)vec[i].iov_len);
+
+			return conn;
+#else
 			if (writev(accept_fd, vec, count) >= 0)
 				return conn;
+#endif
 		}
 
 		delete conn;

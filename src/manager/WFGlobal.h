@@ -19,9 +19,11 @@
 #ifndef _WFGLOBAL_H_
 #define _WFGLOBAL_H_
 
-#if __cplusplus < 201100
-#error CPLUSPLUS VERSION required at least C++11. Please use "-std=c++11".
-#include <C++11_REQUIRED>
+#ifndef _WIN32
+# if __cplusplus < 201100
+#  error CPLUSPLUS VERSION required at least C++11. Please use "-std=c++11".
+#  include <C++11_REQUIRED>
+# endif
 #endif
 
 #include <openssl/ssl.h>
@@ -58,13 +60,13 @@ struct WFGlobalSettings
  */
 static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 {
-	.endpoint_params	=	ENDPOINT_PARAMS_DEFAULT,
-	.dns_ttl_default	=	12 * 3600,
-	.dns_ttl_min		=	180,
-	.dns_threads		=	8,
-	.poller_threads		=	2,
-	.handler_threads	=	20,
-	.compute_threads	=	-1,
+/*	.endpoint_params	=	*/	ENDPOINT_PARAMS_DEFAULT,
+/*	.dns_ttl_default	=	*/	12 * 3600,
+/*	.dns_ttl_min		=	*/	180,
+/*	.dns_threads		=	*/	8,
+/*	.poller_threads		=	*/	2,
+/*	.handler_threads	=	*/	20,
+/*	.compute_threads	=	*/	-1
 };
 
 /**

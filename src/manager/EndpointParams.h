@@ -45,10 +45,10 @@ struct EndpointParams
 
 static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
 {
-	.max_connections		= 200,
-	.connect_timeout		= 10 * 1000,
-	.response_timeout		= 10 * 1000,
-	.ssl_connect_timeout	= 10 * 1000,
+/*	.max_connections		=	*/	200,
+/*	.connect_timeout		=	*/	10 * 1000,
+/*	.response_timeout		=	*/	10 * 1000,
+/*	.ssl_connect_timeout	=	*/	10 * 1000
 };
 
 #endif

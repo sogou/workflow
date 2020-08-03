@@ -21,6 +21,7 @@
 #define _WFTASKFACTORY_H_
 
 #include <functional>
+#include "PlatformSocket.h"
 #include "URIParser.h"
 #include "RedisMessage.h"
 #include "HttpMessage.h"
@@ -116,6 +117,7 @@ public:
 										  int retry_max,
 										  mysql_callback_t callback);
 
+#ifndef _WIN32
 public:
 	static WFFileIOTask *create_pread_task(int fd,
 										   void *buf,
@@ -151,6 +153,7 @@ public:
 	 * fdsync task is equal to fsync task. */
 	static WFFileSyncTask *create_fdsync_task(int fd,
 											  fsync_callback_t callback);
+#endif
 
 public:
 	static WFTimerTask *create_timer_task(unsigned int microseconds,

@@ -17,9 +17,6 @@
 */
 
 #include <openssl/ssl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
@@ -28,6 +25,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include "PlatformSocket.h"
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
@@ -52,7 +50,7 @@ private:
 		socklen_t addrlen;
 
 		this->get_addr(&addr, &addrlen);
-		return socket(addr->sa_family, SOCK_DGRAM, 0);
+		return (int)socket(addr->sa_family, SOCK_DGRAM, 0);
 	}
 };
 
@@ -65,7 +63,7 @@ private:
 		socklen_t addrlen;
 
 		this->get_addr(&addr, &addrlen);
-		return socket(addr->sa_family, SOCK_STREAM, IPPROTO_SCTP);
+		return (int)socket(addr->sa_family, SOCK_STREAM, IPPROTO_SCTP);
 	}
 };
 
@@ -151,7 +149,7 @@ CommSchedTarget *Router::create_target(const struct RouterParams *params,
 		return NULL;
 	}
 
-	if (target->init(addr->ai_addr, addr->ai_addrlen, params->ssl_ctx,
+	if (target->init(addr->ai_addr, (socklen_t)addr->ai_addrlen, params->ssl_ctx,
 					 params->connect_timeout, params->ssl_connect_timeout,
 					 params->response_timeout, params->max_connections) < 0)
 	{
@@ -441,17 +439,17 @@ int RouteManager::get(TransportType type,
 			ssl_connect_timeout = endpoint_params->ssl_connect_timeout;
 		}
 
-		struct RouterParams params = {
-			.transport_type			=	type,
-			.addrinfo 				= 	addrinfo,
-			.md5_16					=	md5_16,
-			.ssl_ctx 				=	ssl_ctx,
-			.connect_timeout		=	endpoint_params->connect_timeout,
-			.ssl_connect_timeout	=	ssl_connect_timeout,
-			.response_timeout		=	endpoint_params->response_timeout,
-			.max_connections		=	endpoint_params->max_connections
+		struct RouterParams params =
+		{
+		/*	.transport_type			=	*/	type,
+		/*	.addrinfo 				=	*/	addrinfo,
+		/*	.md5_16					=	*/	md5_16,
+		/*	.ssl_ctx 				=	*/	ssl_ctx,
+		/*	.connect_timeout		=	*/	endpoint_params->connect_timeout,
+		/*	.ssl_connect_timeout	=	*/	ssl_connect_timeout,
+		/*	.response_timeout		=	*/	endpoint_params->response_timeout,
+		/*	.max_connections		=	*/	endpoint_params->max_connections
 		};
-
 		if (StringUtil::start_with(other_info, "?maxconn="))
 		{
 			int maxconn = atoi(other_info.c_str() + 9);

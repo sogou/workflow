@@ -38,6 +38,9 @@ add_library(
 	$<TARGET_OBJECTS:client>
 )
 
+#target_link_libraries(${LIB_SHARED} ws2_32 wsock32 OpenSSL::SSL OpenSSL::Crypto)
+#if (NOT WIN32)
+
 install(
 	TARGETS ${PROJECT_NAME}
 	ARCHIVE
@@ -47,7 +50,7 @@ install(
 
 if (APPLE)
 	set(LIBSO ${LIB_DIR}/libworkflow.a)
-else ()
+elseif (NOT WIN32)
 	set(LIBSO ${LIB_DIR}/libworkflow.so)
 	add_custom_target(
 		SCRIPT_SHARED_LIB ALL

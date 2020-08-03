@@ -1,3 +1,5 @@
+[English version](README_en.md)
+
 [![license MIT](https://img.shields.io/badge/License-Apache-yellow.svg)](https://git.sogou-inc.com/wujiaxu/Filter/blob/master/LICENSE)
 [![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
 [![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
@@ -29,7 +31,7 @@
 
 #### 相关的技术要点：
   * 目前项目支持Linux，macOS，FreeBSD，Windows等系统。需要安装cmake。
-    * Windows版暂时以独立branch发布，以iocp为异步通讯基础，对外接口一致。
+    * Windows版暂时以独立[branch](https://github.com/sogou/workflow/tree/windows)发布，以iocp为异步通讯基础，对外接口一致。
   * 该项目使用C/C++编写，使用者需要能比较熟练的使用C++编程。不依赖boost或asio，编译速度极快。
   * 用到少量的C++11特征，用户需要会使用 ``std::function`` 和 ``std::move()`` 。
   * 理论支持一切CPU架构，可以在32位或64位arm处理器上编译运行。Big endian CPU未测试。

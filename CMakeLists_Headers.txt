@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(COMMOM_KERNEL_HEADERS
+set(COMMON_KERNEL_HEADERS
 	src/kernel/CommRequest.h
 	src/kernel/CommScheduler.h
 	src/kernel/Communicator.h
@@ -33,12 +33,12 @@ if (WIN32)
 	)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	set(INCLUDE_KERNEL_HEADERS
-		${COMMOM_KERNEL_HEADERS}
+		${COMMON_KERNEL_HEADERS}
 		src/kernel/IOService_linux.h
 	)
 elseif (UNIX)
 	set(INCLUDE_KERNEL_HEADERS
-		${COMMOM_KERNEL_HEADERS}
+		${COMMON_KERNEL_HEADERS}
 		src/kernel/IOService_thread.h
 	)
 else ()

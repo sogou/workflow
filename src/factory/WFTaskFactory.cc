@@ -548,7 +548,7 @@ void WFRouterTask::dispatch()
 			ret = inet_pton(AF_INET6, host_.c_str(), &addr);
 		else if (isdigit(back) && isdigit(front))
 			ret = inet_pton(AF_INET, host_.c_str(), &addr);
-#ifdef __linux__
+#if defined(AF_UNIX) && !defined(_WIN32)
 		else if (front == '/')
 			ret = 1;
 #endif

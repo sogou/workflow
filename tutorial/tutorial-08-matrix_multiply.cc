@@ -162,7 +162,6 @@ int main()
 	std::unique_lock<std::mutex> lock(mutex);
 	while (!finished)
 		cond.wait(lock);
-
 	lock.unlock();
 	return 0;
 }

@@ -22,7 +22,7 @@ find_package(GTest REQUIRED)
 
 if (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /std:c++14")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /Zc:__cplusplus /std:c++14")
 else ()
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -fPIC -pipe -std=gnu90")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++11 -fno-exceptions")
@@ -37,15 +37,28 @@ set(TEST_LIST
 	facilities_unittest
 )
 
+set(GTEST_LIB GTest::GTest GTest::Main)
+
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+elseif (WIN32)
+	set(WORKFLOW_LIB workflow ws2_32 wsock32 OpenSSL::SSL OpenSSL::Crypto)
+	set(GTEST_LIB GTest::gtest GTest::gtest_main)
 else ()
 	set(WORKFLOW_LIB workflow ${LIBRT})
 endif ()
 
 foreach(src ${TEST_LIST})
 	add_executable(${src} EXCLUDE_FROM_ALL ${src}.cc)
-	target_link_libraries(${src} ${WORKFLOW_LIB} GTest::GTest GTest::Main)
+	target_link_libraries(${src} ${WORKFLOW_LIB} ${GTEST_LIB})
+	if (WIN32)
+		target_compile_definitions(
+			${src} PRIVATE
+			strdup=_strdup
+			strcasecmp=_stricmp
+			strncasecmp=_strnicmp
+		)
+	endif ()
 	add_test(${src} ${src})
 	add_dependencies(check ${src})
 endforeach()

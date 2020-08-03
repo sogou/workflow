@@ -19,6 +19,7 @@
 #ifndef _LRUCACHE_H_
 #define _LRUCACHE_H_
 #include <assert.h>
+#include <mutex>
 #include <map>
 #include <mutex>
 //#include <unordered_map>

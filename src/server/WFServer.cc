@@ -164,8 +164,10 @@ int WFServerBase::start(int family, const char *host, unsigned short port,
 	}
 	else
 	{
+#ifdef EAI_SYSTEM
 		if (ret != EAI_SYSTEM)
 			errno = EINVAL;
+#endif
 		ret = -1;
 	}
 

@@ -50,6 +50,7 @@ DNSOutput& DNSOutput::operator= (DNSOutput&& move)
 
 void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 {
+#ifdef __linux__
 	if (!in->host_.empty() && in->host_[0] == '/')
 	{
 		out->error_ = 0;
@@ -69,6 +70,7 @@ void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 		strcpy(sun->sun_path, in->host_.c_str());
 		return;
 	}
+#endif
 
 	struct addrinfo hints = {
 #ifdef AI_ADDRCONFIG

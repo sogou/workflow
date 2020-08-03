@@ -13,7 +13,7 @@
     * Convinient to **customize protocols**, so you can quickly build your own RPC systems.
       * Sogou RPC is developed based on Sogou Workflow and is open source as an independent project. The project supports srpc, brpc and thrift protocols ([benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)).
     * Support **SSL** (depends on openssl). Support **TCP, UDP, SCTP** and other common transport layer protocols. Support SSL on **SCTP**. Not support UDP server.
-  * A variety of **common Internet protocol** implementations are natively contained and used in a unified way.
+  * A variety of **common Internet protocol** implementations are natively integrated and used in a unified way.
     * Currently support **http, redis, mysql** and **kafka** protocols. You can directly access these resources or build **servers** for these protocols.
     * Highly likely the only C++ full-featured **mysql asynchronous client** on the market.
     * **DNS** protocol is being developing and currently we use the system library to access DNS.
@@ -36,7 +36,7 @@
   * As written in C/C++, it requires the users being able to proficiently use C++ programing. It **does not** rely on boost or asio, therefor the compiling speed is extremely fast.
   * It contains a small numbers of C++11 features, so users need to being able to use ``std::function`` and ``std::move``.
   * Theoretically support all CPU architectures and can be compiled and run on **32-bit** or **64-bit arm processors**. Big endian CPU is not tested.
-  * Rely on **openssl**. If users require a high  performance of SSL, openssl 1.1 or higher is strongly recommended.
+  * **openssl** is required. If users expect high performance of SSL, openssl 1.1 or higher is strongly recommended.
   * **No other dependencies**. Several compression libraries such as snappy and lz4  is contained by their unmodified source (required by the Kafka protocol).
 
 #### Some features of design

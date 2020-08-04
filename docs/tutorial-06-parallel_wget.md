@@ -3,7 +3,7 @@
 
 [tutorial-06-parallel_wget.cc](../tutorial/tutorial-06-parallel_wget.cc)
 
-# 关于oarallel_wget
+# 关于parallel_wget
 
 这是我们第一个并行任务的示例。  
 程序从命令行读入多个http URL（以空格分割），并行抓取这些URL，并按照输入顺序将抓取结果打印到标准输出。

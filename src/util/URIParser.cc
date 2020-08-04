@@ -526,10 +526,10 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 
 	for (int i = 0; i < 7; i++)
 	{
-		int len = ed[i] - st[i];
-
-		if (len > 0)
+		if (ed[i] > st[i])
 		{
+			size_t len = ed[i] - st[i];
+
 			*dst[i] = (char *)realloc(*dst[i], len + 1);
 			if (*dst[i] == NULL)
 			{
@@ -540,17 +540,17 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 
 			memcpy(*dst[i], str + st[i], len);
 			(*dst[i])[len] = '\0';
+
+			if (i == 2 && len >= 3 && (*dst[2])[0] == '%' && (*dst[2])[1] == '2' && ((*dst[2])[2] == 'F' || (*dst[2])[2] == 'f'))
+			{
+				len = StringUtil::url_decode(*dst[2], len);
+				(*dst[i])[len] = '\0';
+			}
 		}
 		else
 		{
 			free(*dst[i]);
 			*dst[i] = NULL;
-		}
-
-		if (i == 2 && len >= 3 && (*dst[2])[0] == '%' && (*dst[2])[1] == '2' && ((*dst[2])[2] == 'F' || (*dst[2])[2] == 'f'))
-		{
-			len = StringUtil::url_decode(*dst[2], len);
-			(*dst[i])[len] = '\0';
 		}
 	}
 

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
+#include <string.h>
 #include <string>
 #include <unordered_map>
 #include <atomic>

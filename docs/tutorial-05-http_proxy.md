@@ -57,7 +57,7 @@ ssl_accept_timeout：完成ssl握手超时，10秒。
 
 # 代理服务器业务逻辑
 
-这个代码服务器本质上是将用户请求原封不到转发到对应的web server，再将web server的回复原封不到转发给用户。  
+这个代理服务器本质上是将用户请求原封不动转发到对应的web server，再将web server的回复原封不动转发给用户。
 浏览器发给proxy的请求里，request uri包含了scheme和host，port，转发时需要去除。  
 例如，访问http://www.sogou.com/， 浏览器发送给proxy请求首行是：  
 GET http://www.sogou.com/ HTTP/1.1  

@@ -505,11 +505,11 @@ int WinPoller::get_io_result(struct poller_result *res, int timeout)
 	res->iobytes = bytes_transferred;
 	if (completion_key == IOCP_KEY_STOP)
 	{
-		if (stop_)
-			PostQueuedCompletionStatus(iocp_, sizeof (OVERLAPPED),
-									   IOCP_KEY_STOP, &__stop_overlap);
+		PostQueuedCompletionStatus(iocp_, sizeof (OVERLAPPED),
+								   IOCP_KEY_STOP, &__stop_overlap);
 
-		return 0;
+		//return 0;
+		return -1;// Thread over
 	}
 
 	IOCPData *iocp_data = CONTAINING_RECORD(pOverlapped, IOCPData, overlap);

@@ -22,6 +22,7 @@
 #include <openssl/conf.h>
 #include <openssl/crypto.h>
 #include <signal.h>
+#include <string.h>
 #include <thread>
 #include <string>
 #include <unordered_map>

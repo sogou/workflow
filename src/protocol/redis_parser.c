@@ -143,7 +143,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 {
 	char *buf = (char *)parser->msgbuf;
 	char *str = buf + parser->msgidx;
-	int slen = parser->findidx - parser->msgidx;
+	size_t slen = parser->findidx - parser->msgidx;
 	char data[32];
 	int i, n;
 	const char *offset = (const char *)parser->msgidx;

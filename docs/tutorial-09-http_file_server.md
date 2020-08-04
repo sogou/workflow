@@ -50,27 +50,27 @@ void process(WFHttpTask *server_task, const char *root)
     // generate abs path.
     ...
 
-	int fd = open(abs_path.c_str(), O_RDONLY);
-	if (fd >= 0)
-	{
-		size_t size = lseek(fd, 0, SEEK_END);
-		void *buf = malloc(size); /* As an example, assert(buf != NULL); */
-		WFFileIOTask *pread_task;
+    int fd = open(abs_path.c_str(), O_RDONLY);
+    if (fd >= 0)
+    {
+        size_t size = lseek(fd, 0, SEEK_END);
+        void *buf = malloc(size);        /* As an example, assert(buf != NULL); */
+        WFFileIOTask *pread_task;
 
-		pread_task = WFTaskFactory::create_pread_task(fd, buf, size, 0,
-													  pread_callback);
-		/* To implement a more complicated server, please use series' context
-		 * instead of tasks' user_data to pass/store internal data. */
-		pread_task->user_data = resp;	/* pass resp pointer to pread task. */
-		server_task->user_data = buf;	/* to free() in callback() */
-		server_task->set_callback([](WFHttpTask *t){ free(t->user_data); });
-		series_of(server_task)->push_back(pread_task);
-	}
-	else
-	{
-		resp->set_status_code("404");
-		resp->append_output_body("<html>404 Not Found.</html>");
-	}
+        pread_task = WFTaskFactory::create_pread_task(fd, buf, size, 0,
+                                                      pread_callback);
+        /* To implement a more complicated server, please use series' context
+         * instead of tasks' user_data to pass/store internal data. */
+        pread_task->user_data = resp;    /* pass resp pointer to pread task. */
+        server_task->user_data = buf;    /* to free() in callback() */
+        server_task->set_callback([](WFHttpTask *t){ free(t->user_data); });
+        series_of(server_task)->push_back(pread_task);
+    }
+    else
+    {
+        resp->set_status_code("404");
+        resp->append_output_body("<html>404 Not Found.</html>");
+    }
 }
 ~~~
 与http_proxy产生一个新的http client任务不同，这里我们通过factory产生了一个pread任务。  
@@ -78,10 +78,10 @@ void process(WFHttpTask *server_task, const char *root)
 ~~~cpp
 struct FileIOArg
 {
-	int fd;
-	void *buf;
-	size_t count;
-	off_t offset;
+    int fd;
+    void *buf;
+    size_t count;
+    off_t offset;
 };
 
 ...
@@ -93,11 +93,11 @@ class WFTaskFactory
 {
 public:
     ...
-	static WFFileIOTask *create_pread_task(int fd, void *buf, size_t count, off_t offset,
-										   fio_callback_t callback);
+    static WFFileIOTask *create_pread_task(int fd, void *buf, size_t count, off_t offset,
+                                           fio_callback_t callback);
 
-	static WFFileIOTask *create_pwrite_task(int fd, void *buf, size_t count, off_t offset,
-											fio_callback_t callback);
+    static WFFileIOTask *create_pwrite_task(int fd, void *buf, size_t count, off_t offset,
+                                            fio_callback_t callback);
     ...
 }
 ~~~
@@ -113,18 +113,18 @@ using namespace protocol;
 
 void pread_callback(WFFileIOTask *task)
 {
-	FileIOArg *arg = task->get_arg();
-	long ret = task->get_retval();
-	HttpResponse *resp = (HttpResponse *)task->user_data;
+    FileIOArg *arg = task->get_arg();
+    long ret = task->get_retval();
+    HttpResponse *resp = (HttpResponse *)task->user_data;
 
-	close(arg->fd);
-	if (ret < 0)
-	{
-		resp->set_status_code("503");
-		resp->append_output_body("<html>503 Internal Server Error.</html>");
-	}
-	else /* Use '_nocopy' carefully. */
-		resp->append_output_body_nocopy(arg->buf, ret);
+    close(arg->fd);
+    if (ret < 0)
+    {
+        resp->set_status_code("503");
+        resp->append_output_body("<html>503 Internal Server Error.</html>");
+    }
+    else /* Use '_nocopy' carefully. */
+        resp->append_output_body_nocopy(arg->buf, ret);
 }
 ~~~
 文件任务的get_arg()得到输入参数，这里是FileIOArg结构。  

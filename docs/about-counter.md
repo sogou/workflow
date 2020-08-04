@@ -7,7 +7,7 @@
 
 由于计数器也是一种任务，它的创建同样通过WFTaskFactory来完成，包括两种创建方法：
 ~~~cpp
-using counter_callback_t = std::function<void (WFTimerTask *)>;
+using counter_callback_t = std::function<void (WFCounterTask *)>;
 
 class WFTaskFactory
 {
@@ -92,12 +92,12 @@ int main(int argc, char *argv[])
 以上创建一个目标值为url_count的计数器，每个http任务完成之后，调用一次count。  
 注意，匿名计数器的count次数不可以超过目标值，否则counter可能已经callback销毁了，程序行为无定义。  
 counter->start()调用可以放在for循环之前。counter只要被创建，就可以调用其count接口，无论counter是否已经启动。  
-匿名计算器的count接口调用，也可以写成counter->WFCounterTask::count(); 在非常注重性能的应用下可以这么用。  
+匿名计数器的count接口调用，也可以写成counter->WFCounterTask::count(); 在非常注重性能的应用下可以这么用。  
 
 # Server与其它异步引擎结合使用
 
 某些情况下，我们的server可能需要调用非本框架的异步客户端等待结果。简单的方法我们可以在process里同步等待，通过条件变量来唤醒。  
-这个做的缺点是我们占用了一个处理线程，把其它框架的异步客户端别为同步客户端。但通过counter的方法，我们可以不占线程的等待。
+这个做的缺点是我们占用了一个处理线程，把其它框架的异步客户端变为同步客户端。但通过counter的方法，我们可以不占线程地等待。
 方法很简单：
 ~~~cpp
 
@@ -125,14 +125,14 @@ void process(WFHttpTask *task)
 
 对匿名计数器进行count操作时，直接访问了counter对象指针。这就必然要求在操作时，调用count的次数不超过目标值。  
 但想象这样一个应用场景，我们同时启动4个任务，只要其中有任意3个任务完成，工作流就可以继续进行。  
-我们可以用一个目标值为3的计数器，每个任务完成之后，count一次，这样只要任务3个任务完成，计数器就被callbavck。  
-但这样的问题是，当第四个任务完成，再调用counter->count()的时候，计算数已经是一个野指针了，程序崩溃。  
-这时候我们可以用命名计数器来解决这个问题。通过给计数器命名，并通过名字来计算器，例如以下实现：
+我们可以用一个目标值为3的计数器，每个任务完成之后，count一次，这样只要任务3个任务完成，计数器就被callback。  
+但这样的问题是，当第4个任务完成，再调用counter->count()的时候，计数器已经是一个野指针了，程序崩溃。  
+这时候我们可以用命名计数器来解决这个问题。通过给计数器命名，并通过名字来计数，例如以下实现：
 ~~~cpp
 void counter_callback(WFCounterTask *counter)
 {
     WFRedisTask *next = WFTaskFactory::create_redis_task(...);
-    series_of(counter).push_back(next);
+    series_of(counter)->push_back(next);
 }
 
 int main(void)
@@ -143,10 +143,10 @@ int main(void)
     counter = WFTaskFactory::create_counter_task("c1", 3, counter_callback);
     counter->start();
 
-    for (i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++)
     {
         tasks[i] = WFTaskFactory::create_http_task(..., [](WFHttpTask *task){
-                                            WFTaskFactory::count_by_mame("c1"); });
+                                            WFTaskFactory::count_by_name("c1"); });
         tasks[i]->start();
     }
 
@@ -186,13 +186,13 @@ count_by_name("c1")等价于count_by_name("c1", 1)。
 
 虽然描述很复杂，但总结起来就一句话，按照创建顺序，依次访问所有名字为name的计数器，直到n为0。  
 也就是说，一次count_by_name(name, n)可以唤醒多个计数器。  
-用好计数器，特别实现非常复杂的业务逻辑。计数器在我们框架里，往往用于实现异步锁，或者用于任务之间的通道。形态上更像一种控制任务。  
+用好计数器，可以实现非常复杂的业务逻辑。计数器在我们框架里，往往用于实现异步锁，或者用于任务之间的通道。形态上更像一种控制任务。  
 
 # 计数器的扩展WFContainerTask
 
 计数器像一种信号量，每一个count操作，并不能附带操作数据，很多时候会带来一些不便。  
 大家如果把计数器想象成有向无环图上的一个节点，每个count是一条入边。那么，节点上可以有属性的，但入边则没有包含任何信息。  
-而WFContainerTask则是一种给入边加上属性的任务。在[WFCounterTask.h](../src/factory/WFContainerTask.h)里，有相关的定义：
+而WFContainerTask则是一种给入边加上属性的任务。在[WFContainerTask.h](../src/factory/WFContainerTask.h)里，有相关的定义：
 ~~~cpp
 template<tyename T>
 class WFContainerTask : public WFCounterTask
@@ -203,4 +203,4 @@ public:
     ...
 };
 ~~~
-有需要的用户可以自行查阅相关代码。由于WFTaskFactory没有提供工厂函数，创造container任务需要自己调用new。  
+有需要的用户可以自行查阅相关代码。由于WFTaskFactory没有提供工厂函数，创造container任务需要自己调用new。

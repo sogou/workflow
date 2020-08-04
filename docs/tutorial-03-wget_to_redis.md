@@ -13,7 +13,7 @@
 和上一个示例类似，本示例也是串行执行两个请求。最大的区别是，我们要通知主线程任务已经执行结束，并正常退出。  
 另外，我们多加入两个调用，限制一下http抓取返回内容的大小，以及接收回复的最大时间。
 ~~~cpp
-http_task = WFTaskFactory::create_http_task(...);
+WFHttpTask *http_task = WFTaskFactory::create_http_task(...);
 ...
 http_task->get_resp()->set_size_limit(20 * 1024 * 1024);
 http_task->set_receive_timeout(30 * 1000);
@@ -34,7 +34,7 @@ public:
     void start()
     {
         assert(!series_of(this));
-        Workflow::start_series_work(this, NULL);
+        Workflow::start_series_work(this, nullptr);
     }
     ...
 };
@@ -43,7 +43,7 @@ public:
 SeriesWork不能new，delete，也不能派生。通过Workflow::create_series_work()接口产生。在[Workflow.h](../src/factory/Workflow.h)中，  
 通常是用这个调用：
 ~~~cpp
-typedef std::function<void (const SeriesWork *)> series_callback_t;
+using series_callback_t = std::function<void (const SeriesWork *)>;
 
 class Workflow
 {
@@ -63,7 +63,7 @@ struct tutorial_series_context
 ...
 struct tutorial_series_context context;
 ...
-SeriesWork *series = create_series_work(http_task, series_callback);
+SeriesWork *series = Workflow::create_series_work(http_task, series_callback);
 series->set_context(&context);
 series->start();
 ~~~

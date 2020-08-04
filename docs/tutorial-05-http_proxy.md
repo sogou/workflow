@@ -39,12 +39,12 @@ int main(int argc, char *argv[])
 ~~~cpp
 static constexpr struct WFServerParams HTTP_SERVER_PARAMS_DEFAULT =
 {
-	.max_connections    	=	1000,
-	.peer_response_timeout	=	10 * 1000,
-	.receive_timeout	    =	-1,
-	.keep_alive_timeout     =	60 * 1000,
-	.request_size_limit	    =	(size_t)-1,
-	.ssl_accept_timeout	    =	10 * 1000,
+    .max_connections        =    1000,
+    .peer_response_timeout  =    10 * 1000,
+    .receive_timeout        =    -1,
+    .keep_alive_timeout     =    60 * 1000,
+    .request_size_limit     =    (size_t)-1,
+    .ssl_accept_timeout     =    10 * 1000,
 };
 ~~~
 max_connections：最大连接数1000，达到上限之后会关闭最久未使用的keep-alive连接。没找到keep-alive连接，则拒绝新连接。  
@@ -57,7 +57,7 @@ ssl_accept_timeout：完成ssl握手超时，10秒。
 
 # 代理服务器业务逻辑
 
-这个代码服务器本质上是将用户请求原封不到转发到对应的web server，再将web server的回复原封不到转发给用户。  
+这个代理服务器本质上是将用户请求原封不动转发到对应的web server，再将web server的回复原封不动转发给用户。
 浏览器发给proxy的请求里，request uri包含了scheme和host，port，转发时需要去除。  
 例如，访问http://www.sogou.com/， 浏览器发送给proxy请求首行是：  
 GET http://www.sogou.com/ HTTP/1.1  
@@ -66,45 +66,45 @@ GET / HTTP/1.1
 ~~~cpp
 void process(WFHttpTask *proxy_task)
 {
-	auto *req = proxy_task->get_req();
-	SeriesWork *series = series_of(proxy_task);
-	WFHttpTask *http_task; /* for requesting remote webserver. */
+    auto *req = proxy_task->get_req();
+    SeriesWork *series = series_of(proxy_task);
+    WFHttpTask *http_task; /* for requesting remote webserver. */
 
-	tutorial_series_context *context = new tutorial_series_context;
-	context->url = req->get_request_uri();
-	context->proxy_task = proxy_task;
+    tutorial_series_context *context = new tutorial_series_context;
+    context->url = req->get_request_uri();
+    context->proxy_task = proxy_task;
 
-	series->set_context(context);
-	series->set_callback([](const SeriesWork *series) {
-		delete (tutorial_series_context *)series->get_context();
-	});
+    series->set_context(context);
+    series->set_callback([](const SeriesWork *series) {
+        delete (tutorial_series_context *)series->get_context();
+    });
 
-	http_task = WFTaskFactory::create_http_task(req->get_request_uri(), 0, 0,
-												http_callback);
+    http_task = WFTaskFactory::create_http_task(req->get_request_uri(), 0, 0,
+                                                http_callback);
 
-	const void *body;
-	size_t len;
+    const void *body;
+    size_t len;
 
-	/* Copy user's request to the new task's reuqest using std::move() */
-	req->set_request_uri(http_task->get_req()->get_request_uri());
-	req->get_parsed_body(&body, &len);
-	req->append_output_body_nocopy(body, len);
-	*http_task->get_req() = std::move(*req);
+    /* Copy user's request to the new task's reuqest using std::move() */
+    req->set_request_uri(http_task->get_req()->get_request_uri());
+    req->get_parsed_body(&body, &len);
+    req->append_output_body_nocopy(body, len);
+    *http_task->get_req() = std::move(*req);
 
-	/* also, limit the remote webserver response size. */
-	http_task->get_resp()->set_size_limit(200 * 1024 * 1024);
+    /* also, limit the remote webserver response size. */
+    http_task->get_resp()->set_size_limit(200 * 1024 * 1024);
 
-	*series << http_task;
+    *series << http_task;
 }
 ~~~
 以上是process的全部内容。先解释向web server发送的http请求的构造。  
 req->get_request_uri()调用得到浏览器请求的完整URL，通过这个URL构建发往server的http任务。  
 这个http任务重试与重定向都是0，因为重定向是由浏览器处理，遇到302等会重新发请求。  
 ~~~cpp
-	req->set_request_uri(http_task->get_req()->get_request_uri());
-	req->get_parsed_body(&body, &len);
-	req->append_output_body_nocopy(body, len);
-	*http_task->get_req() = std::move(*req);
+    req->set_request_uri(http_task->get_req()->get_request_uri());
+    req->get_parsed_body(&body, &len);
+    req->append_output_body_nocopy(body, len);
+    *http_task->get_req() = std::move(*req);
 ~~~
 上面4个语句，其实是在生成发往web server的http请求。req是我们收到的http请求，我们最终要通过std::move()把它直接移动到新请求上。  
 第一行实际上就是将request_uri里的http://host:port部分去掉，只保留path之后的部分。  
@@ -131,15 +131,15 @@ void process(WFHttpTask *proxy_task)
 {
     SeriesWork *series = series_of(proxy_task);
     ...
-	tutorial_series_context *context = new tutorial_series_context;
-	context->url = req->get_request_uri();
-	context->proxy_task = proxy_task;
+    tutorial_series_context *context = new tutorial_series_context;
+    context->url = req->get_request_uri();
+    context->proxy_task = proxy_task;
 
-	series->set_context(context);
-	series->set_callback([](const SeriesWork *series) {
-		delete (tutorial_series_context *)series->get_context();
-	});
-	...
+    series->set_context(context);
+    series->set_callback([](const SeriesWork *series) {
+        delete (tutorial_series_context *)series->get_context();
+    });
+    ...
 }
 ~~~
 之前client的示例中我们说过，任何一个运行中的任务，都处在一个series里，server任务也不例外。  
@@ -148,36 +148,36 @@ void process(WFHttpTask *proxy_task)
 ~~~cpp
 void http_callback(WFHttpTask *task)
 {
-	int state = task->get_state();
-	auto *resp = task->get_resp();
-	SeriesWork *series = series_of(task);
-	tutorial_series_context *context =
-		(tutorial_series_context *)series->get_context();
-	auto *proxy_resp = context->proxy_task->get_resp();
+    int state = task->get_state();
+    auto *resp = task->get_resp();
+    SeriesWork *series = series_of(task);
+    tutorial_series_context *context =
+        (tutorial_series_context *)series->get_context();
+    auto *proxy_resp = context->proxy_task->get_resp();
 
     ...
-	if (state == WFT_STATE_SUCCESS)
-	{
-		const void *body;
-		size_t len;
+    if (state == WFT_STATE_SUCCESS)
+    {
+        const void *body;
+        size_t len;
 
-		/* set a callback for getting reply status. */
-		context->proxy_task->set_callback(reply_callback);
+        /* set a callback for getting reply status. */
+        context->proxy_task->set_callback(reply_callback);
 
-		/* Copy the remote webserver's response, to proxy response. */
-		if (resp->get_parsed_body(&body, &len))
-		    resp->append_output_body_nocopy(body, len);
-		*proxy_resp = std::move(*resp);
-		...
-	}
-	else
-	{
-	    // return a "404 Not found" page
-	    ...
+        /* Copy the remote webserver's response, to proxy response. */
+        if (resp->get_parsed_body(&body, &len))
+            resp->append_output_body_nocopy(body, len);
+        *proxy_resp = std::move(*resp);
+        ...
+    }
+    else
+    {
+        // return a "404 Not found" page
+        ...
     }
 }
 ~~~
-我们只关注成功的情况。一切可以从web server得到一个完整http页面，不管什么返回码，都是成功。所有失败的情况，简单返回一个404页面。    
+我们只关注成功的情况。一切可以从web server得到一个完整http页面，不管什么返回码，都是成功。所有失败的情况，简单返回一个404页面。
 因为返回给用户的数据可能很大，在我们这个示例里，设置为200MB上限。所以，和之前的示例不同，我们需要查看reply成功/失败状态。  
 http server任务和我们自行创建的http client任务的类型是完全相同的，都是WFHttpTask。不同的是server任务是框架创建的，它的callback初始为空。  
 server任务的callback和client一样，是在http交互完成之后被调用。所以，对server任务来讲，就是reply完成之后被调用。  

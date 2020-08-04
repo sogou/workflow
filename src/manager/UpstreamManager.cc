@@ -29,7 +29,6 @@
 #include <chrono>
 #include "list.h"
 #include "rbtree.h"
-#include "Mutex.h"
 #include "URIParser.h"
 #include "StringUtil.h"
 #include "EndpointParams.h"
@@ -38,6 +37,34 @@
 #define GET_CURRENT_SECOND	std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 #define MTTR_SECOND			30
 #define VIRTUAL_GROUP_SIZE	16
+
+namespace //anoymous namespace, for safe, avoid conflict
+{
+// RAII: YES
+class ReadLock
+{
+public:
+	ReadLock(pthread_rwlock_t& rwlock): rwlock_(&rwlock) { pthread_rwlock_rdlock(rwlock_); }
+	ReadLock(pthread_rwlock_t *rwlock): rwlock_(rwlock) { pthread_rwlock_rdlock(rwlock_); }
+	~ReadLock() { pthread_rwlock_unlock(rwlock_); }
+
+private:
+	pthread_rwlock_t *rwlock_;
+};
+
+// RAII: YES
+class WriteLock
+{
+public:
+	WriteLock(pthread_rwlock_t& rwlock): rwlock_(&rwlock) { pthread_rwlock_wrlock(rwlock_); }
+	WriteLock(pthread_rwlock_t *rwlock): rwlock_(rwlock) { pthread_rwlock_wrlock(rwlock_); }
+	~WriteLock() { pthread_rwlock_unlock(rwlock_); }
+
+private:
+	pthread_rwlock_t *rwlock_;
+};
+
+}
 
 class UpstreamAddress;
 class UpstreamGroup;

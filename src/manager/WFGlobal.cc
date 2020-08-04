@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
+#include <string.h>
 #include <string>
 #include <unordered_map>
 #include <atomic>
@@ -36,7 +37,6 @@
 #include "DNSCache.h"
 #include "RouteManager.h"
 #include "Executor.h"
-#include "Mutex.h"
 #include "WFTask.h"
 #include "WFTaskError.h"
 
@@ -426,42 +426,48 @@ public:
 
 	ExecQueue *get_exec_queue(const std::string& queue_name)
 	{
-		ExecQueue *queue;
-		ExecQueueMap::iterator iter;
+		ExecQueue *queue = NULL;
 
+		pthread_rwlock_rdlock(&rwlock_);
+		const auto iter = queue_map_.find(queue_name);
+
+		if (iter != queue_map_.cend())
+			queue = iter->second;
+
+		pthread_rwlock_unlock(&rwlock_);
+
+		if (!queue)
 		{
-			ReadLock lock(mutex_);
-
-			iter = queue_map_.find(queue_name);
-			if (iter != queue_map_.end())
-				return iter->second;
-		}
-
-		queue = new ExecQueue();
-		if (queue->init() >= 0)
-		{
-			WriteLock lock(mutex_);
-			auto ret = queue_map_.emplace(queue_name, queue);
-
-			if (!ret.second)
+			queue = new ExecQueue();
+			if (queue->init() < 0)
 			{
-				queue->deinit();
 				delete queue;
-				queue = ret.first->second;
+				queue = NULL;
 			}
+			else
+			{
+				pthread_rwlock_wrlock(&rwlock_);
+				const auto ret = queue_map_.emplace(queue_name, queue);
 
-			return queue;
+				if (!ret.second)
+				{
+					queue->deinit();
+					delete queue;
+					queue = ret.first->second;
+				}
+
+				pthread_rwlock_unlock(&rwlock_);
+			}
 		}
 
-		delete queue;
-		return NULL;
+		return queue;
 	}
 
 	Executor *get_compute_executor() { return &compute_executor_; }
 
 private:
 	__ExecManager():
-		mutex_(PTHREAD_RWLOCK_INITIALIZER)
+		rwlock_(PTHREAD_RWLOCK_INITIALIZER)
 	{
 		int compute_threads = __WFGlobal::get_instance()->
 										  get_global_settings()->
@@ -486,7 +492,7 @@ private:
 	}
 
 private:
-	pthread_rwlock_t mutex_;
+	pthread_rwlock_t rwlock_;
 	ExecQueueMap queue_map_;
 	Executor compute_executor_;
 };

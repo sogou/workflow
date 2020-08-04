@@ -1,6 +1,5 @@
 # 关于定时器
 
-和网络任务，计算任务或文件任务一样，定时器是我们框架中的一种基础任务。  
 定时器的作用是不占线程的等待一个确定时间，同样通过callback来通知定时器到期。
 
 # 定时器的创建
@@ -37,7 +36,7 @@ void timer_callback(WFTimerTask *timer)
         WFHttpTask *task;
         if (urls_to_fetch > 0)
         {
-            WFHttpTask = create_http_task(...);
+            task = WFTaskFactory::create_http_task(...);
             series_of(timer)->push_back(task);
         }
 
@@ -62,7 +61,7 @@ int main()
 
 # 定时时间不够用怎么办
 
-目前定时器最长定时用期约4200秒，如果程序的任务为24小时启动一次，则需要一个24小时的定时。方法可以简单的添加多个定时器。  
+目前定时器最长定时用期约4200秒，如果程序的任务为24小时启动一次，则需要一个24小时的定时。可以简单地添加多个定时器。  
 例如：
 ~~~cpp
 void timer_callback(WFTimerTask *timer)
@@ -79,7 +78,7 @@ void my_callback(WFMyTask *task)
     WFTimerTask *timer;
     for (int i = 0; i < 24; i++)
     {
-        timer = WFTaskFactory::create_timer_task(3600U*1000*1000， timer_callback);
+        timer = WFTaskFactory::create_timer_task(3600U*1000*1000, timer_callback);
         series->push_back(timer);
     }
 
@@ -89,6 +88,6 @@ void my_callback(WFMyTask *task)
 ~~~
 因为timer_task是一种耗费资源非常小的任务，所以可以创建非常多的timer。上例中创建24个1小时的定时器，每24小时执行一个任务。  
 例子中也考虑了程序随时可以退出的问题。在timer的callback里发现程序已经退出，需要cancel余下的任务。  
-虽然我们的定时器可以被程序退出中断，而且我们也支持把多个定时器串起来，实现一个很长的定时。  
+虽然我们的定时器可以被程序退出中断，而且我们也支持把多个定时器串起来，实现一个很长的定时， 
 但这都不是我们推荐的做法。大多数情况下应该避免太长时间的定时，并且应该等所有定时器到期再结束程序。
 

@@ -1,11 +1,12 @@
+[English version](README_en.md)
+
 [![license MIT](https://img.shields.io/badge/License-Apache-yellow.svg)](https://git.sogou-inc.com/wujiaxu/Filter/blob/master/LICENSE)
 [![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
-[![code style](https://img.shields.io/badge/code%20style-google-blue.svg)](https://google.github.io/styleguide/cppguide.html)
-[![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#12-%E8%B7%A8%E5%B9%B3%E5%8F%B0%E6%94%AF%E6%8C%81)
+[![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
 
 # Sogou C++ Workflow
 #### 搜狗公司的后端C++编程标准，是一套企业级的程序引擎。主要功能和特点：
-  * 这是一个基于C++11 std::function的异步引擎。用于解决一切关于串行，并行和异步的问题。
+  * 这是一个基于C++11 ``std::function`` 的异步引擎。用于解决一切关于串行，并行和异步的问题。
   * 作为网络框架，完全协议无关，并且直接面向应用。
     * 可以当作一个异步redis客户端，也可以快速搭建一个Http服务器。
     * 自定义协议非常方便，你可以快速的建立一个自己的RPC系统。
@@ -30,28 +31,28 @@
 
 #### 相关的技术要点：
   * 目前项目支持Linux，macOS，FreeBSD，Windows等系统。需要安装cmake。
-    * Windows版暂时以独立branch发布，以iocp为异步通讯基础，对外接口一致。
+    * Windows版暂时以独立[branch](https://github.com/sogou/workflow/tree/windows)发布，以iocp为异步通讯基础，对外接口一致。
   * 该项目使用C/C++编写，使用者需要能比较熟练的使用C++编程。不依赖boost或asio，编译速度极快。
-  * 用到少量的C++11特征，用户需要会使用std::function和std::move()。
+  * 用到少量的C++11特征，用户需要会使用 ``std::function`` 和 ``std::move()`` 。
   * 理论支持一切CPU架构，可以在32位或64位arm处理器上编译运行。Big endian CPU未测试。
   * 项目需要依赖openssl。如果用户对SSL性能要求高，强烈建议使用openssl 1.1以上版本。
   * 项目无其他依赖，但包含了snappy，lz4等几个压缩库的无改动源代码（kafka协议需要）。
 
 #### 项目的一些设计特点：
   * 项目基础用法非常简单，极易上手。而我们的一些设计也大幅降低了一般C++项目的使用难度。
-    * 尽量避免让用户派生，一切用户行为都用std::function来包装，例如：
+    * 尽量避免让用户派生，一切用户行为都用 ``std::function`` 来包装，例如：
       * 任何任务结束后的callback。
       * 计算任务里的算法。
-      * 一个server，也对应一个std::function。
+      * 一个server，也对应一个 ``std::function`` 。
     * 尽量避免复杂的内存管理，一切任务和框架由工厂类产生，并自动内存回收。
       * 任何任务在callback之后被自动delete。
-      * 任务中的数据（例如一个网络回复包，一个算法的结果），如果用户要保留，需要用std::move()把它移走。
+      * 任务中的数据（例如一个网络回复包，一个算法的结果），如果用户要保留，需要用 ``std::move()`` 把它移走。
       * 内存回收是使用一套严密又符合自然逻辑的机制，我们不使用任何share_ptr。
     * 尽量避免复杂的参数配置。
       * 我们可配置的参数非常多，但您可以在对参数完全无感的情况下使用我们的系统。
       * 如果您对程序行为，资源配比有特定需求，一定能找到对应配置项，以便发挥程序最高性能。
   * 项目采用全异步的设计，并且对用户不透明，用户需要知道自己在写异步程序。
-    * 我们通过精心的设计的用户尽量简单的使用异步，得益于std::function带来的便利性，以及自动内存回收机制。
+    * 我们通过精心的设计的用户尽量简单的使用异步，得益于 ``std::function`` 带来的便利性，以及自动内存回收机制。
     * 没有采用用户态线程的方式，一方面是性能考虑，另一方面原因是我们有计算任务（线程任务）调度的概念。
       * 在我们的设计里，计算是一种异步任务，和通信并没有什么区别。
       * 计算任务由独立的线程组依照特定算法进行调度，并不一定实时被执行。

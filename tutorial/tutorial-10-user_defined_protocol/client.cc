@@ -117,6 +117,7 @@ int main(int argc, char *argv[])
 	std::unique_lock<std::mutex> lock(mutex);
 	while (!finished)
 		cond.wait(lock);
+
 	lock.unlock();
 	return 0;
 }

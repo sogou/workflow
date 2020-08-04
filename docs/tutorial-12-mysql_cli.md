@@ -27,7 +27,7 @@ mysql://username:password@host:port/dbname?character_set=charset
 
 MySQL URL示例：
 
-mysql://root@127.0.0.1/
+mysql://root:password@127.0.0.1
 
 mysql://@test.mysql.com:3306/db1?character_set=utf8
 
@@ -88,7 +88,7 @@ req->set_query("CALL procedure1(); SELECT * FROM table1;");
 
 # 结果解析
 
-与workflow其他任务类似，可以用task->get_resp()拿到**MySQLResponse**，我们可以通过**MySQLResultCursor**遍历结果集及其中的每行、每个cell。具体接口可以查看：[MySQLResult.h](../src/protocol/MySQLResult.h)
+与workflow其他任务类似，可以用task->get_resp()拿到**MySQLResponse**，我们可以通过**MySQLResultCursor**遍历结果集及其中的每个列的信息**MySQLField**、每行和每个**MySQLCell**。具体接口可以查看：[MySQLResult.h](../src/protocol/MySQLResult.h)
 
 具体使用从外到内的步骤应该是：
 
@@ -99,7 +99,7 @@ req->set_query("CALL procedure1(); SELECT * FROM table1;");
 	- MYSQL_PACKET_EOF：返回结果集的请求: 解析成功；
 	- MYSQL_PACKET_ERROR：请求:失败；
 
-3. 判断结果集状态（代表结果集读取状态）：用户可以使用cursor读取结果集中的内容，因为MySQL server返回的数据是多结果集的，因此一开始cursor会**自动指向第一个结果集**的读取位置。通过 **get_cursor_status()** 可以拿到的几种状态：
+3. 判断结果集状态（代表结果集读取状态）：用户可以使用MySQLResultCursor读取结果集中的内容，因为MySQL server返回的数据是多结果集的，因此一开始cursor会**自动指向第一个结果集**的读取位置。通过 **cursor->get_cursor_status()** 可以拿到的几种状态：
 	- MYSQL_STATUS_GET_RESULT：有数据可读；
 	- MYSQL_STATUS_END：当前结果集已读完最后一行；
 	- MYSQL_STATUS_EOF：所有结果集已取完；
@@ -111,24 +111,24 @@ req->set_query("CALL procedure1(); SELECT * FROM table1;");
 	- const MySQLField *fetch_field();
     - const MySQLField *const *fetch_fields() const;
 
-5. 读取每一行：按行读取可以使用 **fetch_row()** 直到返回值为false。其中会移动cursor内部对当前结果集的指向每行的offset：
+5. 读取每一行：按行读取可以使用 **cursor->fetch_row()** 直到返回值为false。其中会移动cursor内部对当前结果集的指向每行的offset：
 	- int get_rows_count() const;
 	- bool fetch_row(std::vector\<MySQLCell\>& row_arr);
 	- bool fetch_row(std::map\<std::string, MySQLCell\>& row_map);
 	- bool fetch_row(std::unordered_map\<std::string, MySQLCell\>& row_map);
 	- bool fetch_row_nocopy(const void **data, size_t *len, int *data_type);
 
-6. 直接把当前结果集的所有行拿出：所有行的读取可以使用 **fetch_all()** ，内部用来记录行的cursor会直接移动到最后；cursor状态会变成MYSQL_STATUS_END：
+6. 直接把当前结果集的所有行拿出：所有行的读取可以使用 **cursor->fetch_all()** ，内部用来记录行的cursor会直接移动到最后；cursor状态会变成MYSQL_STATUS_END：
 	- bool fetch_all(std::vector\<std::vector\<MySQLCell\>\>& rows);
 
-7. 返回当前结果集的头部：如果有必要重读这个结果集，可以使用 **rewind()** 回到当前结果集头部，再通过第5步或第6步进行读取；
+7. 返回当前结果集的头部：如果有必要重读这个结果集，可以使用 **cursor->rewind()** 回到当前结果集头部，再通过第5步或第6步进行读取；
 
-8. 拿到下一个结果集：因为MySQL server返回的数据包可能是包含多结果集的（比如每个select语句为一个结果集；或者call procedure返回的多结果集数据），因此用户可以通过 **next_result_set()** 跳到下一个结果集，返回值为false表示所有结果集已取完。
+8. 拿到下一个结果集：因为MySQL server返回的数据包可能是包含多结果集的（比如每个select语句为一个结果集；或者call procedure返回的多结果集数据），因此用户可以通过 **cursor->next_result_set()** 跳到下一个结果集，返回值为false表示所有结果集已取完。
 
-9. 返回第一个结果集：**first_result_set()** 可以让我们返回到所有结果集的头部，然后可以从第3步开始重新拿数据；
+9. 返回第一个结果集：**cursor->first_result_set()** 可以让我们返回到所有结果集的头部，然后可以从第3步开始重新拿数据；
 
 10. 每列具体数据MySQLCell：第5步中读取到的一行，由多列组成，每列结果为MySQLCell，基本使用接口有：
-	- int get_data_type(); // 返回MYSQL_TYPE_LONG、MYSQL_TYPE_STRING...具体参考[mysql_types.h.h](../src/protocol/mysql_types.h.h)
+	- int get_data_type(); // 返回MYSQL_TYPE_LONG、MYSQL_TYPE_STRING...具体参考[mysql_types.h](../src/protocol/mysql_types.h)
 	- bool is_TYPE() const; // TYPE为int、string、ulonglong，判断是否是某种类型
 	- TYPE as_TYPE() const; // 同上，以某种类型读出MySQLCell的数据
 	- void get_cell_nocopy(const void **data, size_t *len, int *data_type) const; // nocopy接口
@@ -227,7 +227,7 @@ begin:
 
 # WFMySQLConnection
 
-由于我们是高并发异步客户端，这意味着我们对一个server的连接可能会不止一个。而MySQL的事务和预处理都是带状态的，为了保证一次事务或预处理独占一个连接，用户可以使用我们封装的二级工厂[WFMySQLConnection](../src/client/WFMySQLConnection.h)来创建任务，每个WFMySQLConnection保证独占一个连接。
+由于我们是高并发异步客户端，这意味着我们对一个server的连接可能会不止一个。而MySQL的事务和预处理都是带状态的，为了保证一次事务或预处理独占一个连接，用户可以使用我们封装的二级工厂WFMySQLConnection来创建任务，每个WFMySQLConnection保证独占一个连接，具体参考[WFMySQLConnection.h](../src/client/WFMySQLConnection.h)。
 
 ### 1. WFMySQLConnection的创建与初始化
 

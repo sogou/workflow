@@ -78,30 +78,30 @@ void callback(void SortTask<int> *task)
 namespace algorithm
 {
 
-template <tyename T>
-SortInput
+template <typename T>
+struct SortInput
 {
     T *first;
     T *last;
 };
 
-template <tyename T>
+template <typename T>
 using SortOutput = SortInput<T>;
 
 }
 
-template <tyename T>
+template <typename T>
 using WFSortTask = WFThreadTask<algorithm::SortInput<T>,
                                 algorithm::SortOutput<T>>;
 
-template <tyename T>
-using sort_callback_t = std::function<void (SortTask<T> *)>;
+template <typename T>
+using sort_callback_t = std::function<void (WFSortTask<T> *)>;
 
 ~~~
 显然，input或output里的first, last分别为排序数组的首尾指针。  
 接下来我们会创建一个降序排序的任务，这时候，我们就需要传进去一个比较函数了。  
 ~~~cpp
-        auto cmp = [](int a1, int a2){ return a2 < a1; };
+        auto cmp = [](int a1, int a2)->bool{ return a2 < a1; };
         reverse = WFAlgoTaskFactory::create_sort_task("sort", first, last, cmp, callback);
 ~~~
 可以说我们的用法和std::sort()区别不是很大。但我们的first和last是指针，而不是用iterator。  
@@ -136,6 +136,6 @@ int main()
   * 队列名是一个静态字符串，不可以无限产生新的队列名。例如不可以根据请求id来产生队列名，因为内部会为每个队列分配一小块资源。  
   * 当计算线程没有被100%占满，所有任务都是实时调起，队列名没有任何影响。
   * 如果一个服务流程里有多个计算步骤，穿插在多个网络通信之间，可以简单的给每种计算步骤起一个名字，这个会比整体用一个名字要好。
-    * 如果所有计算任务用同一个名字，那么所有任务的被调度的顺序于提交顺序一致，在某些场景下会影响平均响应时间。
+    * 如果所有计算任务用同一个名字，那么所有任务的被调度的顺序与提交顺序一致，在某些场景下会影响平均响应时间。
     * 每种计算任务有一个独立名字，那么相当于每种任务之间是公平调度的，而同一种任务内部是顺序调度的，实践效果更好。
   * 总之，除非机器的计算负载已经非常繁重，否则没有必要特别关心队列名，只要每种任务起一个名字就可以了。

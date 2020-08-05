@@ -160,7 +160,7 @@ public:
 
 	WFFuture<void> get_future()
 	{
-		return WFFuture<void>(std::move(this->promise.get_future()));
+		return WFFuture<void>(this->promise.get_future());
 	}
 
 	void set_value() { this->promise.set_value(); }

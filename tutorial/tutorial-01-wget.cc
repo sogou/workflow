@@ -17,7 +17,6 @@
 */
 
 #include <netdb.h>
-#include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,6 +25,7 @@
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
 #include "workflow/WFTaskFactory.h"
+#include "workflow/WFFacilities.h"
 
 #define REDIRECT_MAX    5
 #define RETRY_MAX       2
@@ -97,7 +97,12 @@ void wget_callback(WFHttpTask *task)
 	fprintf(stderr, "\nSuccess. Press Ctrl-C to exit.\n");
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -125,7 +130,8 @@ int main(int argc, char *argv[])
 	req->add_header_pair("User-Agent", "Wget/1.14 (linux-gnu)");
 	req->add_header_pair("Connection", "close");
 	task->start();
-	pause();
+
+	wait_group.wait();
 	return 0;
 }
 

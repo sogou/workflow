@@ -17,7 +17,6 @@
 */
 
 #include <signal.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <utility>
@@ -25,6 +24,7 @@
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
 #include "workflow/WFHttpServer.h"
+#include "workflow/WFFacilities.h"
 
 struct tutorial_series_context
 {
@@ -137,7 +137,12 @@ void process(WFHttpTask *proxy_task)
 	*series << http_task;
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -160,7 +165,7 @@ int main(int argc, char *argv[])
 
 	if (server.start(port) == 0)
 	{
-		pause();
+		wait_group.wait();
 		server.stop();
 	}
 	else

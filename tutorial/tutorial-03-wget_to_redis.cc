@@ -18,18 +18,16 @@
 
 /* Tuturial-03. Store wget result in redis: key=URL, value=Http Body*/
 #include <netdb.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <string>
-#include <mutex>
-#include <condition_variable>
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
 #include "workflow/RedisMessage.h"
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
+#include "workflow/WFFacilities.h"
 
 using namespace protocol;
 
@@ -110,9 +108,6 @@ void http_callback(WFHttpTask *task)
 
 int main(int argc, char *argv[])
 {
-	std::mutex mutex;
-	std::condition_variable cond;
-	bool finished = false;
 	WFHttpTask *http_task;
 
 	if (argc != 3)
@@ -152,7 +147,9 @@ int main(int argc, char *argv[])
 	/* no more than 30 seconds receiving http response. */
 	http_task->set_receive_timeout(30 * 1000);
 
-	auto series_callback = [&mutex, &cond, &finished](const SeriesWork *series)
+	WFFacilities::WaitGroup wait_group(1);
+
+	auto series_callback = [&wait_group](const SeriesWork *series)
 	{
 		tutorial_series_context *context = (tutorial_series_context *)
 											series->get_context();
@@ -163,10 +160,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Series finished. failed!\n");
 
 		/* signal the main() to terminate */
-		mutex.lock();
-		finished = true;
-		cond.notify_one();
-		mutex.unlock();
+		wait_group.done();
 	};
 
 	/* Create a series */
@@ -175,10 +169,7 @@ int main(int argc, char *argv[])
 	series->set_context(&context);
 	series->start();
 
-	std::unique_lock<std::mutex> lock(mutex);
-	while (!finished)
-		cond.wait(lock);
-	lock.unlock();
+	wait_group.wait();
 	return 0;
 }
 

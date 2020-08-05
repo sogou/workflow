@@ -17,18 +17,23 @@
 
 # 协议的实现
 
-用户自定义协议，需要提供协议的协议的序列化和反序列化方法，这两个方法都是ProtocolMeessage类的虚函数。  
+用户自定义协议，需要提供协议的序列化和反序列化方法，这两个方法都是ProtocolMeessage类的虚函数。  
 另外，为了使用方便，我们强烈建议用户实现消息的移动构造和移动赋值（用于std::move()）。
 在[ProtocolMessage.h](../src/protocol/ProtocolMessage.h)里，序列化反序列化接口如下：
 ~~~cpp
 namespace protocol
 {
 
-class ProtocolMessage : public CommMessageOut, public, CommMessageIn
+class ProtocolMessage : public CommMessageOut, public CommMessageIn
 {
 private:
-    virtual int encode(struct iovec vectors[], int max) = 0;
-    virtual int append(const char *buf, size_t size) = 0;
+    virtual int encode(struct iovec vectors[], int max);
+
+    /* You have to implement one of the 'append' functions, and the first one
+     * with arguement 'size_t *size' is recommmended. */
+    virtual int append(const void *buf, size_t *size)；
+    virtual int append(const void *buf, size_t size);
+	
     ...
 };
 
@@ -42,24 +47,25 @@ private:
     * 如果是UDP协议，请注意总长度不超过64k，并且使用不超过1024个vector（Linux一次writev只能1024个vector）。
       * UDP协议只能用于client，无法实现UDP server。
   * encode返回-1表示错误。返回-1时，需要置errno。如果返回值>max，将得到一个EOVERFLOW错误。错误都在callback里得到。
-  * 为了性能考虑vector里的iov_base指计指向的内容不会被复制。所以一般指向消息类的成员。
+  * 为了性能考虑vector里的iov_base指针指向的内容不会被复制。所以一般指向消息类的成员。
 
 ### 反序列化函数append
   * append函数在每次收到一个数据块时被调用。因此，每条消息可能会调用多次。
   * buf和size分别是收到的数据块内容和长度。用户需要把数据内容复制走。
+    * 如果实现了append(const void \*buf, size_t \*size)接口，可以通过修改\*size来告诉框架本次消费了多少长度。收到的size - 消费的size = 剩余的size，剩余的那部分buf会由下一次append被调起时再次收到。此功能更方便协议解析，当然用户也可以全部烤走自行管理，则无需修改\*size。
     * 如果是UDP协议，一次append一定是一个完整的数据包。
   * append函数返回0表示消息还不完整，传输继续。返回1表示消息结束。-1表示错误，需要置errno。
   * 总之append的作用就是用于告诉框架消息是否已经传输结束。不要在append里做复杂的非必要的协议解析。
 
 ### errno的设置
   * encode或append返回-1或其它负数都会被理解为失败，需要通过errno来传递错误原因。用户会在callback里得到这个错误。
-  * 如果是系统调用或libc等库函数失败（比如malloc）,libc会肯定会设置好errno，用户无需再设置。
-  * 一些消息不合法的错误是比如常见的，比如可以用EBADMSG，EMSGSIZE分别表示消息内容错误，和消息太大。
+  * 如果是系统调用或libc等库函数失败（比如malloc）,libc肯定会设置好errno，用户无需再设置。
+  * 一些消息不合法的错误是比较常见的，比如可以用EBADMSG，EMSGSIZE分别表示消息内容错误，和消息太大。
   * 用户可以选择超过系统定义errno范围的值来表示一些自定义错误。一般大于256的值是可以用的。
   * 请不要使用负数errno。因为框架内部用了负数来代表SSL错误。
 
 在我们的示例里，消息的序列化反序列化都非常的简单。  
-头文件[message.h](../tutorial/tutorial-10-user_defined_protocol/message.h)里，申明了request和response类：
+头文件[message.h](../tutorial/tutorial-10-user_defined_protocol/message.h)里，声明了request和response类：
 ~~~cpp
 namespace protocol
 {
@@ -68,7 +74,7 @@ class TutorialMessage : public ProtocolMessage
 {
 private:
     virtual int encode(struct iovec vectors[], int max);
-    virtual int append(const char *buf, size_t size);
+    virtual int append(const void *buf, size_t size);
     ...
 };
 
@@ -104,7 +110,7 @@ int TutorialMessage::append(const void *buf, size_t size)
         size_t head_left;
         void *p;
 
-        p = &this->head[head_received];
+        p = &this->head[this->head_received];
         head_left = 4 - this->head_received;
         if (size < 4 - this->head_received)
         {

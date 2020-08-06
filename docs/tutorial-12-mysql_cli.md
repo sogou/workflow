@@ -43,7 +43,7 @@ void set_query(const std::string& query);
 ~~~
 用户创建完WFMySQLTask之后，可以对req调用 **set_query()** 写入SQL语句。
 
-基于MySQL协议，如果建立完连接而发一个空包，server会等待而不是回包，因此用户会得到超时，因此我们对那些没有调用set_query()的task进行了特判并且会立刻返回**WFT_ERR_MYSQL_QUERY_NOT_SET**。
+基于MySQL协议，如果建立完连接而发一个空包，server会等待而不是回包，因此用户会得到超时，因此我们对那些没有调用 ``set_query()`` 的task进行了特判并且会立刻返回**WFT_ERR_MYSQL_QUERY_NOT_SET**。
 
 其他包括callback、series、user_data等与workflow其他task用法类似。
 
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 
 因为我们的交互命令中不支持选库（**USE**命令），所以，如果SQL语句中有涉及到**跨库**的操作，则可以通过**db_name.table_name**的方式指定具体哪个库的哪张表。
 
-**多条命令**可以拼接到一起通过set_query()传给WFMySQLTask，一般来说多条语句是可以一次把结果全部拿回来的，但由于MySQL协议中回包的方式与我们一问一答的通信有某些特例下不能兼容，因此set_query()中的SQL语句有以下注意事项：
+**多条命令**可以拼接到一起通过 ``set_query()`` 传给WFMySQLTask，一般来说多条语句是可以一次把结果全部拿回来的，但由于MySQL协议中回包的方式与我们一问一答的通信有某些特例下不能兼容，因此 ``set_query()`` 中的SQL语句有以下注意事项：
 
 - 可以多条单结果集语句的拼接（一般的INSERT/UPDATE/SELECT/PREPARE）
 
@@ -95,31 +95,31 @@ req->set_query("CALL procedure1(); SELECT * FROM table1;");
 1. 判断任务状态（代表通信层面状态）：用户通过判断 **task->get_state()** 等于WFT_STATE_SUCCESS来查看任务执行是否成功；
 
 2. 判断回复包类型（代表返回包解析状态）：调用 **resp->get_packet_type()** 查看MySQL返回包类型，常见的几个类型为：
-	- MYSQL_PACKET_OK：返回非结果集的请求: 解析成功；
-	- MYSQL_PACKET_EOF：返回结果集的请求: 解析成功；
-	- MYSQL_PACKET_ERROR：请求:失败；
+  - MYSQL_PACKET_OK：返回非结果集的请求: 解析成功；
+  - MYSQL_PACKET_EOF：返回结果集的请求: 解析成功；
+  - MYSQL_PACKET_ERROR：请求:失败；
 
 3. 判断结果集状态（代表结果集读取状态）：用户可以使用MySQLResultCursor读取结果集中的内容，因为MySQL server返回的数据是多结果集的，因此一开始cursor会**自动指向第一个结果集**的读取位置。通过 **cursor->get_cursor_status()** 可以拿到的几种状态：
-	- MYSQL_STATUS_GET_RESULT：有数据可读；
-	- MYSQL_STATUS_END：当前结果集已读完最后一行；
-	- MYSQL_STATUS_EOF：所有结果集已取完；
-	- MYSQL_STATUS_OK：此回复包为非结果集包，无需通过结果集接口读数据；
-	- MYSQL_STATUS_ERROR：解析错误；
+  - MYSQL_STATUS_GET_RESULT：有数据可读；
+  - MYSQL_STATUS_END：当前结果集已读完最后一行；
+  - MYSQL_STATUS_EOF：所有结果集已取完；
+  - MYSQL_STATUS_OK：此回复包为非结果集包，无需通过结果集接口读数据；
+  - MYSQL_STATUS_ERROR：解析错误；
 
 4. 读取columns中每个field：
-	- int get_field_count() const;
-	- const MySQLField *fetch_field();
-    - const MySQLField *const *fetch_fields() const;
+  - ``int get_field_count() const;``
+  - ``const MySQLField *fetch_field();``
+    - ``const MySQLField *const *fetch_fields() const;``
 
 5. 读取每一行：按行读取可以使用 **cursor->fetch_row()** 直到返回值为false。其中会移动cursor内部对当前结果集的指向每行的offset：
-	- int get_rows_count() const;
-	- bool fetch_row(std::vector\<MySQLCell\>& row_arr);
-	- bool fetch_row(std::map\<std::string, MySQLCell\>& row_map);
-	- bool fetch_row(std::unordered_map\<std::string, MySQLCell\>& row_map);
-	- bool fetch_row_nocopy(const void **data, size_t *len, int *data_type);
+  - ``int get_rows_count() const;``
+  - ``bool fetch_row(std::vector<MySQLCell>& row_arr);``
+  - ``bool fetch_row(std::map<std::string, MySQLCell>& row_map);``
+  - ``bool fetch_row(std::unordered_map<std::string, MySQLCell>& row_map);``
+  - ``bool fetch_row_nocopy(const void **data, size_t *len, int *data_type);``
 
 6. 直接把当前结果集的所有行拿出：所有行的读取可以使用 **cursor->fetch_all()** ，内部用来记录行的cursor会直接移动到最后；cursor状态会变成MYSQL_STATUS_END：
-	- bool fetch_all(std::vector\<std::vector\<MySQLCell\>\>& rows);
+  - ``bool fetch_all(std::vector<std::vector<MySQLCell>>& rows);``
 
 7. 返回当前结果集的头部：如果有必要重读这个结果集，可以使用 **cursor->rewind()** 回到当前结果集头部，再通过第5步或第6步进行读取；
 
@@ -128,10 +128,10 @@ req->set_query("CALL procedure1(); SELECT * FROM table1;");
 9. 返回第一个结果集：**cursor->first_result_set()** 可以让我们返回到所有结果集的头部，然后可以从第3步开始重新拿数据；
 
 10. 每列具体数据MySQLCell：第5步中读取到的一行，由多列组成，每列结果为MySQLCell，基本使用接口有：
-	- int get_data_type(); // 返回MYSQL_TYPE_LONG、MYSQL_TYPE_STRING...具体参考[mysql_types.h](../src/protocol/mysql_types.h)
-	- bool is_TYPE() const; // TYPE为int、string、ulonglong，判断是否是某种类型
-	- TYPE as_TYPE() const; // 同上，以某种类型读出MySQLCell的数据
-	- void get_cell_nocopy(const void **data, size_t *len, int *data_type) const; // nocopy接口
+  - ``int get_data_type();`` 返回MYSQL_TYPE_LONG、MYSQL_TYPE_STRING...具体参考[mysql_types.h](../src/protocol/mysql_types.h)
+  - ``bool is_TYPE() const;`` TYPE为int、string、ulonglong，判断是否是某种类型
+  - ``TYPE as_TYPE() const;`` 同上，以某种类型读出MySQLCell的数据
+  - ``void get_cell_nocopy(const void **data, size_t *len, int *data_type) const;`` nocopy接口
 
 整体示例如下：
 ~~~cpp

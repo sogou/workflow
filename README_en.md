@@ -10,10 +10,10 @@
   * An **asynchronous engine** based on **C++11** ``std::function`` which aims to solve all the **serial, parallel and asynchronous** problems.
   * As a network framework, it is completely **protocol-agnostic** and directly facing applications.
     * It can either be used as a Redis **client** or an Http **server**.
-    * Convinient to **customize protocols**, so you can quickly build your own RPC systems.
+    * Convenient to **customize protocols**, so you can quickly build your own RPC systems.
       * Sogou RPC is developed based on Sogou Workflow and is open source as an independent project. The project supports srpc, brpc and thrift protocols ([benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)).
     * Support **SSL** (depends on openssl). Support **TCP, UDP, SCTP** and other common transport layer protocols. Support SSL on **SCTP**. Not support UDP server.
-  * A variety of **common Internet protocol** implementations are natively integrated and used in a unified way.
+  * Natively contains a variety of **common Internet protocol** implementations which are used in a unified way.
     * Currently support **http, redis, mysql** and **kafka** protocols. You can directly access these resources or build **servers** for these protocols.
     * Highly likely the only C++ full-featured **mysql asynchronous client** on the market.
     * **DNS** protocol is being developing and currently we use the system library to access DNS.
@@ -28,18 +28,18 @@
   * Built-in **load balancing** and powerful **service governance** features.
   * Easily used in conjunction with other asynchronous engines.
   * **Streaming** communication engine is being developed.
-  * When working as a server, it supports **multi-processes** mode and precisely supports **graceful restart**.
+  * When working as a server, it supports **multi-processes** mode and supports precise **graceful restart**.
 
 #### Building
   * Support **Linux, macOS, FreeBSD, Windows** and other systems so far. Installing **cmake** is necessary.
-    * Windows version is temporarily released as an independent branch, which uses **iocp** as the basis for asynchronous communication and mean while, keeping the **same external interface**.
+    * Windows version is temporarily released as an independent [branch](https://github.com/sogou/workflow/tree/windows), which uses **iocp** as the basis for asynchronous communication and mean while, keeping the **same external interface**.
   * As written in C/C++, it requires the users being able to proficiently use C++ programing. It **does not** rely on boost or asio, therefor the compiling speed is extremely fast.
-  * It contains a small numbers of C++11 features, so users need to being able to use ``std::function`` and ``std::move``.
+  * It contains a few C++11 features, so users should be able to use ``std::function`` and ``std::move``.
   * Theoretically support all CPU architectures and can be compiled and run on **32-bit** or **64-bit arm processors**. Big endian CPU is not tested.
-  * **openssl** is required. If users expect high performance of SSL, openssl 1.1 or higher is strongly recommended.
+  * **OpenSSL** is required. If users expect high performance of SSL, OpenSSL 1.1 or higher is strongly recommended.
   * **No other dependencies**. Several compression libraries such as snappy and lz4  is contained by their unmodified source (required by the Kafka protocol).
 
-#### Some features of design
+#### Some design features
   * The basic usage is very simple and handy. Some features are designed to greatly reduce the difficulty of programming with general C++ projects.
     * To **avoid** users to **derive** as much as possible, all user behaviors are wrapped with std::function, for example:
       * the **callback** after every task ends
@@ -50,7 +50,7 @@
       * If the users want to keep any data in the task (such as a network reply packet or the result of an algorithm), they need to use ``std::move`` to move it.
       * We treat memory recycle as a strict and naturally logical mechanism, so we **don’t** use share_ptr.
     * Avoid using complicated parameter configuration.
-      * Actually we have a lot of **configurable parameters**, though you can use our system **without** feeling the parameters exist.
+      * Actually we have a lot of **configurable parameters**, though you can use our system **without** feeling the existence of parameters.
       * If you have specific requirements for program behavior and resource ratio, you can definitely find the corresponding parameter configuration items in order to maximize the performance of you program.
   * The project adopts a fully asynchronous design and is not transparent to users, which means users need to know that they are writing asynchronous programs.
     * Thanks to the convenience brought by ``std::function`` and the automatic memory recycling mechanism, we have delicately designed **the simply possible usage of asynchrony** for users.
@@ -61,7 +61,7 @@
     * Because of the full asynchrony, almost all core calls are **short** and **non-blocking** operations.
       * That’s why we **don’t** recommend users to **block** their programs in callback or do some complex calculations. However, it acceptable if the logic is quite simple.
    * Brief summary of the usage:
-    * The user builds the program just like building a **series-parallel** circuit. The circuit can be generated **at the beginning** or **dynamically during the program running**.
+    * The users can build the program just like building a **series-parallel** circuit. The circuit can be generated **at the beginning** or **dynamically generated during the program running**.
     * **We provide various electronic components** for users. For instance, one http request, one GPU matrix multiplication, and one parallel sorting can all be understood as a electronic component.
     * Every electronic component has its **standard input and output**. At the meantime, every electronic component can be a **complicated circuit**, which has no necessary to be perceived by the users.
     * For example, an http request may go through **multiple asynchronous processes** such as DNS, redirect, and retry, but the entire processes is just a **component** in the perspective of the users.
@@ -78,9 +78,9 @@
   * Server
     * [first server：http_echo_server](docs/tutorial-04-http_echo_server.md)
     * [asynchronous server：http_proxy](docs/tutorial-05-http_proxy.md)
-  * Paralle task and Series　
+  * Parallel task and Series　
     * [A simple parallel wget：parallel_wget](docs/tutorial-06-parallel_wget.md)
-  * Important topic
+  * Important topics
     * [About error](docs/about-error.md)
     * [About timeout](docs/about-timeout.md)
     * [About DNS](docs/about-dns.md)

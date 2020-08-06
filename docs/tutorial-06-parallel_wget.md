@@ -3,7 +3,7 @@
 
 [tutorial-06-parallel_wget.cc](../tutorial/tutorial-06-parallel_wget.cc)
 
-# 关于multi_wget
+# 关于parallel_wget
 
 这是我们第一个并行任务的示例。  
 程序从命令行读入多个http URL（以空格分割），并行抓取这些URL，并按照输入顺序将抓取结果打印到标准输出。
@@ -30,7 +30,7 @@ public:
                          parallel_callback_t callback);
 
     ...
-}
+};
 ~~~
 第一个接口创建一个空的并行任务，第二个接口用一个series数组创建并行任务。  
 无论用哪个接口产生的并行任务，在启动之前都可以用ParallelWork的add_series()接口添加series。  
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
         ctx = new tutorial_series_context;
         ctx->url = std::move(url);
-        series = Workflow::create_series_work(task, NULL);
+        series = Workflow::create_series_work(task, nullptr);
         series->set_context(ctx);
         pwork->add_series(series);
     }
@@ -88,7 +88,7 @@ http任务的callback是一个简单的lambda函数，把抓取结果保存在�
 这个做法是必须的，因为http任务在callback之后就会被回收，我们只能把resp通过std::move()操作移走。  
 而在并行任务的callback里，我们可以很方便的获得结果：
 ~~~cpp
-void callback(ParallelWork *pwork)
+void callback(const ParallelWork *pwork)
 {
     tutorial_series_context *ctx;
     const void *body;

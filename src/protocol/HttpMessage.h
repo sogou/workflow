@@ -226,7 +226,7 @@ public:
 		return http_parser_set_uri(uri, this->parser) == 0;
 	}
 
-	/* std::stirng interface */
+	/* std::string interface */
 public:
 	bool get_method(std::string& method) const
 	{

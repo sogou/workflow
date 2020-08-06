@@ -1085,7 +1085,7 @@ void Communicator::handle_incoming_idle(struct poller_result *res)
 	}
 
 	delete ctx;
-	if (entry->service && session)
+	if (!entry->service && session)
 		session->handle(cs_state, res->error);
 
 	if (--entry->ref == 0)

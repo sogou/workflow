@@ -65,7 +65,11 @@ public:
 	/* Start on port. On linux, IPv4 is default. */
 	int start(unsigned short port)
 	{
+#ifdef _WIN32
+		return start(AF_INET, NULL, port, NULL, NULL);
+#else
 		return start(AF_UNSPEC, NULL, port, NULL, NULL);
+#endif
 	}
 
 	/* Start with family. AF_INET or AF_INET6. */
@@ -96,7 +100,11 @@ public:
 
 	int start(unsigned short port, const char *cert_file, const char *key_file)
 	{
+#ifdef _WIN32
+		return start(AF_INET, NULL, port, NULL, NULL);
+#else
 		return start(AF_UNSPEC, NULL, port, cert_file, key_file);
+#endif
 	}
 
 	int start(int family, unsigned short port,

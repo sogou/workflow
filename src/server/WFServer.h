@@ -134,7 +134,7 @@ public:
 		this->wait_finish();
 	}
 
-	/* Nonblocking terminating the server. For stopping multiply servers.
+	/* Nonblocking terminating the server. For stopping multiple servers.
 	 * Typically, call shutdown() and then wait_finish().
 	 * But indeed wait_finish() can be called before shutdown(), even before
 	 * start() in another thread. */

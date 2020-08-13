@@ -55,6 +55,7 @@ int main()
   * 几个重要的话题
     * [关于错误处理](docs/about-error.md)
     * [关于超时](docs/about-timeout.md)
+	* [关于全局配置](docs/about-config.md)
     * [关于DNS](docs/about-dns.md)
     * [关于程序退出](docs/about-exit.md)
   * 计算任务

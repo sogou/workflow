@@ -475,7 +475,7 @@ std::string RedisValue::debug_string() const
 		for (size_t i = 0; i < l; i++)
 		{
 			if (i)
-				ret += " ,";
+				ret += ", ";
 
 			ret += (*this)[i].debug_string();
 		}

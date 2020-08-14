@@ -30,6 +30,8 @@ public:
 	 * address resovled will be used. Don't use upstream name as a host. */
 	int init(const std::string& url);
 
+	void deinit() { }
+
 public:
 	WFMySQLTask *create_query_task(const std::string& query,
 								   mysql_callback_t callback);

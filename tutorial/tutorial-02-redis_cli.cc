@@ -17,7 +17,6 @@
 */
 
 #include <netdb.h>
-#include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,6 +24,7 @@
 #include <string>
 #include "workflow/RedisMessage.h"
 #include "workflow/WFTaskFactory.h"
+#include "workflow/WFFacilities.h"
 
 #define RETRY_MAX       2
 
@@ -102,7 +102,12 @@ void redis_callback(WFRedisTask *task)
 	}
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -145,7 +150,8 @@ int main(int argc, char *argv[])
 	 * Workflow::start_series_work(task, nullptr) or
 	 * Workflow::create_series_work(task, nullptr)->start() */
 	task->start();
-	pause();
+
+	wait_group.wait();
 	return 0;
 }
 

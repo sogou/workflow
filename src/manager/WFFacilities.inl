@@ -181,7 +181,7 @@ inline WFFacilities::WaitGroup::WaitGroup(int n) : nleft(n)
 	auto *pr = new WFPromise<void>();
 
 	this->task = WFTaskFactory::create_counter_task(1, __wait_group_callback);
-	this->future = std::move(pr->get_future());
+	this->future = pr->get_future();
 	this->task->user_data = pr;
 	this->task->start();
 }

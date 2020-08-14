@@ -27,6 +27,7 @@
 #include "workflow/WFHttpServer.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/Workflow.h"
+#include "workflow/WFFacilities.h"
 
 using namespace protocol;
 
@@ -87,7 +88,12 @@ void process(WFHttpTask *server_task, const char *root)
 	}
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -113,7 +119,7 @@ int main(int argc, char *argv[])
 
 	if (ret == 0)
 	{
-		pause();
+		wait_group.wait();
 		server.stop();
 	}
 	else

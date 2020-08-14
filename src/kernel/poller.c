@@ -66,11 +66,13 @@ struct __poller_node
 	int state;
 	int error;
 	struct poller_data data;
+#pragma pack(1)
 	union
 	{
 		struct list_head list;
 		struct rb_node rb;
 	};
+#pragma pack()
 	char in_rbtree;
 	char removed;
 	int event;

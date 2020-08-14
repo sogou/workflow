@@ -21,7 +21,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +29,7 @@
 #include "workflow/HttpUtil.h"
 #include "workflow/WFServer.h"
 #include "workflow/WFHttpServer.h"
+#include "workflow/WFFacilities.h"
 
 void process(WFHttpTask *server_task)
 {
@@ -92,7 +92,12 @@ void process(WFHttpTask *server_task)
 			addrstr, port, seq);
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -110,7 +115,7 @@ int main(int argc, char *argv[])
 	port = atoi(argv[1]);
 	if (server.start(port) == 0)
 	{
-		pause();
+		wait_group.wait();
 		server.stop();
 	}
 	else

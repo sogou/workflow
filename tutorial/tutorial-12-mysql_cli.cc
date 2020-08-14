@@ -20,25 +20,19 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 #include <vector>
 #include <map>
-#include <mutex>
-#include <condition_variable>
-
-#include <signal.h>
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/MySQLResult.h"
+#include "workflow/WFFacilities.h"
 
 using namespace protocol;
 
 #define RETRY_MAX       0
 
-std::mutex mutex;
-std::condition_variable cond;
-
-bool task_finished;
-bool stop_flag;
+volatile bool stop_flag;
 
 void mysql_callback(WFMySQLTask *task);
 
@@ -213,15 +207,6 @@ void mysql_callback(WFMySQLTask *task)
 	return;
 }
 
-void series_callback(const SeriesWork *series)
-{
-	/* signal the main() to continue */
-	mutex.lock();
-	task_finished = true;
-	cond.notify_one();
-	mutex.unlock();
-}
-
 static void sighandler(int signo)
 {
 	stop_flag = true;
@@ -252,15 +237,16 @@ int main(int argc, char *argv[])
 
 	task = WFTaskFactory::create_mysql_task(url, RETRY_MAX, mysql_callback);
 	task->get_req()->set_query(query);
-	task_finished = false;
 
-	SeriesWork *series = Workflow::create_series_work(task, series_callback);
+	WFFacilities::WaitGroup wait_group(1);
+	SeriesWork *series = Workflow::create_series_work(task,
+		[&wait_group](const SeriesWork *series) {
+			wait_group.done();
+		});
+
 	series->set_context(&url);
 	series->start();
 
-	std::unique_lock<std::mutex> lock(mutex);
-	while (task_finished == false)
-		cond.wait(lock);
-	lock.unlock();
+	wait_group.wait();
 	return 0;
 }

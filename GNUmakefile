@@ -1,5 +1,5 @@
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-ALL_TARGETS := all base check install preinstall package rpm clean tutorial example
+ALL_TARGETS := all base check install preinstall package rpm clean tutorial
 MAKE_FILE := Makefile
 
 DEFAULT_BUILD_DIR := build
@@ -22,9 +22,6 @@ endif
 tutorial: all
 	make -C tutorial
 
-example: all
-	make -C example
-
 check: all
 	make -C test check
 
@@ -44,7 +41,6 @@ ifeq (build, $(wildcard build))
 endif
 	-make -C test clean
 	-make -C tutorial clean
-	-make -C example clean
 	rm -rf $(DEFAULT_BUILD_DIR)
 	rm -rf _include
 	rm -rf _lib

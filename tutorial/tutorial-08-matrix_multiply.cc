@@ -21,9 +21,8 @@
 #include <errno.h>
 #include <string.h>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
 #include "workflow/WFTaskFactory.h"
+#include "workflow/WFFacilities.h"
 
 namespace algorithm
 {
@@ -146,23 +145,13 @@ int main()
 	input->a = {{1, 2, 3}, {4, 5, 6}};
 	input->b = {{7, 8}, {9, 10}, {11, 12}};
 
-	std::mutex mutex;
-	std::condition_variable cond;
-	bool finished = false;
+	WFFacilities::WaitGroup wait_group(1);
 
-	Workflow::start_series_work(task,
-		[&mutex, &cond, &finished](const SeriesWork *)
-	{
-		mutex.lock();
-		finished = true;
-		cond.notify_one();
-		mutex.unlock();
+	Workflow::start_series_work(task, [&wait_group](const SeriesWork *) {
+		wait_group.done();
 	});
 
-	std::unique_lock<std::mutex> lock(mutex);
-	while (!finished)
-		cond.wait(lock);
-	lock.unlock();
+	wait_group.wait();
 	return 0;
 }
 

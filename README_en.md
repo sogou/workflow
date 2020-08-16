@@ -5,10 +5,10 @@
 [![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
 [![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
 
-As Sogou`s C++ server engine, workflow supports almost all back-end C++ online services of Sogou, including all search services, Cloud Input Method，online advertisements, etc., handling more than 10 billion request every day. This is an enterprise-level programming engine with light and elegantly designed which can satisfy most C++ back-end development requirements.
+As **Sogou`s C++ server engine**, workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method，online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** with light and elegantly designed which can satisfy most C++ back-end development requirements.
 
-#### You can use it to:
-* Quickly build an Http server:
+#### You can use it:
+* To quickly build an **Http server**:
 ~~~cpp
 #include <stdio.h>
 #include "workflow/WFHttpServer.h"
@@ -27,15 +27,15 @@ int main()
     return 0;
 }
 ~~~
-* As a powerful asynchronous client. Currently supports ``http``, ``redis``, ``mysql`` and ``kafka`` protocols.
-* To realize user-defined protocol client/server and build your own RPC system.
-  * Sogou RPC is based on it and open source as an independent project. Support srpc, brpc and thrift protocol ([benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)).
-* To build asynchronous task flow, support common series and parallel structures, and also support more complex DAG structures.
-* As a parallel programming tool. In addition to network tasks, we also include the scheduling of computing tasks. All types of tasks can be put into the same task flow.
-* As a file asynchronous IO tool under ``Linux`` system, with a high performance exceeding any system call. Disk IO is also a task.
-* To realize any high-performance and high-concurrency back-end service with a very complex relationship between computing and communication.
-* To build a service mesh system.
-  * The project has built-in service governance and load balancing features.
+* As a **powerful asynchronous client**. Currently supports ``http``, ``redis``, ``mysql`` and ``kafka`` protocols.
+* To realize **user-defined protocol client/server** and build your own **RPC system**.
+  * Sogou RPC is based on it and open source as an independent project, which supports srpc, brpc and thrift protocol ([benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)).
+* To build **asynchronous task flow**, support common **series** and **parallel** structures, and also support more complex **DAG** structures.
+* As a **parallel programming tool**. In addition to **network tasks**, we also include **the scheduling of computing tasks**. All types of tasks can be put into **the same** task flow.
+* As a **file asynchronous IO tool** under ``Linux`` system, with a high performance exceeding any system call. Disk IO is also a task.
+* To realize any **high-performance** and **high-concurrency** back-end service with a very complex relationship between computing and communication.
+* To build a **service mesh** system.
+  * The project has built-in **service governance** and **load balancing** features.
 
 #### Compile and run environment
 

@@ -24,7 +24,7 @@ endif ()
 
 set(BENCHMARK_LIST
 	benchmark-01-http_server
-	benchmark-02-http_server_slow
+	benchmark-02-http_server_long_req
 )
 
 if (APPLE)

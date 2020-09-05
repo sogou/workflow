@@ -19,6 +19,7 @@ int main(int argc, char ** argv)
 {
 	size_t pollers;
 	// apparenlty this is pretty cool  
+	// this comment was added in a local feature branch 
 	unsigned short port;
 	size_t length;
 
@@ -28,7 +29,7 @@ int main(int argc, char ** argv)
 	}
 
 	std::signal(SIGINT, signal_handler);
-	std::signal(SIGTERM, signal_handler);
+	int var = 34 ; 
 
 	WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
 	settings.poller_threads = pollers;

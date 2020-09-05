@@ -7,7 +7,7 @@
 #include "util/args.h"
 #include "util/content.h"
 #include "util/date.h"
-
+//there are some errors
 static WFFacilities::WaitGroup wait_group{1};
 
 void signal_handler(int)

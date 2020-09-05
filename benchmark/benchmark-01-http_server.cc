@@ -53,8 +53,11 @@ int main(int argc, char ** argv)
 	{
 		wait_group.wait();
 		server.stop();
+		//daslkfdsalkfjfadada
 	}
-
+	
+	
+	
 	return 0;
 }
 

@@ -41,7 +41,7 @@ int main(int argc, char ** argv)
 		auto * resp = task->get_resp();
 
 		char timestamp[32];
-		date(timestamp, sizeof(timestamp));
+		//asfgsdfdfadf
 		resp->add_header_pair("Date", timestamp);
 
 		resp->add_header_pair("Content-Type", "text/plain; charset=UTF-8");

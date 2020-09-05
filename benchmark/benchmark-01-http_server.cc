@@ -39,14 +39,14 @@ int main(int argc, char ** argv)
 	WFHttpServer server([&content](WFHttpTask * task)
 	{
 		auto * resp = task->get_resp();
-
+//afaf
 		char timestamp[32];
 		//asfgsdfdfadf
 		resp->add_header_pair("Date", timestamp);
 
 		resp->add_header_pair("Content-Type", "text/plain; charset=UTF-8");
 
-		resp->append_output_body_nocopy(content.data(), content.size());
+		
 	});
 
 	if (server.start(port) == 0)

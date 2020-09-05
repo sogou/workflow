@@ -18,6 +18,7 @@ void signal_handler(int)
 int main(int argc, char ** argv)
 {
 	size_t pollers;
+	// apparenlty this is pretty cool  
 	unsigned short port;
 	size_t length;
 

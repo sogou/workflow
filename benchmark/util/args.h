@@ -46,49 +46,38 @@ namespace details
 		return true;
 	}
 
-	template <typename Arg>
-	inline bool extract_impl(size_t todo, int & index, bool & r, char **& p, Arg & arg)
+	template <typename ARG>
+	inline int parse_one(bool & flag, char **& p, char ** end, ARG & arg)
 	{
-		if (!r || index >= todo)
+		if (flag && (flag = p < end) && (flag = extract(*p, arg)))
 		{
-			return false;
+			p++;
 		}
-
-		r = extract(*p, arg);
-
-		if (!r)
-		{
-			return false;
-		}
-
-		index++;
-		p++;
-
-		return true;
+		return 0;
 	}
 
 	template <typename ... ARGS>
-	inline int parse(size_t todo, char ** p, ARGS & ... args)
+	inline size_t parse_all(char ** begin, char ** end, ARGS & ... args)
 	{
-		int index = 0;
-		bool r = true;
-		(void)std::initializer_list<int>{(extract_impl(todo, index, r, p, args), 0)...};
-		return index;
+		bool flag = true;
+		char ** p = begin;
+		static_cast<void>(std::initializer_list<int>{parse_one(flag, p, end, args) ...});
+		return p - begin;
 	}
 
 	template <typename ... ARGS>
-	inline int parse_args(int & argc, char ** argv, ARGS & ... args)
+	inline size_t parse_args(int & argc, char ** argv, ARGS & ... args)
 	{
 		if (argc <= 1)
 		{
 			return 0;
 		}
 
-		int length = argc - 1;
+		size_t length = argc - 1;
 		char ** begin = argv + 1;
 		char ** end = begin + length;
 
-		int done = parse(length, begin, args ...);
+		size_t done = parse_all(begin, end, args ...);
 		std::rotate(begin, begin + done, end);
 		std::reverse(end - done, end);
 
@@ -98,7 +87,7 @@ namespace details
 }
 
 template <typename ... ARGS>
-inline static int parse_args(int & argc, char ** argv, ARGS & ... args)
+inline static size_t parse_args(int & argc, char ** argv, ARGS & ... args)
 {
 	return details::parse_args(argc, argv, args ...);
 }

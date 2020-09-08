@@ -77,14 +77,6 @@ namespace details
 	}
 
 	template <typename ... ARGS>
-	inline int parse(int todo, char ** p, ARGS & ... args)
-	{
-		int index = 0;
-		(void) std::initializer_list < int > {(index += extract(*p, args), p++, 0)...};
-		return index;
-	}
-
-	template <typename ... ARGS>
 	inline int parse_args(int & argc, char ** argv, ARGS & ... args)
 	{
 		if (argc <= 1)

@@ -46,6 +46,33 @@ namespace details
         return true;
     }
 
+    template <typename Arg>
+    inline bool extract_impl(size_t todo, int& index, bool& r, char**& p, Arg& arg){
+        if(!r||index>=todo){
+            return false;
+        }
+
+        r = extract(*p, arg);
+
+        if(!r){
+            return false;
+        }
+
+        index++;
+        p++;
+
+        return true;
+    }
+
+    template <typename ... ARGS>
+    inline int parse(size_t todo, char ** p, ARGS & ... args)
+    {
+        int index = 0;
+        bool r = true;
+        (void)std::initializer_list<int>{(extract_impl(todo, index, r, p, args), 0)...};
+        return index;
+    }
+
     template <typename ... ARGS>
     inline int parse(int todo, char ** p, ARGS & ... args)
     {

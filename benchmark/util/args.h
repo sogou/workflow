@@ -7,96 +7,105 @@
 
 namespace details
 {
-	template <typename T>
-	bool extract(const char *, T &);
+    inline bool extract(const char * p, size_t & t)
+    {
+        char * e;
+        long long ll = std::strtoll(p, &e, 0);
+        if (*e || ll < 0)
+        {
+            return false;
+        }
+        t = static_cast<size_t>(ll);
+        return true;
+    }
 
-	template <typename ... ARGS>
-	int parse(int todo, char ** p, ARGS & ... args);
+    inline bool extract(const char * p, unsigned short & t)
+    {
+        char * e;
+        long long ll = std::strtoll(p, &e, 0);
+        if (*e
+            || ll < static_cast<long long>(std::numeric_limits<unsigned short>::min())
+            || ll > static_cast<long long>(std::numeric_limits<unsigned short>::max())
+            )
+        {
+            return false;
+        }
+        t = static_cast<unsigned short>(ll);
+        return true;
+    }
 
-	template <>
-	int parse(int todo, char ** p)
-	{
-		return 0;
-	}
+    inline bool extract(const char * p, std::string & t)
+    {
+        t = p;
+        return true;
+    }
 
-	template <typename T, typename ... ARGS>
-	int parse(int todo, char ** p, T & t, ARGS & ... args)
-	{
-		if (todo != 0 && extract(*p, t))
-		{
-			return parse(todo - 1, p + 1, args ...) + 1;
-		}
-		return 0;
-	}
+    inline bool extract(const char * p, const char *& t)
+    {
+        t = p;
+        return true;
+    }
 
-	template <typename ... ARGS>
-	int parse_args(int & argc, char ** argv, ARGS & ... args)
-	{
-		if (argc <= 1)
-		{
-			return 0;
-		}
+    template <typename Arg>
+    inline bool extract_impl(size_t todo, int& index, bool& r, char**& p, Arg& arg){
+        if(!r||index>=todo){
+            return false;
+        }
 
-		int length = argc - 1;
-		char ** begin = argv + 1;
-		char ** end = begin + length;
+        r = extract(*p, arg);
 
-		int done = parse(length, begin, args ...);
-		std::rotate(begin, begin + done, end);
-		std::reverse(end - done, end);
+        if(!r){
+            return false;
+        }
 
-		argc -= done;
-		return done;
-	}
+        index++;
+        p++;
 
-	template <>
-	bool extract<size_t>(const char * p, size_t & t)
-	{
-		char * e;
-		long long ll = std::strtoll(p, &e, 0);
-		if (*e || ll < 0)
-		{
-			return false;
-		}
-		t = static_cast<size_t>(ll);
-		return true;
-	}
+        return true;
+    }
 
-	template <>
-	bool extract<unsigned short>(const char * p, unsigned short & t)
-	{
-		char * e;
-		long long ll = std::strtoll(p, &e, 0);
-		if (*e
-		    || ll < static_cast<long long>(std::numeric_limits<unsigned short>::min())
-		    || ll > static_cast<long long>(std::numeric_limits<unsigned short>::max())
-			)
-		{
-			return false;
-		}
-		t = static_cast<unsigned short>(ll);
-		return true;
-	}
+    template <typename ... ARGS>
+    inline int parse(size_t todo, char ** p, ARGS & ... args)
+    {
+        int index = 0;
+        bool r = true;
+        (void)std::initializer_list<int>{(extract_impl(todo, index, r, p, args), 0)...};
+        return index;
+    }
 
-	template <>
-	bool extract<std::string>(const char * p, std::string & t)
-	{
-		t = p;
-		return true;
-	}
+    template <typename ... ARGS>
+    inline int parse(int todo, char ** p, ARGS & ... args)
+    {
+        int index = 0;
+        (void)std::initializer_list<int>{(index+=extract(*p, args), p++, 0)...};
+        return index;
+    }
 
-	template <>
-	bool extract<const char *>(const char * p, const char *& t)
-	{
-		t = p;
-		return true;
-	}
+    template <typename ... ARGS>
+    inline int parse_args(int & argc, char ** argv, ARGS & ... args)
+    {
+        if (argc <= 1)
+        {
+            return 0;
+        }
+
+        int length = argc - 1;
+        char ** begin = argv + 1;
+        char ** end = begin + length;
+
+        int done = parse(length, begin, args ...);
+        std::rotate(begin, begin + done, end);
+        std::reverse(end - done, end);
+
+        argc -= done;
+        return done;
+    }
 }
 
 template <typename ... ARGS>
-static int parse_args(int & argc, char ** argv, ARGS & ... args)
+inline static int parse_args(int & argc, char ** argv, ARGS & ... args)
 {
-	return details::parse_args(argc, argv, args ...);
+    return details::parse_args(argc, argv, args ...);
 }
 
 #endif //_BENCHMARK_ARGS_H_

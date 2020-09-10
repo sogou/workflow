@@ -81,7 +81,9 @@ void mysql_callback(WFMySQLTask *task)
 
 	if (task->get_state() != WFT_STATE_SUCCESS)
 	{
-		fprintf(stderr, "task error = %d\n", task->get_error());
+		fprintf(stderr, "error msg: %s\n",
+				WFGlobal::get_error_string(task->get_state(),
+										   task->get_error()));
 		return;
 	}
 

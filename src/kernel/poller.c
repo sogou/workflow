@@ -961,7 +961,7 @@ static void __poller_handle_notify(struct __poller_node *node,
 		node->state = PR_ST_ERROR;
 	}
 
-	__poller_add_result(res, poller);
+	__poller_add_result(node, poller);
 }
 
 static int __poller_handle_pipe(poller_t *poller)

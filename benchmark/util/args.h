@@ -7,50 +7,7 @@
 
 namespace details
 {
-	template <typename T>
-	bool extract(const char *, T &);
-
-	template <typename ... ARGS>
-	int parse(int todo, char ** p, ARGS & ... args);
-
-	template <>
-	int parse(int todo, char ** p)
-	{
-		return 0;
-	}
-
-	template <typename T, typename ... ARGS>
-	int parse(int todo, char ** p, T & t, ARGS & ... args)
-	{
-		if (todo != 0 && extract(*p, t))
-		{
-			return parse(todo - 1, p + 1, args ...) + 1;
-		}
-		return 0;
-	}
-
-	template <typename ... ARGS>
-	int parse_args(int & argc, char ** argv, ARGS & ... args)
-	{
-		if (argc <= 1)
-		{
-			return 0;
-		}
-
-		int length = argc - 1;
-		char ** begin = argv + 1;
-		char ** end = begin + length;
-
-		int done = parse(length, begin, args ...);
-		std::rotate(begin, begin + done, end);
-		std::reverse(end - done, end);
-
-		argc -= done;
-		return done;
-	}
-
-	template <>
-	bool extract<size_t>(const char * p, size_t & t)
+	inline bool extract(const char * p, size_t & t)
 	{
 		char * e;
 		long long ll = std::strtoll(p, &e, 0);
@@ -62,8 +19,7 @@ namespace details
 		return true;
 	}
 
-	template <>
-	bool extract<unsigned short>(const char * p, unsigned short & t)
+	inline bool extract(const char * p, unsigned short & t)
 	{
 		char * e;
 		long long ll = std::strtoll(p, &e, 0);
@@ -78,23 +34,60 @@ namespace details
 		return true;
 	}
 
-	template <>
-	bool extract<std::string>(const char * p, std::string & t)
+	inline bool extract(const char * p, std::string & t)
 	{
 		t = p;
 		return true;
 	}
 
-	template <>
-	bool extract<const char *>(const char * p, const char *& t)
+	inline bool extract(const char * p, const char *& t)
 	{
 		t = p;
 		return true;
+	}
+
+	template <typename ARG>
+	inline int parse_one(bool & flag, char **& p, char ** end, ARG & arg)
+	{
+		if (flag && (flag = p < end) && (flag = extract(*p, arg)))
+		{
+			p++;
+		}
+		return 0;
+	}
+
+	template <typename ... ARGS>
+	inline size_t parse_all(char ** begin, char ** end, ARGS & ... args)
+	{
+		bool flag = true;
+		char ** p = begin;
+		static_cast<void>(std::initializer_list<int>{parse_one(flag, p, end, args) ...});
+		return p - begin;
+	}
+
+	template <typename ... ARGS>
+	inline size_t parse_args(int & argc, char ** argv, ARGS & ... args)
+	{
+		if (argc <= 1)
+		{
+			return 0;
+		}
+
+		size_t length = argc - 1;
+		char ** begin = argv + 1;
+		char ** end = begin + length;
+
+		size_t done = parse_all(begin, end, args ...);
+		std::rotate(begin, begin + done, end);
+		std::reverse(end - done, end);
+
+		argc -= done;
+		return done;
 	}
 }
 
 template <typename ... ARGS>
-static int parse_args(int & argc, char ** argv, ARGS & ... args)
+inline static size_t parse_args(int & argc, char ** argv, ARGS & ... args)
 {
 	return details::parse_args(argc, argv, args ...);
 }

@@ -45,7 +45,7 @@ protected:
 	void prep_fdsync(int fd);
 
 protected:
-	long get_res() { return this->res; }
+	long get_res() const { return this->res; }
 
 private:
 	char iocb_buf[64];

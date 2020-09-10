@@ -63,10 +63,10 @@ public:
 public:
 	/* To start a TCP server */
 
-	/* Start on port. On linux, IPv4 is default. */
+	/* Start on port with IPv4. */
 	int start(unsigned short port)
 	{
-		return start(AF_UNSPEC, NULL, port, NULL, NULL);
+		return start(AF_INET, NULL, port, NULL, NULL);
 	}
 
 	/* Start with family. AF_INET or AF_INET6. */
@@ -78,7 +78,7 @@ public:
 	/* Start with hostname and port. */
 	int start(const char *host, unsigned short port)
 	{
-		return start(AF_UNSPEC, host, port, NULL, NULL);
+		return start(AF_INET, host, port, NULL, NULL);
 	}
 
 	/* Start with family, hostname and port. */
@@ -97,7 +97,7 @@ public:
 
 	int start(unsigned short port, const char *cert_file, const char *key_file)
 	{
-		return start(AF_UNSPEC, NULL, port, cert_file, key_file);
+		return start(AF_INET, NULL, port, cert_file, key_file);
 	}
 
 	int start(int family, unsigned short port,
@@ -109,7 +109,7 @@ public:
 	int start(const char *host, unsigned short port,
 			  const char *cert_file, const char *key_file)
 	{
-		return start(AF_UNSPEC, host, port, cert_file, key_file);
+		return start(AF_INET, host, port, cert_file, key_file);
 	}
 
 	int start(int family, const char *host, unsigned short port,
@@ -134,7 +134,7 @@ public:
 		this->wait_finish();
 	}
 
-	/* Nonblocking terminating the server. For stopping multiply servers.
+	/* Nonblocking terminating the server. For stopping multiple servers.
 	 * Typically, call shutdown() and then wait_finish().
 	 * But indeed wait_finish() can be called before shutdown(), even before
 	 * start() in another thread. */

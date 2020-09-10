@@ -1804,7 +1804,7 @@ void Communicator::io_unbind(IOService *service)
 
 	if (mpoller_del(service->pipe_fd[0], this->mpoller) < 0)
 	{
-		/* Error occurred on event_fd or Communicator::deinit() called. */
+		/* Error occurred on pipe_fd or Communicator::deinit() called. */
 		this->shutdown_io_service(service);
 		errno = errno_bak;
 	}

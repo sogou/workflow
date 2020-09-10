@@ -66,11 +66,13 @@ struct __poller_node
 	int state;
 	int error;
 	struct poller_data data;
+#pragma pack(1)
 	union
 	{
 		struct list_head list;
 		struct rb_node rb;
 	};
+#pragma pack()
 	char in_rbtree;
 	char removed;
 	int event;
@@ -959,7 +961,7 @@ static void __poller_handle_notify(struct __poller_node *node,
 		node->state = PR_ST_ERROR;
 	}
 
-	__poller_add_result(res, poller);
+	__poller_add_result(node, poller);
 }
 
 static int __poller_handle_pipe(poller_t *poller)

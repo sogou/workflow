@@ -40,15 +40,15 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
     .endpoint_params    =    ENDPOINT_PARAMS_DEFAULT,
     .dns_ttl_default    =    12 * 3600,  /* in seconds */
     .dns_ttl_min        =    180,        /* reacquire when communication error */
-    .dns_threads        =    8,
-    .poller_threads     =    2,
+    .dns_threads        =    4,
+    .poller_threads     =    4,
     .handler_threads    =    20,
     .compute_threads    =    -1
 };
 //compute_threads<=0 means auto-set by system cpu number
 ~~~
 其中，与DNS相关的配置包括：
-  * dns_threads: DNS线程池线程数，默认8。
+  * dns_threads: DNS线程池线程数，默认4。
   * dns_ttl_default: DNS Cache中默认的TTL，单位秒，默认12小时，dns cache是当前进程的，即进程退出就会消失，配置也仅对当前进程有效。
   * dns_ttl_min: dns最短生效时间，单位秒，默认3分钟，用于通信失败重试是否尝试重新dns的决策。
 

@@ -249,9 +249,9 @@ public:
 
 通过 **create_query_task()** ，写入SQL请求和回调函数即可创建任务，该任务一定从这一个connection发出。
 
-有时候我们需要手动关闭这个连接。因为当我们不再使用它的时候，这个连接会一直保持到MySQL server超时，期间如果使用同一个id和url去创建WFMySQLConnection的话就可能会复用到这个连接。
+有时候我们需要手动关闭这个连接。因为当我们不再使用它的时候，这个连接会一直保持到MySQL server超时。期间如果使用同一个id和url去创建WFMySQLConnection的话就可以复用到这个连接。
 
-因此我们建议使用 **create_disconnect_task()** 创建一个任务，从而手动关闭这个连接。
+因此我们建议如果不准备复用连接，应使用 **create_disconnect_task()** 创建一个任务，手动关闭这个连接。
 ~~~cpp
 class WFMySQLConnection
 {

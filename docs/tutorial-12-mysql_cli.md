@@ -262,6 +262,15 @@ public:
     WFMySQLTask *create_disconnect_task(mysql_callback_t callback);
 }
 ~~~
+WFMySQLConnection相当于一个二级工厂，我们约定任何工厂对象的生命周期无需保持到任务结束，以下代码完全合法：
+~~~cpp
+    WFMySQLConnection *conn = new WFMySQLConnection(1234);
+    conn->init(url);
+	auto *task = conn->create_query_task("SELECT * from table", my_callback);
+    conn->deinit();
+    delete conn;
+    task->start();
+~~~
 
 ### 3. 注意事项
 

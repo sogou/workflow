@@ -185,23 +185,18 @@ public:
 		e->ref = 1;
 		std::lock_guard<std::mutex> lock(mutex_);
 
-		if (max_size_ == 0 || size_ < max_size_)
+		size_++;
+		e->in_cache = true;
+		e->ref++;
+		list_append(&in_use_, e);
+		MapIterator it = cache_map_.find(key);
+		if (it != cache_map_.end())
 		{
-			size_++;
-			e->in_cache = true;
-			e->ref++;
-			list_append(&in_use_, e);
-			MapIterator it = cache_map_.find(key);
-			if (it != cache_map_.end())
-			{
-				erase_node(it->second);
-				it->second = e;
-			}
-			else
-				cache_map_[key] = e;
+			erase_node(it->second);
+			it->second = e;
 		}
-		else//do not cache
-			e->next = NULL;
+		else
+			cache_map_[key] = e;
 
 		if (max_size_ > 0)
 		{

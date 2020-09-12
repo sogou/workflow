@@ -54,13 +54,9 @@ bool HttpHeaderMap::key_exists(std::string key)
 
 std::string HttpHeaderMap::get(std::string key)
 {
-	std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-	const auto it = header_map_.find(key);
-
-	if (it == header_map_.end() || it->second.empty())
-		return std::string();
-
-	return it->second[0];
+	std::string value;
+	get(std::move(key), value);
+	return value;
 }
 
 bool HttpHeaderMap::get(std::string key, std::string& value)

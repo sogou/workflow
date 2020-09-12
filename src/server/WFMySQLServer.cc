@@ -45,7 +45,7 @@ CommConnection *WFMySQLServer::new_connection(int accept_fd)
 
 CommSession *WFMySQLServer::new_session(long long seq, CommConnection *conn)
 {
-	static mysql_process_t empty = [](WFMySQLTask *){ };
+	static mysql_callback_t empty = [](WFMySQLTask *){ };
 	WFMySQLTask *task;
 
 	task = WFServerTaskFactory::create_mysql_task(seq ? this->process : empty);

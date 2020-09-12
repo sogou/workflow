@@ -24,7 +24,6 @@
 #include "WFServer.h"
 #include "WFTaskFactory.h"
 
-using http_process_t = std::function<void (WFHttpTask *)>;
 using WFHttpServer = WFServer<protocol::HttpRequest,
 							  protocol::HttpResponse>;
 
@@ -37,11 +36,10 @@ static constexpr struct WFServerParams HTTP_SERVER_PARAMS_DEFAULT =
 	.request_size_limit		=	(size_t)-1,
 	.ssl_accept_timeout		=	10 * 1000,
 };
-
+// http_callback_t defined in WFTaskFactory.h
 template<>
-inline WFHttpServer::WFServer(http_process_t proc) :
-	WFServerBase(&HTTP_SERVER_PARAMS_DEFAULT),
-	process(std::move(proc))
+inline WFHttpServer::WFServer(http_callback_t proc) :
+	WFServer(&HTTP_SERVER_PARAMS_DEFAULT, std::move(proc))
 {
 }
 

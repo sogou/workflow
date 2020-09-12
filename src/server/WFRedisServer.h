@@ -23,7 +23,6 @@
 #include "WFServer.h"
 #include "WFTaskFactory.h"
 
-using redis_process_t = std::function<void (WFRedisTask *)>;
 using WFRedisServer = WFServer<protocol::RedisRequest,
 							   protocol::RedisResponse>;
 
@@ -38,9 +37,8 @@ static constexpr struct WFServerParams REDIS_SERVER_PARAMS_DEFAULT =
 };
 
 template<>
-inline WFRedisServer::WFServer(redis_process_t proc) :
-	WFServerBase(&REDIS_SERVER_PARAMS_DEFAULT),
-	process(std::move(proc))
+inline WFRedisServer::WFServer(redis_callback_t proc) :
+	WFServer(&REDIS_SERVER_PARAMS_DEFAULT, std::move(proc))
 {
 }
 

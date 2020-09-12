@@ -179,10 +179,9 @@ public:
 		process(std::move(proc))
 	{
 	}
-
+	// C++ support https://secure.wikimedia.org/wikipedia/en/wiki/C++11#Object_construction_improvement
 	WFServer(std::function<void (WFNetworkTask<REQ, RESP> *)> proc) :
-		WFServerBase(&SERVER_PARAMS_DEFAULT),
-		process(std::move(proc))
+		WFServer(&SERVER_PARAMS_DEFAULT, std::move(proc))
 	{
 	}
 

@@ -25,7 +25,6 @@
 #include "WFTaskFactory.h"
 #include "WFConnection.h"
 
-using mysql_process_t = std::function<void (WFMySQLTask *)>;
 class MySQLServer;
 
 static constexpr struct WFServerParams MYSQL_SERVER_PARAMS_DEFAULT =
@@ -42,7 +41,7 @@ class WFMySQLServer : public WFServer<protocol::MySQLRequest,
 									  protocol::MySQLResponse>
 {
 public:
-	WFMySQLServer(mysql_process_t proc):
+	WFMySQLServer(mysql_callback_t proc):
 		WFServer(&MYSQL_SERVER_PARAMS_DEFAULT, std::move(proc))
 	{
 	}

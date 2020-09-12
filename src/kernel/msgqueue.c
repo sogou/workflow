@@ -34,8 +34,8 @@ struct __msgqueue
 	void **put_tail;
 	pthread_mutex_t get_mutex;
 	pthread_mutex_t put_mutex;
-	pthread_cond_t put_cond;
 	pthread_cond_t get_cond;
+	pthread_cond_t put_cond;
 };
 
 void msgqueue_set_nonblock(msgqueue_t *queue)

@@ -57,6 +57,7 @@ static size_t __msgqueue_swap(msgqueue_t *queue)
 	void **get_head = queue->get_head;
 	size_t cnt;
 
+	queue->get_head = queue->put_head;
 	pthread_mutex_lock(&queue->put_mutex);
 	while (queue->msg_cnt == 0 && !queue->nonblock)
 		pthread_cond_wait(&queue->get_cond, &queue->put_mutex);
@@ -65,7 +66,6 @@ static size_t __msgqueue_swap(msgqueue_t *queue)
 	if (cnt > queue->msg_max - 1)
 		pthread_cond_broadcast(&queue->put_cond);
 
-	queue->get_head = queue->put_head;
 	queue->put_head = get_head;
 	queue->put_tail = get_head;
 	queue->msg_cnt = 0;

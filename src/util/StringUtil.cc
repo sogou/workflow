@@ -218,7 +218,7 @@ std::string StringUtil::strip(const std::string& str)
 	return res;
 }
 
-bool StringUtil::start_with(const std::string &str, const std::string prefix)
+bool StringUtil::start_with(const std::string& str, const std::string& prefix)
 {
 	size_t prefix_len = prefix.size();
 

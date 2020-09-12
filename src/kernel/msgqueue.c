@@ -43,7 +43,7 @@ void msgqueue_set_nonblock(msgqueue_t *queue)
 	queue->nonblock = 1;
 	pthread_mutex_lock(&queue->put_mutex);
 	pthread_cond_signal(&queue->get_cond);
-	pthread_cond_signal(&queue->put_cond);
+	pthread_cond_broadcast(&queue->put_cond);
 	pthread_mutex_unlock(&queue->put_mutex);
 }
 

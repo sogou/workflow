@@ -174,7 +174,7 @@ inline int MySQLCell::as_int() const
 {
 	if (!this->is_int())
 		return 0;
-	char num[MYSQL_NUM_STR_LENGTH];
+	char num[MYSQL_NUM_STR_LENGTH + 1];
 	memcpy(num, this->data, this->len);
 	num[this->len] = '\0';
 	return atoi(num);
@@ -190,7 +190,7 @@ inline float MySQLCell::as_float() const
 	if (!this->is_float())
 		return 0;
 
-	char num[MYSQL_FLOAT_STR_LENGTH];
+	char num[MYSQL_FLOAT_STR_LENGTH + 1];
 	memcpy(num, this->data, this->len);
 	num[this->len] = '\0';
 	return strtof(num, NULL);
@@ -206,7 +206,7 @@ inline double MySQLCell::as_double() const
 	if (!this->is_double())
 		return 0;
 
-	char num[MYSQL_DOUBLE_STR_LENGTH];
+	char num[MYSQL_DOUBLE_STR_LENGTH + 1];
 	memcpy(num, this->data, this->len);
 	num[this->len] = '\0';
 	return strtod(num, NULL);
@@ -222,7 +222,7 @@ inline unsigned long long MySQLCell::as_ulonglong() const
 	if (!this->is_ulonglong())
 		return 0;
 
-	char num[MYSQL_NUM_STR_LENGTH];
+	char num[MYSQL_NUM_STR_LENGTH + 1];
 	memcpy(num, this->data, this->len);
 	num[this->len] = '\0';
 	return strtoull(num, NULL, 10);

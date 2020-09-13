@@ -27,6 +27,7 @@
 #include <pthread.h>
 #include <openssl/ssl.h>
 #include "list.h"
+#include "msgqueue.h"
 #include "thrdpool.h"
 #include "poller.h"
 #include "mpoller.h"
@@ -266,7 +267,7 @@ public:
 	int is_handler_thread() { return thrdpool_in_pool(this->thrdpool); }
 
 private:
-	poller_queue_t *queue;
+	msgqueue_t *queue;
 	mpoller_t *mpoller;
 	thrdpool_t *thrdpool;
 	int stop_flag;
@@ -335,6 +336,8 @@ private:
 	static poller_message_t *create_message(void *context);
 
 	static int partial_written(size_t n, void *context);
+
+	static void callback(struct poller_result *res, void *context);
 
 	static void *accept(const struct sockaddr *addr, socklen_t addrlen,
 						int sockfd, void *context);

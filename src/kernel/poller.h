@@ -25,7 +25,6 @@
 #include <openssl/ssl.h>
 
 typedef struct __poller poller_t;
-typedef struct __poller_queue poller_queue_t;
 typedef struct __poller_message poller_message_t;
 
 struct __poller_message
@@ -78,14 +77,16 @@ struct poller_result
 	int state;
 	int error;
 	struct poller_data data;
+	/* In callback, spaces of six pointers are available from here. */
 };
 
 struct poller_params
 {
 	size_t max_open_files;
-	poller_queue_t *result_queue;
 	poller_message_t *(*create_message)(void *);
 	int (*partial_written)(size_t, void *);
+	void (*callback)(struct poller_result *, void *);
+	void *context;
 };
 
 #ifdef __cplusplus
@@ -99,16 +100,10 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_del(int fd, poller_t *poller);
 int poller_mod(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_set_timeout(int fd, int timeout, poller_t *poller);
-int poller_add_timer(void *context, const struct timespec *value,
+int poller_add_timer(const struct timespec *value, void *context,
 					 poller_t *poller);
 void poller_stop(poller_t *poller);
 void poller_destroy(poller_t *poller);
-
-poller_queue_t *poller_queue_create(size_t maxlen);
-struct poller_result *poller_queue_get(poller_queue_t *queue);
-void poller_queue_set_nonblock(poller_queue_t *queue);
-void poller_queue_set_block(poller_queue_t *queue);
-void poller_queue_destroy(poller_queue_t *queue);
 
 #ifdef __cplusplus
 }

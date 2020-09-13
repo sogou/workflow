@@ -6,7 +6,7 @@ if (WIN32)
 elseif (APPLE)
 	set(CMAKE_INSTALL_PREFIX "/Applications" CACHE PATH "install prefix")
 else ()
-	set(CMAKE_INSTALL_PREFIX "/opt/sogou" CACHE PATH "install prefix")
+	set(CMAKE_INSTALL_PREFIX "/usr/lib" CACHE PATH "install prefix")
 endif ()
 
 set(CMAKE_SKIP_RPATH TRUE)

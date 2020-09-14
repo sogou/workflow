@@ -467,11 +467,13 @@ static inline bool __is_alive_or_group_alive(const UpstreamAddress *ua)
 
 const UpstreamAddress *Upstream::weighted_random_try_another() const
 {
-	if (available_weight_ == 0)
+	int temp_weight = available_weight_;
+
+	if (temp_weight == 0)
 		return NULL;
 
 	const UpstreamAddress *ua = NULL;
-	int x = rand() % available_weight_;
+	int x = rand() % temp_weight;
 	int s = 0;
 
 	for (const auto *master : masters_)
@@ -604,9 +606,10 @@ const UpstreamAddress *Upstream::get(const ParsedURI& uri)
 		{
 			int x = 0;
 			int s = 0;
+			int temp_weight = total_weight_;
 
-			if (total_weight_ > 0)
-				x = rand() % total_weight_;
+			if (temp_weight > 0)
+				x = rand() % temp_weight;
 
 			for (idx = 0; idx < n; idx++)
 			{

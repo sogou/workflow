@@ -28,7 +28,7 @@ int main()
 ~~~
 * 作为万能异步客户端。目前支持``http``，``redis``，``mysql``和``kafka``协议。
 * 实现自定义协议client/server，构建自己的RPC系统。
-  * 搜狗RPC就是以它为基础，作为独立项目开源。支持``srpc``，``brpc``和``thrift``等协议（[benchmark](https://github.com/holmes1412/sogou-rpc-benchmark)）。
+  * [srpc](https://github.com/sogou/srpc)就是以它为基础，作为独立项目开源。支持``srpc``，``brpc``和``thrift``等协议。
 * 构建异步任务流，支持常用的串并联，也支持更加复杂的DAG结构。
 * 作为并行编程工具使用。除了网络任务，我们也包含计算任务的调度。所有类型的任务都可以放入同一个流中。
 * 在``Linux``系统下作为文件异步IO工具使用，性能超过任何标准调用。磁盘IO也是一种任务。
@@ -42,7 +42,7 @@ int main()
 * 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器。
 * 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
-* 项目无其它依赖，但是包含了``lz4``，``zstd``和``snappy``几个压缩库的无改动源代码（``kafka``协议需要）。
+* 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
 
 # 试一下！
   * Client基础

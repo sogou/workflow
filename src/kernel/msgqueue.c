@@ -22,7 +22,7 @@
  *
  * The idea of this implementation is quite simple and abvious. When the
  * get_list is not empty, consumer takes a message. Otherwise the consumer
- * wait until put_list is not empty, and swap two lists. This method performs
+ * waits till put_list is not empty, and swap two lists. This method performs
  * well when the queue is very busy, and the number of consumers is big.
  */
 

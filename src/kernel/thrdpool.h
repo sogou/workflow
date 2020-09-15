@@ -34,6 +34,17 @@ extern "C"
 {
 #endif
 
+/*
+ * Thread pool originates from project Sogou C++ Workflow
+ * https://github.com/sogou/workflow
+ *
+ * A thread task can be scheduled in a pool thread, which is very important,
+ * even if the pool is being destroyed. Because pool threads can hardly know
+ * what's happening to the pool.
+ * The thread pool can also be destroyed by a thread task. Although this seems
+ * to be strange, but I think it's very logical.
+ */
+
 thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize);
 int thrdpool_schedule(const struct thrdpool_task *task, thrdpool_t *pool);
 int thrdpool_increase(thrdpool_t *pool);

@@ -79,6 +79,7 @@ static void *__thrdpool_routine(void *arg)
 		}
 	}
 
+	/* One thread joins another. Don't need to keep all thread IDs. */
 	tid = pool->tid;
 	pool->tid = pthread_self();
 	if (--pool->nthreads == 0)
@@ -259,7 +260,7 @@ int thrdpool_increase(thrdpool_t *pool)
 
 inline int thrdpool_in_pool(thrdpool_t *pool)
 {
-	return pthread_getspecific(pool->key) == (void *)pool;
+	return pthread_getspecific(pool->key) == pool;
 }
 
 void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),

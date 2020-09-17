@@ -22,21 +22,37 @@ else ()
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++11 -fno-exceptions")
 endif ()
 
-set(TUTORIAL_LIST
-	tutorial-01-wget
-	tutorial-02-redis_cli
-	tutorial-03-wget_to_redis
-	tutorial-04-http_echo_server
-	tutorial-05-http_proxy
-	tutorial-06-parallel_wget
-	tutorial-07-sort_task
-	tutorial-08-matrix_multiply
-	tutorial-09-http_file_server
-	tutorial-12-mysql_cli
-)
+if(KAFKA STREQUAL "y")
+	set(TUTORIAL_LIST
+		tutorial-01-wget
+		tutorial-02-redis_cli
+		tutorial-03-wget_to_redis
+		tutorial-04-http_echo_server
+		tutorial-05-http_proxy
+		tutorial-06-parallel_wget
+		tutorial-07-sort_task
+		tutorial-08-matrix_multiply
+		tutorial-09-http_file_server
+		tutorial-12-mysql_cli
+		tutorial-13-kafka_cli
+	)
+else()
+	set(TUTORIAL_LIST
+		tutorial-01-wget
+		tutorial-02-redis_cli
+		tutorial-03-wget_to_redis
+		tutorial-04-http_echo_server
+		tutorial-05-http_proxy
+		tutorial-06-parallel_wget
+		tutorial-07-sort_task
+		tutorial-08-matrix_multiply
+		tutorial-09-http_file_server
+		tutorial-12-mysql_cli
+	)
+endif()
 
 if (APPLE)
-	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+	set(WORKFLOW_LIB workflow pthread z OpenSSL::SSL OpenSSL::Crypto)
 else ()
 	set(WORKFLOW_LIB workflow ${LIBRT})
 endif ()

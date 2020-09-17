@@ -17,6 +17,10 @@ add_subdirectory(factory)
 add_subdirectory(server)
 add_subdirectory(client)
 
+if(KAFKA STREQUAL "y")
+	add_subdirectory(third_party)
+endif()
+
 add_dependencies(kernel LINK_HEADERS)
 add_dependencies(util LINK_HEADERS)
 add_dependencies(manager LINK_HEADERS)
@@ -26,17 +30,36 @@ add_dependencies(factory LINK_HEADERS)
 add_dependencies(server LINK_HEADERS)
 add_dependencies(client LINK_HEADERS)
 
-add_library(
-	${PROJECT_NAME} STATIC
-	$<TARGET_OBJECTS:kernel>
-	$<TARGET_OBJECTS:util>
-	$<TARGET_OBJECTS:manager>
-	$<TARGET_OBJECTS:algorithm>
-	$<TARGET_OBJECTS:protocol>
-	$<TARGET_OBJECTS:factory>
-	$<TARGET_OBJECTS:server>
-	$<TARGET_OBJECTS:client>
-)
+if(KAFKA STREQUAL "y")
+	add_dependencies(third_party LINK_HEADERS)
+endif()
+
+if(KAFKA STREQUAL "y")
+	add_library(
+		${PROJECT_NAME} STATIC
+		$<TARGET_OBJECTS:kernel>
+		$<TARGET_OBJECTS:util>
+		$<TARGET_OBJECTS:manager>
+		$<TARGET_OBJECTS:algorithm>
+		$<TARGET_OBJECTS:protocol>
+		$<TARGET_OBJECTS:factory>
+		$<TARGET_OBJECTS:server>
+		$<TARGET_OBJECTS:client>
+		$<TARGET_OBJECTS:third_party>
+	)
+else()
+	add_library(
+		${PROJECT_NAME} STATIC
+		$<TARGET_OBJECTS:kernel>
+		$<TARGET_OBJECTS:util>
+		$<TARGET_OBJECTS:manager>
+		$<TARGET_OBJECTS:algorithm>
+		$<TARGET_OBJECTS:protocol>
+		$<TARGET_OBJECTS:factory>
+		$<TARGET_OBJECTS:server>
+		$<TARGET_OBJECTS:client>
+	)
+endif()
 
 install(
 	TARGETS ${PROJECT_NAME}

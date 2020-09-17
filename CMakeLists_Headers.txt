@@ -71,6 +71,7 @@ set(INCLUDE_HEADERS
 	src/util/StringUtil.h
 	src/util/URIParser.h
 	src/util/MD5Util.h
+	src/util/crc32c.h
 	src/factory/WFConnection.h
 	src/factory/WFTask.h
 	src/factory/WFTask.inl
@@ -82,4 +83,28 @@ set(INCLUDE_HEADERS
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
 )
+
+set(THIRD_PARTY_HEADERS
+	src/third_party/snappy/snappy.h
+	src/third_party/snappy/snappy-c.h
+	src/third_party/snappy/snappy-sinksource.h
+	src/third_party/snappy/snappy-stubs-public.h
+	src/third_party/lz4/lz4.h
+	src/third_party/lz4/lz4frame.h
+	src/third_party/zstd/zstd.h
+	src/third_party/zstd/common/zstd_errors.h
+)
+
+if(KAFKA STREQUAL "y")
+	set(INCLUDE_HEADERS
+		${INCLUDE_HEADERS}
+		${THIRD_PARTY_HEADERS}
+		src/protocol/KafkaMessage.h
+		src/protocol/KafkaDataTypes.h
+		src/protocol/KafkaResult.h
+		src/protocol/kafka_parser.h
+		src/client/WFKafkaClient.h
+		src/factory/KafkaTaskImpl.inl
+	)
+endif()
 

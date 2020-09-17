@@ -6,7 +6,7 @@ set(SRC
 	StringUtil.cc
 	URIParser.cc
 	MD5Util.cc
+	crc32c.c
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})
-

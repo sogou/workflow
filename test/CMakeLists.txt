@@ -28,17 +28,29 @@ else ()
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++11 -fno-exceptions")
 endif ()
 
-set(TEST_LIST
-	task_unittest
-	algo_unittest
-	http_unittest
-	redis_unittest
-	mysql_unittest
-	facilities_unittest
-)
+if(KAFKA STREQUAL "y")
+	set(TEST_LIST
+		task_unittest
+		algo_unittest
+		http_unittest
+		redis_unittest
+		mysql_unittest
+		facilities_unittest
+                kafka_unittest
+	)
+else()
+	set(TEST_LIST
+		task_unittest
+		algo_unittest
+		http_unittest
+		redis_unittest
+		mysql_unittest
+		facilities_unittest
+	)
+endif()
 
 if (APPLE)
-	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+	set(WORKFLOW_LIB workflow pthread z OpenSSL::SSL OpenSSL::Crypto)
 else ()
 	set(WORKFLOW_LIB workflow ${LIBRT})
 endif ()

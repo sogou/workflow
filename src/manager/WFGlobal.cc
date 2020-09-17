@@ -39,6 +39,7 @@
 #include "Executor.h"
 #include "WFTask.h"
 #include "WFTaskError.h"
+#include "crc32c.h"
 
 class __WFGlobal
 {
@@ -114,6 +115,8 @@ private:
 		static_scheme_port_["kafka"] = "9092";
 		sync_count_ = 0;
 		sync_max_ = 0;
+
+		crc32c_global_init();
 	}
 
 private:
@@ -665,6 +668,30 @@ static inline const char *__get_task_error_string(int error)
 
 	case WFT_ERR_MYSQL_COMMAND_DISALLOWED:
 		return "MySQL Command Disallowed";
+
+	case WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED:
+		return "Kafka parse response failed";
+
+	case WFT_ERR_KAFKA_PRODUCE_FAILED:
+		return "Kafka produce api failed";
+
+	case WFT_ERR_KAFKA_FETCH_FAILED:
+		return "Kafka fetch api failed";
+
+	case WFT_ERR_KAFKA_CGROUP_FAILED:
+		return "Kafka cgroup failed";
+
+	case WFT_ERR_KAFKA_COMMIT_FAILED:
+		return "Kafka commit api failed";
+
+	case WFT_ERR_KAFKA_META_FAILED:
+		return "Kafka meta api failed";
+
+	case WFT_ERR_KAFKA_API_UNKNOWN:
+		return "Kafka api type unknown";
+
+	case WFT_ERR_KAFKA_VERSION_DISALLOWED:
+		return "Kafka broker version not supported";
 
 	default:
 		break;

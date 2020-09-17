@@ -8,17 +8,23 @@ CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake;
 
 .PHONY: $(ALL_TARGETS)
 
+ifeq ($(KAFKA),y)
+	KAFKA=y
+else
+	KAFKA=n
+endif
+
 all: base
 	make -C $(BUILD_DIR) -f Makefile
 
 base:
 	mkdir -p $(BUILD_DIR)
 ifeq ($(DEBUG),y)
-	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug -D KAFKA=$(KAFKA) $(ROOT_DIR)
 else ifneq ("${INSTALL_PREFIX}install_prefix", "install_prefix")
-	cd $(BUILD_DIR) && $(CMAKE3) -DCMAKE_INSTALL_PREFIX:STRING=${INSTALL_PREFIX} $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -DCMAKE_INSTALL_PREFIX:STRING=${INSTALL_PREFIX} -D KAFKA=$(KAFKA) $(ROOT_DIR)
 else
-	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -D KAFKA=$(KAFKA) $(ROOT_DIR)
 endif
 
 tutorial: all

@@ -9,5 +9,12 @@ set(SRC
 	Workflow.cc
 )
 
+if(KAFKA STREQUAL "y")
+	set(SRC
+		${SRC}
+		KafkaTaskImpl.cc
+	)
+endif()
+
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 

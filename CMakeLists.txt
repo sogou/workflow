@@ -3,7 +3,8 @@ cmake_minimum_required(VERSION 3.6)
 set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "build type")
 set(CMAKE_SKIP_RPATH TRUE)
 
-project(workflow
+project(
+	workflow
 	VERSION 0.9.1
 	LANGUAGES C CXX
 )
@@ -25,7 +26,6 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/_lib CACHE PATH "workflow lib")
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIB_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB_DIR})
-#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LIB_DIR})
 
 add_custom_target(
 	LINK_HEADERS ALL
@@ -48,7 +48,6 @@ add_custom_command(
 )
 
 foreach(header_file ${INCLUDE_HEADERS} ${INCLUDE_KERNEL_HEADERS})
-	#file(COPY ${PROJECT_SOURCE_DIR}/${header_file} DESTINATION ${INC_DIR}/${PROJECT_NAME})
 	string(REPLACE "/" ";" arr ${header_file})
 	list(GET arr -1 file_name)
 	makeLink(${PROJECT_SOURCE_DIR}/${header_file} ${INC_DIR}/${PROJECT_NAME}/${file_name} LINK_HEADERS)

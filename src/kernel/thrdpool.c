@@ -176,7 +176,7 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 	thrdpool_t *pool;
 	int ret;
 
-	pool = (struct __thrdpool *)malloc(sizeof (struct __thrdpool));
+	pool = (thrdpool_t *)malloc(sizeof (thrdpool_t));
 	if (pool)
 	{
 		if (__thrdpool_init_locks(pool) >= 0)

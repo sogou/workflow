@@ -22,7 +22,6 @@
 #include <stddef.h>
 #include <pthread.h>
 #include "list.h"
-#include "thrdpool.h"
 
 class ExecQueue
 {
@@ -59,6 +58,8 @@ public:
 	virtual ~ExecSession() { }
 	friend class Executor;
 };
+
+typedef struct __thrdpool thrdpool_t;
 
 class Executor
 {

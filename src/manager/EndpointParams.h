@@ -16,8 +16,8 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#ifndef _CONNECTIONPARAMS_H_
-#define _CONNECTIONPARAMS_H_
+#ifndef _ENDPOINTPARAMS_H_
+#define _ENDPOINTPARAMS_H_
 
 #include <stddef.h>
 

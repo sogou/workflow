@@ -59,8 +59,6 @@ public:
 	friend class Executor;
 };
 
-typedef struct __thrdpool thrdpool_t;
-
 class Executor
 {
 public:
@@ -70,7 +68,7 @@ public:
 	int request(ExecSession *session, ExecQueue *queue);
 
 private:
-	thrdpool_t *thrdpool;
+	struct __thrdpool *thrdpool;
 
 private:
 	static void executor_thread_routine(void *context);

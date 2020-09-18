@@ -242,10 +242,6 @@ public:
 # include "IOService_thread.h"
 #endif
 
-typedef struct __msgqueue msgqueue_t;
-typedef struct __thrdpool thrdpool_t;
-typedef struct __mpoller mpoller_t;
-
 class Communicator
 {
 public:
@@ -268,9 +264,9 @@ public:
 	int increase_handler_thread();
 
 private:
-	msgqueue_t *queue;
-	mpoller_t *mpoller;
-	thrdpool_t *thrdpool;
+	struct __mpoller *mpoller;
+	struct __msgqueue *queue;
+	struct __thrdpool *thrdpool;
 	int stop_flag;
 
 private:

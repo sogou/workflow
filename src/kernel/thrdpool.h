@@ -41,8 +41,8 @@ extern "C"
  * A thread task can be scheduled by another task, which is very important,
  * even if the pool is being destroyed. Because thread task is hard to know
  * what's happening to the pool.
- * The thread pool can also be destroyed by a thread task. Although this seems
- * to be strange, it's very logical. Destroying thread pool in thread task
+ * The thread pool can also be destroyed by a thread task. This may sound
+ * strange, but it's very logical. Destroying thread pool in thread task
  * does not end the task thread. It'll run till the end of task.
  */
 

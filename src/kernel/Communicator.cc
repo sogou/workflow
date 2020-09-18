@@ -1300,11 +1300,6 @@ void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
 	return NULL;
 }
 
-int Communicator::is_handler_thread()
-{
-	return thrdpool_in_pool(this->thrdpool);
-}
-
 int Communicator::create_handler_threads(size_t handler_threads)
 {
 	struct thrdpool_task task = {
@@ -1689,6 +1684,11 @@ int Communicator::sleep(SleepSession *session)
 	}
 
 	return -1;
+}
+
+int Communicator::is_handler_thread()
+{
+	return thrdpool_in_pool(this->thrdpool);
 }
 
 extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,

@@ -226,6 +226,7 @@ int ComplexMySQLTask::keep_alive_timeout()
 		{
 			this->resp = std::move(*static_cast<MySQLResponse *>(resp));
 			succ_ = false;
+			return 0;
 		}
 		else
 		{

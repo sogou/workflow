@@ -27,10 +27,7 @@
 #include <pthread.h>
 #include <openssl/ssl.h>
 #include "list.h"
-#include "msgqueue.h"
-#include "thrdpool.h"
 #include "poller.h"
-#include "mpoller.h"
 
 class CommConnection
 {
@@ -263,13 +260,13 @@ public:
 	void io_unbind(IOService *service);
 
 public:
+	int is_handler_thread();
 	int increase_handler_thread();
-	int is_handler_thread() { return thrdpool_in_pool(this->thrdpool); }
 
 private:
-	msgqueue_t *queue;
-	mpoller_t *mpoller;
-	thrdpool_t *thrdpool;
+	struct __mpoller *mpoller;
+	struct __msgqueue *queue;
+	struct __thrdpool *thrdpool;
 	int stop_flag;
 
 private:

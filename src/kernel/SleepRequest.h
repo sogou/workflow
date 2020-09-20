@@ -20,6 +20,7 @@
 #define _SLEEPREQUEST_H_
 
 #include "SubTask.h"
+#include "Communicator.h"
 #include "CommScheduler.h"
 
 class SleepRequest : public SubTask, public SleepSession

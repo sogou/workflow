@@ -139,7 +139,7 @@ public:
 
 ### 超时功能的实现
 
-框架内部，需要处理的超时种类比我们在这里展现的还要更多。除了wait_timeout，全都是依赖于Linux的timerfd或BSD系统kqueue的timer事件。  
+框架内部，需要处理的超时种类比我们在这里展现的还要更多。除了wait_timeout，全都是依赖于Linux的timerfd或kqueue的timer事件。  
 每个poller线程包含一个timerfd，默认配置下，poller线程数为4，可以满足大多数应用的需要了。  
 目前的超时算法利用了链表+红黑树的数据结构，时间复杂度在O(1)和O(logn)之间，其中n为epoll线程的fd数量。  
 超时处理目前看不是瓶颈所在，因为Linux内核epoll相关调用也是O(logn)时间复杂度，我们把超时都做到O(1)也区别不大。

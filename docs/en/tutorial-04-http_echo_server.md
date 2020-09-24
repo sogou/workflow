@@ -2,7 +2,7 @@
 
 # Sample code
 
-[tutorial-04-http\_echo\_server.cc](../tutorial/tutorial-04-http_echo_server.cc)
+[tutorial-04-http\_echo\_server.cc](/tutorial/tutorial-04-http_echo_server.cc)
 
 # About http\_echo\_server
 
@@ -28,7 +28,7 @@ if (server.start(port) == 0)
 The procedure is too simple to explain. Please note that the start process is non-blocking, so please pause the program. Obviously you can start several server objects and then pause.   
 After a server is started, you can use **stop()** interface to shut down the server at any time. Stopping a server is non-violent and will be done until all the processing requests in the server are completed.   
 Therefore, **stop** is a blocking operation. If non-blocking shutdown is required, please use **shutdown+wait\_finish** interface.   
-There are several overloaded functions with **start()**. [WFServer.h](../src/server/WFServer.h) contains the following interfaces:
+There are several overloaded functions with **start()**. [WFServer.h](/src/server/WFServer.h) contains the following interfaces:
 
 ~~~cpp
 class WFServerBase

@@ -2,7 +2,7 @@
 
 # Sample code
 
-[tutorial-07-sort\_task.cc](../tutorial/tutorial-07-sort_task.cc)
+[tutorial-07-sort\_task.cc](/tutorial/tutorial-07-sort_task.cc)
 
 # About sort\_task
 
@@ -77,7 +77,7 @@ void callback(void SortTask<int> *task)
 ~~~
 
 You can use **get\_input ()** interface of a computing task to get the input data, and use **get\_output ()** to get the output data. For sorting tasks, the input and output are of the same type, and the content are exactly the same.   
-[WFAlgoTaskFactory.h](../src/factory/WFAlgoTaskFactory.h) contains the definitions of the input and output of sorting tasks.
+[WFAlgoTaskFactory.h](/src/factory/WFAlgoTaskFactory.h) contains the definitions of the input and output of sorting tasks.
 
 ~~~cpp
 namespace algorithm
@@ -137,7 +137,7 @@ With the above configuration, the system will create 16 threads for computations
 
 The built-in parallel sorting algorithm use block+two-way merge. Its space complexity is O(1).   
 The algorithm uses globally configured computing threads for computation, but at most 128 threads can be used. Because no extra space is used, the speedup ratio will be smaller than the number of threads, and the average CPU usage will be smaller.   
-For the detailed implementation, please see [WFAlgoTaskFactory.inl](../src/factory/WFAlgoTaskFactory.inl).
+For the detailed implementation, please see [WFAlgoTaskFactory.inl](/src/factory/WFAlgoTaskFactory.inl).
 
 # About the name of a calculation task queue
 

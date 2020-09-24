@@ -2,7 +2,7 @@
 
 # Sample code
 
-[tutorial-06-parallel\_wget.cc](../tutorial/tutorial-06-parallel_wget.cc)
+[tutorial-06-parallel\_wget.cc](/tutorial/tutorial-06-parallel_wget.cc)
 
 # About parallel\_wget
 

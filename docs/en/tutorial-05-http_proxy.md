@@ -2,7 +2,7 @@
 
 # Sample code
 
-[tutorial-05-http\_proxy.cc](../tutorial/tutorial-05-http_proxy.cc)
+[tutorial-05-http\_proxy.cc](/tutorial/tutorial-05-http_proxy.cc)
 
 # About http\_proxy
 
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 }
 ~~~
 Unlike the previous example, we pass an additional parameter to the server struct. Let’s see the configuration items in the HTTP server.   
-In [WFHttpServer.h](../src/server/WFHttpServer.h), the default parameters for an HTTP server include:
+In [WFHttpServer.h](/src/server/WFHttpServer.h), the default parameters for an HTTP server include:
 ~~~cpp
 static constexpr struct WFServerParams HTTP_SERVER_PARAMS_DEFAULT =
 {
@@ -201,4 +201,4 @@ Finally, the context is destroyed in the callback of the series.
 Please note that the reply message is sent automatically after all other tasks in the series are finished, so there is no **task->reply()** interface.   
 However, there is a **task->noreply()**. If this interface is called for the server task, the connection will be closed directly at the original reply time. But the callback will still be called (its state is NOREPLY).   
 In the callback of a server task, you can also call **series\_of()** to get the series of that server task. Then, you can still add new tasks to this series, although the reply has finished.   
-If you needs to continue to add tasks to the series, please see the instructions in [About exit](./about-exit.md), because doing so may cause unfinished tasks after the server is shut down.
+If you needs to continue to add tasks to the series, please see the instructions in [About exit](/docs/en/about-exit.md), because doing so may cause unfinished tasks after the server is shut down.

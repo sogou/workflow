@@ -29,6 +29,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
+
 struct tutorial_series_context
 {
 	std::string url;
@@ -89,7 +93,7 @@ void http_callback(WFHttpTask *task)
 		if (state == WFT_STATE_SYS_ERROR)
 			err_string = strerror(error);
 		else if (state == WFT_STATE_DNS_ERROR)
-			err_string = gai_strerror(error);
+			err_string = gai_strerrorA(error);
 		else if (state == WFT_STATE_SSL_ERROR)
 			err_string = "SSL error";
 		else /* if (state == WFT_STATE_TASK_ERROR) */

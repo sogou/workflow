@@ -29,6 +29,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
+
 #define REDIRECT_MAX    5
 #define RETRY_MAX       2
 

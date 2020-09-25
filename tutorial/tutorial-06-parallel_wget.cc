@@ -27,10 +27,16 @@
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
 
+
 using namespace protocol;
+
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
 
 #define REDIRECT_MAX    5
 #define RETRY_MAX       2
+
 
 struct tutorial_series_context
 {

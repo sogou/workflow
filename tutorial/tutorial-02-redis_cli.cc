@@ -28,6 +28,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
+
 #define RETRY_MAX       2
 
 struct tutorial_task_data

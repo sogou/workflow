@@ -34,6 +34,10 @@ using namespace protocol;
 #define REDIRECT_MAX    5
 #define RETRY_MAX       2
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
+
 struct tutorial_series_context
 {
 	std::string http_url;

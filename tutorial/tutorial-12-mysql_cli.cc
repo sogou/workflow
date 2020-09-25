@@ -34,6 +34,10 @@ using namespace protocol;
 
 #define RETRY_MAX       0
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
+
 std::mutex mutex;
 std::condition_variable cond;
 

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.6)
 set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "build type")
 set(CMAKE_SKIP_RPATH TRUE)
 
+=======
 project(
 	workflow
 	VERSION 0.9.1

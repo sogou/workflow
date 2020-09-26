@@ -30,6 +30,7 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include "list.h"
+#include "msgqueue.h"
 #include "thrdpool.h"
 #include "poller.h"
 #include "mpoller.h"
@@ -1101,7 +1102,7 @@ void Communicator::handler_thread_routine(void *context)
 	Communicator *comm = (Communicator *)context;
 	struct poller_result *res;
 
-	while ((res = poller_queue_get(comm->queue)) != NULL)
+	while ((res = (struct poller_result *)msgqueue_get(comm->queue)) != NULL)
 	{
 		switch (res->data.operation)
 		{
@@ -1269,6 +1270,12 @@ int Communicator::partial_written(size_t n, void *context)
 	return 0;
 }
 
+void Communicator::callback(struct poller_result *res, void *context)
+{
+	Communicator *comm = (Communicator *)context;
+	msgqueue_put(res, comm->queue);
+}
+
 void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
 						   int sockfd, void *context)
 {
@@ -1313,7 +1320,7 @@ int Communicator::create_handler_threads(size_t handler_threads)
 		if (i == handler_threads)
 			return 0;
 
-		poller_queue_set_nonblock(this->queue);
+		msgqueue_set_nonblock(this->queue);
 		thrdpool_destroy(NULL, this->thrdpool);
 	}
 
@@ -1324,12 +1331,13 @@ int Communicator::create_poller(size_t poller_threads)
 {
 	struct poller_params params = {
 		.max_open_files		=	65536,
-		.result_queue		=	poller_queue_create(4096),
 		.create_message		=	Communicator::create_message,
 		.partial_written	=	Communicator::partial_written,
+		.callback			=	Communicator::callback,
+		.context			=	this
 	};
 
-	this->queue = params.result_queue;
+	this->queue = msgqueue_create(4096, sizeof (struct poller_result));
 	if (this->queue)
 	{
 		this->mpoller = mpoller_create(&params, poller_threads);
@@ -1341,7 +1349,7 @@ int Communicator::create_poller(size_t poller_threads)
 			mpoller_destroy(this->mpoller);
 		}
 
-		poller_queue_destroy(this->queue);
+		msgqueue_destroy(this->queue);
 	}
 
 	return -1;
@@ -1365,7 +1373,7 @@ int Communicator::init(size_t poller_threads, size_t handler_threads)
 
 		mpoller_stop(this->mpoller);
 		mpoller_destroy(this->mpoller);
-		poller_queue_destroy(this->queue);
+		msgqueue_destroy(this->queue);
 	}
 
 	return -1;
@@ -1375,10 +1383,10 @@ void Communicator::deinit()
 {
 	this->stop_flag = 1;
 	mpoller_stop(this->mpoller);
-	poller_queue_set_nonblock(this->queue);
+	msgqueue_set_nonblock(this->queue);
 	thrdpool_destroy(NULL, this->thrdpool);
 	mpoller_destroy(this->mpoller);
-	poller_queue_destroy(this->queue);
+	msgqueue_destroy(this->queue);
 }
 
 int Communicator::nonblock_connect(CommTarget *target)
@@ -1671,11 +1679,16 @@ int Communicator::sleep(SleepSession *session)
 
 	if (session->duration(&value) >= 0)
 	{
-		if (mpoller_add_timer(session, &value, this->mpoller) >= 0)
+		if (mpoller_add_timer(&value, session, this->mpoller) >= 0)
 			return 0;
 	}
 
 	return -1;
+}
+
+int Communicator::is_handler_thread()
+{
+	return thrdpool_in_pool(this->thrdpool);
 }
 
 extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,
@@ -1804,7 +1817,7 @@ void Communicator::io_unbind(IOService *service)
 
 	if (mpoller_del(service->pipe_fd[0], this->mpoller) < 0)
 	{
-		/* Error occurred on event_fd or Communicator::deinit() called. */
+		/* Error occurred on pipe_fd or Communicator::deinit() called. */
 		this->shutdown_io_service(service);
 		errno = errno_bak;
 	}

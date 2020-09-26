@@ -27,9 +27,7 @@
 #include <pthread.h>
 #include <openssl/ssl.h>
 #include "list.h"
-#include "thrdpool.h"
 #include "poller.h"
-#include "mpoller.h"
 
 class CommConnection
 {
@@ -262,13 +260,13 @@ public:
 	void io_unbind(IOService *service);
 
 public:
+	int is_handler_thread();
 	int increase_handler_thread();
-	int is_handler_thread() { return thrdpool_in_pool(this->thrdpool); }
 
 private:
-	poller_queue_t *queue;
-	mpoller_t *mpoller;
-	thrdpool_t *thrdpool;
+	struct __mpoller *mpoller;
+	struct __msgqueue *queue;
+	struct __thrdpool *thrdpool;
 	int stop_flag;
 
 private:
@@ -335,6 +333,8 @@ private:
 	static poller_message_t *create_message(void *context);
 
 	static int partial_written(size_t n, void *context);
+
+	static void callback(struct poller_result *res, void *context);
 
 	static void *accept(const struct sockaddr *addr, socklen_t addrlen,
 						int sockfd, void *context);

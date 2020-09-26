@@ -5,7 +5,7 @@ set(CMAKE_INSTALL_PREFIX /opt/sogou CACHE PATH "install prefix")
 set(CMAKE_SKIP_RPATH TRUE)
 
 project(workflow
-	VERSION 1.12.6
+	VERSION 0.9.1
 	LANGUAGES C CXX
 )
 

@@ -25,7 +25,7 @@ In practice, if you don't need to access the external network, the domain names 
 
 # Creating and deleting upstream
 
-[UpstreamMananer.h](../src/manager/UpstreamManager.h) contains several interfaces for creating upstream:
+[UpstreamMananer.h](/src/manager/UpstreamManager.h) contains several interfaces for creating upstream:
 
 ~~~cpp
 using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;
@@ -207,4 +207,4 @@ If try\_another is true and all server are blown, you will get the same error. T
 Server\_type and group\_id are used for main/backup features. All upstream must have a server whose type is 0, representing main, otherwise the upstream is unavailable.   
 Backup servers (server_type 1) will be used when the main servers of the same group\_id is blown.
 
-For more information on the features of upstream, please see [about-upstream.md](./about-upstream.md).
+For more information on the features of upstream, please see [about-upstream.md](/docs/en/about-upstream.md).

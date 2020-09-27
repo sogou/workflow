@@ -27,7 +27,7 @@ void callback(WFXxxTask *task)
 }
 ~~~
 
-in which, the state indicates the end state of a task. [WFTask.h](../src/factory/WFTask.h) contains all possible states:
+in which, the state indicates the end state of a task. [WFTask.h](/src/factory/WFTask.h) contains all possible states:
 
 ~~~cpp
 enum
@@ -49,13 +49,13 @@ enum
 * SUCCESS: the task is successfully completed. The client receives the complete reply, or the server writes the reply completely into the send buffer (but there is no guarantee that the peer will receive it).
 * SYS\_ERROR: system error. In this case, use **task->get\_error()** to get the system error code **errno**.
   * When **get\_error()** gets ETIMEDOUT, you can call **task->get\_timeout\_reason()** to get the timeout reasons.
-* DNS\_ERROR: DNS resolution error. Use **get\_error()** to get the return code of **getaddrinfo()**. For DNS, please see the article for details [about-dns.md](./about-dns.md). 
+* DNS\_ERROR: DNS resolution error. Use **get\_error()** to get the return code of **getaddrinfo()**. For DNS, please see the article for details [about-dns.md](/docs/en/about-dns.md). 
   * The server task never has a DNS\_ERROR.
 * SSL\_ERROR: SSL error. Use **get\_error()** to get the return value of **SSL\_get\_error()**.
   * Currently SSL error information is not complete, and you can not get the value of **ERR\_get\_error()**. Therefore, basically there are three possible return value of **get\_error()**:
     * SSL\_ERROR\_ZERO\_RETURN, SSL\_ERROR\_X509\_LOOKUP, SSL\_ERROR\_SSL.
   * We will consider adding more detailed SSL error information in the future versions.
-* TASK\_ERROR: task errors. Common errors include illegal URL, login failure, etc. [WFTaskError.h](../src/factory/WFTaskError.h) lists the return values of **get\_error()**.
+* TASK\_ERROR: task errors. Common errors include illegal URL, login failure, etc. [WFTaskError.h](/src/factory/WFTaskError.h) lists the return values of **get\_error()**.
 
 ##### You do not need to pay attention to the following states:
 

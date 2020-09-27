@@ -106,7 +106,7 @@ public:
 ~~~
 其中，set_send_timeout()设置发送完整消息的超时，默认值为-1。  
 set_receive_timeout()只对client任务有效，指接收完整server回复的超时，默认值为-1。  
-  * server任务的receive_timeout在server启动配置里。所有被用户处理的server任务，都已经成功接收了完整请求。
+  * server任务的receive_timeout在server启动配置里。对server任务设置receive_timeout没有意义，因为消息已经接收完成。
 
 set_keep_alive()接口设置连接保持超时。一般来讲，框架能很好的处理连接保持的问题，用户不需要调用。  
 如果是http协议，client或server想要使用短连接，可通过添加HTTP header来完成，尽量不要用这个接口去修改。  

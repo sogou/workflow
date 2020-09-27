@@ -22,7 +22,7 @@ We are considering to send UDP requests to the DNS Server to obtain the results 
 
 ### Global DNS configuration
 
-You can see global settings in [WFGlobal.h](../src/manager/WFGlobal.h).
+You can see global settings in [WFGlobal.h](/src/manager/WFGlobal.h).
 
 ~~~cpp
 struct WFGlobalSettings
@@ -59,7 +59,7 @@ dns\_ttl\_default is checked by default, and dns\_ttl\_min is checked in the ret
 
 The global DNS configuration can be overridden by the configuration for an individual address in the upstream.   
 In Upstream, each AddressParams can also have its own dns\_ttl\_default and dns\_ttl\_min, and you can configure them in the same way as you configure the Global items.   
-For the detailed structures, please see [upstream documents](./about-upstream.md#Address).
+For the detailed structures, please see [upstream documents](/docs/en/about-upstream.md#Address).
 
 ### Handling at TTL expiration moment under high concurrency
 
@@ -72,7 +72,7 @@ The framework uses a self-consistent logic to reasonably avoid/reduce this possi
 * In every ten seconds, there will be only one DNS resolution for the “recently” expired domain name. 
 * In order to prevent this mutual exclusion logic from affecting performance, the framework uses the double-checked locks to accelerate processing and effectively avoid the competition of Mutex locks.
 * Once again, please note that it is only valid for the "just" expired DNS records, and has no impact for the DNS records that expires long time ago.
-* For further information on the logic of this part, please see the source codes of [DNSCache](../src/manager/DNSCache.h).
+* For further information on the logic of this part, please see the source codes of [DNSCache](/src/manager/DNSCache.h).
 
 Currently, there are still two scenarios in which the framework has to perform a large number of DNS resolutions for the same domain name at the same time:
 

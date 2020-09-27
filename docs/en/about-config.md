@@ -4,7 +4,7 @@ Global configuration is used to configure default global parameters to meet the 
 
 # Changing default configuration
 
-[WFGlobal.h](../src/manager/WFGlobal.h) defines the struts and the default values of the global configuration.
+[WFGlobal.h](/src/manager/WFGlobal.h) defines the struts and the default values of the global configuration.
 
 ~~~cpp
 struct WFGlobalSettings
@@ -31,7 +31,7 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 };
 ~~~
 
-[EndpointParams.h](../src/manager/EndpointParams.h) defines the struture of EndpointParams and the default values.
+[EndpointParams.h](/src/manager/EndpointParams.h) defines the struture of EndpointParams and the default values.
 
 ~~~cpp
 

@@ -9,7 +9,7 @@ In addition, as said in the project introduction, you can ignore all the configu
 
 ### Timeout configuration for basic communication
 
-[EndpointParams.h](../src/manager/EndpointParams.h) contains the following items:
+[EndpointParams.h](/src/manager/EndpointParams.h) contains the following items:
 
 ~~~cpp
 struct EndpointParams
@@ -39,7 +39,7 @@ This struct is the most basic configuration for  the communication connection, a
 
 ### Global timeout configuration
 
-You can see the global settings in [WFGlobal.h](../src/manager/WFGlobal.h).
+You can see the global settings in [WFGlobal.h](/src/manager/WFGlobal.h).
 
 ~~~cpp
 struct WFGlobalSettings
@@ -83,11 +83,11 @@ int main()
 The above example changes the connection timeout to 2 seconds, and the server response timeout is infinite. In this configuration, the timeout for receiving complete messages must be configured in each task, otherwise it may fall into infinite waiting.   
 The global configuration can be overridden by the configuration for an individual address in the upstream feature. For example, you can specify a connection timeout for a specific domain name.   
 In Upstream, each AddressParams also has the EndpointParams endpoint\_params item, and you can configure it in the same way as you configure the Global item.   
-For the detailed structures, please see [upstream documents.](tutorial-10-upstream.md#Address)
+For the detailed structures, please see [upstream documents.](/docs/en/tutorial-10-upstream.md#Address)
 
 ### Configuring server timeout
 
-The [http\_proxy](./tutorial-05-http_proxy.md) example demonstrates the server startup configuration. In which the timeout-related configuration items include:
+The [http\_proxy](/docs/en/tutorial-05-http_proxy.md) example demonstrates the server startup configuration. In which the timeout-related configuration items include:
 
 * peer\_response\_timeout: its definition is the same as the global peer\_response\_timeout, which indicates the response timeout of the remote client, and the default value is 10 seconds.
 * receive\_timeout: timeout for receiving a complete request. The default value is -1.

@@ -1686,6 +1686,11 @@ int Communicator::sleep(SleepSession *session)
 	return -1;
 }
 
+int Communicator::is_handler_thread()
+{
+	return thrdpool_in_pool(this->thrdpool);
+}
+
 extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,
 									thrdpool_t *);
 

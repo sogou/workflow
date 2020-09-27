@@ -454,7 +454,7 @@ CommMessageOut *WFHttpServerTask::message_out()
 
 	size_t body_size = resp->get_output_body_size();
 
-	if (!chunked || body_size == 0)
+	if (!chunked)
 	{
 		header.name = "Content-Length";
 		header.name_len = 14;

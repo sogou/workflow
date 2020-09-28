@@ -84,6 +84,7 @@ using TutorialResponse = TutorialMessage;
 ~~~
 request和response类，都是同一种类型的消息。直接using就可以。  
 注意request和response必须可以无参数的被构造，也就是说需要有无参数的构造函数，或完全没有构造函数。  
+此外，通讯过程中，如果发生重试，response对象会被销毁并重新构造。因此，它最好是一个RAII类。否则处理起来会比较复杂。  
 [message.cc](../tutorial/tutorial-10-user_defined_protocol/message.cc)里包含了encode和append的实现：
 ~~~cpp
 namespace protocol

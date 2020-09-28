@@ -166,7 +166,7 @@ int TutorialMessage::append(const void *buf, size_t size)
 The implementation of encode is very simple, in which two vectors are always, pointing to the head and the body respectively. Note that the iov\_base pointer must point to a member of the message class.   
 When you use append, you should ensure that the 4-byte head is received completely before reading the message body. Moreover, we can't guarantee that the first append must contain a complete head, so the process is a little cumbersome.  
 The append implements the size\_limit function, and an EMSGSIZE error will be returned if the size\_limit is exceeded. You can ignore the size_limit field if you don't need to limit the message size.  
-Because we require the communication protocol is two way with a request and a response, users do not need to consider the so-called "TCP packet sticking" problem. The problem should be treated as an error message directly.  　
+Because we require the communication protocol is two way with a request and a response, users do not need to consider the so-called "TCP packet sticking" problem. The problem should be treated as an error message directly.  
 Now, with the definition and implementation of messages, we can build a server and a client.
 
 # Server and client definitions

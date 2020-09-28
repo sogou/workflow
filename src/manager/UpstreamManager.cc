@@ -96,7 +96,7 @@ public:
 	struct rb_node rb;
 	std::mutex mutex;
 	std::vector<UpstreamAddress *> masters;
-	std::vector<UpstreamAddress *> slaves;
+	std::vector<UpstreamAddress *> backups;
 	struct list_head breaker_list;
 	std::atomic<int> nbreak;
 	std::atomic<int> nalive;
@@ -115,7 +115,7 @@ public:
 	}
 
 	const UpstreamAddress *get_one();
-	const UpstreamAddress *get_one_slave();
+	const UpstreamAddress *get_one_backup();
 };
 
 class Upstream
@@ -173,28 +173,28 @@ const UpstreamAddress *UpstreamGroup::get_one()
 			return master;
 	}
 
-	std::random_shuffle(this->slaves.begin(), this->slaves.end());
-	for (const auto *slave : this->slaves)
+	std::random_shuffle(this->backups.begin(), this->backups.end());
+	for (const auto *backup : this->backups)
 	{
-		if (slave->fail_count < slave->params.max_fails)
-			return slave;
+		if (backup->fail_count < backup->params.max_fails)
+			return backup;
 	}
 
 	return NULL;
 }
 
-const UpstreamAddress *UpstreamGroup::get_one_slave()
+const UpstreamAddress *UpstreamGroup::get_one_backup()
 {
 	if (this->nalive == 0)
 		return NULL;
 
 	std::lock_guard<std::mutex> lock(this->mutex);
 
-	std::random_shuffle(this->slaves.begin(), this->slaves.end());
-	for (const auto *slave : this->slaves)
+	std::random_shuffle(this->backups.begin(), this->backups.end());
+	for (const auto *backup : this->backups)
 	{
-		if (slave->fail_count < slave->params.max_fails)
-			return slave;
+		if (backup->fail_count < backup->params.max_fails)
+			return backup;
 	}
 
 	return NULL;
@@ -283,7 +283,7 @@ void Upstream::lose_one_server(UpstreamGroup *group, const UpstreamAddress *ua)
 	if (--group->nalive == 0 && ua->params.group_id >= 0)
 		available_weight_ -= group->weight;
 
-	if (ua->params.group_id < 0 && ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.group_id < 0 && ua->params.server_type == 0)
 		available_weight_ -= ua->params.weight;
 }
 
@@ -292,7 +292,7 @@ void Upstream::gain_one_server(UpstreamGroup *group, const UpstreamAddress *ua)
 	if (group->nalive++ == 0 && ua->params.group_id >= 0)
 		available_weight_ += group->weight;
 
-	if (ua->params.group_id < 0 && ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.group_id < 0 && ua->params.server_type == 0)
 		available_weight_ += ua->params.weight;
 }
 
@@ -325,7 +325,7 @@ int Upstream::add(UpstreamAddress *ua)
 		rb_insert_color(&group->rb, &group_map_);
 	}
 
-	if (ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.server_type == 0)
 	{
 		total_weight_ += ua->params.weight;
 		masters_.push_back(ua);
@@ -334,13 +334,13 @@ int Upstream::add(UpstreamAddress *ua)
 	group->mutex.lock();
 	gain_one_server(group, ua);
 	ua->group = group;
-	if (ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.server_type == 0)
 	{
 		group->weight += ua->params.weight;
 		group->masters.push_back(ua);
 	}
 	else
-		group->slaves.push_back(ua);
+		group->backups.push_back(ua);
 
 	group->mutex.unlock();
 
@@ -359,13 +359,13 @@ int Upstream::del(const std::string& address)
 			auto *group = ua->group;
 			std::vector<UpstreamAddress *> *vec;
 
-			if (ua->params.server_type == SERVER_TYPE_MASTER)
+			if (ua->params.server_type == 0)
 			{
 				total_weight_ -= ua->params.weight;
 				vec = &group->masters;
 			}
 			else
-				vec = &group->slaves;
+				vec = &group->backups;
 
 			std::lock_guard<std::mutex> lock(group->mutex);
 
@@ -373,7 +373,7 @@ int Upstream::del(const std::string& address)
 			if (ua->fail_count < ua->params.max_fails)
 				lose_one_server(group, ua);
 
-			if (ua->params.server_type == SERVER_TYPE_MASTER)
+			if (ua->params.server_type == 0)
 				group->weight -= ua->params.weight;
 
 			for (auto it = vec->begin(); it != vec->end(); ++it)
@@ -679,7 +679,7 @@ const UpstreamAddress *Upstream::get(const ParsedURI& uri)
 	}
 
 	if (!ua)
-		ua = default_group_->get_one_slave();//get one slave from group[-1]
+		ua = default_group_->get_one_backup();//get one backup from group[-1]
 
 	return ua;
 }

@@ -437,7 +437,7 @@ bool ComplexMySQLTask::init_success()
 	{
 		auto query_kv = URIParser::split_query(uri_.query);
 
-		for (const auto& kv : query_kv)
+		for (auto& kv : query_kv)
 		{
 			if (strcasecmp(kv.first.c_str(), "transaction") == 0)
 				transaction = std::move(kv.second);

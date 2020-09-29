@@ -221,7 +221,7 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		return new MySQLHandshakeResponse;
 	else if (seqid == 1)
 		return new MySQLAuthResponse;
-	else if (seqid == 2 && !is_user_request())
+	else if (seqid == 2 && !is_user_request_)
 		return new MySQLResponse;
 
 	return this->WFClientTask::message_in();

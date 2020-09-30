@@ -6,25 +6,27 @@
 
 # About mysql\_cli
 
-The mysql\_cli in the tutorial is used in a way similar to the official client. It is an asynchronous MySQL client with an interactive command line interface.
+The usage of mysql\_cli in the tutorial is similar to that of the official client. It is an asynchronous MySQL client with an interactive command line interface.
 
-Run the program with the command: ./mysql_cli \<URL\>
+To start the program, run the command: ./mysql_cli \<URL\>
 
-After startup, you can directly enter MySQL command in the terminal to interact with db, or enter quit or Ctrl-C to exit.
+After startup, you can directly enter MySQL command in the terminal to interact with db, or enter `quit` or `Ctrl-C` to exit.
 
 # Format of MySQL URL
 
-mysql://username:password@host:port/dbname?character\_set=charset
+mysql://username:password@host:port/dbname?character\_set=charset&character\_set\_results=charset
 
-- fill in username and password according to the requirements;
+- fill in the username and the password for the MySQL database;
 
 - the default port number is 3306;
 
-- dbname is the name of the database to be used. It is recommended to fill in the db name if SQL statements only operates on one db;
+- **dbname** is the name of the database to be used. It is recommended to provide a dbname if SQL statements only operates on one database;
 
-- If you have upstream selection requirements at this level, please see [upstream documents](../docs/about-upstream.md).
+- If you have upstream selection requirements for MySQL, please see [upstream documents](/docs/en/about-upstream.md).
 
-- charset indicates a character set; the default value is utf8. For details, please see official MySQL documents [character-set.html](https://dev.mysql.com/doc/internals/en/character-set.html).
+- **character_set** indicates a character set used for the client, with the same meaning of --default-character-set in official client. The default value is utf8. For details, please see official MySQL documents [character-set.html](https://dev.mysql.com/doc/internals/en/character-set.html).
+
+- **character_set_results** indicates a character set for client, connection and results. If you wants to use `SET NAMES ` in SQL statements, please set it here.
 
 Sample MySQL URL:
 
@@ -34,7 +36,7 @@ mysql://@test.mysql.com:3306/db1?character\_set=utf8
 
 # Creating and starting a MySQL task
 
-You can use WFTaskFactory to create a MySQL task. The creation interface and callback functions are used in a way similar to other tasks in the workflow:
+You can use WFTaskFactory to create a MySQL task. The usage of creating interface and callback functions are similar to other tasks in workflow:
 
 ~~~cpp
 using mysql_callback_t = std::function<void (WFMySQLTask *)>;
@@ -44,13 +46,13 @@ WFMySQLTask *create_mysql_task(const std::string& url, int retry_max, mysql_call
 void set_query(const std::string& query);
 ~~~
 
-You can call **set\_query()** on req to write SQL statements after creating a WFMySQLTask.
+You can call **set\_query()** on the request to write SQL statements after creating a WFMySQLTask.
 
-According to the MySQL protocol, if an empty packet is sent after the connection is established, the server will wait instead of returning a packet, so the user will get a timeout. Therefore, the framework makes special check on those task that do not call `set_query()` and will immediately return **WFT\_ERR\_MYSQL\_QUERY\_NOT\_SET**.
+According to the MySQL protocol, if an empty packet is sent after the connection is established, the server will wait instead of returning a packet, so the user will get a timeout. Therefore, the framework makes special check on those tasks that do not call `set_query()` and will immediately return **WFT\_ERR\_MYSQL\_QUERY\_NOT\_SET**.
 
-Others functions, including callback, series and user\_data are used in a way similar to other tasks in the workflow.
+Other functions, including callback, series and user\_data are used in a way similar to other tasks in workflow.
 
-The following code shows some general usage:
+The following codes show some general usage:
 ~~~cpp
 int main(int argc, char *argv[])
 {
@@ -65,51 +67,55 @@ int main(int argc, char *argv[])
 
 # Supported commands
 
-Currently the supported command is **COM\_QUERY**, which can cover the basic requirements for adding, deleting, modifying and querying data, creating and deleting databases, creating and deleting tables, preparing, using stored procedures and using transactions.
+Currently the supported command is **COM\_QUERY**, which can cover the basic requirements for adding, deleting, modifying and querying data, creating and deleting databases, creating and deleting tables, prepare, using stored procedures and using transactions.
 
-Because the program don't support the selection of databases (**US**E command) in our interactive commands, if there are **cross-database** operations in SQL statements, you can specify the database and table with **db \_ name.table \_ name**.
+Because the program doesn't support the selection of databases (**USE** command) in our interactive commands, if there are **cross-database** operations in SQL statements, you can specify the database and table with **db\_name.table\_name**.
 
-**Multiple commands** can be spliced together and then passed to WFMySQLTask with `set_query()`. Generally speaking, multiple statements can get all the results back at one time. However, due to the incompatibility between the packet reply method in the MySQL protocol and our question-and-answer communication in some special cases, please read the following cautions before you add the SQL statements in `set_query()`:
+**Multiple commands** can be joined together and then passed to WFMySQLTask with `set_query()`. Generally speaking, multiple statements can get all the results back at one time. However, as the packet return method in the MySQL protocol is not compatible with question and answer communication under some provisions, please read the following cautions before you add the SQL statements in `set_query()`:
 
 - For the statement that gets a single result set, multiple statements can be spliced (ordinary INSERT/UPDATE/SELECT/PREPARE)
 
-- The statement that returns multiple result sets (such as CALL a stored procedure) is also supported.
+- One statement that returns multiple result sets (such as CALL a stored procedure) is also supported.
 
 - In other cases, it is recommended to divide SQL statements into individual requests
 
 For example:
 
 ~~~cpp
-// 单结果集的多条语句拼接，可以正确拿到返回结果
+// Correct!
+// This will get multiple result sets for mutiple ordinary statements.
 req->set_query("SELECT * FROM table1; SELECT * FROM table2; INSERT INTO table3 (id) VALUES (1);");
 
-// 多结果集的单条语句，也可以正确拿到返回结果
+// Correct!
+// This will get single or multiple result sets for some multi-result-set statements.
 req->set_query("CALL procedure1();");
 
-// 多结果集与其他拼接都不能完全拿到所有返回结果
+// Incorrect!
+// This contains a multi-result-set statement and other statements.
+// Cannot get all the result sets correctly.
 req->set_query("CALL procedure1(); SELECT * FROM table1;");
 ~~~
 
 # Parsing results
 
-Similar to other tasks in the workflow, you can use **task->get\_resp()** to get **MySQLResponse**, and you can use **MySQLResultCursor** to traverse the result set, the infomation of each column of the result set(**MySQLField**), each row and each **MySQLCell**. For details on the interfaces, please see [MySQLResult.h](../src/protocol/MySQLResult.h).
+Similar to other tasks in workflow, you can use **task->get\_resp()** to get **MySQLResponse**, and you can use **MySQLResultCursor** to traverse the result set, the infomation of each column of the result set (**MySQLField**), each row and each **MySQLCell**. For details on the interfaces, please see [MySQLResult.h](/src/protocol/MySQLResult.h).
 
-The specific steps from the external to the internal should be:
+The specific steps should be:
 
-1. checking the task state (state at communication level): you can check whether the task is successfully executed by checking whether **task->get\_state()** is equal to WFT\_STATE\_SUCCESS;
+1. checking the task state (state at communication): you can check whether the task is successfully executed by checking whether **task->get\_state()** is equal to WFT\_STATE\_SUCCESS;
 
-2. determining the type of the reply packet (the parsing status of the return packet): call **resp->get\_packet\_type()** to check the type of the MySQL return packet. The common types include:
+2. determining the type of the reply packet (state at parsing the return packet): call **resp->get\_packet\_type()** to check the type of the MySQL return packet. The common types include:
 
-- MYSQL\_PACKET\_OK: non-result set requests: parsed successfully;
-- MYSQL\_PACKET\_EOF: result set requests: parsed successfully;
+- MYSQL\_PACKET\_OK: non-result-set requests: parsed successfully;
+- MYSQL\_PACKET\_EOF: result-set requests: parsed successfully;
 - MYSQL\_PACKET\_ERROR: requests: failed;
 
-3. checking the result set state (the state for reading the result sets): you can use MySQLResultCursor to read the content in the result set. Because the data returned by a MySQL server contains multiple result sets, the cursor will **automatically point to the reading position of the first result set** at first. **cursor->get\_cursor\_status()** returns the following states:
+3. checking the result set state (state at reading the result sets): you can use MySQLResultCursor to read the content in the result set. Because the data returned by a MySQL server contains multiple result sets, the cursor will **automatically point to the reading position of the first result set** at first. **cursor->get\_cursor\_status()** returns the following states:
 
 - MYSQL\_STATUS\_GET\_RESULT: the data are available to read;
 - MYSQL\_STATUS\_END: the last record of the current result set has been read;
-- MYSQL\_STATUS\_EOF: all result sets are fetched;
-- MYSQL\_STATUS\_OK: the reply packet is a non-result set packet, so you do not need to read data through the result set interface;
+- MYSQL\_STATUS\_EOF: all result-sets are fetched;
+- MYSQL\_STATUS\_OK: the reply packet is a non-result-set packet, so you do not need to read data through the result set interface;
 - MYSQL\_STATUS\_ERROR: parsing error;
 
 4. reading each field of the columns:
@@ -132,7 +138,7 @@ The specific steps from the external to the internal should be:
 
 7. returning to the head of the current result set: if it is necessary to read this result set again, you can use **cursor->rewind()** to return to the head of the current result set, and then read it via the operations in Step 5 or Step 6;
 
-8. getting the next result set: because the data packet returned by MySQL server may contain multiple result sets (for example, each select statement gets a result set; or the multiple result sets returned by calling a procedure). Therefore, you can use **cursor->next\_result\_set()**  to jump to the next result set. If the return value is false, it means that all result sets have been taken.
+8. getting the next result set: because the data packet returned by MySQL server may contains multiple result sets (for example, each select statement gets a result set; or the multiple result sets returned by calling a procedure). Therefore, you can use **cursor->next\_result\_set()** to jump to the next result set. If the return value is false, it means that all result sets have been taken.
 
 9. returning to the first result set: use **cursor->first\_result\_set()** to return to the heads of all result sets, and then you can repeat the operations from Step 3.
 
@@ -148,7 +154,7 @@ The whole example is shown below:
 ~~~cpp
 void task_callback(WFMySQLTask *task)
 {
-    // step-1. 判断任务状态 
+    // step-1. Check the status of the task
     if (task->get_state() != WFT_STATE_SUCCESS)
     {
         fprintf(stderr, "task error = %d\n", task->get_error());
@@ -160,7 +166,7 @@ void task_callback(WFMySQLTask *task)
     bool test_rewind_flag = false;
 
 begin:
-    // step-2. 判断回复包状态
+    // step-2. Check the status of reply packet
     switch (resp->get_packet_type())
     {
     case MYSQL_PACKET_OK:
@@ -174,11 +180,11 @@ begin:
         do {
             fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u ",
                     cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
-            // step-3. 判断结果集状态
+            // step-3. Check the status of the result set
             if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
                 break;
 
-            // step-4. 读取每个fields。这是个nocopy api
+            // step-4. Read each fields. This is a nocopy api
             const MySQLField *const *fields = cursor.fetch_fields();
             for (int i = 0; i < cursor.get_field_count(); i++)
             {
@@ -187,18 +193,18 @@ begin:
                         fields[i]->get_name().c_str(), datatype2str(fields[i]->get_data_type()));
             }
 
-            // step-6. 把所有行读出，也可以while (cursor.fetch_row(map/vector)) 按step-5拿每一行
+            // step-6. Read all the rows. You may use while (cursor.fetch_row(map/vector)) to get each rows accoding to step-5.
             std::vector<std::vector<MySQLCell>> rows;
 
             cursor.fetch_all(rows);
             for (unsigned int j = 0; j < rows.size(); j++)
             {
-                // step-10. 具体每个cell的读取
+                // step-10. Read each cell
                 for (unsigned int i = 0; i < rows[j].size(); i++)
                 {
                     fprintf(stderr, "[%s][%s]", fields[i]->get_name().c_str(),
                             datatype2str(rows[j][i].get_data_type()));
-                    // step-10. 判断具体类型is_string()和转换具体类型as_string()
+                    // step-10. Check the type wih is_string()and transform the type with as_string()
                     if (rows[j][i].is_string())
                     {
                         std::string res = rows[j][i].as_string();
@@ -208,13 +214,13 @@ begin:
                     } // else if ...
                 }
             }
-        // step-8. 拿下一个结果集
+        // step-8. Get the next result set
         } while (cursor.next_result_set());
 
         if (test_first_result_set_flag == false)
         {
             test_first_result_set_flag = true;
-            // step-9. 返回第一个结果集
+            // step-9. Go back to the first result set
             cursor.first_result_set();
             goto begin;
         }
@@ -222,7 +228,7 @@ begin:
         if (test_rewind_flag == false)
         {
             test_rewind_flag = true;
-            // step-7. 返回当前结果集头部
+            // step-7. Go back to the first of the current result set
             cursor.rewind();
             goto begin;
         }
@@ -238,11 +244,11 @@ begin:
 
 # WFMySQLConnection
 
-Since it is a highly concurrent asynchronous client, this means that the client may have more than one connection to a server. As both MySQL transactions and preparation are stateful, in order to ensure that one transaction or preparation ocupies one connection exclusively, you can use our encapsulated secondary factory WFMySQLConnection to create a task. Each WFMySQLConnection guarantees that one connection  is occupied exclusively. For the details, please see [WFMySQLConnection.h](../src/client/WFMySQLConnection.h).
+Since it is a highly concurrent asynchronous client, this means that the client may have more than one connection to the server. As both MySQL transactions and preparation are stateful, in order to ensure that one transaction or preparation ocupies one connection exclusively, you can use our encapsulated secondary factory WFMySQLConnection to create a task. Each WFMySQLConnection guarantees that one connection is occupied exclusively. For the details, please see [WFMySQLConnection.h](/src/client/WFMySQLConnection.h).
 
 ### 1\. Creating and initializing WFMySQLConnection
 
-When creating a WFMySQLConnection, you need to pass in globally unique **id**, and the framework will use the id to find the corresponding unique connection in subsequent calls.
+When creating a WFMySQLConnection, you need to pass in globally unique **id**, and the subsequent calls on this WFMySQLConnection will use this id to find the corresponding unique connection.
 
 When initializing a WFMySQLConnection, you need to pass a URL, and then you do not need to set the URL for the task created on this connection.
 
@@ -258,11 +264,11 @@ public:
 
 ### 2\. Creating a task and closing a connection
 
-With **create\_query\_task()**, you can create a task by writing an SQL request and a callback function. The task must be sent on this connection.
+With **create\_query\_task()**, you can create a task by writing an SQL request and a callback function. The task is garuanteed to be sent on this connection.
 
-Sometimes you need to close this connection manually. Because when you stop using it, this connection will be kept until MySQL server times out. During this period, if you use the same id and url to create a WFMySQLConnection, you reuse the connection.
+Sometimes you need to close this connection manually. Because when you stop using it, this connection will be kept until MySQL server time out. During this period, if you use the same id and url to create a WFMySQLConnection, you may reuse the connection.
 
-Therefore, we suggest that if you are not ready to reuse the connection, you should use **create\_disconnect\_task()** to create a task and manually close the connection.
+Therefore, we suggest that if you do not want to reuse the connection, you should use **create\_disconnect\_task()** to create a task and manually close the connection.
 
 ~~~cpp
 class WFMySQLConnection
@@ -288,7 +294,7 @@ WFMySQLConnection is equivalent to a secondary factory. In the framework, we arr
 
 ### 3\. Cautions
 
-If you have started BEGIN but have not COMMIT or ROLLBACK during the transaction and the connection has been interrupted during the transaction, the connection will be automatically reconnected internally by the framework, and you will get **ECONNRESET** error in the next task request. In this case, the transaction statement that is not COMMIT has expired and you need to sent it again.
+If you have started `BEGIN` but have not `COMMIT` or `ROLLBACK` during the transaction and the connection has been interrupted during the transaction, the connection will be automatically reconnected internally by the framework, and you will get **ECONNRESET** error in the next task request. In this case, the transaction statements those have not been `COMMIT` would be expired and you may need to send them again.
 
 ### 4\. Preparation
 

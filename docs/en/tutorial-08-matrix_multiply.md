@@ -2,17 +2,17 @@
 
 # Sample code
 
-[tutorial-08-matrix\_multiply.cc](/tutorial/tutorial-08-matrix_multiply.cc)
+[tutorial-08-matrix\_multiply.cc](../tutorial/tutorial-08-matrix_multiply.cc)
 
-# About matrix\_multiply
+# About matrix_multiply
 
-The program multiplies two matrices and prints the results on the screen.   
+The program multiplies two matrices and displays the results on the console.   
 The main purpose of the example is to show how to implement a user-defined CPU computing task.
 
 # About computing tasks
 
-You need to provide three types of basic information when you define a computer task: INPUT, OUTPUT, and routine.   
-INPUT and OUTPUT are two template parameters, which can be of any type. routine means the process from INPUT to OUTPUT, which is defined as follows:
+A computing task has three arguments: INPUT, OUTPUT, and routine.   
+INPUT and OUTPUT are two template parameters that can hold any type, and a routine is the process from INPUT to OUTPUT. A computing task is defined as follows:
 
 ~~~cpp
 template <class INPUT, class OUTPUT>
@@ -24,8 +24,8 @@ class __WFThreadTask
 };
 ~~~
 
-It can be seen that routine is a simple computing process from INPUT to OUTPUT. The INPUT pointer is not necessarily be const, but you can also pass the function of const INPUT \*.   
-For example, to implement an adding task, you can:
+You can see that routine is a simple computing process from INPUT to OUTPUT. The INPUT pointer is not necessarily be const, but you can pass const INPUT \*.   
+For example, to implement a task that adds two numbers, you can use the follow code:
 
 ~~~cpp
 struct add_input
@@ -47,7 +47,7 @@ void add_routine(const add_input *input, add_output *output)
 typedef WFThreadTask<add_input, add_output> add_task;
 ~~~
 
-In the example of matrix multiplication, the input is two matrices and the output is one matrix. They are defined as follows:
+In matrix multiplication, the input includes two matrices and the output is one matrix. They are defined as follows:
 
 ~~~cpp
 namespace algorithm
@@ -76,12 +76,12 @@ void matrix_multiply(const MMInput *in, MMOutput *out)
 }
 ~~~
 
-As the input matrices may be illegal in matrix multiplication, so there is an error field in the output to indicate errors.
+As the input matrices may be incompatible in matrix multiplication, there is an error field in the output to indicate that error.
 
 # Generating computing tasks
 
-After you define the types of input and output and the algorithm process, you can use  WFThreadTaskFactory  to generate a computing task.   
-In [WFTaskFactory.h](/src/factory/WFTaskFactory.h), the computing task factory is defined as follows:
+After you define the types of input and output and the algorithm process, you can use WFThreadTaskFactory to generate a computing task.   
+In [WFTaskFactory.h](../src/factory/WFTaskFactory.h), the calculation factory is defined as follows:
 
 ~~~cpp
 template <class INPUT, class OUTPUT>
@@ -98,9 +98,9 @@ public:
 };
 ~~~
 
-Slightly different from the previous network factory class or the algorithm factory class, this factory requires two template parameters: INPUT and OUTPUT.   
-queue\_name is explained in the previous example. routine is the computation process, and callback means the callback.   
-In our example, we see this call:
+Slightly different from the previous network factory class or the algorithm factory class, this class requires two template parameters: INPUT and OUTPUT.   
+queue\_name is explained in the previous example. routine is the computing process, and the callback means the callback of the function.   
+In the example, there is a call:
 
 ~~~cpp
 using MMTask = WFThreadTask<algorithm::MMInput,
@@ -123,7 +123,7 @@ int main()
 }
 ~~~
 
-After the task is generated, use **get\_input()** interface to get the pointer of the input data. This is similar to the **get\_req()** in a network task.   
+After the task is generated, you can use **get\_input()** interface to get the pointer of the input data. This is similar to the **get\_req()** in a network task.   
 The start and the end of a task is the same as those of a network task. Similarly, the callback is very simple:
 
 ~~~cpp
@@ -148,22 +148,22 @@ void callback(MMTask *task)     // MMtask = WFThreadTask<MMInput, MMOutput>
 }
 ~~~
 
-You can ignore the the possibility of failure in the ordinary computing tasks, and the end state is always SUCCESS.   
+You can ignore the possibility of failure in ordinary computing tasks, and the end state is always SUCCESS.   
 The callback simply prints out the input and the output. If the input data are illegal, the error will be printed out.
 
 # Symmetry of the algorithm and the protocol
 
 In our system, algorithms and protocols are highly symmetrical on a very abstract level.   
-There are thread tasks with user-defined algorithms,  obviously there are network tasks with user-defined protocols.   
-A user-defined algorithm requires the user to provide the algorithm procedure, and a user-defined protocol requires the user to provide the procedure of serialization and deserialization. You can see an introduction in [Simple client/server based on user-defined protocols](/tutorial-10-user_defined_protocol.md)   
-For the user-defined algorithms and the user-defined protocols, both must be very pure .   
-For example, an algorithm is just a conversion procedure from INPUT to OUPUT, and the algorithm does not know the existence of task, series, etc.   
-The implementation of an HTTP protocol only cares about serialization and deserialization, and does not need to care about the task definition. Instead, the HTTP protocol is referred to in an http task.
+There are thread tasks with user-defined algorithms, and obviously there are network tasks with user-defined protocols.   
+A user-defined algorithm requires a user to provide the  procedure for algorithm implementation, and a user-defined protocol requires a user to provide the procedures for serialization and deserialization. You can see an introduction in [Simple client/server based on user-defined protocols](./tutorial-10-user_defined_protocol.md)   
+For user-defined algorithms and user-defined protocols, both algorithms and protocols must be very pure and have single responsibility.   
+For example, an algorithm is just a conversion procedure from INPUT to OUPUT, and the algorithm does not care about the existence of task, series, and etc.   
+The implementation of an HTTP protocol only cares about serialization and deserialization, and does not need to care about the task. Instead, an HTTP task refers to the HTTP protocol.
 
-# Composite features of thread tasks and network tasks
+# Compositionality of thread tasks and network tasks
 
 In this example, we use WFThreadTaskFactory to build a thread task. This is the simplest way to get a computing task, and it is sufficient in most cases.   
 Similarly, you can simply define a server and a client with a user-defined protocol.   
-However, in the previous example, we can use the algorithm factory to generate a parallel sorting task, which is obviously not possible with a routine.   
+However, in the previous example, we use the algorithm factory to generate a parallel sorting task, which is obviously not possible with a routine.   
 For a network task, such as a Kafka task, interactions with several machines may be required to get results, but it is completely transparent to users.   
-Therefore, our tasks are composite. If you use our framework skillfully, you can design many composite components.
+Therefore, our tasks are composite. If you use our framework skillfully, you can design a lot of composite  components.

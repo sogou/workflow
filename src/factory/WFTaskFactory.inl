@@ -317,11 +317,6 @@ protected:
 		this->resp.set_size_limit(size);
 	}
 
-	bool is_user_request() const
-	{
-		return this->get_message_out() == &this->req;
-	}
-
 	void disable_retry()
 	{
 		retry_times_ = retry_max_;

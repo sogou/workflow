@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
 */
 
@@ -54,14 +55,15 @@ private:
 	std::string username_;
 	std::string password_;
 	std::string db_;
+	std::string res_charset_;
 	int character_set_;
-	bool succ_;
 #define NO_TRANSACTION          -1
 #define TRANSACTION_OUT         0
 #define TRANSACTION_IN          1
 #define TRANSACTION_CONN_RESET  -2
 	int transaction_state_;
 #define PREPARE_IN              2
+	bool succ_;
 	bool is_user_request_;
 
 public:
@@ -125,17 +127,12 @@ bool ComplexMySQLTask::check_request()
 CommMessageOut *ComplexMySQLTask::message_out()
 {
 	long long seqid = this->get_seq();
+	MySQLRequest *req;
 
 	if (seqid == 0)
-	{
-		succ_ = false;
-		is_user_request_ = false;
-		return new MySQLHandshakeRequest;
-	}
+		req = new MySQLHandshakeRequest;
 	else if (seqid == 1)
 	{
-		succ_ = false;
-		is_user_request_ = false;
 		auto *auth_req = new MySQLAuthRequest;
 		auto *conn = this->get_connection();
 		auto *ctx = static_cast<handshake_ctx *>(conn->get_context());
@@ -143,17 +140,31 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		auth_req->set_seqid(ctx->mysql_seqid);
 		auth_req->set_challenge(ctx->challenge);
 		delete ctx;
-		conn->set_context(nullptr, nullptr);
+		conn->set_context(NULL, nullptr);
 		auth_req->set_auth(username_, password_, db_, character_set_);
-		return auth_req;
+		req = auth_req;
+	}
+	else if (seqid == 2 && res_charset_.size() != 0)
+	{
+		req = new MySQLRequest;
+		req->set_query("SET NAMES " + res_charset_);
+	}
+	else
+		req = NULL;
+
+	if (req)
+	{
+		succ_ = false;
+		is_user_request_ = false;
+		return req;
 	}
 
 	if (is_transaction())
 	{
 		auto *target = static_cast<RouteManager::RouteTarget *>(this->get_target());
 
-		if (seqid == 2 && ((target->state & TRANSACTION_IN) ||
-						   (target->state & PREPARE_IN))) // CONN RESET
+		if (seqid <= 3 && (seqid == 2 || res_charset_.size() != 0) &&
+			(target->state & (TRANSACTION_IN | PREPARE_IN)))
 		{
 			target->state = TRANSACTION_OUT;
 			transaction_state_ = TRANSACTION_CONN_RESET;
@@ -210,6 +221,8 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		return new MySQLHandshakeResponse;
 	else if (seqid == 1)
 		return new MySQLAuthResponse;
+	else if (seqid == 2 && !is_user_request_)
+		return new MySQLResponse;
 
 	return this->WFClientTask::message_in();
 }
@@ -226,6 +239,7 @@ int ComplexMySQLTask::keep_alive_timeout()
 		{
 			this->resp = std::move(*static_cast<MySQLResponse *>(resp));
 			succ_ = false;
+			return 0;
 		}
 		else
 		{
@@ -241,24 +255,21 @@ int ComplexMySQLTask::keep_alive_timeout()
 			succ_ = true;
 		}
 	}
-	else if (seqid == 1)
+	else if (!is_user_request_)
 	{
-		auto *resp = static_cast<MySQLAuthResponse *>(this->get_message_in());
+		auto *resp = static_cast<MySQLResponse *>(this->get_message_in());
 
 		succ_ = resp->is_ok_packet();
-		if (succ_)
+		if (!succ_)
 		{
-			return is_transaction() ? MYSQL_KEEPALIVE_TRANSACTION
-									: MYSQL_KEEPALIVE_DEFAULT;
-		}
-		else
-		{
-			this->resp = std::move(*static_cast<MySQLResponse *>(resp));
+			this->resp = std::move(*resp);
 			return 0;
 		}
 	}
+	else
+		return this->keep_alive_timeo;
 
-	return this->keep_alive_timeo;
+	return MYSQL_KEEPALIVE_DEFAULT;
 }
 
 /*
@@ -426,9 +437,11 @@ bool ComplexMySQLTask::init_success()
 	{
 		auto query_kv = URIParser::split_query(uri_.query);
 
-		for (const auto& kv : query_kv)
+		for (auto& kv : query_kv)
 		{
-			if (strcasecmp(kv.first.c_str(), "character_set") == 0)
+			if (strcasecmp(kv.first.c_str(), "transaction") == 0)
+				transaction = std::move(kv.second);
+			else if (strcasecmp(kv.first.c_str(), "character_set") == 0)
 			{
 				character_set_ = __mysql_get_character_set(kv.second);
 				if (character_set_ < 0)
@@ -438,16 +451,19 @@ bool ComplexMySQLTask::init_success()
 					return false;
 				}
 			}
-			else if (strcasecmp(kv.first.c_str(), "transaction") == 0)
-				transaction = kv.second;
+			else if (strcasecmp(kv.first.c_str(), "character_set_results") == 0)
+				res_charset_ = std::move(kv.second);
 		}
 	}
 
-	size_t info_len = username_.size() + password_.size() + db_.size() + 40;
+	size_t info_len = username_.size() + password_.size() + db_.size() +
+					  res_charset_.size() + 50;
 	char *info = new char[info_len];
 
-	snprintf(info, info_len, "mysql|user:%s|pass:%s|db:%s|charset:%d",
-			 username_.c_str(), password_.c_str(), db_.c_str(), character_set_);
+	snprintf(info, info_len, "mysql|user:%s|pass:%s|db:%s|"
+							 "charset:%d|rcharset:%s",
+			 username_.c_str(), password_.c_str(), db_.c_str(),
+			 character_set_, res_charset_.c_str());
 	this->WFComplexClientTask::set_type(type);
 
 	if (!transaction.empty())
@@ -477,10 +493,17 @@ bool ComplexMySQLTask::finish_once()
 
 		if (this->state == WFT_STATE_SUCCESS && !succ_)
 		{
+			long long seqid = this->get_seq();
+
+			if (seqid == 0)
+				this->error = WFT_ERR_MYSQL_HOST_NOT_ALLOWED;
+			else if (seqid == 1)
+				this->error = WFT_ERR_MYSQL_ACCESS_DENIED;
+			else
+				this->error = WFT_ERR_MYSQL_INVALID_CHARACTER_SET;
+
 			this->disable_retry();
 			this->state = WFT_STATE_TASK_ERROR;
-			this->error = this->get_seq() == 0 ? WFT_ERR_MYSQL_HOST_NOT_ALLOWED
-											   : WFT_ERR_MYSQL_ACCESS_DENIED;
 		}
 
 		return false;

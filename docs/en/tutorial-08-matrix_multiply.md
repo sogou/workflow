@@ -2,7 +2,7 @@
 
 # Sample code
 
-[tutorial-08-matrix\_multiply.cc](../tutorial/tutorial-08-matrix_multiply.cc)
+[tutorial-08-matrix\_multiply.cc](/tutorial/tutorial-08-matrix_multiply.cc)
 
 # About matrix\_multiply
 
@@ -81,7 +81,7 @@ As the input matrices may be illegal in matrix multiplication, so there is an er
 # Generating computing tasks
 
 After you define the types of input and output and the algorithm process, you can use  WFThreadTaskFactory  to generate a computing task.   
-In [WFTaskFactory.h](../src/factory/WFTaskFactory.h), the computing task factory is defined as follows:
+In [WFTaskFactory.h](/src/factory/WFTaskFactory.h), the computing task factory is defined as follows:
 
 ~~~cpp
 template <class INPUT, class OUTPUT>
@@ -155,7 +155,7 @@ The callback simply prints out the input and the output. If the input data are i
 
 In our system, algorithms and protocols are highly symmetrical on a very abstract level.   
 There are thread tasks with user-defined algorithms,  obviously there are network tasks with user-defined protocols.   
-A user-defined algorithm requires the user to provide the algorithm procedure, and a user-defined protocol requires the user to provide the procedure of serialization and deserialization. You can see an introduction in [Simple client/server based on user-defined protocols](./tutorial-10-user_defined_protocol.md)   
+A user-defined algorithm requires the user to provide the algorithm procedure, and a user-defined protocol requires the user to provide the procedure of serialization and deserialization. You can see an introduction in [Simple client/server based on user-defined protocols](/tutorial-10-user_defined_protocol.md)   
 For the user-defined algorithms and the user-defined protocols, both must be very pure .   
 For example, an algorithm is just a conversion procedure from INPUT to OUPUT, and the algorithm does not know the existence of task, series, etc.   
 The implementation of an HTTP protocol only cares about serialization and deserialization, and does not need to care about the task definition. Instead, the HTTP protocol is referred to in an http task.

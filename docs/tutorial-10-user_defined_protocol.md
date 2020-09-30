@@ -52,8 +52,7 @@ private:
 ### 反序列化函数append
   * append函数在每次收到一个数据块时被调用。因此，每条消息可能会调用多次。
   * buf和size分别是收到的数据块内容和长度。用户需要把数据内容复制走。
-    * 如果实现了append(const void \*buf, size_t \*size)接口，可以通过修改\*size来告诉框架本次消费了多少长度。收到的size - 消费的size = 剩余的size，剩余的那部分buf会由下一次append被调起时再次收到。此功能更方便协议解析，当然用户也可以全部烤走自行管理，则无需修改\*size。
-    * 如果是UDP协议，一次append一定是一个完整的数据包。
+    * 如果实现了append(const void \*buf, size_t \*size)接口，可以通过修改\*size来告诉框架本次消费了多少长度。收到的size - 消费的size = 剩余的size，剩余的那部分buf会由下一次append被调起时再次收到。此功能更方便协议解析，当然用户也可以全部复制走自行管理，则无需修改\*size。
   * append函数返回0表示消息还不完整，传输继续。返回1表示消息结束。-1表示错误，需要置errno。
   * 总之append的作用就是用于告诉框架消息是否已经传输结束。不要在append里做复杂的非必要的协议解析。
 
@@ -85,6 +84,7 @@ using TutorialResponse = TutorialMessage;
 ~~~
 request和response类，都是同一种类型的消息。直接using就可以。  
 注意request和response必须可以无参数的被构造，也就是说需要有无参数的构造函数，或完全没有构造函数。  
+此外，通讯过程中，如果发生重试，response对象会被销毁并重新构造。因此，它最好是一个RAII类。否则处理起来会比较复杂。  
 [message.cc](../tutorial/tutorial-10-user_defined_protocol/message.cc)里包含了encode和append的实现：
 ~~~cpp
 namespace protocol

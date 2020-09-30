@@ -48,6 +48,8 @@ static void *__thrdpool_routine(void *arg)
 	thrdpool_t *pool = (thrdpool_t *)arg;
 	struct list_head **pos = &pool->task_queue.next;
 	struct __thrdpool_task_entry *entry;
+	void (*task_routine)(void *);
+	void *task_context;
 	pthread_t tid;
 
 	pthread_setspecific(pool->key, pool);
@@ -64,10 +66,20 @@ static void *__thrdpool_routine(void *arg)
 		list_del(*pos);
 		pthread_mutex_unlock(&pool->mutex);
 
-		entry->task.routine(entry->task.context);
+		task_routine = entry->task.routine;
+		task_context = entry->task.context;
 		free(entry);
+		task_routine(task_context);
+
+		if (pool->nthreads == 0)
+		{
+			/* Thread pool was destroyed by the task. */
+			free(pool);
+			return NULL;
+		}
 	}
 
+	/* One thread joins another. Don't need to keep all thread IDs. */
 	tid = pool->tid;
 	pool->tid = pthread_self();
 	if (--pool->nthreads == 0)
@@ -104,13 +116,21 @@ static void __thrdpool_destroy_locks(thrdpool_t *pool)
 	pthread_cond_destroy(&pool->cond);
 }
 
-static void __thrdpool_terminate(thrdpool_t *pool)
+static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 {
 	pthread_cond_t term = PTHREAD_COND_INITIALIZER;
 
 	pthread_mutex_lock(&pool->mutex);
 	pool->terminate = &term;
 	pthread_cond_broadcast(&pool->cond);
+
+	if (in_pool)
+	{
+		/* Thread pool destroyed in a pool thread is legal. */
+		pthread_detach(pthread_self());
+		pool->nthreads--;
+	}
+
 	while (pool->nthreads > 0)
 		pthread_cond_wait(&term, &pool->mutex);
 
@@ -144,7 +164,7 @@ static int __thrdpool_create_threads(size_t nthreads, thrdpool_t *pool)
 		if (pool->nthreads == nthreads)
 			return 0;
 
-		__thrdpool_terminate(pool);
+		__thrdpool_terminate(0, pool);
 	}
 
 	errno = ret;
@@ -156,7 +176,7 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 	thrdpool_t *pool;
 	int ret;
 
-	pool = (struct __thrdpool *)malloc(sizeof (struct __thrdpool));
+	pool = (thrdpool_t *)malloc(sizeof (thrdpool_t));
 	if (pool)
 	{
 		if (__thrdpool_init_locks(pool) >= 0)
@@ -194,8 +214,8 @@ inline void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
 	entry->task = *task;
 	pthread_mutex_lock(&pool->mutex);
 	list_add_tail(&entry->list, &pool->task_queue);
-	pthread_mutex_unlock(&pool->mutex);
 	pthread_cond_signal(&pool->cond);
+	pthread_mutex_unlock(&pool->mutex);
 }
 
 int thrdpool_schedule(const struct thrdpool_task *task, thrdpool_t *pool)
@@ -238,18 +258,19 @@ int thrdpool_increase(thrdpool_t *pool)
 	return -1;
 }
 
-int thrdpool_in_pool(thrdpool_t *pool)
+inline int thrdpool_in_pool(thrdpool_t *pool)
 {
-	return pthread_getspecific(pool->key) == (void *)pool;
+	return pthread_getspecific(pool->key) == pool;
 }
 
 void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 					  thrdpool_t *pool)
 {
+	int in_pool = thrdpool_in_pool(pool);
 	struct __thrdpool_task_entry *entry;
 	struct list_head *pos, *tmp;
 
-	__thrdpool_terminate(pool);
+	__thrdpool_terminate(in_pool, pool);
 	list_for_each_safe(pos, tmp, &pool->task_queue)
 	{
 		entry = list_entry(pos, struct __thrdpool_task_entry, list);
@@ -262,6 +283,7 @@ void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 
 	pthread_key_delete(pool->key);
 	__thrdpool_destroy_locks(pool);
-	free(pool);
+	if (!in_pool)
+		free(pool);
 }
 

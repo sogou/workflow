@@ -29,8 +29,8 @@ using http_callback_t = std::function<void (WFHttpTask *)>;
 ~~~
 说白了，就是一个参数为Task本身，没有返回值的函数。这个callback可以传NULL，表示无需callback。我们一切任务的callback都是这个风格。  
 需要说明的是，所有工厂函数不会返回失败，所以不用担心task为空指针，哪怕是url不合法。一切错误都在callback再处理。  
-task->get_req()函数得到任务的request，默认是GET方法，HTTP/1.1，长连接。框架会自动加上request_uri，Host等。
-并在发送前根据需要加上Content-Length或Connection这些http header。用户也要以通过add_header_pair()方法添加自己的header。
+task->get_req()函数得到任务的request，默认是GET方法，HTTP/1.1，长连接。框架会自动加上request_uri，Host等。  
+框架会在发送前根据需要自动加上Content-Length或Connection这些http header。用户也可以通过add_header_pair()方法添加自己的header。  
 关于http消息的更多接口，可以在[HttpMessage.h](../src/protocol/HttpMessage.h)中查看。  
 task->start()启动任务，非阻塞，并且不会失败。之后callback必然会在被调用。因为异步的原因，start()以后显然不能再用task指针了。  
 为了让示例尽量简单，start()之后调用pause()防止程序退出，用户需要Ctrl-C结束程序。

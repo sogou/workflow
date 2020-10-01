@@ -628,12 +628,6 @@ void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
 {
 	if (!redirect_)
 	{
-		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
-		{
-			this->state = WFT_STATE_SSL_ERROR;
-			this->error = -this->error;
-		}
-
 		// 4. children finish before user callback
 		if (this->callback)
 			this->callback(this);

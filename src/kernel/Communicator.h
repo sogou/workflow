@@ -25,7 +25,6 @@
 #include <time.h>
 #include <stddef.h>
 #include <pthread.h>
-#include <openssl/ssl.h>
 #include "list.h"
 #include "poller.h"
 
@@ -49,13 +48,6 @@ public:
 		*addrlen = this->addrlen;
 	}
 
-protected:
-	void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
-	{
-		this->ssl_ctx = ssl_ctx;
-		this->ssl_connect_timeout = ssl_connect_timeout;
-	}
-
 private:
 	virtual int create_connect_fd()
 	{
@@ -75,8 +67,6 @@ private:
 	socklen_t addrlen;
 	int connect_timeout;
 	int response_timeout;
-	int ssl_connect_timeout;
-	SSL_CTX *ssl_ctx;
 
 private:
 	struct list_head idle_list;
@@ -172,13 +162,6 @@ public:
 		*addrlen = this->addrlen;
 	}
 
-protected:
-	void set_ssl(SSL_CTX *ssl_ctx, int ssl_accept_timeout)
-	{
-		this->ssl_ctx = ssl_ctx;
-		this->ssl_accept_timeout = ssl_accept_timeout;
-	}
-
 private:
 	virtual CommSession *new_session(long long seq, CommConnection *conn) = 0;
 	virtual void handle_stop(int error) { }
@@ -200,8 +183,6 @@ private:
 	socklen_t addrlen;
 	int listen_timeout;
 	int response_timeout;
-	int ssl_accept_timeout;
-	SSL_CTX *ssl_ctx;
 
 private:
 	void incref();
@@ -311,8 +292,6 @@ private:
 
 	void handle_connect_result(struct poller_result *res);
 	void handle_listen_result(struct poller_result *res);
-
-	void handle_ssl_accept_result(struct poller_result *res);
 
 	void handle_sleep_result(struct poller_result *res);
 

@@ -106,7 +106,7 @@ public:
 ~~~
 其中，set_send_timeout()设置发送完整消息的超时，默认值为-1。  
 set_receive_timeout()只对client任务有效，指接收完整server回复的超时，默认值为-1。  
-  * server任务的receive_timeout在server启动配置里。所有被用户处理的server任务，都已经成功接收了完整请求。
+  * server任务的receive_timeout在server启动配置里。对server任务设置receive_timeout没有意义，因为消息已经接收完成。
 
 set_keep_alive()接口设置连接保持超时。一般来讲，框架能很好的处理连接保持的问题，用户不需要调用。  
 如果是http协议，client或server想要使用短连接，可通过添加HTTP header来完成，尽量不要用这个接口去修改。  
@@ -139,7 +139,7 @@ public:
 
 ### 超时功能的实现
 
-框架内部，需要处理的超时种类比我们在这里展现的还要更多。除了wait_timeout，全都是依赖于Linux的timer_fd，每个epoll线程一个。  
-默认配置下，epoll线程数为2，可以满足大多数应用的需要了。  
+框架内部，需要处理的超时种类比我们在这里展现的还要更多。除了wait_timeout，全都是依赖于Linux的timerfd或kqueue的timer事件。  
+每个poller线程包含一个timerfd，默认配置下，poller线程数为4，可以满足大多数应用的需要了。  
 目前的超时算法利用了链表+红黑树的数据结构，时间复杂度在O(1)和O(logn)之间，其中n为epoll线程的fd数量。  
 超时处理目前看不是瓶颈所在，因为Linux内核epoll相关调用也是O(logn)时间复杂度，我们把超时都做到O(1)也区别不大。

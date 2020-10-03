@@ -1,9 +1,9 @@
 [English version](README_en.md)
 
 ## Sogou C++ Workflow
-[![license MIT](https://img.shields.io/badge/License-Apache-yellow.svg)](https://git.sogou-inc.com/wujiaxu/Filter/blob/master/LICENSE)
-[![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
-[![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
+[![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
 
 搜狗公司C++服务器引擎，支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理超百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数C++后端开发需求。  
 #### 你可以用来：

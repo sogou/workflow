@@ -230,8 +230,8 @@ void WFServerBase::wait_finish()
 	while (!this->unbind_finish)
 		this->cond.wait(lock);
 
-	lock.unlock();
 	this->deinit();
 	this->unbind_finish = false;
+	lock.unlock();
 }
 

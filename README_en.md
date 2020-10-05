@@ -87,7 +87,7 @@ int main()
 
 #### System design features
 
-We believe that a typical back-end program consists of the following three parts and should be developed completely independently.
+We believe that a typical back-end program=protocol+algorithm+workflow and should be developed completely independently.
 
 * Protocol
   * In most cases, users use built-in common network protocols, such as HTTP, Redis or various rpc.

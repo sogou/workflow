@@ -32,7 +32,7 @@ Sample MySQL URL:
 
 mysql://root:password@127.0.0.1
 
-mysql://@test.mysql.com:3306/db1?character\_set=utf8
+mysql://@test.mysql.com:3306/db1?character\_set=utf8&character_set_results=utf8
 
 # Creating and starting a MySQL task
 
@@ -48,7 +48,7 @@ void set_query(const std::string& query);
 
 You can call **set\_query()** on the request to write SQL statements after creating a WFMySQLTask.
 
-According to the MySQL protocol, if an empty packet is sent after the connection is established, the server will wait instead of returning a packet, so the user will get a timeout. Therefore, the framework makes special check on those tasks that do not call `set_query()` and will immediately return **WFT\_ERR\_MYSQL\_QUERY\_NOT\_SET**.
+If **set_query()** had **NOT** been called before the task started, the user might get **WFT_ERR_MYSQL_QUERY_NOT_SET** in callback.
 
 Other functions, including callback, series and user\_data are used in a way similar to other tasks in workflow.
 

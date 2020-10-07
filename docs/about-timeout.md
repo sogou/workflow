@@ -73,7 +73,7 @@ int main()
     WORKFLOW_library_init(&settings);
 }
 ~~~
-上例把连接超时修改为2秒，server响应超时为无限。这种配置下，每次任务里都必须配置接收完整消息的超时，否则可能陷入无限的等待。  
+上例把连接超时修改为2秒，远程服务器响应超时为无限。这种配置下，每次任务里都必须配置接收完整消息的超时，否则可能陷入无限的等待。  
 全局的超时配置，可以通过upstream功能，被单独的地址配置覆盖，比如你可以指定某个域名的连接超时。  
 Upstream每一个AddressParams也有一个EndpointParams endpoint_params项，使用方式与Global相仿。  
 具体结构详见[upstream文档](tutorial-10-upstream.md#Address属性)
@@ -81,7 +81,7 @@ Upstream每一个AddressParams也有一个EndpointParams endpoint_params项，�
 ### Server超时配置
 
 在[http_proxy](./tutorial-05-http_proxy.md)示例的里，我们介绍过server启动配置。其中超时相关的配置包括：
-  * peer_response_timeout: 这个的定义和全局的peer_response_timeout一样，指的是远程client的响应超时，默认为10秒。
+  * peer_response_timeout: 这个的定义和全局的response_timeout一样，指的是远程client的响应超时，默认为10秒。
   * receive_timeout: 接收一条完整请求的超时，默认为-1。
   * keep_alive_timeout: 连接保持时间。默认1分钟。redis server为5分钟。
   * ssl_accept_timeout: 完成ssl握手的超时，默认为10秒。
@@ -141,5 +141,5 @@ public:
 
 框架内部，需要处理的超时种类比我们在这里展现的还要更多。除了wait_timeout，全都是依赖于Linux的timerfd或kqueue的timer事件。  
 每个poller线程包含一个timerfd，默认配置下，poller线程数为4，可以满足大多数应用的需要了。  
-目前的超时算法利用了链表+红黑树的数据结构，时间复杂度在O(1)和O(logn)之间，其中n为epoll线程的fd数量。  
+目前的超时算法利用了链表+红黑树的数据结构，时间复杂度在O(1)和O(logn)之间，其中n为poller线程的fd数量。  
 超时处理目前看不是瓶颈所在，因为Linux内核epoll相关调用也是O(logn)时间复杂度，我们把超时都做到O(1)也区别不大。

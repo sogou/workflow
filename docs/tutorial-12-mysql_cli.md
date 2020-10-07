@@ -31,7 +31,7 @@ MySQL URL示例：
 
 mysql://root:password@127.0.0.1
 
-mysql://@test.mysql.com:3306/db1?character_set=utf8
+mysql://@test.mysql.com:3306/db1?character_set=utf8&character_set_results=utf8
 
 # 创建并启动MySQL任务
 
@@ -45,7 +45,7 @@ void set_query(const std::string& query);
 ~~~
 用户创建完WFMySQLTask之后，可以对req调用 **set_query()** 写入SQL语句。
 
-基于MySQL协议，如果建立完连接而发一个空包，server会等待而不是回包，因此用户会得到超时，因此我们对那些没有调用 ``set_query()`` 的task进行了特判并且会立刻返回**WFT_ERR_MYSQL_QUERY_NOT_SET**。
+如果没调用过 **set_query()** ，task就被start起来的话，则用户会在callback里得到**WFT_ERR_MYSQL_QUERY_NOT_SET**。
 
 其他包括callback、series、user_data等与workflow其他task用法类似。
 

@@ -118,7 +118,7 @@ CommMessageOut *ComplexRedisTask::message_out()
 
 int ComplexRedisTask::keep_alive_timeout()
 {
-	if (this->is_user_request())
+	if (this->is_user_request_)
 		return this->keep_alive_timeo;
 
 	RedisResponse *resp = this->get_resp();

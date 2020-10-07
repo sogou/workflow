@@ -32,7 +32,7 @@ Sample MySQL URL:
 
 mysql://root:password@127.0.0.1
 
-mysql://@test.mysql.com:3306/db1?character\_set=utf8
+mysql://@test.mysql.com:3306/db1?character\_set=utf8&character_set_results=utf8
 
 # Creating and starting a MySQL task
 
@@ -48,7 +48,7 @@ void set_query(const std::string& query);
 
 You can call **set\_query()** on the request to write SQL statements after creating a WFMySQLTask.
 
-According to the MySQL protocol, if an empty packet is sent after the connection is established, the server will wait instead of returning a packet, so the user will get a timeout. Therefore, the framework makes special check on those tasks that do not call `set_query()` and will immediately return **WFT\_ERR\_MYSQL\_QUERY\_NOT\_SET**.
+If **set_query()** had **NOT** been called before the task started, the user might get **WFT_ERR_MYSQL_QUERY_NOT_SET** in callback.
 
 Other functions, including callback, series and user\_data are used in a way similar to other tasks in workflow.
 
@@ -73,34 +73,30 @@ Because the program doesn't support the selection of databases (**USE** command)
 
 **Multiple commands** can be joined together and then passed to WFMySQLTask with `set_query()`. Generally speaking, multiple statements can get all the results back at one time. However, as the packet return method in the MySQL protocol is not compatible with question and answer communication under some provisions, please read the following cautions before you add the SQL statements in `set_query()`:
 
-- For the statement that gets a single result set, multiple statements can be spliced (ordinary INSERT/UPDATE/SELECT/PREPARE)
+Most commands can be **spliced together** and then passed to WFMySQLTask with `set_query()`. (ordinary INSERT/UPDATE/SELECT/PREPARE)
 
-- One statement that returns multiple result sets (such as CALL a stored procedure) is also supported.
-
-- In other cases, it is recommended to divide SQL statements into individual requests
+**CALL procedure** needs to be used **individually**. Please don`t join it with other commands.
 
 For example:
 
 ~~~cpp
-// Correct!
-// This will get multiple result sets for mutiple ordinary statements.
-req->set_query("SELECT * FROM table1; SELECT * FROM table2; INSERT INTO table3 (id) VALUES (1);");
+// mutiple ordinary statements
+req->set_query("SELECT * FROM table1; SELECT * FROM db2.table2; INSERT INTO table3 (id) VALUES (1);");
 
-// Correct!
-// This will get single or multiple result sets for some multi-result-set statements.
+// CALL procedure should be used individually
 req->set_query("CALL procedure1();");
-
-// Incorrect!
-// This contains a multi-result-set statement and other statements.
-// Cannot get all the result sets correctly.
-req->set_query("CALL procedure1(); SELECT * FROM table1;");
 ~~~
 
 # Parsing results
 
 Similar to other tasks in workflow, you can use **task->get\_resp()** to get **MySQLResponse**, and you can use **MySQLResultCursor** to traverse the result set, the infomation of each column of the result set (**MySQLField**), each row and each **MySQLCell**. For details on the interfaces, please see [MySQLResult.h](/src/protocol/MySQLResult.h).
 
-The specific steps should be:
+One request will get one response, which is a 3-dimensional structure.
+- one response consists of one or more result sets;
+- one result set consists of one ore more rows;
+- one row consists of one or more fields, or data cells;
+
+To get all the data, the specific steps should be:
 
 1. checking the task state (state at communication): you can check whether the task is successfully executed by checking whether **task->get\_state()** is equal to WFT\_STATE\_SUCCESS;
 

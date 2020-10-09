@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
 if (WIN32)

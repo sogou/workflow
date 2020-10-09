@@ -7,7 +7,7 @@ project(workflow_test
 )
 
 find_library(LIBRT rt)
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(workflow REQUIRED CONFIG HINTS ..)
 include_directories(${OPENSSL_INCLUDE_DIR} ${WORKFLOW_INCLUDE_DIR})
 link_directories(${WORKFLOW_LIB_DIR})

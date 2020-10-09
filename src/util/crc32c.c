@@ -50,9 +50,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 
 /**
  * Provides portable endian-swapping macros/functions.

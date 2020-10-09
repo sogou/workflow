@@ -35,11 +35,25 @@ set(TUTORIAL_LIST
 	tutorial-12-mysql_cli
 )
 
+if(KAFKA STREQUAL "y")
+	set(TUTORIAL_LIST
+		${TUTORIAL_LIST}
+		tutorial-13-kafka_cli
+	)
+endif()
+
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
 else ()
 	set(WORKFLOW_LIB workflow ${LIBRT})
 endif ()
+
+if(KAFKA STREQUAL "y")
+	set(WORKFLOW_LIB
+		${WORKFLOW_LIB}
+		z snappy lz4 zstd
+	)
+endif()
 
 foreach(src ${TUTORIAL_LIST})
 	string(REPLACE "-" ";" arr ${src})

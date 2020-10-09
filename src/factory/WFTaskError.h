@@ -49,7 +49,17 @@ enum
 	WFT_ERR_MYSQL_ACCESS_DENIED = 4002,         ///< MySQL, authentication failed
 	WFT_ERR_MYSQL_INVALID_CHARACTER_SET = 4003, ///< MySQL, invalid charset, not found in MySQL-Documentation
 	WFT_ERR_MYSQL_COMMAND_DISALLOWED = 4004,    ///< MySQL, sql command disabled, cannot be "USE"/"SET NAMES"/"SET CHARSET"/"SET CHARACTER SET"
-	WFT_ERR_MYSQL_QUERY_NOT_SET = 4005          ///< MySQL, query not set sql, maybe forget please check
+	WFT_ERR_MYSQL_QUERY_NOT_SET = 4005,         ///< MySQL, query not set sql, maybe forget please check
+
+	//KAFKA
+	WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED = 5001, ///< Kafka parse response failed
+	WFT_ERR_KAFKA_PRODUCE_FAILED = 5002,
+	WFT_ERR_KAFKA_FETCH_FAILED = 5003,
+	WFT_ERR_KAFKA_CGROUP_FAILED = 5004,
+	WFT_ERR_KAFKA_COMMIT_FAILED = 5005,
+	WFT_ERR_KAFKA_META_FAILED = 5006,
+	WFT_ERR_KAFKA_API_UNKNOWN = 5007,          ///< api type not supported
+	WFT_ERR_KAFKA_VERSION_DISALLOWED = 5008,   ///< broker version not supported
 };
 
 #endif

@@ -1,6 +1,4 @@
 /*
- * librdkafka - Apache Kafka C library
- *
  * Copyright (c) 2017 Magnus Edenhill
  * All rights reserved.
  *

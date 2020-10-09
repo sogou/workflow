@@ -5,7 +5,7 @@
 
 # 关于编译选项
 
-通过命令make KAFKA=y 编译支持kafka协议的workflow，系统需要预先安装zlib,snappy,zstd(>=1.7.5),zstd等第三方库。
+通过命令make KAFKA=y 编译支持kafka协议的workflow，系统需要预先安装zlib,snappy,lz4(>=1.7.5),zstd等第三方库。
 
 # 关于kafka_cli
 

@@ -469,7 +469,8 @@ bool ComplexMySQLTask::init_success()
 	if (!transaction.empty())
 	{
 		transaction_state_ = TRANSACTION_OUT;
-		this->WFComplexClientTask::set_info("?maxconn=1&transaction:" + transaction + "|" + info);
+		this->WFComplexClientTask::set_info(std::string("?maxconn=1&") +
+											info + "|txn:" + transaction);
 		this->first_addr_only_ = true;
 	}
 	else

@@ -188,7 +188,7 @@ class ComplexKafkaTask : public WFKafkaTask
 {
 public:
 	ComplexKafkaTask(const std::string& query, int retry_max,
-					 kafka_callback_t callback,
+					 kafka_callback_t&& callback,
 					 WFKafkaClient *client) :
 		WFKafkaTask(retry_max, std::move(callback))
 	{

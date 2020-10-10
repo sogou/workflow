@@ -16,7 +16,7 @@
 
 其中broker_url可以有多个url组成，多个url之间以,分割
 
-- 形式如：kafka://host:port,kafka//host1:port...
+- 形式如：kafka://host:port,kafka://host1:port...
 - port默认为9092;
 - 如果用户在这一层有upstream选取需求，可以参考[upstream文档](../docs/about-upstream.md)。
 
@@ -34,9 +34,9 @@ kafka://10.160.23.23:9000,10.123.23.23,kafka://kafka.sogou
 ~~~cpp
 using kafka_callback_t = std::function<void (WFKafkaTask *)>;
 
-WFKafkaTask *create_kafka_task(const std::string& query, kafka_callback_t cb);
+WFKafkaTask *create_kafka_task(const std::string& query, int retry_max, kafka_callback_t cb);
 
-WFKafkaTask *create_kafka_task(kafka_callback_t cb);
+WFKafkaTask *create_kafka_task(int retry_max, kafka_callback_t cb);
 ~~~
 
 用户有两种方式设置任务的详细信息：
@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 	...
 	client = new WFKafkaClient();
 	client->init(url);
-	task = client->create_kafka_task("api=fetch&topic=xxx&topic=yyy", kafka_callback);
+	task = client->create_kafka_task("api=fetch&topic=xxx&topic=yyy", 3, kafka_callback);
 
 	...
 	task->start();
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	...
 	WFKafkaClient *client_fetch = new WFKafkaClient();
 	client_fetch->init(url);
-    task = client_fetch->create_kafka_task(kafka_callback);
+    task = client_fetch->create_kafka_task(3, kafka_callback);
 
 	KafkaRecord record;
 	record.set_key("key1", strlen("key1"));

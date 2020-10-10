@@ -86,7 +86,7 @@ public:
 	}
 
 protected:
-	WFKafkaTask(int retry_max, kafka_callback_t cb)
+	WFKafkaTask(int retry_max, kafka_callback_t&& cb)
 	{
 		this->callback = std::move(cb);
 		this->retry_max = retry_max;

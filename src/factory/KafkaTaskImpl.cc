@@ -176,7 +176,7 @@ int __ComplexKafkaTask::first_timeout()
 		break;
 
 	default:
-		break;
+		return 0;
 	}
 
 	return ret + KAFKA_ROUNDTRIP_TIMEOUT;

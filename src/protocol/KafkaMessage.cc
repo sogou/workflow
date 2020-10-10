@@ -27,14 +27,14 @@
 #include <set>
 #include <string.h>
 #include <zlib.h>
+#include <lz4.h>
+#include <lz4frame.h>
+#include <zstd_errors.h>
+#include <zstd.h>
+#include <snappy-c.h>
+#include <snappy.h>
+#include <snappy-sinksource.h>
 #include "crc32c.h"
-#include "lz4.h"
-#include "lz4frame.h"
-#include "zstd_errors.h"
-#include "zstd.h"
-#include "snappy-c.h"
-#include "snappy.h"
-#include "snappy-sinksource.h"
 #include "KafkaMessage.h"
 
 namespace protocol

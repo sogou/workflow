@@ -86,7 +86,6 @@ set(INCLUDE_HEADERS
 if(KAFKA STREQUAL "y")
 	set(INCLUDE_HEADERS
 		${INCLUDE_HEADERS}
-		${THIRD_PARTY_HEADERS}
 		src/util/crc32c.h
 		src/protocol/KafkaMessage.h
 		src/protocol/KafkaDataTypes.h

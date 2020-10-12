@@ -385,8 +385,8 @@ bool __ComplexKafkaTask::finish_once()
 		if (this->get_resp()->get_api() == Kafka_Fetch ||
 			this->get_resp()->get_api() == Kafka_Produce)
 		{
-			if (ctx_)
-				ctx_(this);
+			if (*get_mutable_ctx())
+				(*get_mutable_ctx())(this);
 		}
 	}
 

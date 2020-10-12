@@ -201,35 +201,7 @@ protected:
 class KafkaRequest : public KafkaMessage
 {
 public:
-	KafkaRequest()
-	{
-		using namespace std::placeholders;
-		this->encode_func_map[Kafka_Metadata] = std::bind(&KafkaRequest::encode_metadata, this, _1, _2);
-		this->encode_func_map[Kafka_Produce] = std::bind(&KafkaRequest::encode_produce, this, _1, _2);
-		this->encode_func_map[Kafka_Fetch] = std::bind(&KafkaRequest::encode_fetch, this, _1, _2);
-		this->encode_func_map[Kafka_FindCoordinator] = std::bind(&KafkaRequest::encode_findcoordinator, this, _1, _2);
-		this->encode_func_map[Kafka_JoinGroup] = std::bind(&KafkaRequest::encode_joingroup, this, _1, _2);
-		this->encode_func_map[Kafka_SyncGroup] = std::bind(&KafkaRequest::encode_syncgroup, this, _1, _2);
-		this->encode_func_map[Kafka_Heartbeat] = std::bind(&KafkaRequest::encode_heartbeat, this, _1, _2);
-		this->encode_func_map[Kafka_OffsetFetch] = std::bind(&KafkaRequest::encode_offsetfetch, this, _1, _2);
-		this->encode_func_map[Kafka_OffsetCommit] = std::bind(&KafkaRequest::encode_offsetcommit, this, _1, _2);
-		this->encode_func_map[Kafka_ListOffsets] = std::bind(&KafkaRequest::encode_listoffset, this, _1, _2);
-		this->encode_func_map[Kafka_LeaveGroup] = std::bind(&KafkaRequest::encode_leavegroup, this, _1, _2);
-		this->encode_func_map[Kafka_ApiVersions] = std::bind(&KafkaRequest::encode_apiversions, this, _1, _2);
-
-		this->api_mver_map[Kafka_Metadata] = 4;
-		this->api_mver_map[Kafka_Produce] = 7;
-		this->api_mver_map[Kafka_Fetch] = 11;
-		this->api_mver_map[Kafka_FindCoordinator] = 2;
-		this->api_mver_map[Kafka_JoinGroup] = 5;
-		this->api_mver_map[Kafka_SyncGroup] = 3;
-		this->api_mver_map[Kafka_Heartbeat] = 3;
-		this->api_mver_map[Kafka_OffsetFetch] = 1;
-		this->api_mver_map[Kafka_OffsetCommit] = 7;
-		this->api_mver_map[Kafka_ListOffsets] = 1;
-		this->api_mver_map[Kafka_LeaveGroup] = 1;
-		this->api_mver_map[Kafka_ApiVersions] = 0;
-	}
+	KafkaRequest();
 
 private:
 	int encode_produce(struct iovec vectors[], int max);
@@ -249,22 +221,7 @@ private:
 class KafkaResponse : public KafkaMessage
 {
 public:
-	KafkaResponse()
-	{
-		using namespace std::placeholders;
-		this->parse_func_map[Kafka_Metadata] = std::bind(&KafkaResponse::parse_metadata, this, _1, _2);
-		this->parse_func_map[Kafka_Produce] = std::bind(&KafkaResponse::parse_produce, this, _1, _2);
-		this->parse_func_map[Kafka_Fetch] = std::bind(&KafkaResponse::parse_fetch, this, _1, _2);
-		this->parse_func_map[Kafka_FindCoordinator] = std::bind(&KafkaResponse::parse_findcoordinator, this, _1, _2);
-		this->parse_func_map[Kafka_JoinGroup] = std::bind(&KafkaResponse::parse_joingroup, this, _1, _2);
-		this->parse_func_map[Kafka_SyncGroup] = std::bind(&KafkaResponse::parse_syncgroup, this, _1, _2);
-		this->parse_func_map[Kafka_Heartbeat] = std::bind(&KafkaResponse::parse_heartbeat, this, _1, _2);
-		this->parse_func_map[Kafka_OffsetFetch] = std::bind(&KafkaResponse::parse_offsetfetch, this, _1, _2);
-		this->parse_func_map[Kafka_OffsetCommit] = std::bind(&KafkaResponse::parse_offsetcommit, this, _1, _2);
-		this->parse_func_map[Kafka_ListOffsets] = std::bind(&KafkaResponse::parse_listoffset, this, _1, _2);
-		this->parse_func_map[Kafka_LeaveGroup] = std::bind(&KafkaResponse::parse_leavegroup, this, _1, _2);
-		this->parse_func_map[Kafka_ApiVersions] = std::bind(&KafkaResponse::parse_apiversions, this, _1, _2);
-	}
+	KafkaResponse();
 
 	int parse_response();
 

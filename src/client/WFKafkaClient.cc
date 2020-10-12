@@ -37,9 +37,9 @@ static size_t KAFKA_HEARTBEAT_TIMEOUT = 3 * 1000;
 
 using namespace protocol;
 
-using ctx_callback_t = std::function<void (__WFKafkaTask *)>;
-using ComplexTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
-										ctx_callback_t>;
+using _kafka_callback_t = std::function<void (__WFKafkaTask *)>;
+using KafkaComplexTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
+										_kafka_callback_t>;
 
 class KafkaLockStatus
 {
@@ -760,7 +760,7 @@ void ComplexKafkaTask::dispatch()
 			task->get_req()->set_broker(*broker);
 			task->get_req()->set_api(Kafka_Produce);
 			task->user_data = (void *)parallel->size();
-			ComplexTask *ctask = static_cast<ComplexTask *>(task);
+			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
 			*ctask->get_mutable_ctx() = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			series->set_context(task);
@@ -811,7 +811,7 @@ void ComplexKafkaTask::dispatch()
 			task->get_req()->set_broker(*broker);
 			task->get_req()->set_api(Kafka_Fetch);
 			task->user_data = (void *)parallel->size();
-			ComplexTask *ctask = static_cast<ComplexTask *>(task);
+			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
 			*ctask->get_mutable_ctx() = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			series->set_context(task);

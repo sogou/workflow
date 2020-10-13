@@ -25,9 +25,9 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include "kafka_parser.h"
 #include "ProtocolMessage.h"
 #include "EncodeStream.h"
-#include "kafka_parser.h"
 #include "KafkaDataTypes.h"
 
 

@@ -24,8 +24,8 @@
 #include <vector>
 #include <functional>
 #include "KafkaMessage.h"
-#include "KafkaTaskImpl.inl"
 #include "KafkaResult.h"
+#include "KafkaTaskImpl.inl"
 
 
 class WFKafkaTask;

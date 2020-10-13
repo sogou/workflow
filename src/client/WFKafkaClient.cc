@@ -1192,6 +1192,12 @@ int ComplexKafkaTask::arrange_produce()
 			this->toppar_list.del_cur();
 			delete toppar;
 		}
+		else
+		{
+			KafkaRecord *record;
+			while ((record = toppar->get_record_next()) != NULL)
+				record->get_raw_ptr()->toppar = toppar->get_raw_ptr();
+		}
 	}
 
 	this->toppar_list.rewind();

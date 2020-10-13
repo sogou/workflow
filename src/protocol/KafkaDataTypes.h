@@ -29,10 +29,10 @@
 #include <string>
 #include <string.h>
 #include <atomic>
+#include <snappy.h>
+#include <snappy-sinksource.h>
 #include "list.h"
 #include "kafka_parser.h"
-#include "snappy.h"
-#include "snappy-sinksource.h"
 
 
 namespace protocol

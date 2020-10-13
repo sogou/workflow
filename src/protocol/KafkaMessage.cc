@@ -2992,7 +2992,6 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 
 			while ((record = toppar->get_record_next()) != NULL)
 			{
-				record->get_raw_ptr()->toppar = toppar->get_raw_ptr();
 				if (ptr->error != KAFKA_NONE)
 				{
 					record->set_status(ptr->error);

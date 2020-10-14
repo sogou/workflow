@@ -105,9 +105,9 @@ public:
 	}
 
 public:
+	/* pop() and set_task_task() are intended for framework providers only. */
 	SubTask *pop();
 
-private:
 	void set_last_task(SubTask *last)
 	{
 		last->set_pointer(this);

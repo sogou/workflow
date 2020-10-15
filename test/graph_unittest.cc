@@ -22,7 +22,7 @@
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFFacilities.h"
 
-static SubTask *create_task(int & target)
+static SubTask *create_task(int& target)
 {
 	static std::atomic<int> generator;
 	return WFTaskFactory::create_timer_task(0, [&](WFTimerTask *)
@@ -39,10 +39,10 @@ TEST(graph_unittest, WFGraphTask1)
 
 	int ta, tb, tc, td;
 
-	auto & a = graph->create_graph_node(create_task(ta));
-	auto & b = graph->create_graph_node(create_task(tb));
-	auto & c = graph->create_graph_node(create_task(tc));
-	auto & d = graph->create_graph_node(create_task(td));
+	auto& a = graph->create_graph_node(create_task(ta));
+	auto& b = graph->create_graph_node(create_task(tb));
+	auto& c = graph->create_graph_node(create_task(tc));
+	auto& d = graph->create_graph_node(create_task(td));
 
 	a --> b <-- c --> d --> a;
 	c --> a;

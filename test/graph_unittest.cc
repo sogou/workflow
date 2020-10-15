@@ -33,7 +33,7 @@ static SubTask *create_task(int & target)
 
 TEST(graph_unittest, WFGraphTask1)
 {
-	WFFacilities::WaitGroup wait_group{1};
+	WFFacilities::WaitGroup wait_group(1);
 
 	auto graph = WFTaskFactory::create_graph_task([&wait_group](WFGraphTask *){ wait_group.done(); });
 
@@ -59,7 +59,7 @@ TEST(graph_unittest, WFGraphTask1)
 
 TEST(graph_unittest, WFGraphTask2)
 {
-	WFFacilities::WaitGroup wait_group{1};
+	WFFacilities::WaitGroup wait_group(1);
 
 	auto graph = WFTaskFactory::create_graph_task([&wait_group](WFGraphTask *){ wait_group.done(); });
 

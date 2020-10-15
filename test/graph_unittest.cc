@@ -63,24 +63,22 @@ TEST(graph_unittest, WFGraphTask2)
 
 	auto graph = WFTaskFactory::create_graph_task([&wait_group](WFGraphTask *){ wait_group.done(); });
 
-	constexpr int N = 1 + 4096;
+	constexpr int N = 4096 - 1;
 
 	auto target = new int[N];
 	auto node = new WFGraphNode *[N];
 
-	node[0] = &graph->create_graph_node(create_task(target[0]));
+	for (int i = 0; i < N; i++)
+		node[i] = &graph->create_graph_node(create_task(target[i]));
 
 	for (int i = 1; i < N; i++)
-	{
-		node[i] = &graph->create_graph_node(create_task(target[i]));
-		node[i]->precede(*node[i / 2]);
-	}
+		node[i]->precede(*node[(i - 1) / 2]);
 
 	graph->start();
 	wait_group.wait();
 
 	for (int i = 1; i < N; i++)
-		EXPECT_LT(target[i], target[i / 2]);
+		EXPECT_LT(target[i], target[(i - 1) / 2]);
 
 	delete[] target;
 	delete[] node;

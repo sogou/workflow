@@ -74,6 +74,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFConnection.h
 	src/factory/WFTask.h
 	src/factory/WFTask.inl
+	src/factory/WFGraphTask.h
 	src/factory/WFTaskError.h
 	src/factory/WFTaskFactory.h
 	src/factory/WFTaskFactory.inl

@@ -7,7 +7,7 @@ project(workflow_test
 )
 
 find_library(LIBRT rt)
-find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+find_package(OpenSSL REQUIRED)
 find_package(workflow REQUIRED CONFIG HINTS ..)
 include_directories(${OPENSSL_INCLUDE_DIR} ${WORKFLOW_INCLUDE_DIR})
 link_directories(${WORKFLOW_LIB_DIR})
@@ -35,10 +35,11 @@ set(TEST_LIST
 	redis_unittest
 	mysql_unittest
 	facilities_unittest
+	graph_unittest
 )
 
 if (APPLE)
-	set(WORKFLOW_LIB workflow pthread OpenSSL::Crypto)
+	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
 else ()
 	set(WORKFLOW_LIB workflow ${LIBRT})
 endif ()

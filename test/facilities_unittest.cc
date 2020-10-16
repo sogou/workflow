@@ -26,7 +26,7 @@
 
 #define GET_CURRENT_MICRO	std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
-TEST(usleep, facilities_unittest)
+TEST(facilities_unittest, usleep)
 {
 	int64_t st = GET_CURRENT_MICRO;
 	WFFacilities::usleep(1000000);
@@ -34,7 +34,7 @@ TEST(usleep, facilities_unittest)
 	EXPECT_LE(ed - st, 10000000) << "usleep too slow";
 }
 
-TEST(async_usleep, facilities_unittest)
+TEST(facilities_unittest, async_usleep)
 {
 	int64_t st = GET_CURRENT_MICRO;
 	WFFacilities::async_usleep(1000000).wait();
@@ -42,7 +42,7 @@ TEST(async_usleep, facilities_unittest)
 	EXPECT_LE(ed - st, 10000000) << "async_usleep too slow";
 }
 
-TEST(request, facilities_unittest)
+TEST(facilities_unittest, request)
 {
 	protocol::HttpRequest req;
 	req.set_method(HttpMethodGet);
@@ -62,7 +62,23 @@ TEST(request, facilities_unittest)
 	}
 }
 
-TEST(fileIO, facilities_unittest)
+TEST(facilities_unittest, async_request)
+{
+	protocol::HttpRequest req;
+	req.set_method(HttpMethodGet);
+	req.set_http_version("HTTP/1.1");
+	req.set_request_uri("/");
+	req.set_header_pair("Host", "www.sogou.com");
+	auto res = WFFacilities::request<protocol::HttpRequest, protocol::HttpResponse>(TT_TCP_SSL, "https://www.sogou.com", std::move(req), 0);
+	//EXPECT_EQ(res.task_state, WFT_STATE_SUCCESS);
+	if (res.task_state == WFT_STATE_SUCCESS)
+	{
+		auto code = atoi(res.resp.get_status_code());
+		EXPECT_EQ(code, HttpStatusOK);
+	}
+}
+
+TEST(facilities_unittest, fileIO)
 {
 	uint64_t data = 0x1234;
 	ssize_t sz;
@@ -82,7 +98,7 @@ static inline void f(int i, WFFacilities::WaitGroup *wg)
 	wg->done();
 }
 
-TEST(WaitGroup, facilities_unittest)
+TEST(facilities_unittest, WaitGroup)
 {
 	WFFacilities::WaitGroup wg(100);
 

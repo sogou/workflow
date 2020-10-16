@@ -35,7 +35,7 @@ static void __arr_check(int *arr, int n)
 		EXPECT_LE(arr[i - 1], arr[i]);
 }
 
-TEST(sort, algo_unittest)
+TEST(algo_unittest, sort)
 {
 	static constexpr int n = 100000;
 	int *arr = new int[n];
@@ -65,7 +65,7 @@ TEST(sort, algo_unittest)
 	delete []arr;
 }
 
-TEST(parallel_sort, algo_unittest)
+TEST(algo_unittest, parallel_sort)
 {
 	static constexpr int n = 100000;
 	int *arr = new int[n];

@@ -376,13 +376,7 @@ static int __mysql_get_character_set(const std::string& charset)
 
 bool ComplexMySQLTask::init_success()
 {
-	TransportType type;
-
-	if (uri_.scheme && strcasecmp(uri_.scheme, "mysql") == 0)
-		type = TT_TCP;
-	//else if (uri_.scheme && strcasecmp(uri_.scheme, "mysql_ssl") == 0)
-	//	type = TT_TCP_SSL;
-	else
+	if (!uri_.scheme || strcasecmp(uri_.scheme, "mysql") != 0)
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
@@ -464,7 +458,7 @@ bool ComplexMySQLTask::init_success()
 							 "charset:%d|rcharset:%s",
 			 username_.c_str(), password_.c_str(), db_.c_str(),
 			 character_set_, res_charset_.c_str());
-	this->WFComplexClientTask::set_type(type);
+	this->WFComplexClientTask::set_type(TT_TCP);
 
 	if (!transaction.empty())
 	{

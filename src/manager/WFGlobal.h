@@ -24,7 +24,6 @@
 #include <C++11_REQUIRED>
 #endif
 
-#include <openssl/ssl.h>
 #include <string>
 #include "CommScheduler.h"
 #include "DNSCache.h"
@@ -111,10 +110,6 @@ public:
 	static DNSCache *get_dns_cache();
 	/// @brief Internal use only
 	static RouteManager *get_route_manager();
-	/// @brief Internal use only
-	static SSL_CTX *get_ssl_client_ctx();
-	/// @brief Internal use only
-	static SSL_CTX *get_ssl_server_ctx();
 	/// @brief Internal use only
 	static ExecQueue *get_exec_queue(const std::string& queue_name);
 	/// @brief Internal use only

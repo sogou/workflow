@@ -196,14 +196,9 @@ bool ComplexHttpTask::init_success()
 	HttpRequest *client_req = this->get_req();
 	std::string request_uri;
 	std::string header_host;
-	bool is_ssl;
 	bool is_unix = false;
 
-	if (uri_.scheme && strcasecmp(uri_.scheme, "http") == 0)
-		is_ssl = false;
-	else if (uri_.scheme && strcasecmp(uri_.scheme, "https") == 0)
-		is_ssl = true;
-	else
+	if (!uri_.scheme || strcasecmp(uri_.scheme, "http") != 0)
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
@@ -237,25 +232,14 @@ bool ComplexHttpTask::init_success()
 	{
 		int port = atoi(uri_.port);
 
-		if (is_ssl)
+		if (port != 80)
 		{
-			if (port != 443)
-			{
-				header_host += ":";
-				header_host += uri_.port;
-			}
-		}
-		else
-		{
-			if (port != 80)
-			{
-				header_host += ":";
-				header_host += uri_.port;
-			}
+			header_host += ":";
+			header_host += uri_.port;
 		}
 	}
 
-	this->WFComplexClientTask::set_type(is_ssl ? TT_TCP_SSL : TT_TCP);
+	this->WFComplexClientTask::set_type(TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 

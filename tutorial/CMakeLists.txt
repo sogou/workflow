@@ -9,7 +9,7 @@ project(tutorial
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 find_library(LIBRT rt)
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(workflow REQUIRED CONFIG HINTS ..)
 include_directories(${OPENSSL_INCLUDE_DIR} ${WORKFLOW_INCLUDE_DIR})
 link_directories(${WORKFLOW_LIB_DIR})
@@ -36,7 +36,7 @@ set(TUTORIAL_LIST
 )
 
 if (APPLE)
-	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+	set(WORKFLOW_LIB workflow OpenSSL::Crypto)
 else ()
 	set(WORKFLOW_LIB workflow ${LIBRT})
 endif ()

@@ -97,9 +97,9 @@ void sig_handler(int signo)
 
 int main(int argc, char *argv[])
 {
-	if (argc != 2 && argc != 3 && argc != 5)
+	if (argc != 2 && argc != 3)
 	{
-		fprintf(stderr, "%s <port> [root path] [cert file] [key file]\n",
+		fprintf(stderr, "%s <port> [root path]\n",
 				argv[0]);
 		exit(1);
 	}
@@ -110,14 +110,8 @@ int main(int argc, char *argv[])
 	const char *root = (argc >= 3 ? argv[2] : ".");
 	auto&& proc = std::bind(process, std::placeholders::_1, root);
 	WFHttpServer server(proc);
-	int ret;
 
-	if (argc == 5)
-		ret = server.start(port, argv[3], argv[4]);	/* https server */
-	else
-		ret = server.start(port);
-
-	if (ret == 0)
+	if (server.start(port) == 0)
 	{
 		wait_group.wait();
 		server.stop();

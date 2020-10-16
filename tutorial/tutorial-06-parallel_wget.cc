@@ -77,11 +77,8 @@ int main(int argc, char *argv[])
 	{
 		std::string url(argv[i]);
 
-		if (strncasecmp(argv[i], "http://", 7) != 0 &&
-			strncasecmp(argv[i], "https://", 8) != 0)
-		{
+		if (strncasecmp(argv[i], "http://", 7) != 0)
 			url = "http://" +url;
-		}
 
 		task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 			[](WFHttpTask *task)

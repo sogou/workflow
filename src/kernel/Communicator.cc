@@ -835,7 +835,6 @@ void Communicator::handle_listen_result(struct poller_result *res)
 	CommServiceTarget *target;
 	struct poller_data data;
 	int timeout;
-	int ret;
 
 	switch (res->state)
 	{

@@ -31,7 +31,7 @@
 
 #define GET_CURRENT_MICRO	std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
-TEST(WFTimerTask, task_unittest)
+TEST(task_unittest, WFTimerTask)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -56,7 +56,7 @@ TEST(WFTimerTask, task_unittest)
 	EXPECT_LE(ed - st, 10000000) << "Timer Task too slow";
 }
 
-TEST(WFCounterTask1, task_unittest)
+TEST(task_unittest, WFCounterTask1)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -92,7 +92,7 @@ TEST(WFCounterTask1, task_unittest)
 	lock.unlock();
 }
 
-TEST(WFCounterTask2, task_unittest)
+TEST(task_unittest, WFCounterTask2)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -125,7 +125,7 @@ TEST(WFCounterTask2, task_unittest)
 	lock.unlock();
 }
 
-TEST(WFGoTask, task_unittest)
+TEST(task_unittest, WFGoTask)
 {
 	srand(time(NULL));
 	std::mutex mutex;
@@ -155,7 +155,7 @@ TEST(WFGoTask, task_unittest)
 	EXPECT_EQ(edit_inner, 100);
 }
 
-TEST(WFThreadTask, task_unittest)
+TEST(task_unittest, WFThreadTask)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -195,7 +195,7 @@ TEST(WFThreadTask, task_unittest)
 	lock.unlock();
 }
 
-TEST(WFFileIOTask, task_unittest)
+TEST(task_unittest, WFFileIOTask)
 {
 	srand(time(NULL));
 	std::mutex mutex;

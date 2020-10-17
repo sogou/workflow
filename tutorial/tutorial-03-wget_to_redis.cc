@@ -120,11 +120,8 @@ int main(int argc, char *argv[])
 
 	context.success = false;
 	context.http_url = argv[1];
-	if (strncasecmp(argv[1], "http://", 7) != 0 &&
-		strncasecmp(argv[1], "https://", 8) != 0)
-	{
+	if (strncasecmp(argv[1], "http://", 7) != 0)
 		context.http_url = "http://" + context.http_url;
-	}
 
 	context.redis_url = argv[2];
 	if (strncasecmp(argv[2], "redis://", 8) != 0 &&

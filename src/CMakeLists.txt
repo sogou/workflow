@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
 if (WIN32)
@@ -51,7 +51,7 @@ else ()
 	set(LIBSO ${LIB_DIR}/libworkflow.so)
 	add_custom_target(
 		SCRIPT_SHARED_LIB ALL
-		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSO}
+		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( libpthread.so libcrypto.so ) ) ' > ${LIBSO}
 	)
 	add_dependencies(SCRIPT_SHARED_LIB ${PROJECT_NAME})
 endif ()

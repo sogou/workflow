@@ -50,9 +50,6 @@ void redis_callback(WFRedisTask *task)
 	case WFT_STATE_DNS_ERROR:
 		fprintf(stderr, "DNS error: %s\n", gai_strerror(error));
 		break;
-	case WFT_STATE_SSL_ERROR:
-		fprintf(stderr, "SSL error: %d\n", error);
-		break;
 	case WFT_STATE_TASK_ERROR:
 		fprintf(stderr, "Task error: %d\n", error);
 		break;

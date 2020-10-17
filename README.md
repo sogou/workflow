@@ -1,3 +1,6 @@
+# This is a nossl branch！
+still need crypto for sha1 and md5.
+
 [English version](README_en.md)
 
 ## Sogou C++ Workflow

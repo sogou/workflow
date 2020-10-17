@@ -48,7 +48,7 @@ static void test_client(const char *url, const char *sql, std::mutex& mutex, std
 	task->start();
 }
 
-TEST(WFMySQLTask1, mysql_unittest)
+TEST(mysql_unittest, WFMySQLTask1)
 {
 	std::mutex mutex;
 	std::condition_variable cond;

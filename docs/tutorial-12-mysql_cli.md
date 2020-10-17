@@ -13,7 +13,7 @@
 
 # MySQL URL的格式
 
-mysql://username:password@host:port/dbname?character_set=charset
+mysql://username:password@host:port/dbname?character_set=charset&character_set_results=charset
 
 - username和password按需填写；
 
@@ -23,13 +23,15 @@ mysql://username:password@host:port/dbname?character_set=charset
 
 - 如果用户在这一层有upstream选取需求，可以参考[upstream文档](../docs/about-upstream.md)；
 
-- charset为字符集，默认utf8，具体可以参考MySQL官方文档[character-set.html](https://dev.mysql.com/doc/internals/en/character-set.html)。
+- character_set为client的字符集，等价于使用官方客户端启动时的参数``--default-character-set``的配置，默认utf8，具体可以参考MySQL官方文档[character-set.html](https://dev.mysql.com/doc/internals/en/character-set.html)。
+
+- character_set_results为client、connection和results的字符集，如果想要在SQL语句里使用``SET NAME``来指定这些字符集的话，请把它配置到url的这个位置。
 
 MySQL URL示例：
 
 mysql://root:password@127.0.0.1
 
-mysql://@test.mysql.com:3306/db1?character_set=utf8
+mysql://@test.mysql.com:3306/db1?character_set=utf8&character_set_results=utf8
 
 # 创建并启动MySQL任务
 
@@ -43,7 +45,7 @@ void set_query(const std::string& query);
 ~~~
 用户创建完WFMySQLTask之后，可以对req调用 **set_query()** 写入SQL语句。
 
-基于MySQL协议，如果建立完连接而发一个空包，server会等待而不是回包，因此用户会得到超时，因此我们对那些没有调用 ``set_query()`` 的task进行了特判并且会立刻返回**WFT_ERR_MYSQL_QUERY_NOT_SET**。
+如果没调用过 **set_query()** ，task就被start起来的话，则用户会在callback里得到**WFT_ERR_MYSQL_QUERY_NOT_SET**。
 
 其他包括callback、series、user_data等与workflow其他task用法类似。
 
@@ -66,29 +68,27 @@ int main(int argc, char *argv[])
 
 因为我们的交互命令中不支持选库（**USE**命令），所以，如果SQL语句中有涉及到**跨库**的操作，则可以通过**db_name.table_name**的方式指定具体哪个库的哪张表。
 
-**多条命令**可以拼接到一起通过 ``set_query()`` 传给WFMySQLTask，一般来说多条语句是可以一次把结果全部拿回来的，但由于MySQL协议中回包的方式与我们一问一答的通信有某些特例下不能兼容，因此 ``set_query()`` 中的SQL语句有以下注意事项：
+大部分命令可以**拼接**到一起通过 ``set_query()`` 传给WFMySQLTask（如一般的INSERT/UPDATE/SELECT/PREPARE）。
 
-- 可以多条单结果集语句的拼接（一般的INSERT/UPDATE/SELECT/PREPARE）
-
-- 也可以是一条多结果集语句（比如CALL存储过程）
-
-- 其他情况建议把SQL语句分开多次请求
+**CALL存储过程**需要单独使用，不与其他命令拼接。
 
 举个例子：
 ~~~cpp
-// 单结果集的多条语句拼接，可以正确拿到返回结果
-req->set_query("SELECT * FROM table1; SELECT * FROM table2; INSERT INTO table3 (id) VALUES (1);");
+// 多条命令的拼接
+req->set_query("SELECT * FROM table1; SELECT * FROM db2.table2; INSERT INTO table3 (id) VALUES (1);");
 
-// 多结果集的单条语句，也可以正确拿到返回结果
+// 存储过程单独使用
 req->set_query("CALL procedure1();");
-
-// 多结果集与其他拼接都不能完全拿到所有返回结果
-req->set_query("CALL procedure1(); SELECT * FROM table1;");
 ~~~
 
 # 结果解析
 
 与workflow其他任务类似，可以用task->get_resp()拿到**MySQLResponse**，我们可以通过**MySQLResultCursor**遍历结果集及其中的每个列的信息**MySQLField**、每行和每个**MySQLCell**。具体接口可以查看：[MySQLResult.h](../src/protocol/MySQLResult.h)
+
+一次请求所对应的回复中，其数据是一个三维结构：
+- 一个回复中包含了一个或多个结果集（result set）；
+- 一个结果集包含了一行或多行（row）；
+- 一行包含了一列或多个列，或者说一到多个阈（Field/Cell）；
 
 具体使用从外到内的步骤应该是：
 

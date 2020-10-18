@@ -33,7 +33,8 @@ protected:
 	virtual void execute()
 	{
 		std::sort(this->input.first, this->input.last);
-		this->output = this->input;
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
 	}
 
 public:
@@ -174,7 +175,8 @@ void __WFParSortTask<T>::execute()
 		T *middle = this->input.first + n / 2;
 
 		std::inplace_merge(this->input.first, middle, this->input.last);
-		this->output = this->input;
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
 		this->flag = 0;
 	}
 	else
@@ -191,7 +193,8 @@ protected:
 	{
 		std::sort(this->input.first, this->input.last,
 				  std::move(this->compare));
-		this->output = this->input;
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
 	}
 
 protected:
@@ -336,7 +339,8 @@ void __WFParSortTaskCmp<T, CMP>::execute()
 
 		std::inplace_merge(this->input.first, middle, this->input.last,
 						   std::move(this->compare));
-		this->output = this->input;
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
 		this->flag = 0;
 	}
 	else

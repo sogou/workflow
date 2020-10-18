@@ -67,6 +67,7 @@ public:
 		this->input.last2 = last2;
 		this->input.d_first = d_first;
 		this->output.first = NULL;
+		this->output.last = NULL;
 	}
 };
 

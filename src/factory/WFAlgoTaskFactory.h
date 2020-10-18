@@ -36,7 +36,11 @@ struct SortInput
 };
 
 template<typename T>
-using SortOutput = SortInput<T>;
+struct SortOutput
+{
+	T *first;
+	T *last;
+};
 
 template<typename T>
 struct MergeInput

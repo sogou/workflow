@@ -9,12 +9,11 @@ set(SRC
 	Workflow.cc
 )
 
-if(KAFKA STREQUAL "y")
-	set(SRC
-		${SRC}
-		KafkaTaskImpl.cc
-	)
-endif()
-
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		KafkaTaskImpl.cc
+	)
+	add_library("factory_kafka" OBJECT ${SRC})
+endif ()

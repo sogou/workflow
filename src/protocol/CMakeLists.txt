@@ -14,15 +14,15 @@ set(SRC
 	HttpUtil.cc
 )
 
-if(KAFKA STREQUAL "y")
+add_library(${PROJECT_NAME} OBJECT ${SRC})
+
+if (KAFKA STREQUAL "y")
 	set(SRC
-		${SRC}
 		kafka_parser.c
 		KafkaMessage.cc
 		KafkaDataTypes.cc
 		KafkaResult.cc
 	)
-endif()
-
-add_library(${PROJECT_NAME} OBJECT ${SRC})
+	add_library("protocol_kafka" OBJECT ${SRC})
+endif ()
 

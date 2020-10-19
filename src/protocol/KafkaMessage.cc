@@ -2992,12 +2992,10 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 
 			while ((record = toppar->get_record_next()) != NULL)
 			{
+				record->set_status(ptr->error);
+
 				if (ptr->error != KAFKA_NONE)
-				{
-					record->set_status(ptr->error);
-					record = toppar->get_record_next();
 					continue;
-				}
 
 				record->set_offset(base_offset++);
 

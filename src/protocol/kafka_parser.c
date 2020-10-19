@@ -446,7 +446,7 @@ void kafka_record_init(kafka_record_t *record)
 	record->timestamp = 0;
 	record->offset = 0;
 	INIT_LIST_HEAD(&record->header_list);
-	record->status = 0;
+	record->status = KAFKA_UNKNOWN_SERVER_ERROR;
 	record->toppar = NULL;
 }
 

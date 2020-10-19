@@ -8,12 +8,11 @@ set(SRC
 	MD5Util.cc
 )
 
-if (KAFKA STREQUAL "y")
-	set(SRC
-		${SRC}
-		crc32c.c
-	)
-endif()
-
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		crc32c.c
+	)
+	add_library("util_kafka" OBJECT ${SRC})
+endif ()

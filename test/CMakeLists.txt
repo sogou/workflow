@@ -36,6 +36,7 @@ set(TEST_LIST
 	mysql_unittest
 	facilities_unittest
 	graph_unittest
+	memory_unittest
 )
 
 if (APPLE)

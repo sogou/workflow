@@ -258,11 +258,6 @@ public:
 								 std::function<void (INPUT *, OUTPUT *)> routine,
 								 std::function<void (T *)> callback);
 
-	static T *create_thread_task(const std::string& queue_name,
-								 INPUT input,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
-
 	static MT *create_multi_thread_task(const std::string& queue_name,
 										std::function<void (INPUT *, OUTPUT *)> routine,
 										size_t nthreads,
@@ -270,11 +265,6 @@ public:
 
 public:
 	static T *create_thread_task(ExecQueue *queue, Executor *executor,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
-
-	static T *create_thread_task(ExecQueue *queue, Executor *executor,
-								 INPUT input,
 								 std::function<void (INPUT *, OUTPUT *)> routine,
 								 std::function<void (T *)> callback);
 };

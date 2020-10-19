@@ -70,7 +70,7 @@ void EncodeStream::check_merge()
 			next = pos->next;
 		}
 
-		while (pos != head)
+		if (pos != head)
 		{
 			__buff *x = list_entry(pos, __buff, buffer_list);
 

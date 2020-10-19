@@ -38,7 +38,7 @@ int main()
 
 #### 编译和运行环境
 * 项目支持``Linux``，``macOS``，``Windows``等操作系统。
-  *  ``Windows``版暂时以[windows](https://github.com/sogou/workflow/tree/windows)分枝发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
+  *  ``Windows``版暂时以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
 * 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器。
 * 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。
   * 不喜欢``OpenSSL``的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分枝，代码更简洁。但目前仍需链接``crypto``。

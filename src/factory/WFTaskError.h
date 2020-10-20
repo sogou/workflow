@@ -58,8 +58,9 @@ enum
 	WFT_ERR_KAFKA_CGROUP_FAILED = 5004,
 	WFT_ERR_KAFKA_COMMIT_FAILED = 5005,
 	WFT_ERR_KAFKA_META_FAILED = 5006,
-	WFT_ERR_KAFKA_API_UNKNOWN = 5007,          ///< api type not supported
-	WFT_ERR_KAFKA_VERSION_DISALLOWED = 5008,   ///< broker version not supported
+	WFT_ERR_KAFKA_LEAVEGROUP_FAILED = 5007,
+	WFT_ERR_KAFKA_API_UNKNOWN = 5008,		   ///< api type not supported
+	WFT_ERR_KAFKA_VERSION_DISALLOWED = 5009,   ///< broker version not supported
 };
 
 #endif

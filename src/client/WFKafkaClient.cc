@@ -265,6 +265,8 @@ private:
 
 	static void kafka_heartbeat_callback(__WFKafkaTask *task);
 
+	static void kafka_leavegroup_callback(__WFKafkaTask *task);
+
 	void kafka_move_task_callback(__WFKafkaTask *task);
 
 	void kafka_process_toppar_offset(KafkaToppar *task_toppar);
@@ -342,6 +344,14 @@ void ComplexKafkaTask::kafka_offsetcommit_callback(__WFKafkaTask *task)
 	if (task->get_state() == 0)
 		t->result.set_resp(std::move(*task->get_resp()), 0);
 
+	t->finish = true;
+	t->state = task->get_state();
+	t->error = task->get_error();
+}
+
+void ComplexKafkaTask::kafka_leavegroup_callback(__WFKafkaTask *task)
+{
+	ComplexKafkaTask *t = (ComplexKafkaTask *)task->user_data;
 	t->finish = true;
 	t->state = task->get_state();
 	t->error = task->get_error();
@@ -631,6 +641,8 @@ void ComplexKafkaTask::parse_query()
 					this->api_type = Kafka_OffsetCommit;
 				else if (strcasecmp(v.c_str(), "meta") == 0)
 					this->api_type = Kafka_Metadata;
+				else if (strcasecmp(v.c_str(), "leavegroup") == 0)
+					this->api_type = Kafka_LeaveGroup;
 			}
 		}
 		else if (strcasecmp(kv.first.c_str(), "topic") == 0)
@@ -856,6 +868,36 @@ void ComplexKafkaTask::dispatch()
 			series_of(this)->push_front(task);
 			break;
 		}
+
+	case Kafka_LeaveGroup:
+		if (!this->cgroup.get_group())
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_KAFKA_LEAVEGROUP_FAILED;
+			this->finish = true;
+			break;
+		}
+		else
+		{
+			KafkaBroker *coordinator = this->cgroup.get_coordinator();
+
+			const struct sockaddr *addr;
+			socklen_t socklen;
+			coordinator->get_broker_addr(&addr, &socklen);
+
+			if (coordinator->is_to_addr())
+			{
+				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
+											   0, kafka_leavegroup_callback);
+				task->user_data = this;
+				task->get_req()->set_api(Kafka_LeaveGroup);
+				task->get_req()->set_broker(*coordinator);
+				task->get_req()->set_cgroup(this->cgroup);
+				series_of(this)->push_front(this);
+				series_of(this)->push_front(task);
+			}
+		}
+		break;
 
 	default:
 		this->state = WFT_STATE_TASK_ERROR;
@@ -1300,8 +1342,6 @@ int WFKafkaClient::init(const std::string& broker)
 		broker_hosts.emplace_back(uri);
 	}
 
-	delete this->member;
-
 	this->member = new KafkaMember;
 	*this->member->broker_hosts = std::move(broker_hosts);
 	*this->member->lock_status->get_status() = KAFKA_META_INIT;
@@ -1331,26 +1371,8 @@ void WFKafkaClient::set_heartbeat_interval(size_t interval_ms)
 
 void WFKafkaClient::deinit()
 {
-	if (this->member->lock_status->get_cnt()->fetch_sub(1) == 2 &&
-		this->member->cgroup->get_group())
-	{
-		KafkaBroker *coordinator = this->member->cgroup->get_coordinator();
-
-		const struct sockaddr *addr;
-		socklen_t socklen;
-		coordinator->get_broker_addr(&addr, &socklen);
-
-		if (coordinator->is_to_addr())
-		{
-			__WFKafkaTask *task;
-			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-														   0, nullptr);
-			task->get_req()->set_api(Kafka_LeaveGroup);
-			task->get_req()->set_broker(*coordinator);
-			task->get_req()->set_cgroup(*this->member->cgroup);
-			task->start();
-		}
-	}
+	delete this->member;
+	this->member = NULL;
 }
 
 WFKafkaClient::WFKafkaClient()
@@ -1376,6 +1398,14 @@ WFKafkaTask *WFKafkaClient::create_kafka_task(int retry_max,
 											  kafka_callback_t cb)
 {
 	WFKafkaTask *task = new ComplexKafkaTask("", retry_max, std::move(cb), this);
+	return task;
+}
+
+WFKafkaTask *WFKafkaClient::create_leavegroup_task(int retry_max,
+												   kafka_callback_t cb)
+{
+	WFKafkaTask *task = new ComplexKafkaTask("api=leavegroup", retry_max,
+											 std::move(cb), this);
 	return task;
 }
 

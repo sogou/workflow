@@ -50,7 +50,7 @@ endforeach()
 
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
-	target_link_libraries("kafka_cli" kafka workflow z snappy lz4 zstd rt)
+	target_link_libraries("kafka_cli" wfkafka workflow z snappy lz4 zstd rt)
 endif ()
 
 set(DIR10 tutorial-10-user_defined_protocol)

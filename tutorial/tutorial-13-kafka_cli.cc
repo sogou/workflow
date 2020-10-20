@@ -169,27 +169,14 @@ void kafka_callback(WFKafkaTask *task)
 			}
 		}
 
-		static int cnt = 0;
+		next_task = client.create_leavegroup_task(3, kafka_callback);
 
-		if (cnt++ < 5)
-		{
-			if (cnt == 1)
-			{
-				client.deinit();
-				client.init("10.160.13.77", "workflow_group");
-			}
-			else if (cnt == 2)
-			{
-				client.deinit();
-				client.init("10.160.13.77", "workflow_group1");
-			}
+		series_of(task)->push_back(next_task);
 
-			next_task = client.create_kafka_task("topic=cd_ie_log&api=fetch",
-												 3, kafka_callback);
+		break;
 
-			series_of(task)->push_back(next_task);
-		}
-
+	case Kafka_LeaveGroup:
+		printf("leavegroup callback\n");
 		break;
 
 	default:
@@ -284,9 +271,9 @@ int main(int argc, char *argv[])
 			client.init(url, "workflow_group");
 			task = client.create_kafka_task("topic=workflow_test1&topic=workflow_test2&api=fetch",
 											3, kafka_callback);
-            KafkaConfig config;
-            config.set_client_id("workflow");
-            task->set_config(std::move(config));
+			KafkaConfig config;
+			config.set_client_id("workflow");
+			task->set_config(std::move(config));
 		}
 	}
 	else

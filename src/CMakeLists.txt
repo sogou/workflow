@@ -40,7 +40,7 @@ add_library(
 
 if (KAFKA STREQUAL "y")
 	add_library(
-		"kafka" STATIC
+		"wfkafka" STATIC
 		$<TARGET_OBJECTS:client_kafka>
 		$<TARGET_OBJECTS:util_kafka>
 		$<TARGET_OBJECTS:protocol_kafka>
@@ -67,12 +67,12 @@ else ()
 endif ()
 
 if (KAFKA STREQUAL "y")
-	set(LIBSOKAFKA ${LIB_DIR}/libkafka.so)
+	set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.so)
 	add_custom_target(
 		SCRIPT_SHARED_LIB_KAFKA ALL
-		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
+		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
 	)
-	add_dependencies(SCRIPT_SHARED_LIB_KAFKA "kafka")
+	add_dependencies(SCRIPT_SHARED_LIB_KAFKA "wfkafka")
 endif ()
 
 install(

@@ -684,6 +684,9 @@ static inline const char *__get_task_error_string(int error)
 	case WFT_ERR_KAFKA_META_FAILED:
 		return "Kafka meta api failed";
 
+	case WFT_ERR_KAFKA_LEAVEGROUP_FAILED:
+		return "Kafka leavegroup failed";
+
 	case WFT_ERR_KAFKA_API_UNKNOWN:
 		return "Kafka api type unknown";
 

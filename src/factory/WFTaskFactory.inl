@@ -830,38 +830,11 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(const std::string& queue_
 
 template<class INPUT, class OUTPUT>
 WFThreadTask<INPUT, OUTPUT> *
-WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(const std::string& queue_name,
-						INPUT input,
-						std::function<void (INPUT *, OUTPUT *)> routine,
-						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
-{
-	return new __WFThreadTask<INPUT, OUTPUT>(WFGlobal::get_exec_queue(queue_name),
-											 WFGlobal::get_compute_executor(),
-											 std::move(input),
-											 std::move(routine),
-											 std::move(callback));
-}
-
-template<class INPUT, class OUTPUT>
-WFThreadTask<INPUT, OUTPUT> *
 WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(ExecQueue *queue, Executor *executor,
 						std::function<void (INPUT *, OUTPUT *)> routine,
 						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
 {
 	return new __WFThreadTask<INPUT, OUTPUT>(queue, executor,
-											 std::move(routine),
-											 std::move(callback));
-}
-
-template<class INPUT, class OUTPUT>
-WFThreadTask<INPUT, OUTPUT> *
-WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(ExecQueue *queue, Executor *executor,
-						INPUT input,
-						std::function<void (INPUT *, OUTPUT *)> routine,
-						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
-{
-	return new __WFThreadTask<INPUT, OUTPUT>(queue, executor,
-											 std::move(input),
 											 std::move(routine),
 											 std::move(callback));
 }

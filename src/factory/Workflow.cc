@@ -25,9 +25,9 @@
 #include "Workflow.h"
 
 SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
-	queue(new SubTask *[4]),
 	callback(std::move(cb))
 {
+	this->queue = new SubTask *[4];
 	this->queue_size = 4;
 	this->front = 0;
 	this->back = 0;

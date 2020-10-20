@@ -231,8 +231,8 @@ Sogou C++ Workflow略次于brpc；
 [ab]: https://httpd.apache.org/docs/2.4/programs/ab.html
 [benchmark-01 Code]: benchmark-01-http_server.cc
 [benchmark-02 Code]: benchmark-02-http_server_long_req.cc
-[Con-QPS]: ../docs/img/benchmark-01.png
-[Len-QPS]: ../docs/img/benchmark-02.png
-[Con-Lat]: ../docs/img/benchmark-03.png
-[Len-Lat]: ../docs/img/benchmark-04.png
-[Lat CDF]: ../docs/img/benchmark-05.png
+[Con-QPS]: https://raw.githubusercontent.com/wiki/sogou/workflow/img/benchmark-01.png
+[Len-QPS]: https://raw.githubusercontent.com/wiki/sogou/workflow/img/benchmark-02.png
+[Con-Lat]: https://raw.githubusercontent.com/wiki/sogou/workflow/img/benchmark-03.png
+[Len-Lat]: https://raw.githubusercontent.com/wiki/sogou/workflow/img/benchmark-04.png
+[Lat CDF]: https://raw.githubusercontent.com/wiki/sogou/workflow/img/benchmark-05.png

@@ -84,7 +84,7 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
  *   1. Weighted-Random
  *   2. Consistent-Hash
  *   3. Manual-Select
- * - Additional, we support Master-Slave & Group for server and working well in any mode.
+ * - Additional, we support Main-backup & Group for server and working well in any mode.
  *
  * @code{.cc}
 	upstream_create_weighted_random("abc.sogou", true);           //UPSTREAM_WIGHTED_RANDOM
@@ -151,7 +151,7 @@ public:
 	/**
 	 * @brief      MODE 3: manual select
 	 * @param[in]  name             upstream name
-	 * @param[in]  select           manual select functional, just tell us master-index.
+	 * @param[in]  select           manual select functional, just tell us main-index.
 	 * @param[in]  try_another      when first choice is failed, try another one or not
 	 * @param[in]  consitent_hash   consistent-hash functional
 	 * @return     success/fail
@@ -218,12 +218,12 @@ public:
 									  const std::string& address);
 
 	/**
-	 * @brief      get all master address list from one upstream
+	 * @brief      get all main servers address list from one upstream
 	 * @param[in]  name             upstream name
-	 * @return     all master address list
+	 * @return     all main servers' address list
 	 * @warning    If server servers has the same address in this upstream, then will appear in the vector multiply times
 	 */
-	static std::vector<std::string> upstream_master_address_list(const std::string& name);
+	static std::vector<std::string> upstream_main_address_list(const std::string& name);
 
 public:
 	/// @breif for plugin

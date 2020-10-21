@@ -72,11 +72,10 @@ CommMessageOut *ComplexRedisTask::message_out()
 {
 	long long seqid = this->get_seq();
 
-	if (seqid == 0)
+	if (seqid <= 1)
 	{
-		if (!password_.empty())
+		if (seqid == 0 && !password_.empty())
 		{
-			//first is auth
 			succ_ = false;
 			is_user_request_ = false;
 			auto *auth_req = new RedisRequest;
@@ -84,30 +83,15 @@ CommMessageOut *ComplexRedisTask::message_out()
 			auth_req->set_request("AUTH", {password_});
 			return auth_req;
 		}
-		else if (db_num_ > 0)
+
+		if (db_num_ > 0)
 		{
-			//first is select
 			succ_ = false;
 			is_user_request_ = false;
 			auto *select_req = new RedisRequest;
 			char buf[32];
 
-			snprintf(buf, 32, "%d", db_num_);
-			select_req->set_request("SELECT", {buf});
-			return select_req;
-		}
-	}
-	else if (seqid == 1)
-	{
-		if (!password_.empty() && db_num_ > 0)
-		{
-			//second is select
-			succ_ = false;
-			is_user_request_ = false;
-			auto *select_req = new RedisRequest;
-			char buf[32];
-
-			snprintf(buf, 32, "%d", db_num_);
+			sprintf(buf, "%d", db_num_);
 			select_req->set_request("SELECT", {buf});
 			return select_req;
 		}
@@ -161,7 +145,7 @@ bool ComplexRedisTask::init_success()
 	size_t info_len = password_.size() + 32 + 16;
 	char *info = new char[info_len];
 
-	snprintf(info, info_len, "redis|pass:%s|db:%d", password_.c_str(), db_num_);
+	sprintf(info, "redis|pass:%s|db:%d", password_.c_str(), db_num_);
 	this->WFComplexClientTask::set_type(type);
 	this->WFComplexClientTask::set_info(info);
 

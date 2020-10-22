@@ -245,7 +245,7 @@ http_task->start();
 3. 无组的backup可以为全局任何组目标/任何无组目标作为备
 4. 组号可以区分哪些主备是在一起工作的
 5. 不同组之间的备是相互隔离的，只为本组的main服务
-6. 添加目标的默认组号-1，type为main
+6. 添加目标的默认组号-1，type为0，表示主节点。
 
 # Upstream选择策略
 
@@ -287,7 +287,7 @@ struct AddressParams
     unsigned int dns_ttl_min;
     unsigned int max_fails;
     unsigned short weight;
-    int server_type; /* 0 for main and 1 for backup */
+    int server_type;
     int group_id;
 };
 

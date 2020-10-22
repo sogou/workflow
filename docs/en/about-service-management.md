@@ -185,9 +185,9 @@ struct AddressParams
  * - If max_fails is set to 1, it means server would out of upstream selection in 30 seconds when failed only once
  */
     unsigned int max_fails;                ///< [1, INT32_MAX] max_fails = 0 means max_fails = 1
-    unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for master
+    unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for main
     int server_type;                       ///< 0 for main and 1 for backup
-    int group_id;                          ///< -1 means no group. Slave without group will backup for any master
+    int group_id;                          ///< -1 means no group. Backup without group will backup for any main
 };
 ~~~
 

@@ -39,8 +39,6 @@
 #include "WFTask.h"
 #include "WFTaskError.h"
 
-const char *library_version = "Workflow Library Version: 1.12.6";
-
 class __WFGlobal
 {
 public:

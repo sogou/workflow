@@ -18,10 +18,9 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <mutex>
-#include <condition_variable>
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
+#include "workflow/WFFacilities.h"
 #include "message.h"
 
 using WFTutorialTask = WFNetworkTask<protocol::TutorialRequest,
@@ -49,9 +48,6 @@ public:
 
 int main(int argc, char *argv[])
 {
-	std::mutex mutex;
-	std::condition_variable cond;
-	bool finished = false;
 	unsigned short port;
 	std::string host;
 
@@ -104,21 +100,14 @@ int main(int argc, char *argv[])
 	};
 
 	/* First request is emtpy. We will ignore the server response. */
+	WFFacilities::WaitGroup wait_group(1);
 	WFTutorialTask *task = MyFactory::create_tutorial_task(host, port, 0, callback);
 	task->get_resp()->set_size_limit(4 * 1024);
-	Workflow::start_series_work(task, [&mutex, &cond, &finished](const SeriesWork *)
-	{
-		mutex.lock();
-		finished = true;
-		cond.notify_one();
-		mutex.unlock();
+	Workflow::start_series_work(task, [&wait_group](const SeriesWork *) {
+		wait_group.done();
 	});
 
-	std::unique_lock<std::mutex> lock(mutex);
-	while (!finished)
-		cond.wait(lock);
-
-	lock.unlock();
+	wait_group.wait();
 	return 0;
 }
 

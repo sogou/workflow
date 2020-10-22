@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 {
     ...
     const char *root = (argc >= 3 ? argv[2] : ".");
-    auto&& proc = std::bind(process, std::placeholders::1, root);
+    auto&& proc = std::bind(process, std::placeholders::_1, root);
     WFHttpServer server(proc);
 
     // start server
@@ -74,9 +74,9 @@ void process(WFHttpTask *server_task, const char *root)
 }
 ~~~
 与http_proxy产生一个新的http client任务不同，这里我们通过factory产生了一个pread任务。  
-在[WFTaskFactory.h](../src/factory/WFTaskFactory.h)里，我们要以看到相关的接口。
+在[WFTaskFactory.h](../src/factory/WFTaskFactory.h)里，我们可以看到相关的接口。
 ~~~cpp
-struct FileIOArg
+struct FileIOArgs
 {
     int fd;
     void *buf;
@@ -85,7 +85,7 @@ struct FileIOArg
 };
 
 ...
-using WFFileIOTask = WFFileTask<FileIOArg>;
+using WFFileIOTask = WFFileTask<struct FileIOArgs>;
 using fio_callback_t = std::function<void (WFFileIOTask *)>;
 ...
 
@@ -99,12 +99,12 @@ public:
     static WFFileIOTask *create_pwrite_task(int fd, void *buf, size_t count, off_t offset,
                                             fio_callback_t callback);
     ...
-}
+};
 ~~~
 无论是pread还是pwrite，返回的都是WFFileIOTask。这与不区分sort或psort，不区分client或server task是一个道理。  
 除这两个接口还有preadv和pwritev，返回WFFileVIOTask，以及fsync，fdsync，返回WFFileSyncTask。可以在头文件里查看。  
 目前我们这套接口需要用户自行打开关闭fd，我们正在研发一套文件管理，将来用户只需要传入文件名，对跨平台更友好。  
-示例用了task的user_data域保存服务的全局数据。但对于大服务，我们推荐使用series context。可以参考前面的proxy示例。
+示例用了task的user_data域保存服务的全局数据。但对于大服务，我们推荐使用series context。可以参考前面的[proxy示例](../tutorial/tutorial-05-http_proxy.cc)。
 
 # 处理读文件结果
 
@@ -113,21 +113,21 @@ using namespace protocol;
 
 void pread_callback(WFFileIOTask *task)
 {
-    FileIOArg *arg = task->get_arg();
+    FileIOArgs *args = task->get_args();
     long ret = task->get_retval();
     HttpResponse *resp = (HttpResponse *)task->user_data;
 
-    close(arg->fd);
+    close(args->fd);
     if (ret < 0)
     {
         resp->set_status_code("503");
         resp->append_output_body("<html>503 Internal Server Error.</html>");
     }
     else /* Use '_nocopy' carefully. */
-        resp->append_output_body_nocopy(arg->buf, ret);
+        resp->append_output_body_nocopy(args->buf, ret);
 }
 ~~~
-文件任务的get_arg()得到输入参数，这里是FileIOArg结构。  
+文件任务的get_args()得到输入参数，这里是FileIOArgs结构。  
 get_retval()是操作的返回值。当ret < 0, 任务错误。否则ret为读取到数据的大小。  
 在文件任务里，ret < 0与task->get_state() != WFT_STATE_SUCCESS完全等价。  
 buf域的内存我们是自己管理的，可以通过append_output_body_nocopy()传给resp。  

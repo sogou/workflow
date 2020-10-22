@@ -19,8 +19,8 @@ http_task->get_resp()->set_size_limit(20 * 1024 * 1024);
 http_task->set_receive_timeout(30 * 1000);
 ~~~
 set_size_limit()是HttpMessage的调用，用于限制接收http消息时包的大小。事实上所有的协议消息都要求提供这个接口。  
-set_receive_timeout()是接收数据的超时，单元为ms。  
-上述代码限制http消息不超过20M，完整接收时间不超过30秒。我们还有更多丰富超时配置，后述文档中再介绍。  
+set_receive_timeout()是接收数据的超时，单位为ms。  
+上述代码限制http消息不超过20M，完整接收时间不超过30秒。我们还有更多更丰富的超时配置，后述文档中再介绍。  
 
 # 创建并启动SeriesWork
 
@@ -40,7 +40,7 @@ public:
 };
 ~~~
 我们想给series设置一个callback，并加入一些上下文。所以我们不使用任务的start接口，而是自己创建一个series。  
-SeriesWork不能new，delete，也不能派生。通过Workflow::create_series_work()接口产生。在[Workflow.h](../src/factory/Workflow.h)中，  
+SeriesWork不能new，delete，也不能派生。只能通过Workflow::create_series_work()接口产生。在[Workflow.h](../src/factory/Workflow.h)中，  
 通常是用这个调用：
 ~~~cpp
 using series_callback_t = std::function<void (const SeriesWork *)>;
@@ -49,7 +49,7 @@ class Workflow
 {
 public:
     static SeriesWork *create_series_work(SubTask *first, series_callback_t callback);
-}
+};
 ~~~
 在示例代码中，我们的用法是：
 ~~~cpp
@@ -73,5 +73,5 @@ series的callback函数在series所有任务被执行完之后调用，在这里
 
 # 其余的工作
 
-剩下的事情就没有什么特别的了，http抓取成功之后启动一个redis任务写库，抓取失败或http body长度为0，则不再启动redis任务。  
+剩下的事情就没有什么特别的了，http抓取成功之后启动一个redis任务写库。如果抓取失败或http body长度为0，则不再启动redis任务。  
 无论是什么情况，程序都能在所有任务结束之后正常退出，因为任务都在同一个series里。

@@ -20,12 +20,11 @@
 #include <string.h>
 #include <utility>
 #include <string>
-#include <mutex>
-#include <condition_variable>
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
+#include "workflow/WFFacilities.h"
 
 using namespace protocol;
 
@@ -106,23 +105,13 @@ int main(int argc, char *argv[])
 		pwork->add_series(series);
 	}
 
-	std::mutex mutex;
-	std::condition_variable cond;
-	bool finished = false;
+	WFFacilities::WaitGroup wait_group(1);
 
-	Workflow::start_series_work(pwork,
-		[&mutex, &cond, &finished](const SeriesWork *)
-	{
-		mutex.lock();
-		finished = true;
-		cond.notify_one();
-		mutex.unlock();
+	Workflow::start_series_work(pwork, [&wait_group](const SeriesWork *) {
+		wait_group.done();
 	});
 
-	std::unique_lock<std::mutex> lock(mutex);
-	while (!finished)
-		cond.wait(lock);
-	lock.unlock();
+	wait_group.wait();
 	return 0;
 }
 

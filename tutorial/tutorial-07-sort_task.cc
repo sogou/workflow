@@ -18,16 +18,14 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <mutex>
-#include <condition_variable>
 #include "workflow/WFTaskFactory.h"
-
-bool use_parallel_sort = false;
-bool finished = false;
-std::mutex mutex;
-std::condition_variable cond;
+#include "workflow/WFFacilities.h"
 
 using namespace algorithm;
+
+static WFFacilities::WaitGroup wait_group(1);
+
+bool use_parallel_sort = false;
 
 void callback(WFSortTask<int> *task)
 {
@@ -60,12 +58,7 @@ void callback(WFSortTask<int> *task)
 		printf("Sort reversely:\n");
 	}
 	else
-	{
-		mutex.lock();
-		finished = true;
-		cond.notify_one();
-		mutex.unlock();
-	}
+		wait_group.done();
 }
 
 int main(int argc, char *argv[])
@@ -112,11 +105,7 @@ int main(int argc, char *argv[])
 	printf("Sort result:\n");
 	task->start();
 
-	std::unique_lock<std::mutex> lock(mutex);
-	while (!finished)
-		cond.wait(lock);
-	lock.unlock();
-
+	wait_group.wait();
 	free(array);
 	return 0;
 }

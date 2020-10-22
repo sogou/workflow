@@ -25,6 +25,7 @@
 #include "workflow/HttpUtil.h"
 #include "workflow/WFServer.h"
 #include "workflow/WFHttpServer.h"
+#include "workflow/WFFacilities.h"
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -91,7 +92,12 @@ void process(WFHttpTask *server_task)
 			addrstr, port, seq);
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -109,11 +115,7 @@ int main(int argc, char *argv[])
 	port = atoi(argv[1]);
 	if (server.start(port) == 0)
 	{
-#ifndef _WIN32
-		pause();
-#else
-		getchar();
-#endif
+		wait_group.wait();
 		server.stop();
 	}
 	else

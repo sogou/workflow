@@ -27,8 +27,9 @@
 #include "HttpMessage.h"
 #include "MySQLMessage.h"
 #include "DNSRoutine.h"
-#include "WFTask.h"
 #include "Workflow.h"
+#include "WFTask.h"
+#include "WFGraphTask.h"
 #include "EndpointParams.h"
 #include "WFAlgoTaskFactory.h"
 
@@ -81,6 +82,9 @@ using fsync_callback_t = std::function<void (WFFileSyncTask *)>;
 // Timer and counter
 using timer_callback_t = std::function<void (WFTimerTask *)>;
 using counter_callback_t = std::function<void (WFCounterTask *)>;
+
+// Graph (DAG) task.
+using graph_callback_t = std::function<void (WFGraphTask *)>;
 
 // DNS task. For internal usage only.
 using WFDNSTask = WFThreadTask<DNSInput, DNSOutput>;
@@ -199,6 +203,12 @@ public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,
 									FUNC&& func, ARGS&&... args);
+
+public:
+	static WFGraphTask *create_graph_task(graph_callback_t callback)
+	{
+		return new WFGraphTask(std::move(callback));
+	}
 
 public:
 	static WFDNSTask *create_dns_task(const std::string& host,

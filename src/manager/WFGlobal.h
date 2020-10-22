@@ -63,8 +63,8 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 /*	.endpoint_params	=	*/	ENDPOINT_PARAMS_DEFAULT,
 /*	.dns_ttl_default	=	*/	12 * 3600,
 /*	.dns_ttl_min		=	*/	180,
-/*	.dns_threads		=	*/	8,
-/*	.poller_threads		=	*/	2,
+/*	.dns_threads		=	*/	4,
+/*	.poller_threads		=	*/	4,
 /*	.handler_threads	=	*/	20,
 /*	.compute_threads	=	*/	-1
 };

@@ -1,5 +1,5 @@
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-ALL_TARGETS := all base check install preinstall clean tutorial example
+ALL_TARGETS := all base check install preinstall clean tutorial
 MAKE_FILE := Makefile
 
 DEFAULT_BUILD_DIR := build
@@ -14,16 +14,15 @@ all: base
 base:
 	mkdir -p $(BUILD_DIR)
 ifeq ($(DEBUG),y)
-	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -DCMAKE_BUILD_TYPE=Debug $(ROOT_DIR)
+else ifneq ("${INSTALL_PREFIX}install_prefix", "install_prefix")
+	cd $(BUILD_DIR) && $(CMAKE3) -DCMAKE_INSTALL_PREFIX:STRING=${INSTALL_PREFIX} $(ROOT_DIR)
 else
 	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
 endif
 
 tutorial: all
 	make -C tutorial
-
-example: all
-	make -C example
 
 check: all
 	make -C test check
@@ -39,7 +38,6 @@ ifeq (build, $(wildcard build))
 endif
 	-make -C test clean
 	-make -C tutorial clean
-	-make -C example clean
 	rm -rf $(DEFAULT_BUILD_DIR)
 	rm -rf _include
 	rm -rf _lib

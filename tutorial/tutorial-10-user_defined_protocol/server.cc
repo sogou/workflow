@@ -23,6 +23,7 @@
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFServer.h"
+#include "workflow/WFFacilities.h"
 #include "message.h"
 
 using WFTutorialTask = WFNetworkTask<protocol::TutorialRequest,
@@ -47,7 +48,12 @@ void process(WFTutorialTask *task)
 	resp->set_message_body(body, size);
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -69,7 +75,11 @@ int main(int argc, char *argv[])
 	if (server.start(AF_INET6, port) == 0 ||
 		server.start(AF_INET, port) == 0)
 	{
+<<<<<<< HEAD
 		getchar();
+=======
+		wait_group.wait();
+>>>>>>> master
 		server.stop();
 	}
 	else

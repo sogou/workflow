@@ -23,7 +23,7 @@ if (server.start(port) == 0)
 ...
 ~~~
 这个过程实在太简单，没有什么好讲。要注意start是非阻塞的，所以要pause住程序。显然你也可以启动多个server对象再pause。  
-server启动之后，任何时刻可通过stop()接口都可以关停server。关停是非暴力式的，会等待正在服务是的请求执行完。  
+server启动之后，任何时刻都可以通过stop()接口关停server。关停是非暴力式的，会等待正在服务的请求执行完。  
 所以，stop是一个阻塞操作。如果需要非阻塞的关闭，可使用shutdown+wait_finish接口。  
 start()接口有好几个重载函数，在[WFServer.h](../src/server/WFServer.h)里，可以看到如下一些接口：
 ~~~cpp
@@ -53,7 +53,7 @@ public:
     int serve(int listen_fd, const char *cert_file, const char *key_file);
 };
 ~~~
-这些接口都比如好理解。其中，启动SSL server时，cert_file和key_file为PEM格式。  
+这些接口都比较好理解。其中，启动SSL server时，cert_file和key_file为PEM格式。  
 最后两个带listen_fd的serve()接口，主要用于优雅重启。或者简单建立一个非TCP协议（如SCTP）的server。  
 需要特别提醒一下，我们一个server对象对应一个listen_fd，如果在IPv4和IPv6两个协议上都运行server，需要：
 ~~~cpp
@@ -77,7 +77,7 @@ public:
 我们看到在构造http server的时候，传入了一个process参数，这也是一个std::function，定义如下：  
 ~~~cpp
 using http_process_t = std::function<void (WFHttpTask *)>;
-using WFHttpServer = WFServer<HttpRequest, HttpResponse>;
+using WFHttpServer = WFServer<protocol::HttpRequest, protocol::HttpResponse>;
 
 template<>
 WFHttpServer::WFServer(http_process_t proc) :

@@ -16,6 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com;63350856@qq.com)
 */
 
+#include <netdb.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,6 +25,7 @@
 #include "workflow/HttpMessage.h"
 #include "workflow/HttpUtil.h"
 #include "workflow/WFTaskFactory.h"
+#include "workflow/WFFacilities.h"
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -99,7 +101,12 @@ void wget_callback(WFHttpTask *task)
 	fprintf(stderr, "\nSuccess. Press Ctrl-C to exit.\n");
 }
 
-void sig_handler(int signo) { }
+static WFFacilities::WaitGroup wait_group(1);
+
+void sig_handler(int signo)
+{
+	wait_group.done();
+}
 
 int main(int argc, char *argv[])
 {
@@ -127,11 +134,8 @@ int main(int argc, char *argv[])
 	req->add_header_pair("User-Agent", "Wget/1.14 (linux-gnu)");
 	req->add_header_pair("Connection", "close");
 	task->start();
-#ifndef _WIN32
-	pause();
-#else
-	getchar();
-#endif
+
+	wait_group.wait();
 	return 0;
 }
 

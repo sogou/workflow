@@ -17,7 +17,7 @@ public:
 
 # 示例
 我们想异步的运行一个加法函数：void add(int a, int b, int& res);  
-并且我们还想在函数运行结束的时候得到打印出结果。于是可以这样实现：
+并且我们还想在函数运行结束的时候打印出结果。于是可以这样实现：
 ~~~cpp
 #include <stdio.h>
 #include <utility>

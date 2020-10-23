@@ -64,7 +64,7 @@ int main()
   * 计算任务
     * [使用内置算法工厂：sort_task](docs/tutorial-07-sort_task.md)
     * [自定义计算任务：matrix_multiply](docs/tutorial-08-matrix_multiply.md)
-	* [更加简单的使用计算任务：go_task](docs/about-go-task.md)
+    * [更加简单的使用计算任务：go_task](docs/about-go-task.md)
   * 文件异步IO任务
     * [异步IO的http server：http_file_server](docs/tutorial-09-http_file_server.md)
   * 用户定义协议基础

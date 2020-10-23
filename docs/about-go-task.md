@@ -47,7 +47,7 @@ int main(void)
     return 0;
 }
 ~~~
-以上的示例异步运行一个加法，打印结果并退出程序。go task的使用与其它的任务多少区别，也有user_data域可以使用。  
+以上的示例异步运行一个加法，打印结果并退出程序。go task的使用与其它的任务没有多少区别，也有user_data域可以使用。  
 唯一一点不同，是go task创建时不传callback，但和其它任务一样可以set_callback。  
 如果go task函数的某个参数是引用，需要使用std::ref，否则会变成值传递，这是c++11的特征。
 

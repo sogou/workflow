@@ -35,7 +35,6 @@ enum
 	WFT_ERR_URI_SCHEME_INVALID = 1002,          ///< URI, invalid scheme
 	WFT_ERR_URI_PORT_INVALID = 1003,            ///< URI, invalid port
 	WFT_ERR_UPSTREAM_UNAVAILABLE = 1004,        ///< Upstream, all target server down
-	WFT_ERR_ROUTE_FAILED = 1005,                ///< Route, route task is NULL
 
 	//HTTP
 	WFT_ERR_HTTP_BAD_REDIRECT_HEADER = 2001,    ///< Http, 301/302/303/307/308 Location header value is NULL

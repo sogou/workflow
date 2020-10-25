@@ -597,13 +597,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 		{
 			// 3. DNS route() or children route()
 			router_task_ = this->route();
-			if (router_task_)
-				series_of(this)->push_front(router_task_);
-			else
-			{
-				this->state = WFT_STATE_TASK_ERROR;
-				this->error = WFT_ERR_ROUTE_FAILED;
-			}
+			series_of(this)->push_front(router_task_);
 		}
 		else
 		{

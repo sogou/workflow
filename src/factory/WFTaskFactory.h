@@ -91,6 +91,8 @@ using dns_callback_t = std::function<void (WFDNSTask *)>;
 
 using WFEmptyTask = WFGenericTask;
 
+using WFDynamicTask = WFGenericTask;
+
 class WFTaskFactory
 {
 public:
@@ -217,6 +219,8 @@ public:
 	{
 		return new WFEmptyTask;
 	}
+
+	static WFDynamicTask *create_dynamic_task(std::function<SubTask *()> func);
 };
 
 template<class REQ, class RESP>

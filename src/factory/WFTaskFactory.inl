@@ -81,17 +81,17 @@ class __WFGoTask : public WFGoTask
 protected:
 	virtual void execute()
 	{
-		this->func();
+		this->go();
 	}
 
 protected:
-	std::function<void ()> func;
+	std::function<void ()> go;
 
 public:
 	__WFGoTask(ExecQueue *queue, Executor *executor,
-			   std::function<void ()>&& f) :
+			   std::function<void ()>&& func) :
 		WFGoTask(queue, executor),
-		func(std::move(f))
+		go(std::move(func))
 	{
 	}
 };
@@ -100,10 +100,35 @@ template<class FUNC, class... ARGS>
 inline WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
 											   FUNC&& func, ARGS&&... args)
 {
-	auto&& routine = std::bind(std::move(func), std::forward<ARGS>(args)...);
+	auto&& tmp = std::bind(std::move(func), std::forward<ARGS>(args)...);
 	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
 						  WFGlobal::get_compute_executor(),
-						  std::move(routine));
+						  std::move(tmp));
+}
+
+class __WFDynamicTask : public WFDynamicTask
+{
+protected:
+	virtual void dispatch()
+	{
+		series_of(this)->push_front(this->create());
+		this->WFDynamicTask::dispatch();
+	}
+
+protected:
+	std::function<SubTask *()> create;
+
+public:
+	__WFDynamicTask(std::function<SubTask *()>&& func) :
+		create(std::move(func))
+	{
+	}
+};
+
+inline WFDynamicTask *
+WFTaskFactory::create_dynamic_task(std::function<SubTask *()> func)
+{
+	return new __WFDynamicTask(std::move(func));
 }
 
 /**********WFComplexClientTask**********/

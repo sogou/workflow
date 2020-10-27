@@ -37,9 +37,8 @@ static size_t KAFKA_HEARTBEAT_TIMEOUT = 3 * 1000;
 
 using namespace protocol;
 
-using _kafka_callback_t = std::function<void (__WFKafkaTask *)>;
 using KafkaComplexTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
-										_kafka_callback_t>;
+											 __kafka_callback_t>;
 
 class KafkaLockStatus
 {

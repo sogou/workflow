@@ -374,6 +374,7 @@ static int compress_buf(KafkaBlock *block, int compress_type, void *env)
 	case Kafka_Snappy:
 		snappy_buffer = static_cast<KafkaBuffer *>(env);
 		snappy_buffer->append((const char *)block->get_block(), block->get_len());
+
 		break;
 
 	case Kafka_Lz4:
@@ -791,10 +792,11 @@ static int uncompress_buf(void *buf, size_t size, KafkaBlock *block,
 	}
 }
 
-static bool append_message_set(KafkaBuffer *serialized,
-							   const KafkaRecord *record,
-							   int offset, int msg_version,
-							   int compress_type, void *env)
+static int append_message_set(KafkaBlock *block,
+							  const KafkaRecord *record,
+							  int offset, int msg_version,
+							  const KafkaConfig& config, void *env, 
+							  int cur_msg_size)
 {
 	const void *key;
 	size_t key_len;
@@ -804,16 +806,20 @@ static bool append_message_set(KafkaBuffer *serialized,
 	size_t value_len;
 	record->get_value(&value, &value_len);
 
-	KafkaBlock block;
 	int message_size = 4 + 1 + 1 + 4 + 4 + key_len + value_len;
 
 	if (msg_version == 1)
 		message_size += 8;
 
-	if (!block.allocate(message_size + 8 + 4))
-		return false;
+	int max_msg_size = std::min(config.get_produce_msgset_max_bytes(), 
+								config.get_produce_msg_max_bytes());
+	if (message_size + 8 + 4 + cur_msg_size > max_msg_size)
+		return 1;
 
-	void *cur = block.get_block();
+	if (!block->allocate(message_size + 8 + 4))
+		return -1;
+
+	void *cur = block->get_block();
 
 	append_i64(&cur, offset);
 	append_i32(&cur, message_size);
@@ -830,24 +836,22 @@ static bool append_message_set(KafkaBuffer *serialized,
 	append_bytes(&cur, (const char *)key, key_len);
 	append_nullable_bytes(&cur, (const char *)value, value_len);
 
-	char *crc_buf = (char *)block.get_block() + 8 + 4;
+	char *crc_buf = (char *)block->get_block() + 8 + 4;
 
 	crc_32 = crc32(crc_32, (Bytef *)(crc_buf + 4), message_size - 4);
 	*(int *)crc_buf = htonl(crc_32);
 
-	if (compress_buf(&block, compress_type, env) < 0)
-		return false;
+	if (compress_buf(block, config.get_compress_type(), env) < 0)
+		return -1;
 
-	if (block.get_len() > 0)
-		serialized->add_item(std::move(block));
-
-	return true;
+	return 0;
 }
 
-static bool append_batch_record(KafkaBuffer *serialized,
-								const KafkaRecord *record,
-								int offset, int compress_type,
-								int64_t first_timestamp, void *env)
+static int append_batch_record(KafkaBlock *block,
+							   const KafkaRecord *record,
+							   int offset, const KafkaConfig& config,
+							   int64_t first_timestamp, void *env,
+							   int cur_msg_size)
 {
 	const void *key;
 	size_t key_len;
@@ -857,7 +861,6 @@ static bool append_batch_record(KafkaBuffer *serialized,
 	size_t value_len;
 	record->get_value(&value, &value_len);
 
-	KafkaBlock block;
 	std::string klen_str;
 	std::string vlen_str;
 	std::string timestamp_delta_str;
@@ -903,10 +906,15 @@ static bool append_batch_record(KafkaBuffer *serialized,
 	std::string length_str;
 	append_varint_i32(length_str, length);
 
-	if (!block.allocate(length + length_str.size()))
+	int max_msg_size = std::min(config.get_produce_msgset_max_bytes(), 
+								config.get_produce_msg_max_bytes());
+	if ((int)(length + length_str.size() + cur_msg_size) > max_msg_size)
+		return 1;
+
+	if (!block->allocate(length + length_str.size()))
 		return false;
 
-	void *cur = block.get_block();
+	void *cur = block->get_block();
 
 	append_string_raw(&cur, length_str);
 	append_i8(&cur, 0);
@@ -925,34 +933,35 @@ static bool append_batch_record(KafkaBuffer *serialized,
 	if (hdr_cnt > 0)
 		append_string_raw(&cur, hdr_str);
 
-	if (compress_buf(&block, compress_type, env) < 0)
-		return false;
+	if (compress_buf(block, config.get_compress_type(), env) < 0)
+		return -1;
 
-	if (block.get_len() > 0)
-		serialized->add_item(std::move(block));
-
-	return true;
+	return 0;
 }
 
-static bool append_record(KafkaBuffer *serialized,
-						  const KafkaRecord *record,
-						  int offset, int msg_version,
-						  int compress_type,
-						  int64_t first_timestamp, void *env)
+static int append_record(KafkaBlock *block,
+						 const KafkaRecord *record,
+						 int offset, int msg_version,
+						 const KafkaConfig& config,
+						 int64_t first_timestamp, void *env,
+						 int cur_msg_size)
 {
-	bool ret = false;
+	if (config.get_produce_msgset_cnt() < offset)
+		return 1;
+
+	int ret = 0;
 
 	switch (msg_version)
 	{
 	case 0:
 	case 1:
-		ret = append_message_set(serialized, record, offset, msg_version,
-								 compress_type, env);
+		ret = append_message_set(block, record, offset, msg_version,
+								 config, env, cur_msg_size);
 		break;
 
 	case 2:
-		ret = append_batch_record(serialized, record, offset, compress_type,
-								  first_timestamp, env);
+		ret = append_batch_record(block, record, offset, config,
+								  first_timestamp, env, cur_msg_size);
 		break;
 
 	default:
@@ -1288,7 +1297,7 @@ struct KafkaBatchRecordHeader
 	int64_t base_offset;
 	int32_t length;
 	int32_t partition_leader_epoch;
-	int8_t  magic;
+	int8_t	magic;
 	int32_t crc;
 	int16_t attributes;
 	int32_t last_offset_delta;
@@ -1756,7 +1765,7 @@ int KafkaMessage::append(const void *buf, size_t *size)
 }
 
 static int kafka_compress_prepare(int compress_type, void **env,
-								  KafkaBuffer *buffer)
+								  KafkaBlock *block)
 {
 	z_stream *c_stream;
 	KafkaBuffer *snappy_buffer;
@@ -1765,7 +1774,6 @@ static int kafka_compress_prepare(int compress_type, void **env,
 	LZ4F_cctx *lz4_cctx = NULL;
 	ZSTD_CStream *zstd_cctx;
 	size_t zstd_r;
-	KafkaBlock block;
 
 	switch (compress_type)
 	{
@@ -1805,14 +1813,14 @@ static int kafka_compress_prepare(int compress_type, void **env,
 
 		lz4_out_len = LZ4F_HEADER_SIZE_MAX;
 
-		if (!block.allocate(lz4_out_len))
+		if (!block->allocate(lz4_out_len))
 		{
 			LZ4F_freeCompressionContext(lz4_cctx);
 			return -1;
 		}
 
-		lz4_r = LZ4F_compressBegin(lz4_cctx, block.get_block(),
-								   block.get_len(), &kPrefs);
+		lz4_r = LZ4F_compressBegin(lz4_cctx, block->get_block(),
+								   block->get_len(), &kPrefs);
 		if (LZ4F_isError(lz4_r))
 		{
 			LZ4F_freeCompressionContext(lz4_cctx);
@@ -1820,8 +1828,7 @@ static int kafka_compress_prepare(int compress_type, void **env,
 			return -1;
 		}
 
-		block.set_len(lz4_r);
-		buffer->add_item(std::move(block));
+		block->set_len(lz4_r);
 
 		*env = (void *)lz4_cctx;
 		break;
@@ -1862,6 +1869,7 @@ static int kafka_compress_finish(int compress_type, void *env,
 	size_t zstd_r;
 	ZSTD_outBuffer out;
 	KafkaBlock block;
+	size_t zstd_end_bufsize = ZSTD_compressBound(buffer->get_size());
 
 	switch (compress_type)
 	{
@@ -1973,10 +1981,12 @@ static int kafka_compress_finish(int compress_type, void *env,
 
 	case Kafka_Zstd:
 		zstd_cctx = static_cast<ZSTD_CStream *>(env);
-		block.allocate(1024);
+		if (!block.allocate(zstd_end_bufsize))
+			return -1;
+
 		out.dst = block.get_block();
 		out.pos = 0;
-		out.size = 1024;
+		out.size = 1024000;
 		zstd_r = ZSTD_endStream(zstd_cctx, &out);
 		if (ZSTD_isError(zstd_r) || zstd_r > 0)
 		{
@@ -2046,21 +2056,22 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 	while ((toppar = this->toppar_list.get_next()) != NULL)
 	{
 		std::string topic_header;
-		KafkaBlock block;
+		KafkaBlock header_block;
+		int record_flag = -1;
 
 		append_string(topic_header, toppar->get_topic());
 		append_i32(topic_header, 1);
 		append_i32(topic_header, toppar->get_partition());
 		append_i32(topic_header, 0); // recordset length
 
-		if (!block.set_block((void *)topic_header.c_str(),
-							 topic_header.size()))
+		if (!header_block.set_block((void *)topic_header.c_str(),
+									topic_header.size()))
 		{
 			return -1;
 		}
 
-		void *recordset_size_ptr = (void *)((char *)block.get_block() + block.get_len() - 4);
-		this->serialized.add_item(std::move(block));
+		void *recordset_size_ptr = (void *)((char *)header_block.get_block() + 
+											header_block.get_len() - 4);
 
 		int64_t first_timestamp = 0;
 		int64_t max_timestamp = 0;
@@ -2073,11 +2084,12 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 		size_t cur_serialized_len = this->serialized.get_size();
 		int batch_cnt = 0;
 
-		this->serialized.set_insert_pos();
-		toppar->record_rewind();
+		toppar->save_record_startpos();
 		KafkaRecord *record;
 		while ((record = toppar->get_record_next()) != NULL)
 		{
+			KafkaBlock compress_block;
+			KafkaBlock record_block;
 			struct timespec ts;
 
 			clock_gettime(CLOCK_REALTIME, &ts);
@@ -2086,8 +2098,8 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			if (batch_cnt == 0)
 			{
 				if (kafka_compress_prepare(this->config.get_compress_type(),
-										   &this->compress_env,
-										   &this->serialized) < 0)
+										   &this->compress_env, 
+										   &compress_block) < 0)
 				{
 					return -1;
 				}
@@ -2095,20 +2107,46 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 				first_timestamp = record->get_timestamp();
 			}
 
-			if (!append_record(&this->serialized, record, batch_cnt,
-							   this->message_version,
-							   this->config.get_compress_type(),
-							   first_timestamp, this->compress_env))
-			{
+			int ret = append_record(&record_block, record, batch_cnt,
+									this->message_version, this->config,
+									first_timestamp, this->compress_env, 
+									batch_length);
+
+			if (ret < 0)
 				return -1;
+			else if (ret > 0)
+			{
+				toppar->record_rollback();
+				toppar->save_record_endpos();
+				record_flag = 1;
+				break;
 			}
+
+			if (batch_cnt == 0)
+			{
+				this->serialized.add_item(std::move(header_block));
+				cur_serialized_len = this->serialized.get_size();
+				this->serialized.set_insert_pos();
+
+				if (compress_block.get_len() > 0)
+					this->serialized.add_item(std::move(compress_block));
+			}
+
+			if (record_block.get_len() > 0)
+				this->serialized.add_item(std::move(record_block));
+
+			record_flag = 0;
+			toppar->save_record_endpos();
 
 			max_timestamp = record->get_timestamp();
 			++batch_cnt;
+
+			batch_length += this->serialized.get_size() - cur_serialized_len;
+			cur_serialized_len = this->serialized.get_size();
 		}
 
-		cur_serialized_len = this->serialized.get_size() - cur_serialized_len;
-		batch_length += cur_serialized_len;
+		if (record_flag < 0)
+			continue;
 
 		if (this->message_version == 2)
 		{
@@ -2987,11 +3025,13 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 			if (this->api_version >=5)
 				CHECK_RET(parse_i64(buf, size, &log_start_offset));
 
-			toppar->record_rewind();
+			struct list_head *pos;
 			KafkaRecord *record;
 
-			while ((record = toppar->get_record_next()) != NULL)
+			for (pos = toppar->get_record_startpos()->next;
+				 pos != toppar->get_record_endpos(); pos = pos->next)
 			{
+				record = list_entry(pos, KafkaRecord, list);
 				record->set_status(ptr->error);
 
 				if (ptr->error != KAFKA_NONE)

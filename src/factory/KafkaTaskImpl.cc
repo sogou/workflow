@@ -331,11 +331,24 @@ bool __ComplexKafkaTask::has_next()
 		}
 		break;
 
+	case Kafka_Produce:
+		{
+			msg->get_toppar_list()->rewind();
+			KafkaToppar *toppar;
+			while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
+			{
+				if (!toppar->record_reach_end())
+				{
+					this->get_req()->set_api(Kafka_Produce);
+					return true;
+				}
+			}
+		}
+
 	case Kafka_Fetch:
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
 	case Kafka_ListOffsets:
-	case Kafka_Produce:
 	case Kafka_Heartbeat:
 	case Kafka_LeaveGroup:
 	case Kafka_ApiVersions:

@@ -99,7 +99,7 @@ public:
 		this->ref = copy.ref;
 		++*this->ref;
 		this->t_list = copy.t_list;
-		this->curpos = this->t_list;
+		this->curpos = copy.curpos;
 	}
 
 	KafkaList& operator= (const KafkaList& copy)
@@ -108,6 +108,7 @@ public:
 		this->ref = copy.ref;
 		++*this->ref;
 		this->t_list = copy.t_list;
+		this->curpos = copy.curpos;
 		return *this;
 	}
 
@@ -191,6 +192,33 @@ public:
 	void set_produce_timeout(int ms) { this->ptr->produce_timeout = ms; }
 	int get_produce_timeout() const { return this->ptr->produce_timeout; }
 
+	void set_produce_msg_max_bytes(int bytes)
+	{
+		this->ptr->produce_msg_max_bytes = bytes;
+	}
+	int get_produce_msg_max_bytes() const
+	{
+		return this->ptr->produce_msg_max_bytes;
+	}
+
+	void set_produce_msgset_cnt(int cnt)
+	{
+		this->ptr->produce_msgset_cnt = cnt; 
+	}
+	int get_produce_msgset_cnt() const
+	{
+		return this->ptr->produce_msgset_cnt;
+	}
+
+	void set_produce_msgset_max_bytes(int bytes)
+	{
+		this->ptr->produce_msgset_max_bytes = bytes;
+	}
+	int get_produce_msgset_max_bytes() const
+	{
+		return this->ptr->produce_msgset_max_bytes;
+	}
+
 	void set_fetch_timeout(int ms) { this->ptr->fetch_timeout = ms; }
 	int get_fetch_timeout() const { return this->ptr->fetch_timeout; }
 
@@ -235,15 +263,6 @@ public:
 
 	void set_produce_acks(int acks) { this->ptr->produce_acks = acks; }
 	int get_produce_acks() const { return this->ptr->produce_acks; }
-
-	void set_message_max_bytes(size_t bytes)
-	{
-		this->ptr->message_max_bytes = bytes;
-	}
-	size_t get_message_max_bytes() const
-	{
-		return this->ptr->message_max_bytes;
-	}
 
 	void set_allow_auto_topic_creation(bool allow_auto_topic_creation)
 	{
@@ -455,6 +474,7 @@ private:
 	std::atomic<int> *ref;
 
 	friend class KafkaMessage;
+	friend class KafkaResponse;
 	friend class KafkaToppar;
 };
 
@@ -510,6 +530,7 @@ public:
 		kafka_topic_partition_init(this->ptr);
 		this->ref = new std::atomic<int>(1);
 		this->curpos = &this->ptr->record_list;
+		this->startpos = this->endpos = this->curpos;
 	}
 
 	~KafkaToppar();
@@ -521,6 +542,7 @@ public:
 		kafka_topic_partition_init(move.ptr);
 		this->ref = new std::atomic<int>(1);
 		this->curpos = &this->ptr->record_list;
+		this->startpos = this->endpos = this->curpos;
 	}
 
 	KafkaToppar& operator= (KafkaToppar&& move)
@@ -533,6 +555,7 @@ public:
 			kafka_topic_partition_init(move.ptr);
 			this->ref = new std::atomic<int>(1);
 			this->curpos = &this->ptr->record_list;
+			this->startpos = this->endpos = this->curpos;
 		}
 
 		return *this;
@@ -543,7 +566,9 @@ public:
 		this->ptr = copy.ptr;
 		this->ref = copy.ref;
 		++*this->ref;
-		this->curpos = &this->ptr->record_list;
+		this->curpos = copy.curpos;
+		this->startpos = copy.startpos;
+		this->endpos = copy.endpos;
 	}
 
 	KafkaToppar& operator= (KafkaToppar& copy)
@@ -552,7 +577,9 @@ public:
 		this->ptr = copy.ptr;
 		this->ref = copy.ref;
 		++*this->ref;
-		this->curpos = &this->ptr->record_list;
+		this->curpos = copy.curpos;
+		this->startpos = copy.startpos;
+		this->endpos = copy.endpos;
 		return *this;
 	}
 
@@ -594,11 +621,43 @@ public:
 		list_del(this->curpos->next);
 	}
 
+	struct list_head *get_record_startpos()
+	{
+		return this->startpos;
+	}
+
+	struct list_head *get_record_endpos()
+	{
+		return this->endpos;
+	}
+
+	void save_record_startpos()
+	{
+		this->startpos = this->curpos;
+	}
+
+	void save_record_endpos()
+	{
+		this->endpos = this->curpos->next;
+	}
+	
+	bool record_reach_end()
+	{
+		return this->endpos == &this->ptr->record_list;
+	}
+
+	void record_rollback()
+	{
+		this->curpos = this->curpos->prev;
+	}
+
 private:
 	struct list_head list;
 	kafka_topic_partition_t *ptr;
 	std::atomic<int> *ref;
 	struct list_head *curpos;
+	struct list_head *startpos;
+	struct list_head *endpos;
 
 	friend class KafkaMessage;
 	friend class KafkaRequest;
@@ -1264,10 +1323,10 @@ public:
 
 	size_t peek(const char **buf);
 
-	size_t seek(size_t n)
+	long seek(long offset)
 	{
-		this->cur_pos.second += n;
-		return n;
+		this->cur_pos.second += offset;
+		return offset;
 	}
 
 	struct list_head *get_head()

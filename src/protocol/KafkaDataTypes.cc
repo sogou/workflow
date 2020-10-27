@@ -563,7 +563,7 @@ size_t KafkaBuffer::peek(const char **buf)
 	if (!this->inited)
 	{
 		this->inited = true;
-		this->cur_pos = std::make_pair(this->block_list.get_first_entry(), 0);
+		this->cur_pos = std::make_pair(this->block_list.get_next(), 0);
 	}
 
 	if (this->cur_pos.first == this->block_list.get_tail_entry() &&
@@ -582,6 +582,7 @@ size_t KafkaBuffer::peek(const char **buf)
 	}
 
 	*buf = (char *)block->get_block() + this->cur_pos.second;
+
 	return block->get_len() - this->cur_pos.second;
 }
 

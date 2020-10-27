@@ -206,6 +206,9 @@ typedef struct __kafka_parser
 typedef struct __kafka_config
 {
 	int produce_timeout;
+	int produce_msg_max_bytes;
+	int produce_msgset_cnt;
+	int produce_msgset_max_bytes;
 	int fetch_timeout;
 	int fetch_min_bytes;
 	int fetch_max_bytes;
@@ -216,7 +219,6 @@ typedef struct __kafka_config
 	int rebalance_timeout;
 	long long retention_time_period;
 	int produce_acks;
-	size_t message_max_bytes;
 	int allow_auto_topic_creation;
 	int api_version_request;
 	int api_version_timeout;

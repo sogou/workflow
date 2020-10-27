@@ -306,6 +306,9 @@ void kafka_parser_deinit(kafka_parser_t *parser)
 void kafka_config_init(kafka_config_t *conf)
 {
 	conf->produce_timeout = 100;
+	conf->produce_msg_max_bytes = 1000000;
+	conf->produce_msgset_cnt = 10000;
+	conf->produce_msgset_max_bytes = 1000000;
 	conf->fetch_timeout = 100;
 	conf->fetch_min_bytes = 1;
 	conf->fetch_max_bytes = 50 * 1024 * 1024;
@@ -316,7 +319,6 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->rebalance_timeout = 10000;
 	conf->retention_time_period = 20000;
 	conf->produce_acks = -1;
-	conf->message_max_bytes = 1 * 1024 * 1024;
 	conf->allow_auto_topic_creation = 1;
 	conf->api_version_request = 0;
 	conf->api_version_timeout = 10000;

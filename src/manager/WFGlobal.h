@@ -25,6 +25,7 @@
 #endif
 
 #include <string>
+#include <openssl/ssl.h>
 #include "CommScheduler.h"
 #include "DNSCache.h"
 #include "RouteManager.h"

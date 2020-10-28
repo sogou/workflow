@@ -16,10 +16,10 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+#include <sys/uio.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/uio.h>
 #include <string>
 #include <openssl/sha.h>
 #include "MySQLMessage.h"

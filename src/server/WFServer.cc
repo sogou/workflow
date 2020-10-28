@@ -24,6 +24,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <openssl/ssl.h>
 #include "CommScheduler.h"
 #include "WFConnection.h"
 #include "WFGlobal.h"

@@ -16,11 +16,6 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/engine.h>
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
 #include <assert.h>
 #include <unistd.h>
 #include <signal.h>
@@ -31,6 +26,11 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/engine.h>
+#include <openssl/conf.h>
+#include <openssl/crypto.h>
 #include "WFGlobal.h"
 #include "EndpointParams.h"
 #include "CommScheduler.h"
@@ -338,15 +338,12 @@ private:
 		dns_manager_(NULL),
 		dns_flag_(false)
 	{
-#ifdef SIGPIPE
-		signal(SIGPIPE, SIG_IGN);
-#endif
 		const auto *settings = __WFGlobal::get_instance()->get_global_settings();
-		int ret = scheduler_.init(settings->poller_threads,
-								  settings->handler_threads);
-
-		if (ret < 0)
+		if (scheduler_.init(settings->poller_threads,
+							settings->handler_threads) < 0)
 			abort();
+
+		signal(SIGPIPE, SIG_IGN);
 	}
 
 	~__CommManager()

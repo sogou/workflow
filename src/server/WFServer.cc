@@ -17,7 +17,6 @@
            Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -25,6 +24,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <openssl/ssl.h>
 #include "CommScheduler.h"
 #include "WFConnection.h"
 #include "WFGlobal.h"

@@ -17,10 +17,11 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <ctype.h>
-#include <arpa/inet.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <arpa/inet.h>
+#include <ctype.h>
 #include <string>
 #include <mutex>
 #include "list.h"

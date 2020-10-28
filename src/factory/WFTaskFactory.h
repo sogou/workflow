@@ -20,6 +20,9 @@
 #ifndef _WFTASKFACTORY_H_
 #define _WFTASKFACTORY_H_
 
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <utility>
 #include <functional>
 #include "URIParser.h"
 #include "RedisMessage.h"

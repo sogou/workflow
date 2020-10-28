@@ -26,11 +26,6 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/engine.h>
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
 #include "WFGlobal.h"
 #include "EndpointParams.h"
 #include "CommScheduler.h"

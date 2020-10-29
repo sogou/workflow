@@ -631,6 +631,11 @@ public:
 		return this->endpos;
 	}
 
+	void restore_record_curpos()
+	{
+		this->curpos = this->startpos;
+	}
+
 	void save_record_startpos()
 	{
 		this->startpos = this->curpos;

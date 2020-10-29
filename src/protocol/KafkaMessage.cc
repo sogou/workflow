@@ -3028,6 +3028,12 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 			struct list_head *pos;
 			KafkaRecord *record;
 
+			if (ptr->error == KAFKA_REQUEST_TIMED_OUT)
+			{
+				toppar->restore_record_curpos();
+				continue;
+			}
+
 			for (pos = toppar->get_record_startpos()->next;
 				 pos != toppar->get_record_endpos(); pos = pos->next)
 			{

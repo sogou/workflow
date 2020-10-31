@@ -36,7 +36,7 @@ static void __http_process(WFHttpTask *task)
 	resp->add_header_pair("Content-Type", "text/plain");
 }
 
-TEST(WFHttpTask1, http_unittest)
+TEST(http_unittest, WFHttpTask1)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -69,7 +69,7 @@ TEST(WFHttpTask1, http_unittest)
 	lock.unlock();
 }
 
-TEST(WFHttpTask2, http_unittest)
+TEST(http_unittest, WFHttpTask2)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -98,7 +98,7 @@ TEST(WFHttpTask2, http_unittest)
 	lock.unlock();
 }
 
-TEST(WFHttpTask3, http_unittest)
+TEST(http_unittest, WFHttpTask3)
 {
 	FILE *f;
 	f = fopen("server.crt", "w");

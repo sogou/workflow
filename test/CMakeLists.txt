@@ -35,6 +35,8 @@ set(TEST_LIST
 	redis_unittest
 	mysql_unittest
 	facilities_unittest
+	graph_unittest
+	memory_unittest
 )
 
 if (APPLE)

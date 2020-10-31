@@ -24,8 +24,8 @@
 #include <C++11_REQUIRED>
 #endif
 
-#include <openssl/ssl.h>
 #include <string>
+#include <openssl/ssl.h>
 #include "CommScheduler.h"
 #include "DNSCache.h"
 #include "RouteManager.h"

@@ -17,10 +17,11 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <ctype.h>
-#include <arpa/inet.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <arpa/inet.h>
+#include <ctype.h>
 #include <string>
 #include <mutex>
 #include "list.h"
@@ -546,10 +547,8 @@ void WFRouterTask::dispatch()
 			ret = inet_pton(AF_INET6, host_.c_str(), &addr);
 		else if (isdigit(back) && isdigit(front))
 			ret = inet_pton(AF_INET, host_.c_str(), &addr);
-#ifdef AF_UNIX
 		else if (front == '/')
 			ret = 1;
-#endif
 		else
 			ret = 0;
 
@@ -602,14 +601,12 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 
 	if (dns_error)
 	{
-#ifdef EAI_SYSTEM
 		if (dns_error == EAI_SYSTEM)
 		{
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;
 		}
 		else
-#endif
 		{
 			this->state = WFT_STATE_DNS_ERROR;
 			this->error = dns_error;
@@ -618,16 +615,16 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 	else
 	{
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
+		const DNSHandle *addr_handle;
 
 		if (addrinfo)
 		{
 			auto *route_manager = WFGlobal::get_route_manager();
 			auto *dns_cache = WFGlobal::get_dns_cache();
-			const DNSHandle *addr_handle = dns_cache->put(host_, port_,
-														  addrinfo,
-														  (unsigned int)ttl_default,
-														  (unsigned int)ttl_min);
-
+			
+			addr_handle = dns_cache->put(host_, port_, addrinfo,
+										 (unsigned int)ttl_default,
+										 (unsigned int)ttl_min);
 			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
 								   route_result_) < 0)
 			{

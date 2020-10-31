@@ -109,17 +109,6 @@ public:
 		this->error = 0;
 	}
 
-	WFThreadTask(ExecQueue *queue, Executor *executor, INPUT&& in,
-				 std::function<void (WFThreadTask<INPUT, OUTPUT> *)>&& cb) :
-		ExecRequest(queue, executor),
-		input(std::move(in)),
-		callback(std::move(cb))
-	{
-		this->user_data = NULL;
-		this->state = WFT_STATE_UNDEFINED;
-		this->error = 0;
-	}
-
 protected:
 	virtual ~WFThreadTask() { }
 };

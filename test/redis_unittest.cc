@@ -136,7 +136,7 @@ static void test_client(const char *url, std::mutex& mutex, std::condition_varia
 	flow.start();
 }
 
-TEST(WFRedisTask1, redis_unittest)
+TEST(redis_unittest, WFRedisTask1)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -153,7 +153,7 @@ TEST(WFRedisTask1, redis_unittest)
 	server.stop();
 }
 
-TEST(WFRedisTask2, redis_unittest)
+TEST(redis_unittest, WFRedisTask2)
 {
 	std::mutex mutex;
 	std::condition_variable cond;

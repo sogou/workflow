@@ -67,7 +67,7 @@
     * For example, an http request may go through **multiple asynchronous processes** such as DNS, redirect, and retry, but the entire processes is just a **component** in the perspective of the users.
     * Users can easily **define their own** components, including algorithms and some kind of communication.
       * To implement **stateless protocols** is extremely simple. It may be a little bit complicated when the protocol includes login, library selection, etc., at this time, you can refer to the redis implementation.
-    * Through the powerful Upstream system, complex **service governance** can be realized, such as communication node selection, load balancing, circuit breaker and recovery, master and slave, etc.
+    * Through the powerful Upstream system, complex **service governance** can be realized, such as communication node selection, load balancing, circuit breaker and recovery, main and backup, etc.
     * **In conclusion, this is an enterprise-level, elegantly designed asynchronous framework which can cover almost all high-performance back-end service requirements.**
 
 #### Tutorials：

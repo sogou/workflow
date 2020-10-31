@@ -29,6 +29,7 @@
 #include "DNSRoutine.h"
 #include "WFTask.h"
 #include "Workflow.h"
+#include "WFGraphTask.h"
 #include "EndpointParams.h"
 #include "WFAlgoTaskFactory.h"
 
@@ -82,11 +83,15 @@ using fsync_callback_t = std::function<void (WFFileSyncTask *)>;
 using timer_callback_t = std::function<void (WFTimerTask *)>;
 using counter_callback_t = std::function<void (WFCounterTask *)>;
 
+using graph_callback_t = std::function<void (WFGraphTask *)>;
+
 // DNS task. For internal usage only.
 using WFDNSTask = WFThreadTask<DNSInput, DNSOutput>;
 using dns_callback_t = std::function<void (WFDNSTask *)>;
 
 using WFEmptyTask = WFGenericTask;
+
+using WFDynamicTask = WFGenericTask;
 
 class WFTaskFactory
 {
@@ -201,6 +206,12 @@ public:
 									FUNC&& func, ARGS&&... args);
 
 public:
+	static WFGraphTask *create_graph_task(graph_callback_t callback)
+	{
+		return new WFGraphTask(std::move(callback));
+	}
+
+public:
 	static WFDNSTask *create_dns_task(const std::string& host,
 									  unsigned short port,
 									  dns_callback_t callback);
@@ -210,6 +221,8 @@ public:
 	{
 		return new WFEmptyTask;
 	}
+
+	static WFDynamicTask *create_dynamic_task(std::function<SubTask *()> func);
 };
 
 template<class REQ, class RESP>

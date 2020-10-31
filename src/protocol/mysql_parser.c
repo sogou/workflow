@@ -26,6 +26,8 @@ static int parse_error_packet(const void *buf, size_t len, mysql_parser_t *parse
 
 static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser);
 
+static int parse_eof_ok_packet(const void *buf, size_t len, mysql_parser_t *parser);
+
 static int parse_eof_packet(const void *buf, size_t len, mysql_parser_t *parser);
 
 static int parse_field_eof_packet(const void *buf, size_t len, mysql_parser_t *parser);

@@ -225,6 +225,14 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	return 1;
 }
 
+static int parse_eof_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
+{
+	int ret = parse_ok_packet(buf, len, parser);
+	if (ret > 0)
+		parser->packet_type = MYSQL_PACKET_EOF;
+	return ret;
+}
+
 // 1:0xfe|2:warnings|2:status_flag
 static int parse_eof_packet(const void *buf, size_t len, mysql_parser_t *parser)
 {
@@ -353,11 +361,10 @@ static int parse_field_count(const void *buf, size_t len, mysql_parser_t *parser
 		parser->result_set_count++;
 
 		parser->parse = parse_column_def_packet;
+		parser->offset = p - (const char *)buf;
 	} else {
-		parser->parse = parse_eof_packet;
+		parser->parse = parse_eof_ok_packet;
 	}
-
-	parser->offset = p - (const char *)buf;
 	return 0;
 }
 

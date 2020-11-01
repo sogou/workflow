@@ -46,7 +46,7 @@ int main()
 * This project supports `Linux`, `macOS`, `Windows` and other operating systems.
   * `Windows` version is currently released as an independent branch, using `iocp` to implement asynchronous networking. All user interfaces are consistent with the `Linux` version.
 * Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors.
-* Relies on `OpenSSL`; `OpenSSL 1.1` and above is recommended.
+* Relies on `OpenSSL`; `OpenSSL 1.1` and above is recommended. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) or the [stduy](https://github.com/sogou/workflow/tree/study) (no upstream) branch. But still need to link `crypto` for `md5` and `sha1`.
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
@@ -70,6 +70,7 @@ int main()
 * Computing tasks
   * [Using the build-in algorithm factory：sort\_task](docs/en/tutorial-07-sort_task.md)
   * [User-defined computing task：matrix\_multiply](docs/en/tutorial-08-matrix_multiply.md)
+  * [Use computing task in a simple way: go task](docs/en/about-go-task.md)
 * Asynchronous File IO tasks
   * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
 * User-defined protocol

@@ -70,6 +70,7 @@ int main()
 * Computing tasks
   * [Using the build-in algorithm factory：sort\_task](docs/en/tutorial-07-sort_task.md)
   * [User-defined computing task：matrix\_multiply](docs/en/tutorial-08-matrix_multiply.md)
+  * [Use computing task in a simple way: go task](docs/en/about-go-task.md)
 * Asynchronous File IO tasks
   * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
 * User-defined protocol

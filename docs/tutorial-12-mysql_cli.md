@@ -68,17 +68,11 @@ int main(int argc, char *argv[])
 
 因为我们的交互命令中不支持选库（**USE**命令），所以，如果SQL语句中有涉及到**跨库**的操作，则可以通过**db_name.table_name**的方式指定具体哪个库的哪张表。
 
-大部分命令可以**拼接**到一起通过 ``set_query()`` 传给WFMySQLTask（如一般的INSERT/UPDATE/SELECT/PREPARE）。
-
-**CALL存储过程**需要单独使用，不与其他命令拼接。
+其他所有命令都可以**拼接**到一起通过 ``set_query()`` 传给WFMySQLTask（包括INSERT/UPDATE/SELECT/PREPARE/CALL）。
 
 举个例子：
 ~~~cpp
-// 多条命令的拼接
-req->set_query("SELECT * FROM table1; SELECT * FROM db2.table2; INSERT INTO table3 (id) VALUES (1);");
-
-// 存储过程单独使用
-req->set_query("CALL procedure1();");
+req->set_query("SELECT * FROM table1; CALL procedure1(); INSERT INTO table3 (id) VALUES (1);");
 ~~~
 
 # 结果解析
@@ -94,7 +88,7 @@ req->set_query("CALL procedure1();");
 
 1. 判断任务状态（代表通信层面状态）：用户通过判断 **task->get_state()** 等于WFT_STATE_SUCCESS来查看任务执行是否成功；
 
-2. 判断回复包类型（代表返回包解析状态）：调用 **resp->get_packet_type()** 查看MySQL返回包类型，常见的几个类型为：
+2. 判断回复包类型（代表返回包解析状态）：调用 **resp->get_packet_type()** 查看最后一条MySQL语句的返回包类型，常见的几个类型为：
   - MYSQL_PACKET_OK：返回非结果集的请求: 解析成功；
   - MYSQL_PACKET_EOF：返回结果集的请求: 解析成功；
   - MYSQL_PACKET_ERROR：请求:失败；
@@ -148,24 +142,13 @@ void task_callback(WFMySQLTask *task)
     bool test_first_result_set_flag = false;
     bool test_rewind_flag = false;
 
-begin:
-    // step-2. 判断回复包状态
-    switch (resp->get_packet_type())
-    {
-    case MYSQL_PACKET_OK:
-        fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
-                task->get_resp()->get_affected_rows(),
-                task->get_resp()->get_warnings(),
-                task->get_resp()->get_last_insert_id());
-        break;
-
-    case MYSQL_PACKET_EOF:
+begin:	
+    // step-3. 判断结果集状态
+    if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
+	{
         do {
             fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u ",
                     cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
-            // step-3. 判断结果集状态
-            if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
-                break;
 
             // step-4. 读取每个fields。这是个nocopy api
             const MySQLField *const *fields = cursor.fetch_fields();
@@ -215,12 +198,18 @@ begin:
             cursor.rewind();
             goto begin;
         }
-        break;
-
-    default:
-        fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
-        break;
     }
+    // step-2. 判断回复包其他状态
+    else if (resp->get_packet_type() == MYSQL_PACKET_OK)
+    {
+        fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
+                task->get_resp()->get_affected_rows(),
+                task->get_resp()->get_warnings(),
+                task->get_resp()->get_last_insert_id());
+    }
+    else
+        fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
+
     return;
 }
 ~~~

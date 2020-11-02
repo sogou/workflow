@@ -134,7 +134,7 @@ bool MySQLResultCursor::next_result_set()
 		return false;
 
 	struct __mysql_result_set *result_set;
-	if (!mysql_result_set_cursor_next(&result_set, &this->cursor))
+	if (mysql_result_set_cursor_next(&result_set, &this->cursor) == 0)
 	{
 		for (int i = 0; i < this->field_count; i++)
 			delete this->fields[i];

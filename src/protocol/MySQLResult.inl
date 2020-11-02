@@ -287,7 +287,7 @@ inline std::string MySQLCell::as_string() const
 }
 
 template<class T>
-bool MySQLResultCursor::__fetch_row(T& row_map)
+bool MySQLResultCursor::fetch_row(T& row_map)
 {	
 	if (this->status != MYSQL_STATUS_GET_RESULT)
 		return false;
@@ -368,7 +368,7 @@ inline int MySQLResultCursor::get_rows_count() const
 	return this->row_count;
 }
 
-inline void MySQLResultCursor::__clear()
+inline void MySQLResultCursor::clear()
 {
 	for (int i = 0; i < this->field_count; i++)
 		delete this->fields[i];
@@ -378,7 +378,7 @@ inline void MySQLResultCursor::__clear()
 
 inline MySQLResultCursor::~MySQLResultCursor()
 {
-	__clear();
+	this->clear();
 }
 
 inline MySQLResultCursor::MySQLResultCursor(MySQLResultCursor&& move)
@@ -396,14 +396,14 @@ inline MySQLResultCursor::MySQLResultCursor(MySQLResultCursor&& move)
 	this->cursor = move.cursor;
 	this->parser = move.parser;
 
-	move.__init();
+	move.init();
 }
 
 inline MySQLResultCursor& MySQLResultCursor::operator=(MySQLResultCursor&& move)
 {
 	if (this != &move)
 	{
-		__clear();
+		this->clear();
 
 		this->start = move.start;
 		this->end = move.end;
@@ -418,7 +418,7 @@ inline MySQLResultCursor& MySQLResultCursor::operator=(MySQLResultCursor&& move)
 		this->cursor = move.cursor;
 		this->parser = move.parser;
 
-		move.__init();
+		move.init();
 	}
 
 	return *this;

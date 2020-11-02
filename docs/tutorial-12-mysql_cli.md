@@ -143,8 +143,8 @@ void task_callback(WFMySQLTask *task)
     bool test_rewind_flag = false;
 
 begin:	
-	// step-3. 判断结果集状态
-	if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
+    // step-3. 判断结果集状态
+    if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
 	{
         do {
             fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u ",
@@ -206,9 +206,9 @@ begin:
                 task->get_resp()->get_affected_rows(),
                 task->get_resp()->get_warnings(),
                 task->get_resp()->get_last_insert_id());
-	}
-	else
-		fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
+    }
+    else
+        fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
 
     return;
 }

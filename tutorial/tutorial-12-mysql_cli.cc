@@ -93,9 +93,6 @@ void mysql_callback(WFMySQLTask *task)
 			cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
 
 		do {
-			if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
-				break;
-
 			fprintf(stderr, "-------- RESULT SET --------\n");
 			//nocopy api
 			fields = cursor.fetch_fields();

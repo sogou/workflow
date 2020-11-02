@@ -73,18 +73,12 @@ Because the program doesn't support the selection of databases (**USE** command)
 
 **Multiple commands** can be joined together and then passed to WFMySQLTask with `set_query()`. Generally speaking, multiple statements can get all the results back at one time. However, as the packet return method in the MySQL protocol is not compatible with question and answer communication under some provisions, please read the following cautions before you add the SQL statements in `set_query()`:
 
-Most commands can be **spliced together** and then passed to WFMySQLTask with `set_query()`. (ordinary INSERT/UPDATE/SELECT/PREPARE)
-
-**CALL procedure** needs to be used **individually**. Please don`t join it with other commands.
+Any other command can be **spliced together** and then passed to WFMySQLTask with `set_query()`. (including INSERT/UPDATE/SELECT/PREPARE/CALL)
 
 For example:
 
 ~~~cpp
-// mutiple ordinary statements
-req->set_query("SELECT * FROM table1; SELECT * FROM db2.table2; INSERT INTO table3 (id) VALUES (1);");
-
-// CALL procedure should be used individually
-req->set_query("CALL procedure1();");
+req->set_query("SELECT * FROM table1; CALL procedure1(); INSERT INTO table3 (id) VALUES (1);");
 ~~~
 
 # Parsing results
@@ -100,7 +94,7 @@ To get all the data, the specific steps should be:
 
 1. checking the task state (state at communication): you can check whether the task is successfully executed by checking whether **task->get\_state()** is equal to WFT\_STATE\_SUCCESS;
 
-2. determining the type of the reply packet (state at parsing the return packet): call **resp->get\_packet\_type()** to check the type of the MySQL return packet. The common types include:
+2. determining the type of the reply packet (state at parsing the return packet): call **resp->get\_packet\_type()** to check the type of the last SQL query return packet. The common types include:
 
 - MYSQL\_PACKET\_OK: non-result-set requests: parsed successfully;
 - MYSQL\_PACKET\_EOF: result-set requests: parsed successfully;
@@ -162,23 +156,12 @@ void task_callback(WFMySQLTask *task)
     bool test_rewind_flag = false;
 
 begin:
-    // step-2. Check the status of reply packet
-    switch (resp->get_packet_type())
+    // step-3. Check the status of the result set
+    if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
     {
-    case MYSQL_PACKET_OK:
-        fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
-                task->get_resp()->get_affected_rows(),
-                task->get_resp()->get_warnings(),
-                task->get_resp()->get_last_insert_id());
-        break;
-
-    case MYSQL_PACKET_EOF:
         do {
             fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u ",
                     cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
-            // step-3. Check the status of the result set
-            if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
-                break;
 
             // step-4. Read each fields. This is a nocopy api
             const MySQLField *const *fields = cursor.fetch_fields();
@@ -228,12 +211,18 @@ begin:
             cursor.rewind();
             goto begin;
         }
-        break;
-
-    default:
-        fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
-        break;
     }
+    // step-2. Check other status of reply packet
+    else if (resp->get_packet_type() == MYSQL_PACKET_OK)
+    {
+        fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
+                task->get_resp()->get_affected_rows(),
+                task->get_resp()->get_warnings(),
+                task->get_resp()->get_last_insert_id());
+    }
+    else
+        fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
+
     return;
 }
 ~~~

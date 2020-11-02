@@ -62,10 +62,10 @@ MySQLField::MySQLField(const void *buf, mysql_field_t *field)
 
 MySQLResultCursor::MySQLResultCursor()
 {
-	__init();
+	this->init();
 }
 
-void MySQLResultCursor::__init()
+void MySQLResultCursor::init()
 {
 	this->current_field = 0;
 	this->current_row = 0;
@@ -77,16 +77,31 @@ void MySQLResultCursor::__init()
 
 MySQLResultCursor::MySQLResultCursor(MySQLResponse *resp)
 {
-	__init(resp);
+	this->init(resp);
 }
 
 void MySQLResultCursor::reset(MySQLResponse *resp)
 {
-	__clear();
-	__init(resp);
+	this->clear();
+	this->init(resp);
 }
 
-void MySQLResultCursor::__init(MySQLResponse *resp)
+void MySQLResultCursor::fetch_result_set(const struct __mysql_result_set *result_set)
+{
+	const char *buf = (const char *)this->parser->buf;
+
+	this->field_count = result_set->field_count;
+	this->start = buf + result_set->rows_begin_offset;
+	this->pos = this->start;
+	this->end = buf + result_set->rows_end_offset;
+	this->row_count = result_set->row_count;
+
+	this->fields = new MySQLField *[this->field_count];
+	for (int i = 0; i < this->field_count; i++)
+		this->fields[i] = new MySQLField(this->parser->buf, result_set->fields[i]);
+}
+
+void MySQLResultCursor::init(MySQLResponse *resp)
 {
 	this->current_field = 0;
 	this->current_row = 0;
@@ -96,24 +111,12 @@ void MySQLResultCursor::__init(MySQLResponse *resp)
 
 	if (!list_empty(&this->parser->result_set_list))
 	{
-		const char *buf = (const char *)this->parser->buf;
 		struct __mysql_result_set *result_set;
 
 		mysql_result_set_cursor_init(&this->cursor, this->parser);
 		mysql_result_set_cursor_next(&result_set, &this->cursor);
 
-		this->field_count = result_set->field_count;
-		this->start = buf + result_set->rows_begin_offset;
-		this->pos = this->start;
-		this->end = buf + result_set->rows_end_offset;
-		this->row_count = result_set->row_count;
-
-		this->fields = new MySQLField *[this->field_count];
-		for (int i = 0; i < this->field_count; i++)
-		{
-			this->fields[i] = new MySQLField(this->parser->buf,
-											 result_set->fields[i]);
-		}
+		this->fetch_result_set(result_set);
 		this->status = MYSQL_STATUS_GET_RESULT;
 	}
 	else if (this->parser->packet_type == MYSQL_PACKET_ERROR)
@@ -140,23 +143,16 @@ bool MySQLResultCursor::next_result_set()
 
 		this->current_field = 0;
 		this->current_row = 0;
-		if (result_set->field_count)
-		{
-			const char *buf = (const char *)this->parser->buf;
-			this->start = buf + result_set->rows_begin_offset;
-			this->pos = this->start;
-			this->end = buf + result_set->rows_end_offset;
-			this->row_count = result_set->row_count;
-			this->field_count = result_set->field_count;
-			this->fields = new MySQLField *[this->field_count];
-			for (int i = 0; i < this->field_count; i++)
-				this->fields[i] = new MySQLField(this->parser->buf,
-												 result_set->fields[i]);
-			this->status = MYSQL_STATUS_GET_RESULT;
-			return true;
-		}
+
+		this->fetch_result_set(result_set);
+		this->status = MYSQL_STATUS_GET_RESULT;
+		return true;
 	}
-	return false;
+	else
+	{
+		this->status = MYSQL_STATUS_END;
+		return false;
+	}
 }
 
 bool MySQLResultCursor::fetch_row(std::vector<MySQLCell>& row_arr)
@@ -200,12 +196,12 @@ bool MySQLResultCursor::fetch_row(std::vector<MySQLCell>& row_arr)
 
 bool MySQLResultCursor::fetch_row(std::map<std::string, MySQLCell>& row_map)
 {
-	return this->__fetch_row<std::map<std::string, MySQLCell> >(row_map);
+	return this->fetch_row<std::map<std::string, MySQLCell>>(row_map);
 }
 
 bool MySQLResultCursor::fetch_row(std::unordered_map<std::string, MySQLCell>& row_map)
 {
-	return this->__fetch_row<std::unordered_map<std::string, MySQLCell> >(row_map);
+	return this->fetch_row<std::unordered_map<std::string, MySQLCell>>(row_map);
 }
 
 bool MySQLResultCursor::fetch_row_nocopy(const void **data, size_t *len, int *data_type)
@@ -294,7 +290,7 @@ void MySQLResultCursor::first_result_set()
 
 	mysql_result_set_cursor_rewind(&this->cursor);
 	struct __mysql_result_set *result_set;
-	if (!mysql_result_set_cursor_next(&result_set, &this->cursor))
+	if (mysql_result_set_cursor_next(&result_set, &this->cursor) == 0)
 	{
 		for (int i = 0; i < this->field_count; i++)
 			delete this->fields[i];
@@ -303,20 +299,9 @@ void MySQLResultCursor::first_result_set()
 
 		this->current_field = 0;
 		this->current_row = 0;
-		if (result_set->field_count)
-		{
-			const char *buf = (const char *)this->parser->buf;
-			this->start = buf + result_set->rows_begin_offset;
-			this->pos = this->start;
-			this->end = buf + result_set->rows_end_offset;
-			this->row_count = result_set->row_count;
-			this->field_count = result_set->field_count;
-			this->fields = new MySQLField *[this->field_count];
-			for (int i = 0; i < this->field_count; i++)
-				this->fields[i] = new MySQLField(this->parser->buf,
-												 result_set->fields[i]);
-			this->status = MYSQL_STATUS_GET_RESULT;
-		}
+
+		this->fetch_result_set(result_set);
+		this->status = MYSQL_STATUS_GET_RESULT;
 	}
 }
 
@@ -328,11 +313,8 @@ void MySQLResultCursor::rewind()
 
 	this->current_field = 0;
 	this->current_row = 0;
-	if (this->field_count)
-	{
-		this->pos = this->start;
-		this->status = MYSQL_STATUS_GET_RESULT;
-	}
+	this->pos = this->start;
+	this->status = MYSQL_STATUS_GET_RESULT;
 }
 
 }

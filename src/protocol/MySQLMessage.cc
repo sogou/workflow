@@ -16,11 +16,11 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/sha.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
 #include <string>
+#include <openssl/sha.h>
 #include "PlatformSocket.h"
 #include "MySQLMessage.h"
 #include "mysql_types.h"
@@ -338,11 +338,9 @@ void MySQLResponse::set_ok_packet()
 	uint16_t zero16 = 0;
 	buf_.clear();
 	buf_.push_back(0x00);
-	buf_.push_back(0x00);
-	buf_.push_back(0x00);
 	buf_.append((const char *)&zero16, 2);
 	buf_.append((const char *)&zero16, 2);
-	buf_.push_back(0x00);
+	buf_.append((const char *)&zero16, 2);
 }
 
 int MySQLResponse::decode_packet(const char *buf, size_t buflen)

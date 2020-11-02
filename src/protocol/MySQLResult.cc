@@ -94,47 +94,34 @@ void MySQLResultCursor::__init(MySQLResponse *resp)
 	this->fields = NULL;
 	this->parser = resp->get_parser();
 
-	switch (this->parser->packet_type)
+	if (!list_empty(&this->parser->result_set_list))
 	{
-	case MYSQL_PACKET_EOF:
-		mysql_result_set_cursor_init(&this->cursor, this->parser);
+		const char *buf = (const char *)this->parser->buf;
 		struct __mysql_result_set *result_set;
 
-		if (!mysql_result_set_cursor_next(&result_set, &this->cursor))
+		mysql_result_set_cursor_init(&this->cursor, this->parser);
+		mysql_result_set_cursor_next(&result_set, &this->cursor);
+
+		this->field_count = result_set->field_count;
+		this->start = buf + result_set->rows_begin_offset;
+		this->pos = this->start;
+		this->end = buf + result_set->rows_end_offset;
+		this->row_count = result_set->row_count;
+
+		this->fields = new MySQLField *[this->field_count];
+		for (int i = 0; i < this->field_count; i++)
 		{
-			this->field_count = result_set->field_count;
-			if (this->field_count)
-			{
-				const char *buf = (const char *)this->parser->buf;
-				this->start = buf + result_set->rows_begin_offset;
-				this->pos = this->start;
-				this->end = buf + result_set->rows_end_offset;
-				this->row_count = result_set->row_count;
-
-				this->fields = new MySQLField *[this->field_count];
-				for (int i = 0; i < this->field_count; i++)
-					this->fields[i] = new MySQLField(this->parser->buf,
-													 result_set->fields[i]);
-
-				this->status = MYSQL_STATUS_GET_RESULT;
-			}
+			this->fields[i] = new MySQLField(this->parser->buf,
+											 result_set->fields[i]);
 		}
-		else
-			this->status = MYSQL_STATUS_EOF;
-		break;
-
-	case MYSQL_PACKET_ERROR:
-		this->status = MYSQL_STATUS_ERROR;
-		break;
-
-	case MYSQL_PACKET_OK:
-		this->status = MYSQL_STATUS_OK;
-		break;
-
-	default:
-		this->status = MYSQL_STATUS_NOT_INIT;
-		break;
+		this->status = MYSQL_STATUS_GET_RESULT;
 	}
+	else if (this->parser->packet_type == MYSQL_PACKET_ERROR)
+		this->status = MYSQL_STATUS_ERROR;
+	else if (this->parser->packet_type == MYSQL_PACKET_OK)
+		this->status = MYSQL_STATUS_OK;
+	else
+		this->status = MYSQL_STATUS_NOT_INIT;
 }
 
 bool MySQLResultCursor::next_result_set()

@@ -28,7 +28,9 @@
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFFacilities.h"
-
+/*
+Accept this pull request
+*/
 using namespace protocol;
 
 #define REDIRECT_MAX    5

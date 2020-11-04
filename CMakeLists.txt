@@ -37,7 +37,7 @@ INCLUDE(CMakeLists_Headers.txt)
 macro(makeLink src dest target)
 	add_custom_command(
 		TARGET ${target} PRE_BUILD
-		COMMAND ${CMAKE_COMMAND} -E create_symlink ${src} ${dest}
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src} ${dest}
 		DEPENDS ${dest}
 	)
 endmacro()

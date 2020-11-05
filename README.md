@@ -1,4 +1,4 @@
-## [English version](README_en.md)
+[English version](README_en.md)
 
 ## Sogou C++ Workflow
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)

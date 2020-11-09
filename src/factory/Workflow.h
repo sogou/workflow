@@ -105,7 +105,7 @@ public:
 	}
 
 public:
-	/* Next 3 methods are intended for task implementations only. */
+	/* The next 3 methods are intended for task implementations only. */
 	SubTask *pop();
 
 	void set_last_task(SubTask *last)

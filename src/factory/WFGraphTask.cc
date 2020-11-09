@@ -86,7 +86,7 @@ WFGraphTask::~WFGraphTask()
 		for (i = 0; i < this->parallel->size(); i++)
 		{
 			series = const_cast<SeriesWork *>(this->parallel->series_at(i));
-			series->set_last_task(new WFGenericTask);
+			series->unset_last_task();
 		}
 
 		this->parallel->dismiss();

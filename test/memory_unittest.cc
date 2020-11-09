@@ -24,7 +24,7 @@ TEST(memory_unittest, dismiss)
 {
 	std::vector<SubTask *> tasks;
 
-	auto *http_task = WFTaskFactory::create_http_task("https://sogou.com", 0, 0, nullptr);
+	auto *http_task = WFTaskFactory::create_http_task("http://www.sogou.com", 0, 0, nullptr);
 	tasks.push_back(http_task);
 
 	auto *redis_task = WFTaskFactory::create_redis_task("redis://username:password@127.0.0.1:6676/1", 0, nullptr);

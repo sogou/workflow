@@ -77,15 +77,13 @@ int main(int argc, char *argv[])
 	...
 	WFKafkaClient *client_fetch = new WFKafkaClient();
 	client_fetch->init(url);
-    task = client_fetch->create_kafka_task(3, kafka_callback);
+	task = client_fetch->create_kafka_task("api=produce&topic=xxx&topic=yyy", 3, kafka_callback);
 
 	KafkaRecord record;
 	record.set_key("key1", strlen("key1"));
 	record.set_value(buf, sizeof(buf));
 	record.add_header_pair("hk1", 3, "hv1", 3);
 	task->add_produce_record("workflow_test1", -1, std::move(record));
-
-	task->set_api_type(Kafka_Produce);
 
 	...
 	task->start();
@@ -108,7 +106,7 @@ int main(int argc, char *argv[])
 	...
 	WFKafkaClient *client_fetch = new WFKafkaClient();
 	client_fetch->init(url, cgroup_name);
-    task = client_fetch->create_kafka_task(kafka_callback);
+	task = client_fetch->create_kafka_task("api=fetch&topic=xxx&topic=yyy", 3, kafka_callback);
 
 	...
 	task->start();
@@ -124,7 +122,7 @@ int main(int argc, char *argv[])
 ~~~cpp
 	client = new WFKafkaClient();
 	client->init(url);
-	task = client->create_kafka_task("api=fetch", kafka_callback);
+	task = client->create_kafka_task("api=fetch", 3, kafka_callback);
 
 	KafkaToppar toppar;
 	toppar.set_topic_partition("workflow_test1", 0);
@@ -134,7 +132,9 @@ int main(int argc, char *argv[])
 
 # 关于client的关闭
 
-在消费者组模式下，client在重新init或者关闭之前需要调用deinit，它会发送leavegroup，否则会导致消费者组没有正确退出和内存泄漏
+在消费者组模式下，client在关闭之前需要调用create_leavegroup_task创建leavegroup_task，
+
+它会发送leavegroup协议包，否则会导致消费者组没有正确退出
 
 # 处理kafka结果
 
@@ -148,10 +148,8 @@ void kafka_callback(WFKafkaTask *task)
 	// handle error states
 	...
 
-	protocol::KafkaResultCursor *result = NULL;
-	size_t nresp;
-	result = task->get_result();
-	result->fetch_all_records(records);
+	protocol::KafkaResult *result = task->get_result();
+	result->fetch_records(records);
 
 	for (auto &v : records)
 	{
@@ -166,10 +164,8 @@ void kafka_callback(WFKafkaTask *task)
 	}
 	...
 
-	protocol::KafkaResponse *resps = NULL;
-	task->move_resps(&resps, &nresp);
-	result = new protocol::KafkaResultCursor(resps, nresp);
-	if (result->fetch_all_records(records))
+	protocol::KafkaResult new_result = std::move(*task->get_result());
+	if (new_result.fetch_records(records))
 	{
 		for (auto &v : records)
 		{

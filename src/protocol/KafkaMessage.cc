@@ -2781,20 +2781,57 @@ static int kafka_meta_parse_broker(void **buf, size_t *size,
 	return 0;
 }
 
-static kafka_broker_t *kafka_broker_find_leader(int leader_id,
-												KafkaBrokerList *broker_list)
+static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
+									kafka_broker_t *leader)
 {
 	broker_list->rewind();
-	KafkaBroker *broker;
+	KafkaBroker *bbroker;
 
-	while ((broker = broker_list->get_next()) != NULL)
+	while ((bbroker = broker_list->get_next()) != NULL)
 	{
-		if (broker->get_node_id() == leader_id)
-			return broker->get_raw_ptr();
+		if (bbroker->get_node_id() == leader_id)
+		{
+			kafka_broker_t *broker = bbroker->get_raw_ptr();
+			kafka_broker_deinit(leader);
+			leader->node_id = broker->node_id;
+			leader->port = broker->port;
+
+			char *host = strdup(broker->host);
+			if (!host)
+				return false;
+
+			char *rack = strdup(broker->rack);
+			if (!rack)
+			{
+				free(host);
+				return false;
+			}
+
+			size_t api_elem_size = sizeof(kafka_api_version_t) * 
+				broker->api_elements;
+			kafka_api_version_t *api = (kafka_api_version_t *)malloc(api_elem_size);
+			if (!api)
+			{
+				free(host);
+				free(rack);
+				return false;
+			}
+
+			leader->to_addr = broker->to_addr;
+			memcpy(&leader->addr, &broker->addr, sizeof(struct sockaddr_storage));
+			leader->addrlen = broker->addrlen;
+			leader->features = broker->features;
+			memcpy(api, broker->api, api_elem_size);
+			leader->api_elements = broker->api_elements;
+			leader->host = host;
+			leader->rack = rack;
+			leader->api = api;
+			return true;
+		}
 	}
 
 	errno = EBADMSG;
-	return NULL;
+	return false;
 }
 
 static int kafka_meta_parse_partition(void **buf, size_t *size,
@@ -2830,8 +2867,7 @@ static int kafka_meta_parse_partition(void **buf, size_t *size,
 		if (parse_i32(buf, size, &leader_id) < 0)
 			break;
 
-		partition[i]->leader = kafka_broker_find_leader(leader_id, broker_list);
-		if (!partition[i]->leader)
+		if (!kafka_broker_get_leader(leader_id, broker_list, &partition[i]->leader))
 			break;
 
 		if (parse_i32(buf, size, &replica_cnt) < 0)
@@ -2998,6 +3034,8 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 		return -1;
 	}
 
+	int produce_timeout = this->config.get_produce_timeout() * 2;
+
 	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
@@ -3031,6 +3069,7 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 			if (ptr->error == KAFKA_REQUEST_TIMED_OUT)
 			{
 				toppar->restore_record_curpos();
+				this->config.set_produce_timeout(produce_timeout);
 				continue;
 			}
 

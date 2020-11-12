@@ -634,6 +634,7 @@ public:
 	void restore_record_curpos()
 	{
 		this->curpos = this->startpos;
+		this->endpos = NULL;
 	}
 
 	void save_record_startpos()
@@ -866,7 +867,7 @@ public:
 		for (int i = 0; i < this->ptr->partition_elements; ++i)
 		{
 			if (partition == this->ptr->partitions[i]->partition_index)
-				return this->ptr->partitions[i]->leader;
+				return &this->ptr->partitions[i]->leader;
 		}
 
 		return NULL;

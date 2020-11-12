@@ -441,7 +441,7 @@ void ComplexKafkaTask::kafka_merge_meta_list(KafkaMetaList *dst,
 		KafkaMeta *dst_meta;
 		while ((dst_meta = dst->get_next()) != NULL)
 		{
-			if (dst_meta->get_topic() == src_meta->get_topic())
+			if (strcmp(dst_meta->get_topic(), src_meta->get_topic()) == 0)
 			{
 				dst->del_cur();
 				delete dst_meta;
@@ -507,7 +507,7 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 
 	char name[64];
 	snprintf(name, 64, "%p.meta", t->client);
-	WFTaskFactory::count_by_name(name, 10000);
+	WFTaskFactory::count_by_name(name, (unsigned int)-1);
 	t->lock_status.get_mutex()->unlock();
 }
 
@@ -561,7 +561,7 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 
 	char name[64];
 	snprintf(name, 64, "%p.cgroup", t->client);
-	WFTaskFactory::count_by_name(name, 10000);
+	WFTaskFactory::count_by_name(name, (unsigned int)-1);
 	t->lock_status.get_mutex()->unlock();
 }
 
@@ -697,8 +697,8 @@ void ComplexKafkaTask::dispatch()
 		return;
 	}
 
-	if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit)
-		&& (*this->lock_status.get_status() & KAFKA_CGROUP_INIT))
+	if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit) &&
+        (*this->lock_status.get_status() & KAFKA_CGROUP_INIT))
 	{
 		task = __WFKafkaTaskFactory::create_kafka_task(this->uri,
 													   this->retry_max,

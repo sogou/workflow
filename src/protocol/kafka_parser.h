@@ -246,7 +246,7 @@ typedef struct __kafka_partition
 {
 	short error;
 	int partition_index;
-	kafka_broker_t *leader;
+	kafka_broker_t leader;
 	int *replica_nodes;
 	int replica_node_elements;
 	int *isr_nodes;

@@ -338,7 +338,7 @@ void kafka_partition_init(kafka_partition_t *partition)
 {
 	partition->error = KAFKA_NONE;
 	partition->partition_index = -1;
-	partition->leader = NULL;
+	kafka_broker_init(&partition->leader);
 	partition->replica_nodes = NULL;
 	partition->replica_node_elements = 0;
 	partition->isr_nodes = NULL;
@@ -347,6 +347,7 @@ void kafka_partition_init(kafka_partition_t *partition)
 
 void kafka_partition_deinit(kafka_partition_t *partition)
 {
+    kafka_broker_deinit(&partition->leader);
 	free(partition->replica_nodes);
 	free(partition->isr_nodes);
 }

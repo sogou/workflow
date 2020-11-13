@@ -79,6 +79,7 @@ int main()
     * [关于连接上下文](docs/about-connection-context.md)
   * 内置协议用法
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
+    * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
 
 #### 系统设计特点
 
@@ -127,5 +128,6 @@ int main()
 #### Authors
 
 * **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
-* **Wu Jiaxu** - *[wujiaxu@sogou-inc.com](mailto:wujiaxu@sogou-inc.com)*
+* **Wu Jiaxu** - *[wujiaxu@sogou-inc.com](mailto:void00@foxmail.com)*
+* **Wang Zhulei** - *[wangzhulei@sogou-inc.com](mailto:wangzhulei@sogou-inc.com)* - Kafka Protocol Implementation
 * **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*

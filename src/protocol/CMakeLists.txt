@@ -16,3 +16,13 @@ set(SRC
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		kafka_parser.c
+		KafkaMessage.cc
+		KafkaDataTypes.cc
+		KafkaResult.cc
+	)
+	add_library("protocol_kafka" OBJECT ${SRC})
+endif ()
+

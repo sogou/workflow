@@ -10,3 +10,9 @@ set(SRC
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		crc32c.c
+	)
+	add_library("util_kafka" OBJECT ${SRC})
+endif ()

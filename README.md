@@ -27,6 +27,7 @@ int main()
 }
 ~~~
 * 作为万能异步客户端。目前支持``http``，``redis``，``mysql``和``kafka``协议。
+  * 轻松构建效率极高的spider。
 * 实现自定义协议client/server，构建自己的RPC系统。
   * [srpc](https://github.com/sogou/srpc)就是以它为基础，作为独立项目开源。支持``srpc``，``brpc``和``thrift``等协议。
 * 构建异步任务流，支持常用的串并联，也支持更加复杂的DAG结构。
@@ -79,6 +80,7 @@ int main()
     * [关于连接上下文](docs/about-connection-context.md)
   * 内置协议用法
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
+    * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
 
 #### 系统设计特点
 
@@ -127,5 +129,6 @@ int main()
 #### Authors
 
 * **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
-* **Wu Jiaxu** - *[wujiaxu@sogou-inc.com](mailto:wujiaxu@sogou-inc.com)*
+* **Wu Jiaxu** - *[void00@foxmail.com](mailto:void00@foxmail.com)*
+* **Wang Zhulei** - *[wangzhulei@sogou-inc.com](mailto:wangzhulei@sogou-inc.com)* - Kafka Protocol Implementation
 * **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*

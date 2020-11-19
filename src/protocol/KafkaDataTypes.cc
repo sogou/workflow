@@ -126,17 +126,26 @@ int KafkaCgroup::kafka_roundrobin_assignor(kafka_member_t **members,
 			struct list_head *pos;
 			KafkaToppar *toppar;
 
-			list_for_each(pos, &members[next]->toppar_list)
+			int i = 0;
+			for (; i < member_elements; i++)
 			{
-				toppar = list_entry(pos, KafkaToppar, list);
-				if (strcmp(subscriber.get_meta()->get_topic(), toppar->get_topic()) == 0)
-					break;
-				else
-					next++;
+				bool flag = false;
+				list_for_each(pos, &members[next + i]->toppar_list)
+				{
+					toppar = list_entry(pos, KafkaToppar, list);
+					if (strcmp(subscriber.get_meta()->get_topic(), toppar->get_topic()) == 0)
+					{
+						flag = true;
+						break;
+					}
+				}
 
-				if (next >= (int) subscriber.get_member()->size())
-					abort();
+				if (flag)
+					break;
 			}
+
+			if (i >= member_elements)
+				return -1;
 
 			toppar = new KafkaToppar;
 			if (!toppar->set_topic_partition(subscriber.get_meta()->get_topic(),

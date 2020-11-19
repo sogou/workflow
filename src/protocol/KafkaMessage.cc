@@ -1513,7 +1513,7 @@ int KafkaMessage::parse_records(void **buf, size_t *size,
 
 		if (ret > 0)
 		{
-			*size -= msg_size;
+			*size -= msg_set_size;
 			*buf = (char *)*buf + msg_size;
 			return 0;
 		}
@@ -1522,6 +1522,7 @@ int KafkaMessage::parse_records(void **buf, size_t *size,
 	}
 
 	*size -= msg_set_size;
+	*buf = (char *)*buf + msg_size;
 	return 0;
 }
 
@@ -2118,7 +2119,14 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			{
 				toppar->record_rollback();
 				toppar->save_record_endpos();
-				record_flag = 1;
+				if (record_flag < 0)
+				{
+					errno = EMSGSIZE;
+					return -1;
+				}
+				else
+					record_flag = 1;
+
 				break;
 			}
 
@@ -3137,9 +3145,6 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 		{
 			CHECK_RET(parse_i32(buf, size, &partition));
 
-			if (partition == 2)
-				partition = 2;
-
 			KafkaToppar *toppar = find_toppar_by_name(topic_name, partition,
 													  &this->toppar_list);
 
@@ -3369,8 +3374,6 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 
 		if (j != topic_cnt)
 			break;
-
-		member++;
 	}
 
 	if (i != member_cnt)

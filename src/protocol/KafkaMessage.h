@@ -144,7 +144,7 @@ public:
 		kafka_parser_deinit(this->parser);
 		kafka_parser_init(this->parser);
 		this->cur_size = 0;
-		this->serialized = KafkaBuffer();
+		this->serialized = std::move(KafkaBuffer());
 	}
 
 protected:

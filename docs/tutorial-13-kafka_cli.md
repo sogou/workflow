@@ -5,14 +5,21 @@
 
 # 关于编译选项
 
-通过命令make KAFKA=y 编译支持kafka协议的workflow，系统需要预先安装zlib,snappy,lz4(>=1.7.5),zstd等第三方库。
+在workflow中，你可以使用第三方库比如librdkafka，也可使用自带的kafka client，因此它对kafka协议的支持是独立的。
+
+通过命令make KAFKA=y 编译独立的类库支持kafka协议，系统需要预先安装[zlib](https://github.com/madler/zlib.git),[snappy](https://github.com/google/snappy.git),[lz4(>=1.7.5)](https://github.com/lz4/lz4.git),[zstd](https://github.com/facebook/zstd.git)等第三方库。
 
 # 关于kafka_cli
 
-程序从命令行读取一个kafka broker服务器地址和本次任务的类型(produce/fetch/meta)
+这是一个kafka client，根据不同的输入参数，完成kafka的消息生产(produce)、消息消费(fetch)、元数据获取(meta)等。
+
+编译时需要在tutorial目录中执行编译命令make KAFKA=y。
+
+该程序从命令行读取一个kafka broker服务器地址和本次任务的类型(produce/fetch/meta)：
+
 ./kafka_cli \<broker_url\> [p/c/m]
 
-程序会在执行完任务后自动退出
+程序会在执行完任务后自动退出，一切资源完全回收。
 
 其中broker_url可以有多个url组成，多个url之间以,分割
 

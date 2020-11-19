@@ -569,15 +569,16 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 {
 	ComplexKafkaTask *t = (ComplexKafkaTask *)pwork->get_context();
 	t->finish = true;
-	t->state = 0;
 }
 
 void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 {
 	KafkaToppar *toppar;
 
-	while ((toppar = this->cgroup.get_assigned_toppar_next()) != NULL)
+	struct list_head *pos;
+	list_for_each(pos, this->cgroup.get_assigned_toppar_list())
 	{
+		toppar = this->cgroup.get_assigned_toppar_by_pos(pos);
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
@@ -603,6 +604,14 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 
 void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 {
+	if (task->get_state() != 0)
+	{
+		this->state = task->get_state();
+		this->error = task->get_error();
+	}
+	else
+		this->state = 0;
+
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
 
 	if (task->get_resp()->get_api() == Kafka_Fetch)
@@ -611,10 +620,7 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 		KafkaToppar *task_toppar;
 
 		while ((task_toppar = toppar_list->get_next()) != NULL)
-		{
-			this->cgroup.assigned_toppar_rewind();
 			kafka_process_toppar_offset(task_toppar);
-		}
 	}
 
 	long idx = (long)(task->user_data);
@@ -698,7 +704,7 @@ void ComplexKafkaTask::dispatch()
 	}
 
 	if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit) &&
-        (*this->lock_status.get_status() & KAFKA_CGROUP_INIT))
+		(*this->lock_status.get_status() & KAFKA_CGROUP_INIT))
 	{
 		task = __WFKafkaTaskFactory::create_kafka_task(this->uri,
 													   this->retry_max,

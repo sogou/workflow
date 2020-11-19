@@ -1059,6 +1059,11 @@ public:
 		return &this->ptr->assigned_toppar_list;
 	}
 
+	KafkaToppar *get_assigned_toppar_by_pos(struct list_head *pos)
+	{
+		return list_entry(pos, KafkaToppar, list);
+	}
+
 	void assigned_toppar_rewind();
 
 	KafkaToppar *get_assigned_toppar_next();

@@ -483,7 +483,7 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 {
 	ComplexKafkaTask *t = (ComplexKafkaTask *)task->user_data;
 	t->lock_status.get_mutex()->lock();
-	if (task->get_state() == 0)
+	if (task->get_state() == WFT_STATE_SUCCESS)
 	{
 		kafka_merge_meta_list(&t->client_meta_list,
 							  task->get_resp()->get_meta_list());
@@ -493,7 +493,8 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 		*t->lock_status.get_status() |= KAFKA_META_DONE;
 		*t->lock_status.get_status() &= (~(KAFKA_META_INIT|KAFKA_META_DOING));
 
-		t->state = 0;
+		t->state = WFT_STATE_SUCCESS;
+		t->error = 0;
 	}
 	else
 	{
@@ -547,7 +548,8 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 			*t->lock_status.get_status() &= ~KAFKA_HEARTBEAT_INIT;
 		}
 
-		t->state = 0;
+		t->state = WFT_STATE_SUCCESS;
+		t->error = 0;
 	}
 	else
 	{
@@ -569,6 +571,22 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 {
 	ComplexKafkaTask *t = (ComplexKafkaTask *)pwork->get_context();
 	t->finish = true;
+	t->state = WFT_STATE_SUCCESS;
+	t->error = 0;
+
+	std::pair<int, int> *state_error;
+
+	for (size_t i = 0; i < pwork->size(); i++)
+	{
+		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
+		if (state_error->first != WFT_STATE_SUCCESS)
+		{
+			t->state = state_error->first;
+			t->error = state_error->second;
+		}
+
+		delete state_error;
+	}
 }
 
 void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
@@ -604,13 +622,11 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 
 void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 {
-	if (task->get_state() != 0)
-	{
-		this->state = task->get_state();
-		this->error = task->get_error();
-	}
-	else
-		this->state = 0;
+	std::pair<int, int> *state_error = new std::pair<int, int>;
+
+	state_error->first = task->get_state();
+	state_error->second = task->get_error();
+	series_of(task)->set_context(state_error);
 
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
 

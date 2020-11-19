@@ -145,7 +145,7 @@ int KafkaCgroup::kafka_roundrobin_assignor(kafka_member_t **members,
 			}
 
 			if (i >= member_elements)
-				abort();
+				return -1;
 
 			toppar = new KafkaToppar;
 			if (!toppar->set_topic_partition(subscriber.get_meta()->get_topic(),

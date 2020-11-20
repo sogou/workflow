@@ -353,7 +353,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 	ssize_t n;
 	int i;
 
-	while (1)
+	while (cnt > 0)
 	{
 		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
 		if (n < 0)
@@ -371,14 +371,8 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 			}
 		}
 
-		cnt -= i;
-		if (cnt == 0)
-			break;
-
-		if (i < IOV_MAX)
-			return cnt;
-
 		vectors += i;
+		cnt -= i;
 	}
 
 	service = entry->service;

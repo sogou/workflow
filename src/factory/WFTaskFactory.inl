@@ -62,8 +62,8 @@ inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 													 timer_callback_t callback)
 {
 	struct timespec value = {
-		.tv_sec		=	(time_t)microseconds / 1000000,
-		.tv_nsec	=	(long)microseconds % 1000000 * 1000
+		.tv_sec		=	microseconds / 1000000,
+		.tv_nsec	=	microseconds % 1000000 * 1000
 	};
 	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
 							 std::move(callback));

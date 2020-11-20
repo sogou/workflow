@@ -5,7 +5,7 @@ set(CMAKE_SKIP_RPATH TRUE)
 
 project(
 	workflow
-	VERSION 0.9.2
+	VERSION 0.9.3
 	LANGUAGES C CXX
 )
 
@@ -37,7 +37,7 @@ INCLUDE(CMakeLists_Headers.txt)
 macro(makeLink src dest target)
 	add_custom_command(
 		TARGET ${target} PRE_BUILD
-		COMMAND ${CMAKE_COMMAND} -E create_symlink ${src} ${dest}
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src} ${dest}
 		DEPENDS ${dest}
 	)
 endmacro()

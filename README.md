@@ -27,6 +27,7 @@ int main()
 }
 ~~~
 * 作为万能异步客户端。目前支持``http``，``redis``，``mysql``和``kafka``协议。
+  * 轻松构建效率极高的spider。
 * 实现自定义协议client/server，构建自己的RPC系统。
   * [srpc](https://github.com/sogou/srpc)就是以它为基础，作为独立项目开源。支持``srpc``，``brpc``和``thrift``等协议。
 * 构建异步任务流，支持常用的串并联，也支持更加复杂的DAG结构。
@@ -38,10 +39,10 @@ int main()
 
 #### 编译和运行环境
 * 项目支持``Linux``，``macOS``，``Windows``等操作系统。
-  *  ``Windows``版暂时以[windows](https://github.com/sogou/workflow/tree/windows)分枝发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
+  *  ``Windows``版以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
 * 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器。
 * 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。
-  * 不喜欢``OpenSSL``的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分枝，代码更简洁。但目前仍需链接``crypto``。
+  * 不喜欢SSL的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分支或[study](https://github.com/sogou/workflow/tree/study)分支（无upstream），代码更简洁。但仍需链接``crypto``。
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
 * 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
 
@@ -64,6 +65,7 @@ int main()
   * 计算任务
     * [使用内置算法工厂：sort_task](docs/tutorial-07-sort_task.md)
     * [自定义计算任务：matrix_multiply](docs/tutorial-08-matrix_multiply.md)
+    * [更加简单的使用计算任务：go_task](docs/about-go-task.md)
   * 文件异步IO任务
     * [异步IO的http server：http_file_server](docs/tutorial-09-http_file_server.md)
   * 用户定义协议基础
@@ -78,6 +80,7 @@ int main()
     * [关于连接上下文](docs/about-connection-context.md)
   * 内置协议用法
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
+    * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
 
 #### 系统设计特点
 
@@ -126,5 +129,6 @@ int main()
 #### Authors
 
 * **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
-* **Wu Jiaxu** - *[wujiaxu@sogou-inc.com](mailto:wujiaxu@sogou-inc.com)*
+* **Wu Jiaxu** - *[void00@foxmail.com](mailto:void00@foxmail.com)*
+* **Wang Zhulei** - *[wangzhulei@sogou-inc.com](mailto:wangzhulei@sogou-inc.com)* - Kafka Protocol Implementation
 * **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*

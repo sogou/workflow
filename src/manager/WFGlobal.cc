@@ -16,11 +16,6 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/engine.h>
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
 #include <assert.h>
 #include <unistd.h>
 #include <signal.h>
@@ -31,6 +26,11 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/engine.h>
+#include <openssl/conf.h>
+#include <openssl/crypto.h>
 #include "WFGlobal.h"
 #include "EndpointParams.h"
 #include "CommScheduler.h"
@@ -338,15 +338,12 @@ private:
 		dns_manager_(NULL),
 		dns_flag_(false)
 	{
-#ifdef SIGPIPE
-		signal(SIGPIPE, SIG_IGN);
-#endif
 		const auto *settings = __WFGlobal::get_instance()->get_global_settings();
-		int ret = scheduler_.init(settings->poller_threads,
-								  settings->handler_threads);
-
-		if (ret < 0)
+		if (scheduler_.init(settings->poller_threads,
+							settings->handler_threads) < 0)
 			abort();
+
+		signal(SIGPIPE, SIG_IGN);
 	}
 
 	~__CommManager()
@@ -665,6 +662,33 @@ static inline const char *__get_task_error_string(int error)
 
 	case WFT_ERR_MYSQL_COMMAND_DISALLOWED:
 		return "MySQL Command Disallowed";
+
+	case WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED:
+		return "Kafka parse response failed";
+
+	case WFT_ERR_KAFKA_PRODUCE_FAILED:
+		return "Kafka produce api failed";
+
+	case WFT_ERR_KAFKA_FETCH_FAILED:
+		return "Kafka fetch api failed";
+
+	case WFT_ERR_KAFKA_CGROUP_FAILED:
+		return "Kafka cgroup failed";
+
+	case WFT_ERR_KAFKA_COMMIT_FAILED:
+		return "Kafka commit api failed";
+
+	case WFT_ERR_KAFKA_META_FAILED:
+		return "Kafka meta api failed";
+
+	case WFT_ERR_KAFKA_LEAVEGROUP_FAILED:
+		return "Kafka leavegroup failed";
+
+	case WFT_ERR_KAFKA_API_UNKNOWN:
+		return "Kafka api type unknown";
+
+	case WFT_ERR_KAFKA_VERSION_DISALLOWED:
+		return "Kafka broker version not supported";
 
 	default:
 		break;

@@ -87,33 +87,12 @@ void mysql_callback(WFMySQLTask *task)
 		return;
 	}
 
-	switch (resp->get_packet_type())
+	if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
 	{
-	case MYSQL_PACKET_OK:
-		fprintf(stderr, "OK. %llu ", task->get_resp()->get_affected_rows());
-		if (task->get_resp()->get_affected_rows() == 1)
-			fprintf(stderr, "row ");
-		else
-			fprintf(stderr, "rows ");
-		fprintf(stderr, "affected. %d warnings. insert_id=%llu.\n",
-				task->get_resp()->get_warnings(),
-				task->get_resp()->get_last_insert_id());
-		break;
-
-	case MYSQL_PACKET_ERROR:
-		fprintf(stderr, "ERROR. error_code=%d %s\n",
-				task->get_resp()->get_error_code(),
-				task->get_resp()->get_error_msg().c_str());
-		break;
-
-	case MYSQL_PACKET_EOF:
 		fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u\n",	
 			cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
 
 		do {
-			if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
-				break;
-
 			fprintf(stderr, "-------- RESULT SET --------\n");
 			//nocopy api
 			fields = cursor.fetch_fields();
@@ -198,11 +177,31 @@ void mysql_callback(WFMySQLTask *task)
 			fprintf(stderr, "-------- RESULT SET END --------\n");
 		} while (cursor.next_result_set());
 
-		break;
-
-	default:
+	}
+	else if (resp->get_packet_type() == MYSQL_PACKET_OK)
+	{
+		fprintf(stderr, "OK. %llu ", task->get_resp()->get_affected_rows());
+		if (task->get_resp()->get_affected_rows() == 1)
+			fprintf(stderr, "row ");
+		else
+			fprintf(stderr, "rows ");
+		fprintf(stderr, "affected. %d warnings. insert_id=%llu.\n",
+				task->get_resp()->get_warnings(),
+				task->get_resp()->get_last_insert_id());
+	}
+	else if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
+	{
+		fprintf(stderr, "ERROR. error_code=%d %s\n",
+				task->get_resp()->get_error_code(),
+				task->get_resp()->get_error_msg().c_str());
+	}
+	else if (resp->get_packet_type() == MYSQL_PACKET_EOF)
+	{
+		fprintf(stderr, "EOF packet without any ResultSets\n");
+	}
+	else
+	{
 		fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
-		break;
 	}
 
 	get_next_cmd(task);

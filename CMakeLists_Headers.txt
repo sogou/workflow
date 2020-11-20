@@ -84,3 +84,15 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 )
 
+if(KAFKA STREQUAL "y")
+	set(INCLUDE_HEADERS
+		${INCLUDE_HEADERS}
+		src/util/crc32c.h
+		src/protocol/KafkaMessage.h
+		src/protocol/KafkaDataTypes.h
+		src/protocol/KafkaResult.h
+		src/protocol/kafka_parser.h
+		src/client/WFKafkaClient.h
+		src/factory/KafkaTaskImpl.inl
+	)
+endif()

@@ -111,24 +111,24 @@ class __WFDynamicTask : public WFDynamicTask
 protected:
 	virtual void dispatch()
 	{
-		series_of(this)->push_front(this->create());
+		series_of(this)->push_front(this->create(this));
 		this->WFDynamicTask::dispatch();
 	}
 
 protected:
-	std::function<SubTask *()> create;
+	std::function<SubTask *(WFDynamicTask *)> create;
 
 public:
-	__WFDynamicTask(std::function<SubTask *()>&& func) :
+	__WFDynamicTask(std::function<SubTask *(WFDynamicTask *)>&& func) :
 		create(std::move(func))
 	{
 	}
 };
 
 inline WFDynamicTask *
-WFTaskFactory::create_dynamic_task(std::function<SubTask *()> func)
+WFTaskFactory::create_dynamic_task(dynamic_create_t create)
 {
-	return new __WFDynamicTask(std::move(func));
+	return new __WFDynamicTask(std::move(create));
 }
 
 /**********WFComplexClientTask**********/

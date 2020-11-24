@@ -122,9 +122,6 @@ int MySQLMessage::encode(struct iovec vectors[], int max)
 	uint32_t length;
 	int i = 0;
 
-	if (nleft == 0)
-		return 0;
-
 	do
 	{
 		length = (nleft >= MYSQL_PAYLOAD_MAX ? MYSQL_PAYLOAD_MAX

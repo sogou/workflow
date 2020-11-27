@@ -148,12 +148,22 @@ public:
 	}
 
 protected:
-	static int parse_message_set(void **buf, size_t *size, int msg_vers,
+	static int parse_message_set(void **buf, size_t *size, 
+								 bool is_check_crcs, int msg_vers, 
 								 struct list_head *record_list,
 								 KafkaBuffer *uncompressed,
 								 KafkaToppar *toppar);
 
-	static int parse_records(void **buf, size_t *size,
+	static int parse_message_record(void **buf, size_t *size,
+									kafka_record_t *record);
+
+	static int parse_record_batch(void **buf, size_t *size, 
+								  bool is_check_crcs,
+								  struct list_head *record_list,
+								  KafkaBuffer *uncompressed,
+								  KafkaToppar *toppar);
+
+	static int parse_records(void **buf, size_t *size, bool is_check_crcs,
 							 struct list_head *record_list,
 							 KafkaBuffer *uncompressed,
 							 KafkaToppar *toppar);

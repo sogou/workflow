@@ -226,6 +226,7 @@ typedef struct __kafka_config
 	int compress_type;
 	int compress_level;
 	char *client_id;
+	int check_crcs;
 } kafka_config_t;
 
 typedef struct __kafka_broker

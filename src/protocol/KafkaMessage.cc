@@ -1140,7 +1140,8 @@ static int parse_varint_u64(void **buf, size_t *size, uint64_t *val)
 	return 0;
 }
 
-int KafkaMessage::parse_message_set(void **buf, size_t *size, int msg_vers,
+int KafkaMessage::parse_message_set(void **buf, size_t *size, 
+									bool is_check_crcs, int msg_vers,
 									struct list_head *record_list,
 									KafkaBuffer *uncompressed,
 									KafkaToppar *toppar)
@@ -1160,6 +1161,14 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size, int msg_vers,
 
 	if (parse_i32(buf, size, &crc) < 0)
 		return -1;
+
+	if (is_check_crcs)
+	{
+		int crc_32 = crc32(0, NULL, 0);
+		crc_32 = crc32(crc_32, (Bytef *)*buf, message_size - 4);
+		if (crc_32 != crc)
+			return -1;
+	}
 
 	KafkaRecord *kafka_record = new KafkaRecord;
 	kafka_record_t *record = kafka_record->get_raw_ptr();
@@ -1227,8 +1236,8 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size, int msg_vers,
 		struct list_head *record_head = record_list->prev;
 		void *uncompressed_ptr = block.get_block();
 		size_t uncompressed_len = block.get_len();
-		parse_message_set(&uncompressed_ptr, &uncompressed_len, msg_vers,
-						  record_list, uncompressed, toppar);
+		parse_message_set(&uncompressed_ptr, &uncompressed_len, is_check_crcs,
+						  msg_vers, record_list, uncompressed, toppar);
 
 		uncompressed->add_item(std::move(block));
 
@@ -1254,8 +1263,8 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size, int msg_vers,
 
 	if (*size > 0)
 	{
-		return parse_message_set(buf, size, msg_vers, record_list,
-								 uncompressed, toppar);
+		return parse_message_set(buf, size, is_check_crcs, msg_vers, 
+								 record_list, uncompressed, toppar);
 	}
 
 	return 0;
@@ -1309,8 +1318,8 @@ struct KafkaBatchRecordHeader
 	int32_t record_count;
 };
 
-static int parse_message_record(void **buf, size_t *size,
-								kafka_record_t *record)
+int KafkaMessage::parse_message_record(void **buf, size_t *size,
+									   kafka_record_t *record)
 {
 	int64_t length;
 	int8_t attributes;
@@ -1373,10 +1382,11 @@ static int parse_message_record(void **buf, size_t *size,
 	return 0;
 }
 
-static int parse_record_batch(void **buf, size_t *size,
-							  struct list_head *record_list,
-							  KafkaBuffer *uncompressed,
-							  KafkaToppar *toppar)
+int KafkaMessage::parse_record_batch(void **buf, size_t *size, 
+									 bool is_check_crcs,
+									 struct list_head *record_list,
+									 KafkaBuffer *uncompressed,
+									 KafkaToppar *toppar)
 {
 	KafkaBatchRecordHeader hdr;
 
@@ -1394,6 +1404,18 @@ static int parse_record_batch(void **buf, size_t *size,
 
 	if (parse_i32(buf, size, &hdr.crc) < 0)
 		return -1;
+
+	if (is_check_crcs)
+	{
+		if (hdr.length > (int)*size + 9)
+			return -1;
+
+		int crc_32 = 0;
+
+		crc_32 = crc32c(crc_32, (const void *)*buf, hdr.length - 9);
+		if (crc_32 != hdr.crc)
+			return -1;
+	}
 
 	if (parse_i16(buf, size, &hdr.attributes) < 0)
 		return -1;
@@ -1468,7 +1490,7 @@ static int parse_record_batch(void **buf, size_t *size,
 	return 0;
 }
 
-int KafkaMessage::parse_records(void **buf, size_t *size,
+int KafkaMessage::parse_records(void **buf, size_t *size, bool is_check_crcs,
 								struct list_head *record_list,
 								KafkaBuffer *uncompressed,
 								KafkaToppar *toppar)
@@ -1498,13 +1520,14 @@ int KafkaMessage::parse_records(void **buf, size_t *size,
 		{
 		case 0:
 		case 1:
-			ret = parse_message_set(buf, &msg_size, magic, record_list,
+			ret = parse_message_set(buf, &msg_size, is_check_crcs, 
+									magic, record_list,
 									uncompressed, toppar);
 			break;
 
 		case 2:
-			ret = parse_record_batch(buf, &msg_size, record_list, uncompressed,
-									 toppar);
+			ret = parse_record_batch(buf, &msg_size, is_check_crcs,
+									 record_list, uncompressed, toppar);
 			break;
 
 		default:
@@ -2808,11 +2831,15 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 			if (!host)
 				return false;
 
-			char *rack = strdup(broker->rack);
-			if (!rack)
+			char *rack = NULL;
+			if (broker->rack)
 			{
-				free(host);
-				return false;
+				rack = strdup(broker->rack);
+				if (!rack)
+				{
+					free(host);
+					return false;
+				}
 			}
 
 			size_t api_elem_size = sizeof(kafka_api_version_t) * 
@@ -3177,7 +3204,8 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			if (this->api_version >= 11)
 				CHECK_RET(parse_i32(buf, size, &preferred_read_replica));
 
-			parse_records(buf, size, toppar->get_record(),
+			parse_records(buf, size, this->config.get_check_crcs(),
+						  toppar->get_record(),
 						  &this->uncompressed, toppar);
 		}
 	}
@@ -3253,6 +3281,8 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 				CHECK_RET(parse_i32(buf, size, &offset_cnt));
 				for (int j = 0; j < offset_cnt; ++j)
 					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->offset));
+
+				ptr->low_watermark = 0;
 			}
 		}
 	}

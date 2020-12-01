@@ -62,8 +62,8 @@ inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 													 timer_callback_t callback)
 {
 	struct timespec value = {
-		.tv_sec		=	(time_t)microseconds / 1000000,
-		.tv_nsec	=	(long)microseconds % 1000000 * 1000
+		.tv_sec		=	microseconds / 1000000,
+		.tv_nsec	=	microseconds % 1000000 * 1000
 	};
 	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
 							 std::move(callback));
@@ -111,24 +111,24 @@ class __WFDynamicTask : public WFDynamicTask
 protected:
 	virtual void dispatch()
 	{
-		series_of(this)->push_front(this->create());
+		series_of(this)->push_front(this->create(this));
 		this->WFDynamicTask::dispatch();
 	}
 
 protected:
-	std::function<SubTask *()> create;
+	std::function<SubTask *(WFDynamicTask *)> create;
 
 public:
-	__WFDynamicTask(std::function<SubTask *()>&& func) :
+	__WFDynamicTask(std::function<SubTask *(WFDynamicTask *)>&& func) :
 		create(std::move(func))
 	{
 	}
 };
 
 inline WFDynamicTask *
-WFTaskFactory::create_dynamic_task(std::function<SubTask *()> func)
+WFTaskFactory::create_dynamic_task(dynamic_create_t create)
 {
-	return new __WFDynamicTask(std::move(func));
+	return new __WFDynamicTask(std::move(create));
 }
 
 /**********WFComplexClientTask**********/

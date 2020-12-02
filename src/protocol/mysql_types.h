@@ -26,7 +26,7 @@
 #define MYSQL_FLOAT_STR_LENGTH		7 // 7 for float
 #define MYSQL_DOUBLE_STR_LENGTH		19 // 19 for long double
 
-// may be set by server in EOF packet
+// may be set by server in EOF/OK packet
 #define MYSQL_SERVER_MORE_RESULTS_EXIST		0x0008
 
 enum

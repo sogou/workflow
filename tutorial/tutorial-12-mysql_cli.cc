@@ -185,9 +185,10 @@ void mysql_callback(WFMySQLTask *task)
 			fprintf(stderr, "row ");
 		else
 			fprintf(stderr, "rows ");
-		fprintf(stderr, "affected. %d warnings. insert_id=%llu.\n",
+		fprintf(stderr, "affected. %d warnings. insert_id=%llu. %s\n",
 				task->get_resp()->get_warnings(),
-				task->get_resp()->get_last_insert_id());
+				task->get_resp()->get_last_insert_id(),
+				task->get_resp()->get_info().c_str());
 	}
 	else if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
 	{

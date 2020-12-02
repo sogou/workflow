@@ -2845,7 +2845,7 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 				{
 					char *rack;
 					if (broker->rack)
-						rack = strdup(brack);
+						rack = strdup(broker->rack);
 
 					if (!broker->rack || rack)
 					{

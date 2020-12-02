@@ -796,7 +796,6 @@ void ComplexKafkaTask::dispatch()
 			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
 			*ctask->get_mutable_ctx() = cb;
 			series = Workflow::create_series_work(task, nullptr);
-			series->set_context(task);
 			parallel->add_series(series);
 		}
 		series_of(this)->push_front(this);
@@ -847,7 +846,6 @@ void ComplexKafkaTask::dispatch()
 			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
 			*ctask->get_mutable_ctx() = cb;
 			series = Workflow::create_series_work(task, nullptr);
-			series->set_context(task);
 			parallel->add_series(series);
 		}
 

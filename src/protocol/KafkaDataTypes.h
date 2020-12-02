@@ -314,6 +314,15 @@ public:
 		return true;
 	}
 
+	bool get_check_crcs() const
+	{
+		return this->ptr->check_crcs != 0;
+	}
+	void set_check_crcs(bool check_crcs)
+	{
+		this->ptr->check_crcs = check_crcs;
+	}
+
 public:
 	KafkaConfig()
 	{

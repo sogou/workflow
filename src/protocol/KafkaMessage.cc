@@ -1157,7 +1157,7 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 		return -1;
 
 	if (*size < (size_t)(message_size - 8))
-		return 2;
+		return 1;
 
 	if (parse_i32(buf, size, &crc) < 0)
 		return -1;
@@ -1167,7 +1167,10 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 		int crc_32 = crc32(0, NULL, 0);
 		crc_32 = crc32(crc_32, (Bytef *)*buf, message_size - 4);
 		if (crc_32 != crc)
+		{
+			errno = EBADMSG;
 			return -1;
+		}
 	}
 
 	KafkaRecord *kafka_record = new KafkaRecord;
@@ -1408,13 +1411,19 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 	if (check_crcs)
 	{
 		if (hdr.length > (int)*size + 9)
+		{
+			errno = EBADMSG;
 			return -1;
+		}
 
 		int crc_32 = 0;
 
 		crc_32 = crc32c(crc_32, (const void *)*buf, hdr.length - 9);
 		if (crc_32 != hdr.crc)
+		{
+			errno = EBADMSG;
 			return -1;
+		}
 	}
 
 	if (parse_i16(buf, size, &hdr.attributes) < 0)
@@ -2834,10 +2843,6 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 				kafka_api_version_t *api = (kafka_api_version_t *)malloc(api_elem_size);
 				if (api)
 				{
-					char *brack = broker->rack;
-					if (!brack)
-						brack = "";
-
 					char *rack;
 					if (broker->rack)
 						rack = strdup(brack);

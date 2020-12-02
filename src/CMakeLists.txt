@@ -39,6 +39,10 @@ add_library(
 )
 
 if (KAFKA STREQUAL "y")
+	add_dependencies(client_kafka LINK_HEADERS)
+	add_dependencies(util_kafka LINK_HEADERS)
+	add_dependencies(protocol_kafka LINK_HEADERS)
+	add_dependencies(factory_kafka LINK_HEADERS)
 	add_library(
 		"wfkafka" STATIC
 		$<TARGET_OBJECTS:client_kafka>

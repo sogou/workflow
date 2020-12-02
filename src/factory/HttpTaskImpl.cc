@@ -81,18 +81,23 @@ CommMessageOut *ComplexHttpTask::message_out()
 			strncasecmp((const char *)header.value, "identity", 8) == 0);
 	}
 
-	const char *method = req->get_method();
-	if (!chunked && (strcmp(method, HttpMethodPost) == 0 || strcmp(method, HttpMethodPut) == 0))
+	if (!chunked)
 	{
-		header.name = "Content-Length";
-		header.name_len = 14;
-		req_cursor.rewind();
-		if (!req_cursor.find(&header))
+		size_t body_size = req->get_output_body_size();
+		const char *method = req->get_method();
+
+		if (body_size != 0 || strcmp(method, "POST") == 0 || strcmp(method, "PUT") == 0)
 		{
-			size_t body_size = req->get_output_body_size();
-			char buf[32];
-			snprintf(buf, 32, "%zu", body_size);
-			req->add_header_pair("Content-Length", buf);
+			header.name = "Content-Length";
+			header.name_len = 14;
+			req_cursor.rewind();
+			if (!req_cursor.find(&header))
+			{
+				char buf[32];
+				header.value = buf;
+				header.value_len = sprintf(buf, "%zu", body_size);
+				req->add_header(&header);
+			}
 		}
 	}
 
@@ -449,7 +454,7 @@ CommMessageOut *WFHttpServerTask::message_out()
 
 	size_t body_size = resp->get_output_body_size();
 
-	if (!chunked || body_size == 0)
+	if (!chunked)
 	{
 		header.name = "Content-Length";
 		header.name_len = 14;
@@ -457,8 +462,9 @@ CommMessageOut *WFHttpServerTask::message_out()
 		if (!resp_cursor.find(&header))
 		{
 			char buf[32];
-			snprintf(buf, 32, "%zu", body_size);
-			resp->add_header_pair("Content-Length", buf);
+			header.value = buf;
+			header.value_len = sprintf(buf, "%zu", body_size);
+			resp->add_header(&header);
 		}
 	}
 

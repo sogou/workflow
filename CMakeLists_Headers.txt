@@ -11,6 +11,7 @@ set(COMMON_KERNEL_HEADERS
 	src/kernel/list.h
 	src/kernel/mpoller.h
 	src/kernel/poller.h
+	src/kernel/msgqueue.h
 	src/kernel/rbtree.h
 	src/kernel/SubTask.h
 	src/kernel/thrdpool.h
@@ -86,6 +87,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFConnection.h
 	src/factory/WFTask.h
 	src/factory/WFTask.inl
+	src/factory/WFGraphTask.h
 	src/factory/WFTaskError.h
 	src/factory/WFTaskFactory.h
 	src/factory/WFTaskFactory.inl

@@ -36,7 +36,7 @@ public:
 	static std::string url_encode_component(const std::string& str);
 	static std::vector<std::string> split(const std::string& str, char sep);
 	static std::string strip(const std::string& str);
-	static bool start_with(const std::string &str, const std::string prefix);
+	static bool start_with(const std::string& str, const std::string& prefix);
 
 	//this will filter any empty result, so the result vector has no empty string
 	static std::vector<std::string> split_filter_empty(const std::string& str, char sep);

@@ -22,7 +22,6 @@
 #include <stddef.h>
 #include <pthread.h>
 #include "list.h"
-#include "thrdpool.h"
 
 class ExecQueue
 {
@@ -69,7 +68,7 @@ public:
 	int request(ExecSession *session, ExecQueue *queue);
 
 private:
-	thrdpool_t *thrdpool;
+	struct __thrdpool *thrdpool;
 
 private:
 	static void executor_thread_routine(void *context);

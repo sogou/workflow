@@ -105,14 +105,20 @@ public:
 	}
 
 public:
+	/* The next 3 methods are intended for task implementations only. */
 	SubTask *pop();
 
-private:
 	void set_last_task(SubTask *last)
 	{
 		last->set_pointer(this);
 		this->last = last;
 	}
+
+	void unset_last_task() { this->last = NULL; }
+
+protected:
+	void *context;
+	series_callback_t callback;
 
 private:
 	SubTask *pop_task();
@@ -128,13 +134,11 @@ private:
 	int back;
 	bool in_parallel;
 	bool canceled;
-	void *context;
 	std::mutex mutex;
-	series_callback_t callback;
 
-private:
+protected:
 	SeriesWork(SubTask *first, series_callback_t&& callback);
-	~SeriesWork() { delete []this->queue; }
+	virtual ~SeriesWork() { delete []this->queue; }
 	friend class ParallelWork;
 	friend class Workflow;
 };
@@ -230,8 +234,12 @@ public:
 		this->callback = std::move(callback);
 	}
 
-private:
+protected:
 	virtual SubTask *done();
+
+protected:
+	void *context;
+	parallel_callback_t callback;
 
 private:
 	void expand_buf();
@@ -240,10 +248,8 @@ private:
 private:
 	size_t buf_size;
 	SeriesWork **all_series;
-	void *context;
-	parallel_callback_t callback;
 
-private:
+protected:
 	ParallelWork(parallel_callback_t&& callback);
 	ParallelWork(SeriesWork *const all_series[], size_t n,
 				 parallel_callback_t&& callback);

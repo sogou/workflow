@@ -74,9 +74,9 @@ int mysql_parser_parse(const void *buf, size_t len, mysql_parser_t *parser)
 	do {
 		ret = parser->parse(buf, len, parser);
 		if (ret < 0)
-			break;
+			return ret;
 
-		if (ret == 1 && parser->offset != len)
+		if (ret > 0 && parser->offset != len)
 			return -2;
 
 	} while (parser->offset < len);
@@ -215,13 +215,20 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	} else
 		parser->info_len = 0;
 
-	parser->offset = len;
+	parser->offset += 7;
 	parser->affected_rows = (affected_rows == (unsigned long long)-1) ? 0 : affected_rows;
 	parser->insert_id = (insert_id == (unsigned long long)-1) ? 0 : insert_id;
 	parser->server_status = server_status;
 	parser->warning_count = warning_count;
 	parser->packet_type = MYSQL_PACKET_OK;
 	parser->buf = buf;
+
+	if (server_status & MYSQL_SERVER_MORE_RESULTS_EXIST)
+	{
+		parser->parse = parse_field_count;
+		return 0;
+	}
+
 	return 1;
 }
 
@@ -353,11 +360,10 @@ static int parse_field_count(const void *buf, size_t len, mysql_parser_t *parser
 		parser->result_set_count++;
 
 		parser->parse = parse_column_def_packet;
+		parser->offset = p - (const char *)buf;
 	} else {
-		parser->parse = parse_eof_packet;
+		parser->parse = parse_ok_packet;
 	}
-
-	parser->offset = p - (const char *)buf;
 	return 0;
 }
 

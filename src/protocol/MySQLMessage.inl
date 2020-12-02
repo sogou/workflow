@@ -24,7 +24,11 @@
 namespace protocol
 {
 
-using MySQLHandshakeRequest = MySQLMessage;
+class MySQLHandshakeRequest : public MySQLRequest
+{
+private:
+	virtual int encode(struct iovec vectors[], int max) { return 0; }
+};
 
 class MySQLHandshakeResponse : public MySQLResponse
 {
@@ -51,7 +55,7 @@ public:
 		memcpy(auth_plugin_data_part_2_, auth2, 12);
 	}
 
-	bool host_disallowed() { return this->disallowed_; }
+	bool host_disallowed() const { return this->disallowed_; }
 
 private:
 	virtual int decode_packet(const char *buf, size_t buflen);
@@ -73,7 +77,7 @@ public:
 	MySQLHandshakeResponse& operator= (MySQLHandshakeResponse&& move) = default;
 };
 
-class MySQLAuthRequest : public MySQLMessage
+class MySQLAuthRequest : public MySQLRequest
 {
 public:
 	void set_auth(const std::string& username,

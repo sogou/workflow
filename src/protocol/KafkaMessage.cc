@@ -1416,10 +1416,7 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 			return -1;
 		}
 
-		int crc_32 = 0;
-
-		crc_32 = crc32c(crc_32, (const void *)*buf, hdr.length - 9);
-		if (crc_32 != hdr.crc)
+		if ((int)crc32c(0, (const void *)*buf, hdr.length - 9) != hdr.crc)
 		{
 			errno = EBADMSG;
 			return -1;

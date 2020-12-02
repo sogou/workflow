@@ -318,9 +318,9 @@ public:
 	{
 		return this->ptr->check_crcs != 0;
 	}
-	void set_check_crcs(bool is_check_crcs)
+	void set_check_crcs(bool check_crcs)
 	{
-		this->ptr->check_crcs = is_check_crcs;
+		this->ptr->check_crcs = check_crcs;
 	}
 
 public:

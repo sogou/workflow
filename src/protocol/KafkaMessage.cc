@@ -1141,7 +1141,7 @@ static int parse_varint_u64(void **buf, size_t *size, uint64_t *val)
 }
 
 int KafkaMessage::parse_message_set(void **buf, size_t *size, 
-									bool is_check_crcs, int msg_vers,
+									bool check_crcs, int msg_vers,
 									struct list_head *record_list,
 									KafkaBuffer *uncompressed,
 									KafkaToppar *toppar)
@@ -1162,7 +1162,7 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 	if (parse_i32(buf, size, &crc) < 0)
 		return -1;
 
-	if (is_check_crcs)
+	if (check_crcs)
 	{
 		int crc_32 = crc32(0, NULL, 0);
 		crc_32 = crc32(crc_32, (Bytef *)*buf, message_size - 4);
@@ -1236,7 +1236,7 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 		struct list_head *record_head = record_list->prev;
 		void *uncompressed_ptr = block.get_block();
 		size_t uncompressed_len = block.get_len();
-		parse_message_set(&uncompressed_ptr, &uncompressed_len, is_check_crcs,
+		parse_message_set(&uncompressed_ptr, &uncompressed_len, check_crcs,
 						  msg_vers, record_list, uncompressed, toppar);
 
 		uncompressed->add_item(std::move(block));
@@ -1263,7 +1263,7 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 
 	if (*size > 0)
 	{
-		return parse_message_set(buf, size, is_check_crcs, msg_vers, 
+		return parse_message_set(buf, size, check_crcs, msg_vers, 
 								 record_list, uncompressed, toppar);
 	}
 
@@ -1383,7 +1383,7 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 }
 
 int KafkaMessage::parse_record_batch(void **buf, size_t *size, 
-									 bool is_check_crcs,
+									 bool check_crcs,
 									 struct list_head *record_list,
 									 KafkaBuffer *uncompressed,
 									 KafkaToppar *toppar)
@@ -1405,7 +1405,7 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 	if (parse_i32(buf, size, &hdr.crc) < 0)
 		return -1;
 
-	if (is_check_crcs)
+	if (check_crcs)
 	{
 		if (hdr.length > (int)*size + 9)
 			return -1;
@@ -1490,7 +1490,7 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 	return 0;
 }
 
-int KafkaMessage::parse_records(void **buf, size_t *size, bool is_check_crcs,
+int KafkaMessage::parse_records(void **buf, size_t *size, bool check_crcs,
 								struct list_head *record_list,
 								KafkaBuffer *uncompressed,
 								KafkaToppar *toppar)
@@ -1520,13 +1520,13 @@ int KafkaMessage::parse_records(void **buf, size_t *size, bool is_check_crcs,
 		{
 		case 0:
 		case 1:
-			ret = parse_message_set(buf, &msg_size, is_check_crcs, 
+			ret = parse_message_set(buf, &msg_size, check_crcs, 
 									magic, record_list,
 									uncompressed, toppar);
 			break;
 
 		case 2:
-			ret = parse_record_batch(buf, &msg_size, is_check_crcs,
+			ret = parse_record_batch(buf, &msg_size, check_crcs,
 									 record_list, uncompressed, toppar);
 			break;
 
@@ -2828,40 +2828,42 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 			leader->port = broker->port;
 
 			char *host = strdup(broker->host);
-			if (!host)
-				return false;
-
-			char *rack = NULL;
-			if (broker->rack)
+			if (host)
 			{
-				rack = strdup(broker->rack);
-				if (!rack)
+				size_t api_elem_size = sizeof(kafka_api_version_t) * broker->api_elements;
+				kafka_api_version_t *api = (kafka_api_version_t *)malloc(api_elem_size);
+				if (api)
 				{
-					free(host);
-					return false;
+					char *brack = broker->rack;
+					if (!brack)
+						brack = "";
+
+					char *rack = strdup(brack);
+					if (rack)
+					{
+						if (broker->rack)
+							leader->rack = rack;
+						else
+							free(rack);
+
+						leader->to_addr = broker->to_addr;
+						memcpy(&leader->addr, &broker->addr, sizeof(struct sockaddr_storage));
+						leader->addrlen = broker->addrlen;
+						leader->features = broker->features;
+						memcpy(api, broker->api, api_elem_size);
+						leader->api_elements = broker->api_elements;
+						leader->host = host;
+						leader->api = api;
+						return true;
+					}
+
+					free(api);
 				}
-			}
 
-			size_t api_elem_size = sizeof(kafka_api_version_t) * 
-				broker->api_elements;
-			kafka_api_version_t *api = (kafka_api_version_t *)malloc(api_elem_size);
-			if (!api)
-			{
 				free(host);
-				free(rack);
-				return false;
 			}
 
-			leader->to_addr = broker->to_addr;
-			memcpy(&leader->addr, &broker->addr, sizeof(struct sockaddr_storage));
-			leader->addrlen = broker->addrlen;
-			leader->features = broker->features;
-			memcpy(api, broker->api, api_elem_size);
-			leader->api_elements = broker->api_elements;
-			leader->host = host;
-			leader->rack = rack;
-			leader->api = api;
-			return true;
+            return false;
 		}
 	}
 

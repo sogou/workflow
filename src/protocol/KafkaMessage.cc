@@ -2838,13 +2838,14 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 					if (!brack)
 						brack = "";
 
-					char *rack = strdup(brack);
-					if (rack)
+					char *rack;
+					if (broker->rack)
+						rack = strdup(brack);
+
+					if (!broker->rack || rack)
 					{
 						if (broker->rack)
 							leader->rack = rack;
-						else
-							free(rack);
 
 						leader->to_addr = broker->to_addr;
 						memcpy(&leader->addr, &broker->addr, sizeof(struct sockaddr_storage));

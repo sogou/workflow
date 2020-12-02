@@ -264,9 +264,8 @@ int KafkaCgroup::run_assignor(KafkaMetaList *meta_list,
 		return -1;
 	}
 
-	protocol->assignor(this->get_members(), this->get_member_elements(),
-					   &subscribers);
-	return 0;
+	return protocol->assignor(this->get_members(), this->get_member_elements(),
+							  &subscribers);
 }
 
 KafkaCgroup::KafkaCgroup()

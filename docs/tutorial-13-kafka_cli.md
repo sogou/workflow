@@ -5,9 +5,7 @@
 
 # 关于编译选项
 
-在workflow中，关于kafka协议的支持，你可以使用第三方库比如[librdkafka](https://github.com/edenhill/librdkafka.git)，也可使用自带的kafka client，因此对kafka协议的支持是独立的。
-
-通过命令make KAFKA=y 编译独立的类库支持kafka协议，系统需要预先安装[zlib](https://github.com/madler/zlib.git),[snappy](https://github.com/google/snappy.git),[lz4(>=1.7.5)](https://github.com/lz4/lz4.git),[zstd](https://github.com/facebook/zstd.git)等第三方库。
+在workflow中，对kafka协议的支持是独立的。因此可以通过命令make KAFKA=y 编译独立的类库支持kafka协议，系统需要预先安装[zlib](https://github.com/madler/zlib.git),[snappy](https://github.com/google/snappy.git),[lz4(>=1.7.5)](https://github.com/lz4/lz4.git),[zstd](https://github.com/facebook/zstd.git)等第三方库，用来支持kafka协议中的压缩算法。
 
 
 # 关于kafka_cli

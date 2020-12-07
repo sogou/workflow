@@ -303,8 +303,9 @@ WFRouterTask *WFDNSResolver::create_router_task(const struct WFNSParams *params,
 	const struct EndpointParams *endpoint_params = &settings->endpoint_params;
 	int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
 													 DNS_CACHE_LEVEL_1;
-	return create(params->uri.host, atoi(params->uri.port), params,
-				  dns_cache_level, dns_ttl_default, dns_ttl_min,
+	return create(params->uri.host ? params->uri.host : "",
+				  params->uri.port ? atoi(params->uri.port) : 0,
+				  params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 				  endpoint_params, std::move(callback));
 }
 

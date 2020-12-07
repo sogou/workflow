@@ -82,6 +82,8 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFNameService.h
+	src/factory/WFDNSResolver.h
 )
 
 if(KAFKA STREQUAL "y")

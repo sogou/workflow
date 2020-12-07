@@ -31,6 +31,7 @@
 #include "RouteManager.h"
 #include "Executor.h"
 #include "EndpointParams.h"
+#include "WFNameService.h"
 
 /**
  * @file    WFGlobal.h
@@ -105,27 +106,18 @@ public:
 	static const char *get_error_string(int state, int error);
 
 public:
-	/// @brief Internal use only
+	// Internal usage only
 	static CommScheduler *get_scheduler();
-	/// @brief Internal use only
 	static DNSCache *get_dns_cache();
-	/// @brief Internal use only
 	static RouteManager *get_route_manager();
-	/// @brief Internal use only
 	static SSL_CTX *get_ssl_client_ctx();
-	/// @brief Internal use only
 	static SSL_CTX *get_ssl_server_ctx();
-	/// @brief Internal use only
 	static ExecQueue *get_exec_queue(const std::string& queue_name);
-	/// @brief Internal use only
 	static Executor *get_compute_executor();
-	/// @brief Internal use only
 	static IOService *get_io_service();
-	/// @brief Internal use only
 	static ExecQueue *get_dns_queue();
-	/// @brief Internal use only
 	static Executor *get_dns_executor();
-	/// @brief Internal use only
+	static WFNameService *get_name_service();
 	static void sync_operation_begin();
 	static void sync_operation_end();
 };

@@ -24,6 +24,8 @@
 #include <errno.h>
 #include <netdb.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <utility>
 #include <string>
 #include "DNSRoutine.h"
 #include "EndpointParams.h"

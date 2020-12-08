@@ -51,15 +51,14 @@ DNS_CACHE_LEVEL_3	->	Forever
 class WFResolverTask : public WFRouterTask
 {
 public:
-	WFResolverTask(const char *host, unsigned short port,
-				   const struct WFNSParams *params, int dns_cache_level,
+	WFResolverTask(const struct WFNSParams *params, int dns_cache_level,
 				   unsigned int dns_ttl_default, unsigned int dns_ttl_min,
 				   const struct EndpointParams *endpoint_params,
 				   router_callback_t&& cb) :
 		WFRouterTask(std::move(cb)),
 		type_(params->type),
-		host_(host),
-		port_(port),
+		host_(params->uri.host ? params->uri.host : ""),
+		port_(params->uri.port ? atoi(params->uri.port) : 0),
 		info_(params->info),
 		dns_cache_level_(dns_cache_level),
 		dns_ttl_default_(dns_ttl_default),
@@ -285,13 +284,12 @@ void WFResolverTask::dns_callback(WFDNSTask *dns_task)
 }
 
 inline WFRouterTask *
-WFDNSResolver::create(const char *host, unsigned short port,
-					  const struct WFNSParams *params, int dns_cache_level,
+WFDNSResolver::create(const struct WFNSParams *params, int dns_cache_level,
 					  unsigned int dns_ttl_default, unsigned int dns_ttl_min,
 					  const struct EndpointParams *endpoint_params,
 					  router_callback_t&& callback)
 {
-	return new WFResolverTask(host, port, params, dns_cache_level,
+	return new WFResolverTask(params, dns_cache_level,
 							  dns_ttl_default, dns_ttl_min,
 							  endpoint_params, std::move(callback));
 }
@@ -305,9 +303,7 @@ WFRouterTask *WFDNSResolver::create_router_task(const struct WFNSParams *params,
 	const struct EndpointParams *endpoint_params = &settings->endpoint_params;
 	int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
 													 DNS_CACHE_LEVEL_1;
-	return create(params->uri.host ? params->uri.host : "",
-				  params->uri.port ? atoi(params->uri.port) : 0,
-				  params, dns_cache_level, dns_ttl_default, dns_ttl_min,
+	return create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 				  endpoint_params, std::move(callback));
 }
 

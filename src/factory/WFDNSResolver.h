@@ -29,8 +29,7 @@ public:
 											 router_callback_t callback);
 
 protected:
-	WFRouterTask *create(const char *host, unsigned short port,
-						 const struct WFNSParams *params, int dns_cache_level,
+	WFRouterTask *create(const struct WFNSParams *params, int dns_cache_level,
 						 unsigned int dns_ttl_default, unsigned int dns_ttl_min,
 						 const struct EndpointParams *endpoint_params,
 						 router_callback_t&& callback);

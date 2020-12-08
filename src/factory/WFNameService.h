@@ -60,7 +60,7 @@ public:
 struct WFNSParams
 {
 	TransportType type;
-	const ParsedURI& uri;
+	ParsedURI& uri;
 	const char *info;
 	bool fixed_addr;
 	int retry_times;

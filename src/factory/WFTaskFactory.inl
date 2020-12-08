@@ -31,11 +31,11 @@
 #include "WFGlobal.h"
 #include "Workflow.h"
 #include "WFTask.h"
-#include "UpstreamManager.h"
 #include "RouteManager.h"
 #include "URIParser.h"
 #include "WFTaskError.h"
 #include "EndpointParams.h"
+#include "WFNameService.h"
 
 class __WFTimerTask : public WFTimerTask
 {
@@ -131,102 +131,6 @@ WFTaskFactory::create_dynamic_task(dynamic_create_t create)
 	return new __WFDynamicTask(std::move(create));
 }
 
-/**********WFComplexClientTask**********/
-
-// If you design Derived WFComplexClientTask, You have two choices:
-// 1) First choice will upstream by uri, then dns/dns-cache
-// 2) Second choice will directly communicate without upstream/dns/dns-cache
-
-// 1) First choice:
-// step 1. Child-Constructor call Father-Constructor to new WFComplexClientTask
-// step 2. call init(uri)
-// step 3. call set_type(type)
-// step 4. call set_info(info) or do nothing with info
-
-// 2) Second choice:
-// step 1. Child-Constructor call Father-Constructor to new WFComplexClientTask
-// step 2. call init(type, addr, addrlen, info)
-
-// Some optional APIs for you to implement:
-// [WFComplexTask]
-//       [ChildrenComplexTask]
-// 1. init()
-//       init_succ() or init_failed(); // default: return true;
-// 2. dispatch();
-//       check_request(); // default: return true;
-//       route(); // default:DNS; goto 1;
-// 3. message_out();
-// 4. message_in();
-// 5. keep_alive_timeout();
-// 6. done();
-//       finish_once(); // default: return true; means this is user request.
-//       // If redirect or retry: goto 1;
-
-/*
-DNS_CACHE_LEVEL_0	->	NO cache
-DNS_CACHE_LEVEL_1	->	TTL MIN
-DNS_CACHE_LEVEL_2	->	TTL [DEFAULT]
-DNS_CACHE_LEVEL_3	->	Forever
-*/
-
-#define DNS_CACHE_LEVEL_0		0
-#define DNS_CACHE_LEVEL_1		1
-#define DNS_CACHE_LEVEL_2		2
-#define DNS_CACHE_LEVEL_3		3
-
-class WFRouterTask : public WFGenericTask
-{
-private:
-	using router_callback_t = std::function<void (WFRouterTask *)>;
-	using WFDNSTask = WFThreadTask<DNSInput, DNSOutput>;
-
-public:
-	RouteManager::RouteResult route_result_;
-
-	WFRouterTask(TransportType type,
-				 const std::string& host,
-				 unsigned short port,
-				 const std::string& info,
-				 int dns_cache_level,
-				 unsigned int dns_ttl_default,
-				 unsigned int dns_ttl_min,
-				 const struct EndpointParams *endpoint_params,
-				 bool first_addr_only,
-				 router_callback_t&& callback) :
-		type_(type),
-		host_(host),
-		port_(port),
-		info_(info),
-		dns_cache_level_(dns_cache_level),
-		dns_ttl_default_(dns_ttl_default),
-		dns_ttl_min_(dns_ttl_min),
-		endpoint_params_(*endpoint_params),
-		first_addr_only_(first_addr_only),
-		callback_(std::move(callback))
-	{}
-
-private:
-	virtual void dispatch();
-	virtual SubTask *done();
-	void dns_callback(WFDNSTask *dns_task);
-	void dns_callback_internal(DNSOutput *dns_task,
-							   unsigned int ttl_default,
-							   unsigned int ttl_min);
-
-private:
-	TransportType type_;
-	std::string host_;
-	unsigned short port_;
-	std::string info_;
-	int dns_cache_level_;
-	unsigned int dns_ttl_default_;
-	unsigned int dns_ttl_min_;
-	struct EndpointParams endpoint_params_;
-	bool first_addr_only_;
-	bool insert_dns_;
-	router_callback_t callback_;
-};
-
 template<class REQ, class RESP, typename CTX = bool>
 class WFComplexClientTask : public WFClientTask<REQ, RESP>
 {
@@ -238,11 +142,10 @@ public:
 		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(),
 								std::move(callback)),
 		retry_max_(retry_max),
-		first_addr_only_(false),
+		fixed_addr_(false),
 		router_task_(NULL),
 		type_(TT_TCP),
 		retry_times_(0),
-		is_retry_(false),
 		has_original_uri_(true),
 		redirect_(false)
 	{}
@@ -252,7 +155,7 @@ protected:
 	virtual bool init_success() { return true; }
 	virtual void init_failed() {}
 	virtual bool check_request() { return true; }
-	virtual SubTask *route();
+	virtual WFRouterTask *route();
 	virtual bool finish_once() { return true; }
 
 public:
@@ -354,9 +257,9 @@ protected:
 
 	int retry_max_;
 	bool is_sockaddr_;
-	bool first_addr_only_;
+	bool fixed_addr_;
 	CTX ctx_;
-	SubTask *router_task_;
+	WFRouterTask *router_task_;
 
 public:
 	CTX *get_mutable_ctx() { return &ctx_; }
@@ -364,11 +267,10 @@ public:
 private:
 	void init_with_uri();
 	bool set_port();
-	void router_callback(SubTask *task); // default: DNS
+	void router_callback(WFRouterTask *task);
 	void switch_callback(WFTimerTask *task);
 
 	RouteManager::RouteResult route_result_;
-	UpstreamManager::UpstreamResult upstream_result_;
 
 	TransportType type_;
 	std::string info_;
@@ -377,7 +279,6 @@ private:
 
 	/* state 0: uninited or failed; 1: inited but not checked; 2: checked. */
 	char init_state_;
-	bool is_retry_;
 	bool has_original_uri_;
 	bool redirect_;
 };
@@ -482,23 +383,8 @@ void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 	route_result_.clear();
 	if (uri_.state == URI_STATE_SUCCESS && this->set_port())
 	{
-		int ret = UpstreamManager::choose(uri_, upstream_result_);
-
-		if (ret < 0)
-		{
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = errno;
-		}
-		else if (upstream_result_.state == UPSTREAM_ALL_DOWN)
-		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_UPSTREAM_UNAVAILABLE;
-		}
-		else
-		{
-			init_state_ = this->init_success() ? 1 : 0;
-			return;
-		}
+		init_state_ = this->init_success() ? 1 : 0;
+		return;
 	}
 	else
 	{
@@ -519,40 +405,21 @@ void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 }
 
 template<class REQ, class RESP, typename CTX>
-SubTask *WFComplexClientTask<REQ, RESP, CTX>::route()
+WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 {
-	unsigned int dns_ttl_default;
-	unsigned int dns_ttl_min;
-	const struct EndpointParams *endpoint_params;
-
-	int dns_cache_level = (is_retry_ ? DNS_CACHE_LEVEL_1
-									 : DNS_CACHE_LEVEL_2);
 	auto&& cb = std::bind(&WFComplexClientTask::router_callback,
 						  this,
 						  std::placeholders::_1);
-
-	is_retry_ = false;//route means refresh DNS cache level
-	if (upstream_result_.state == UPSTREAM_SUCCESS)
-	{
-		const auto *params = upstream_result_.address_params;
-
-		dns_ttl_default = params->dns_ttl_default;
-		dns_ttl_min = params->dns_ttl_min;
-		endpoint_params = &params->endpoint_params;
-	}
-	else
-	{
-		const auto *params = WFGlobal::get_global_settings();
-
-		dns_ttl_default = params->dns_ttl_default;
-		dns_ttl_min = params->dns_ttl_min;
-		endpoint_params = &params->endpoint_params;
-	}
-
-	return new WFRouterTask(type_, uri_.host ? uri_.host : "",
-							uri_.port ? atoi(uri_.port) : 0, info_,
-							dns_cache_level, dns_ttl_default, dns_ttl_min,
-							endpoint_params, first_addr_only_, std::move(cb));
+	WFNameService *ns = WFGlobal::get_name_service();
+	WFNSPolicy *policy = ns->get_policy(uri_.host);
+	struct WFNSParams params = {
+		.type			=	type_,
+		.uri			=	uri_,
+		.info			=	info_.c_str(),
+		.fixed_addr		=	fixed_addr_,
+		.retry_times	=	retry_times_,
+	};
+	return policy->create_router_task(&params, cb);
 }
 
 /*
@@ -565,25 +432,22 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::route()
  *				2. this->callback() is necessary;
 */
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::router_callback(SubTask *task)
+void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 {
-	WFRouterTask *router_task = static_cast<WFRouterTask *>(task);
-	int state = router_task->get_state();
+	int state = task->get_state();
 
 	if (state == WFT_STATE_SUCCESS)
-		route_result_ = router_task->route_result_;
+		route_result_ = std::move(*task->get_result());
 	else
 	{
 		this->state = state;
-		this->error = router_task->get_error();
+		this->error = task->get_error();
 	}
 
 	if (route_result_.request_object)
 		series_of(this)->push_front(this);
 	else
 	{
-		UpstreamManager::notify_unavailable(upstream_result_.cookie);
-
 		if (this->callback)
 			this->callback(this);
 
@@ -694,8 +558,6 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		if (this->state == WFT_STATE_SUCCESS)
 		{
 			RouteManager::notify_available(route_result_.cookie, this->target);
-			UpstreamManager::notify_available(upstream_result_.cookie);
-			upstream_result_.clear();
 			// 4. children message out sth. else
 			if (!is_user_request)
 				return this;
@@ -703,7 +565,6 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		else if (this->state == WFT_STATE_SYS_ERROR)
 		{
 			RouteManager::notify_unavailable(route_result_.cookie, this->target);
-			UpstreamManager::notify_unavailable(upstream_result_.cookie);
 			// 5. complex task failed: retry
 			if (retry_times_ < retry_max_)
 			{
@@ -711,8 +572,6 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 					set_retry();
 				else
 					set_retry(original_uri_);
-
-				is_retry_ = true; // will influence next round dns cache time
 			}
 		}
 	}

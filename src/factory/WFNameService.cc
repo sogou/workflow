@@ -73,7 +73,7 @@ int WFNameService::add_policy(const char *name, WFNSPolicy *policy)
 	return ret;
 }
 
-struct WFNSPolicyEntry *WFNameService::get_policy_entry(const char *name)
+inline struct WFNSPolicyEntry *WFNameService::get_policy_entry(const char *name)
 {
 	struct rb_node *p = this->root.rb_node;
 	struct WFNSPolicyEntry *entry;
@@ -96,37 +96,33 @@ struct WFNSPolicyEntry *WFNameService::get_policy_entry(const char *name)
 
 WFNSPolicy *WFNameService::get_policy(const char *name)
 {
+	WFNSPolicy *policy = this->default_policy;
 	struct WFNSPolicyEntry *entry;
 
 	pthread_rwlock_rdlock(&this->rwlock);
 	entry = this->get_policy_entry(name);
-	pthread_rwlock_unlock(&this->rwlock);
+	if (entry)
+		policy = entry->policy;
 
-	return entry ? entry->policy : this->default_policy;
+	pthread_rwlock_unlock(&this->rwlock);
+	return policy;
 }
 
 WFNSPolicy *WFNameService::del_policy(const char *name)
 {
+	WFNSPolicy *policy = NULL;
 	struct WFNSPolicyEntry *entry;
-	WFNSPolicy *policy;
 
 	pthread_rwlock_wrlock(&this->rwlock);
 	entry = this->get_policy_entry(name);
 	if (entry)
-		rb_erase(&entry->rb, &this->root);
-
-	pthread_rwlock_unlock(&this->rwlock);
-	if (entry)
 	{
 		policy = entry->policy;
-		free(entry);
-	}
-	else
-	{
-		policy = NULL;
-		errno = ENOENT;
+		rb_erase(&entry->rb, &this->root);
 	}
 
+	pthread_rwlock_unlock(&this->rwlock);
+	free(entry);
 	return policy;
 }
 

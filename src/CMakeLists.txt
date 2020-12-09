@@ -3,12 +3,7 @@ cmake_minimum_required(VERSION 3.6)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
-if (WIN32)
-	add_subdirectory(kernel_win)
-else ()
-	add_subdirectory(kernel)
-endif ()
-
+add_subdirectory(kernel)
 add_subdirectory(util)
 add_subdirectory(manager)
 add_subdirectory(algorithm)
@@ -71,12 +66,16 @@ else ()
 endif ()
 
 if (KAFKA STREQUAL "y")
-	set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.so)
-	add_custom_target(
-		SCRIPT_SHARED_LIB_KAFKA ALL
-		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
-	)
-	add_dependencies(SCRIPT_SHARED_LIB_KAFKA "wfkafka")
+	if (APPLE)
+		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.a)
+	else ()
+		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.so)
+		add_custom_target(
+			SCRIPT_SHARED_LIB_KAFKA ALL
+			COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
+		)
+		add_dependencies(SCRIPT_SHARED_LIB_KAFKA "wfkafka")
+	endif ()
 endif ()
 
 install(

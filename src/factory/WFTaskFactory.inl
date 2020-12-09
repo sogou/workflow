@@ -407,11 +407,11 @@ void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 template<class REQ, class RESP, typename CTX>
 WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 {
+	WFNameService *ns = WFGlobal::get_name_service();
+	WFNSPolicy *policy = ns->get_policy(uri_.host ? uri_.host : "");
 	auto&& cb = std::bind(&WFComplexClientTask::router_callback,
 						  this,
 						  std::placeholders::_1);
-	WFNameService *ns = WFGlobal::get_name_service();
-	WFNSPolicy *policy = ns->get_policy(uri_.host);
 	struct WFNSParams params = {
 		.type			=	type_,
 		.uri			=	uri_,

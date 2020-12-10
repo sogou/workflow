@@ -138,15 +138,14 @@ protected:
 	using task_callback_t = std::function<void (WFNetworkTask<REQ, RESP> *)>;
 
 public:
-	WFComplexClientTask(int retry_max, task_callback_t&& callback):
-		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(),
-								std::move(callback)),
+	WFComplexClientTask(int retry_max, task_callback_t&& cb):
+		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(), std::move(cb)),
 		retry_max_(retry_max),
 		fixed_addr_(false),
 		router_task_(NULL),
 		type_(TT_TCP),
 		retry_times_(0),
-		has_original_uri_(true),
+		is_original_uri_(true),
 		redirect_(false)
 	{}
 
@@ -177,7 +176,6 @@ public:
 	void init(const ParsedURI& uri)
 	{
 		is_sockaddr_ = false;
-		init_state_ = 0;
 		uri_ = uri;
 		init_with_uri();
 	}
@@ -185,7 +183,6 @@ public:
 	void init(ParsedURI&& uri)
 	{
 		is_sockaddr_ = false;
-		init_state_ = 0;
 		uri_ = std::move(uri);
 		init_with_uri();
 	}
@@ -195,7 +192,11 @@ public:
 			  socklen_t addrlen,
 			  const std::string& info);
 
-	const ParsedURI *get_original_uri() const { return &original_uri_; }
+	const ParsedURI *get_original_uri() const
+	{
+		return is_original_uri_ ? &uri_ : &original_uri_;
+	}
+
 	const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
@@ -214,12 +215,6 @@ public:
 	}
 
 protected:
-	void set_redirect()
-	{
-		redirect_ = true;
-		retry_times_ = 0;
-	}
-
 	void set_retry(const ParsedURI& uri)
 	{
 		redirect_ = true;
@@ -230,6 +225,9 @@ protected:
 	void set_retry()
 	{
 		redirect_ = true;
+		this->state = WFT_STATE_UNDEFINED;
+		this->error = 0;
+		this->timeout_reason = 0;
 		retry_times_++;
 	}
 
@@ -276,10 +274,7 @@ private:
 	std::string info_;
 
 	int retry_times_;
-
-	/* state 0: uninited or failed; 1: inited but not checked; 2: checked. */
-	char init_state_;
-	bool has_original_uri_;
+	bool is_original_uri_;
 	bool redirect_;
 };
 
@@ -289,8 +284,20 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 											   socklen_t addrlen,
 											   const std::string& info)
 {
+	if (redirect_)
+	{
+		route_result_.clear();
+		this->state = WFT_STATE_UNDEFINED;
+		this->error = 0;
+		this->timeout_reason = TOR_NOT_TIMEOUT;
+		if (is_original_uri_)
+		{
+			original_uri_ = uri_;
+			is_original_uri_ = false;
+		}
+	}
+
 	is_sockaddr_ = true;
-	init_state_ = 0;
 	type_ = type;
 	info_.assign(info);
 	struct addrinfo addrinfo;
@@ -311,17 +318,8 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 		this->state = WFT_STATE_SYS_ERROR;
 		this->error = errno;
 	}
-	else if (!route_result_.request_object)
-	{
-		//should not happen
-		this->state = WFT_STATE_SYS_ERROR;
-		this->error = EAGAIN;
-	}
-	else
-	{
-		init_state_ = this->init_success() ? 1 : 0;
+	else if (this->init_success())
 		return;
-	}
 
 	this->init_failed();
 	return;
@@ -374,17 +372,23 @@ bool WFComplexClientTask<REQ, RESP, CTX>::set_port()
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
-	if (has_original_uri_)
+	if (redirect_)
 	{
-		original_uri_ = uri_;
-		has_original_uri_ = true;
+		route_result_.clear();
+		this->state = WFT_STATE_UNDEFINED;
+		this->error = 0;
+		this->timeout_reason = TOR_NOT_TIMEOUT;
+		if (is_original_uri_)
+		{
+			original_uri_ = uri_;
+			is_original_uri_ = false;
+		}
 	}
 
-	route_result_.clear();
 	if (uri_.state == URI_STATE_SUCCESS && this->set_port())
 	{
-		init_state_ = this->init_success() ? 1 : 0;
-		return;
+		if (this->init_success())
+			return;
 	}
 	else
 	{
@@ -434,73 +438,30 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 {
-	int state = task->get_state();
-
-	if (state == WFT_STATE_SUCCESS)
+	this->state = task->get_state();
+	if (this->state == WFT_STATE_SUCCESS)
 		route_result_ = std::move(*task->get_result());
 	else
-	{
-		this->state = state;
 		this->error = task->get_error();
-	}
-
-	if (route_result_.request_object)
-		series_of(this)->push_front(this);
-	else
-	{
-		if (this->callback)
-			this->callback(this);
-
-		if (redirect_)
-		{
-			init_state_ = this->init_success() ? 1 : 0;
-			redirect_ = false;
-			this->state = WFT_STATE_UNDEFINED;
-			this->error = 0;
-			this->timeout_reason = TOR_NOT_TIMEOUT;
-			series_of(this)->push_front(this);
-		}
-		else
-			delete this;
-	}
 }
 
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 {
-	// 1. children check_request()
-	if (init_state_ == 1)
-		init_state_ = this->check_request() ? 2 : 0;
-
-	if (init_state_)
+	if (this->state == WFT_STATE_UNDEFINED)
 	{
-		if (route_result_.request_object)
+		if (this->check_request())
 		{
-			// 2. origin task dispatch()
-			this->set_request_object(route_result_.request_object);
-			this->WFClientTask<REQ, RESP>::dispatch();
-			return;
-		}
-
-		if (is_sockaddr_ || uri_.state == URI_STATE_SUCCESS)
-		{
-			// 3. DNS route() or children route()
 			router_task_ = this->route();
+			series_of(this)->push_front(this);
 			series_of(this)->push_front(router_task_);
 		}
-		else
-		{
-			if (uri_.state == URI_STATE_ERROR)
-			{
-				this->state = WFT_STATE_SYS_ERROR;
-				this->error = uri_.error;
-			}
-			else
-			{
-				this->state = WFT_STATE_TASK_ERROR;
-				this->error = WFT_ERR_URI_PARSE_FAILED;
-			}
-		}
+	}
+	else if (this->state == WFT_STATE_SUCCESS)
+	{
+		this->set_request_object(route_result_.request_object);
+		this->WFClientTask<REQ, RESP>::dispatch();
+		return;
 	}
 
 	this->subtask_done();
@@ -517,21 +478,15 @@ void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
 			this->error = -this->error;
 		}
 
-		// 4. children finish before user callback
 		if (this->callback)
 			this->callback(this);
 	}
 
 	if (redirect_)
 	{
-		init_state_ = this->init_success() ? 1 : 0;
 		redirect_ = false;
 		clear_resp();
-
 		this->target = NULL;
-		this->timeout_reason = TOR_NOT_TIMEOUT;
-		this->state = WFT_STATE_UNDEFINED;
-		this->error = 0;
 		series_of(this)->push_front(this);
 	}
 	else
@@ -543,36 +498,29 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 {
 	SeriesWork *series = series_of(this);
 
-	// 1. routing
 	if (router_task_)
 	{
 		router_task_ = NULL;
 		return series->pop();
 	}
 
-	if (init_state_)
+	bool is_user_request = this->finish_once();
+
+	if (this->state == WFT_STATE_SUCCESS)
 	{
-		// 2. children can set_redirect() here
-		bool is_user_request = this->finish_once();
-		// 3. complex task success
-		if (this->state == WFT_STATE_SUCCESS)
+		RouteManager::notify_available(route_result_.cookie, this->target);
+		if (!is_user_request)
+			return this;
+	}
+	else if (this->state == WFT_STATE_SYS_ERROR)
+	{
+		RouteManager::notify_unavailable(route_result_.cookie, this->target);
+		if (retry_times_ < retry_max_)
 		{
-			RouteManager::notify_available(route_result_.cookie, this->target);
-			// 4. children message out sth. else
-			if (!is_user_request)
-				return this;
-		}
-		else if (this->state == WFT_STATE_SYS_ERROR)
-		{
-			RouteManager::notify_unavailable(route_result_.cookie, this->target);
-			// 5. complex task failed: retry
-			if (retry_times_ < retry_max_)
-			{
-				if (is_sockaddr_)
-					set_retry();
-				else
-					set_retry(original_uri_);
-			}
+			if (is_sockaddr_)
+				set_retry();
+			else
+				set_retry(uri_);
 		}
 	}
 
@@ -587,7 +535,6 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 							  this,
 							  std::placeholders::_1);
 		WFTimerTask *timer = WFTaskFactory::create_timer_task(0, std::move(cb));
-
 		series->push_front(timer);
 	}
 	else

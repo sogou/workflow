@@ -319,7 +319,10 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 		this->error = errno;
 	}
 	else if (this->init_success())
+	{
+		this->state = WFT_STATE_SUCCESS;
 		return;
+	}
 
 	this->init_failed();
 	return;

@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
 */
 
@@ -139,15 +139,15 @@ protected:
 
 public:
 	WFComplexClientTask(int retry_max, task_callback_t&& cb):
-		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(), std::move(cb)),
-		retry_max_(retry_max),
-		fixed_addr_(false),
-		router_task_(NULL),
-		type_(TT_TCP),
-		retry_times_(0),
-		is_original_uri_(true),
-		redirect_(false)
-	{}
+		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(), std::move(cb))
+	{
+		type_ = TT_TCP;
+		fixed_addr_ = false;
+		retry_max_ = retry_max;
+		retry_times_ = 0;
+		redirect_ = false;
+		router_task_ = NULL;
+	}
 
 protected:
 	// new api for children
@@ -191,11 +191,6 @@ public:
 			  const struct sockaddr *addr,
 			  socklen_t addrlen,
 			  const std::string& info);
-
-	const ParsedURI *get_original_uri() const
-	{
-		return is_original_uri_ ? &uri_ : &original_uri_;
-	}
 
 	const ParsedURI *get_current_uri() const { return &uri_; }
 
@@ -250,14 +245,18 @@ protected:
 
 	TransportType get_transport_type() const { return type_; }
 
+protected:
+	TransportType type_;
 	ParsedURI uri_;
-	ParsedURI original_uri_;
-
-	int retry_max_;
+	std::string info_;
 	bool is_sockaddr_;
 	bool fixed_addr_;
+	bool redirect_;
 	CTX ctx_;
+	int retry_max_;
+	int retry_times_;
 	WFRouterTask *router_task_;
+	RouteManager::RouteResult route_result_;
 
 public:
 	CTX *get_mutable_ctx() { return &ctx_; }
@@ -267,15 +266,6 @@ private:
 	bool set_port();
 	void router_callback(WFRouterTask *task);
 	void switch_callback(WFTimerTask *task);
-
-	RouteManager::RouteResult route_result_;
-
-	TransportType type_;
-	std::string info_;
-
-	int retry_times_;
-	bool is_original_uri_;
-	bool redirect_;
 };
 
 template<class REQ, class RESP, typename CTX>
@@ -290,11 +280,6 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
-		if (is_original_uri_)
-		{
-			original_uri_ = uri_;
-			is_original_uri_ = false;
-		}
 	}
 
 	is_sockaddr_ = true;
@@ -319,13 +304,9 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 		this->error = errno;
 	}
 	else if (this->init_success())
-	{
-		this->state = WFT_STATE_SUCCESS;
 		return;
-	}
 
 	this->init_failed();
-	return;
 }
 
 template<class REQ, class RESP, typename CTX>
@@ -381,34 +362,28 @@ void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
-		if (is_original_uri_)
-		{
-			original_uri_ = uri_;
-			is_original_uri_ = false;
-		}
 	}
 
-	if (uri_.state == URI_STATE_SUCCESS && this->set_port())
+	if (uri_.state == URI_STATE_SUCCESS)
 	{
-		if (this->init_success())
-			return;
+		if (this->set_port())
+		{
+			if (this->init_success())
+				return;
+		}
+	}
+	else if (uri_.state == URI_STATE_ERROR)
+	{
+		this->state = WFT_STATE_SYS_ERROR;
+		this->error = uri_.error;
 	}
 	else
 	{
-		if (uri_.state == URI_STATE_ERROR)
-		{
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = uri_.error;
-		}
-		else
-		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_URI_PARSE_FAILED;
-		}
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_URI_PARSE_FAILED;
 	}
 
 	this->init_failed();
-	return;
 }
 
 template<class REQ, class RESP, typename CTX>
@@ -429,21 +404,18 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 	return policy->create_router_task(&params, cb);
 }
 
-/*
- * router callback`s obligation:
- * if success:
- * 				1. set route_result_ or call this->init()
- * 				2. series->push_front(ORIGIN_TASK)
- * if failed:
- *				1. this->finish_once() is optional;
- *				2. this->callback() is necessary;
-*/
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 {
 	this->state = task->get_state();
 	if (this->state == WFT_STATE_SUCCESS)
 		route_result_ = std::move(*task->get_result());
+	else if (this->state == WFT_STATE_UNDEFINED)
+	{
+		/* should not happend */
+		this->state = WFT_STATE_SYS_ERROR;
+		this->error = ENOSYS;
+	}
 	else
 		this->error = task->get_error();
 }
@@ -451,20 +423,26 @@ void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 {
-	if (this->state == WFT_STATE_UNDEFINED)
+	switch (this->state)
 	{
+	case WFT_STATE_UNDEFINED:
 		if (this->check_request())
 		{
+			if (this->route_result_.request_object)
+			{
+	case WFT_STATE_SUCCESS:
+				this->set_request_object(route_result_.request_object);
+				this->WFClientTask<REQ, RESP>::dispatch();
+				return;
+			}
+
 			router_task_ = this->route();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(router_task_);
 		}
-	}
-	else if (this->state == WFT_STATE_SUCCESS)
-	{
-		this->set_request_object(route_result_.request_object);
-		this->WFClientTask<REQ, RESP>::dispatch();
-		return;
+
+	default:
+		break;
 	}
 
 	this->subtask_done();
@@ -528,9 +506,9 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 	}
 
 	/*
-	 * When target is NULL, it's very likely that we are still in the
-	 * 'dispatch' thread. Running a timer will switch callback function
-	 * to a handler thread, and this can prevent stack overflow.
+	 * When target is NULL, it's very likely that we are in the caller's
+	 * thread or DNS thread (dns failed). Running a timer will switch callback
+	 * function to a handler thread, and this can prevent stack overflow.
 	 */
 	if (!this->target)
 	{

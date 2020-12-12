@@ -175,14 +175,12 @@ public:
 
 	void init(const ParsedURI& uri)
 	{
-		is_sockaddr_ = false;
 		uri_ = uri;
 		init_with_uri();
 	}
 
 	void init(ParsedURI&& uri)
 	{
-		is_sockaddr_ = false;
 		uri_ = std::move(uri);
 		init_with_uri();
 	}
@@ -210,22 +208,6 @@ public:
 	}
 
 protected:
-	void set_retry(const ParsedURI& uri)
-	{
-		redirect_ = true;
-		init(uri);
-		retry_times_++;
-	}
-
-	void set_retry()
-	{
-		redirect_ = true;
-		this->state = WFT_STATE_UNDEFINED;
-		this->error = 0;
-		this->timeout_reason = 0;
-		retry_times_++;
-	}
-
 	virtual void dispatch();
 	virtual SubTask *done();
 
@@ -249,7 +231,6 @@ protected:
 	TransportType type_;
 	ParsedURI uri_;
 	std::string info_;
-	bool is_sockaddr_;
 	bool fixed_addr_;
 	bool redirect_;
 	CTX ctx_;
@@ -282,7 +263,6 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 		this->timeout_reason = TOR_NOT_TIMEOUT;
 	}
 
-	is_sockaddr_ = true;
 	type_ = type;
 	info_.assign(info);
 	struct addrinfo addrinfo;
@@ -423,26 +403,20 @@ void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 {
-	switch (this->state)
+	if (this->state == WFT_STATE_UNDEFINED)
 	{
-	case WFT_STATE_UNDEFINED:
 		if (this->check_request())
 		{
-			if (this->route_result_.request_object)
-			{
-	case WFT_STATE_SUCCESS:
-				this->set_request_object(route_result_.request_object);
-				this->WFClientTask<REQ, RESP>::dispatch();
-				return;
-			}
-
 			router_task_ = this->route();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(router_task_);
 		}
-
-	default:
-		break;
+	}
+	else if (this->state == WFT_STATE_SUCCESS)
+	{
+		this->set_request_object(route_result_.request_object);
+		this->WFClientTask<REQ, RESP>::dispatch();
+		return;
 	}
 
 	this->subtask_done();
@@ -498,10 +472,11 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		RouteManager::notify_unavailable(route_result_.cookie, this->target);
 		if (retry_times_ < retry_max_)
 		{
-			if (is_sockaddr_)
-				set_retry();
-			else
-				set_retry(uri_);
+			redirect_ = true;
+			this->state = WFT_STATE_UNDEFINED;
+			this->error = 0;
+			this->timeout_reason = 0;
+			retry_times_++;
 		}
 	}
 

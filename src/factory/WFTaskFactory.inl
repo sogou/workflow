@@ -403,20 +403,26 @@ void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 {
-	if (this->state == WFT_STATE_UNDEFINED)
+	switch (this->state)
 	{
+	case WFT_STATE_UNDEFINED:
 		if (this->check_request())
 		{
+			if (this->route_result_.request_object)
+			{
+	case WFT_STATE_SUCCESS:
+				this->set_request_object(route_result_.request_object);
+				this->WFClientTask<REQ, RESP>::dispatch();
+				return;
+			}
+
 			router_task_ = this->route();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(router_task_);
 		}
-	}
-	else if (this->state == WFT_STATE_SUCCESS)
-	{
-		this->set_request_object(route_result_.request_object);
-		this->WFClientTask<REQ, RESP>::dispatch();
-		return;
+
+	default:
+		break;
 	}
 
 	this->subtask_done();

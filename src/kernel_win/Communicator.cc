@@ -867,7 +867,9 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 
 			session = entry->session;
 			session->in = session->message_in();
-			if (session->in == NULL)
+			if (session->in)
+				session->in->entry = entry;
+			else
 			{
 				cs_state = CS_STATE_ERROR;
 				res->error = errno;
@@ -961,7 +963,9 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 		if (ctx->msgsize == 0)
 		{
 			session->in = session->message_in();
-			if (session->in == NULL)
+			if (session->in)
+				session->in->entry = entry;
+			else
 			{
 				cs_state = CS_STATE_ERROR;
 				res->error = errno;

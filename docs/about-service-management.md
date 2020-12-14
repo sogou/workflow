@@ -172,11 +172,9 @@ struct AddressParams
  * - If max_fails is set to 1, it means server would out of upstream selection in 30 seconds when failed only once
  */
     unsigned int max_fails;                ///< [1, INT32_MAX] max_fails = 0 means max_fails = 1
-    unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for master
-#define SERVER_TYPE_MASTER    0
-#define SERVER_TYPE_SLAVE     1
-    int server_type;                       ///< default is SERVER_TYPE_MASTER
-    int group_id;                          ///< -1 means no group. Slave without group will backup for any master
+    unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for main server
+    int server_type;                       ///< 0 for main and 1 for backup
+    int group_id;                          ///< -1 means no group. Backup without group will backup for any main node
 };
 ~~~
 大多数参数的作用一眼了然。其中endpoint_params和dns相关参数，可以覆盖全局的配置。  
@@ -190,7 +188,7 @@ struct AddressParams
 max_fails参数为最大出错次数，如果选取目标连续出错达到max_fails则熔断，如果upstream的try_another属性为false，则任务失败，  
 在任务callback里，get_state()=WFT_STATE_TASK_ERROR，get_error()=WFT_ERR_UPSTREAM_UNAVAILABLE。  
 如果try_another为true，并且所有server都熔断的话，会得到同样错误。熔断时间为30秒。  
-server_type和group_id用于主备功能。所有upstream必需有type为MASTER的server，否则upstream不可用。  
-类型为SLAVE的server，会在同group_id的MASTER熔断情况下被使用。  
+server_type和group_id用于主备功能。所有upstream必需有type为0(主节点)的server，否则upstream不可用。  
+类型为1（备份节点）的server，会在同group_id的主节点熔断情况下被使用。  
 
 更多upstream功能查询：[about-upstream.md](./about-upstream.md)。

@@ -67,8 +67,8 @@ public:
 	Upstream *upstream;
 	struct rb_node rb;
 	std::mutex mutex;
-	std::vector<UpstreamAddress *> masters;
-	std::vector<UpstreamAddress *> slaves;
+	std::vector<UpstreamAddress *> mains;
+	std::vector<UpstreamAddress *> backups;
 	struct list_head breaker_list;
 	std::atomic<int> nbreak;
 	std::atomic<int> nalive;
@@ -87,7 +87,7 @@ public:
 	}
 
 	const UpstreamAddress *get_one();
-	const UpstreamAddress *get_one_slave();
+	const UpstreamAddress *get_one_backup();
 };
 
 class Upstream
@@ -106,7 +106,7 @@ public:
 	int set_attr(bool try_another, upstream_route_t rehash_callback);
 	void check_one_breaker(UpstreamGroup *group, int64_t cur_time);
 	void check_all_breaker();
-	void get_all_master(std::vector<std::string>& addr_list);
+	void get_all_main(std::vector<std::string>& addr_list);
 
 	static void notify_unavailable(UpstreamAddress *ua);
 	static void notify_available(UpstreamAddress *ua);
@@ -115,7 +115,7 @@ protected:
 	RWLock rwlock_;
 	int total_weight_;
 	int available_weight_;
-	std::vector<UpstreamAddress *> masters_;
+	std::vector<UpstreamAddress *> mains_;
 	std::unordered_map<std::string, std::vector<UpstreamAddress *>> server_map_;
 	struct rb_root group_map_;
 	upstream_route_t select_callback_;
@@ -138,35 +138,35 @@ const UpstreamAddress *UpstreamGroup::get_one()
 
 	std::lock_guard<std::mutex> lock(this->mutex);
 
-	std::random_shuffle(this->masters.begin(), this->masters.end());
-	for (const auto *master : this->masters)
+	std::random_shuffle(this->mains.begin(), this->mains.end());
+	for (const auto *main : this->mains)
 	{
-		if (master->fail_count < master->params.max_fails)
-			return master;
+		if (main->fail_count < main->params.max_fails)
+			return main;
 	}
 
-	std::random_shuffle(this->slaves.begin(), this->slaves.end());
-	for (const auto *slave : this->slaves)
+	std::random_shuffle(this->backups.begin(), this->backups.end());
+	for (const auto *backup : this->backups)
 	{
-		if (slave->fail_count < slave->params.max_fails)
-			return slave;
+		if (backup->fail_count < backup->params.max_fails)
+			return backup;
 	}
 
 	return NULL;
 }
 
-const UpstreamAddress *UpstreamGroup::get_one_slave()
+const UpstreamAddress *UpstreamGroup::get_one_backup()
 {
 	if (this->nalive == 0)
 		return NULL;
 
 	std::lock_guard<std::mutex> lock(this->mutex);
 
-	std::random_shuffle(this->slaves.begin(), this->slaves.end());
-	for (const auto *slave : this->slaves)
+	std::random_shuffle(this->backups.begin(), this->backups.end());
+	for (const auto *backup : this->backups)
 	{
-		if (slave->fail_count < slave->params.max_fails)
-			return slave;
+		if (backup->fail_count < backup->params.max_fails)
+			return backup;
 	}
 
 	return NULL;
@@ -254,7 +254,7 @@ void Upstream::lose_one_server(UpstreamGroup *group, const UpstreamAddress *ua)
 	if (--group->nalive == 0 && ua->params.group_id >= 0)
 		available_weight_ -= group->weight;
 
-	if (ua->params.group_id < 0 && ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.group_id < 0 && ua->params.server_type == 0)
 		available_weight_ -= ua->params.weight;
 }
 
@@ -263,7 +263,7 @@ void Upstream::gain_one_server(UpstreamGroup *group, const UpstreamAddress *ua)
 	if (group->nalive++ == 0 && ua->params.group_id >= 0)
 		available_weight_ += group->weight;
 
-	if (ua->params.group_id < 0 && ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.group_id < 0 && ua->params.server_type == 0)
 		available_weight_ += ua->params.weight;
 }
 
@@ -296,22 +296,22 @@ int Upstream::add(UpstreamAddress *ua)
 		rb_insert_color(&group->rb, &group_map_);
 	}
 
-	if (ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.server_type == 0)
 	{
 		total_weight_ += ua->params.weight;
-		masters_.push_back(ua);
+		mains_.push_back(ua);
 	}
 
 	group->mutex.lock();
 	gain_one_server(group, ua);
 	ua->group = group;
-	if (ua->params.server_type == SERVER_TYPE_MASTER)
+	if (ua->params.server_type == 0)
 	{
 		group->weight += ua->params.weight;
-		group->masters.push_back(ua);
+		group->mains.push_back(ua);
 	}
 	else
-		group->slaves.push_back(ua);
+		group->backups.push_back(ua);
 
 	group->mutex.unlock();
 
@@ -330,13 +330,13 @@ int Upstream::del(const std::string& address)
 			auto *group = ua->group;
 			std::vector<UpstreamAddress *> *vec;
 
-			if (ua->params.server_type == SERVER_TYPE_MASTER)
+			if (ua->params.server_type == 0)
 			{
 				total_weight_ -= ua->params.weight;
-				vec = &group->masters;
+				vec = &group->mains;
 			}
 			else
-				vec = &group->slaves;
+				vec = &group->backups;
 
 			std::lock_guard<std::mutex> lock(group->mutex);
 
@@ -344,7 +344,7 @@ int Upstream::del(const std::string& address)
 			if (ua->fail_count < ua->params.max_fails)
 				lose_one_server(group, ua);
 
-			if (ua->params.server_type == SERVER_TYPE_MASTER)
+			if (ua->params.server_type == 0)
 				group->weight -= ua->params.weight;
 
 			for (auto it = vec->begin(); it != vec->end(); ++it)
@@ -360,15 +360,15 @@ int Upstream::del(const std::string& address)
 		server_map_.erase(map_it);
 	}
 
-	int n = (int)masters_.size();
+	int n = (int)mains_.size();
 	int new_n = 0;
 
 	for (int i = 0; i < n; i++)
 	{
-		if (masters_[i]->address != address)
+		if (mains_[i]->address != address)
 		{
 			if (new_n != i)
-				masters_[new_n++] = masters_[i];
+				mains_[new_n++] = mains_[i];
 			else
 				new_n++;
 		}
@@ -376,7 +376,7 @@ int Upstream::del(const std::string& address)
 
 	if (new_n < n)
 	{
-		masters_.resize(new_n);
+		mains_.resize(new_n);
 		return n - new_n;
 	}
 
@@ -425,12 +425,12 @@ void Upstream::enable_server(const std::string& address)
 	}
 }
 
-void Upstream::get_all_master(std::vector<std::string>& addr_list)
+void Upstream::get_all_main(std::vector<std::string>& addr_list)
 {
 	ReadLock lock(rwlock_);
 
-	for (const auto *master : masters_)
-		addr_list.push_back(master->address);
+	for (const auto *main : mains_)
+		addr_list.push_back(main->address);
 }
 
 static inline const UpstreamAddress *__check_get_strong(const UpstreamAddress *ua)
@@ -476,12 +476,12 @@ const UpstreamAddress *Upstream::weighted_random_try_another() const
 	int x = rand() % temp_weight;
 	int s = 0;
 
-	for (const auto *master : masters_)
+	for (const auto *main : mains_)
 	{
-		if (__is_alive_or_group_alive(master))
+		if (__is_alive_or_group_alive(main))
 		{
-			ua = master;
-			s += master->params.weight;
+			ua = main;
+			s += main->params.weight;
 			if (s > x)
 				break;
 		}
@@ -495,20 +495,20 @@ const UpstreamAddress *Upstream::consistent_hash_select(unsigned int hash) const
 	const UpstreamAddress *ua = NULL;
 	unsigned int min_dis = (unsigned int)-1;
 
-	for (const auto *master : masters_)
+	for (const auto *main : mains_)
 	{
-		if (__is_alive_or_group_alive(master))
+		if (__is_alive_or_group_alive(main))
 		{
 			for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
 			{
 				unsigned int dis = std::min<unsigned int>
-										   (hash - master->consistent_hash[i],
-											master->consistent_hash[i] - hash);
+										   (hash - main->consistent_hash[i],
+											main->consistent_hash[i] - hash);
 
 				if (dis < min_dis)
 				{
 					min_dis = dis;
-					ua = master;
+					ua = main;
 				}
 			}
 		}
@@ -587,7 +587,7 @@ const UpstreamAddress *Upstream::get(const ParsedURI& uri)
 	else
 	{
 		ReadLock lock(rwlock_);
-		unsigned int n = (unsigned int)masters_.size();
+		unsigned int n = (unsigned int)mains_.size();
 
 		if (n == 0)
 			return NULL;
@@ -613,7 +613,7 @@ const UpstreamAddress *Upstream::get(const ParsedURI& uri)
 
 			for (idx = 0; idx < n; idx++)
 			{
-				s += masters_[idx]->params.weight;
+				s += mains_[idx]->params.weight;
 				if (s > x)
 					break;
 			}
@@ -622,7 +622,7 @@ const UpstreamAddress *Upstream::get(const ParsedURI& uri)
 				idx = n - 1;
 		}
 
-		ua = masters_[idx];
+		ua = mains_[idx];
 		if (ua->fail_count >= ua->params.max_fails)
 		{
 			check_all_breaker();
@@ -650,7 +650,7 @@ const UpstreamAddress *Upstream::get(const ParsedURI& uri)
 	}
 
 	if (!ua)
-		ua = default_group_->get_one_slave();//get one slave from group[-1]
+		ua = default_group_->get_one_backup();//get one backup from group[-1]
 
 	return ua;
 }
@@ -895,7 +895,7 @@ public:
 		return -1;
 	}
 
-	std::vector<std::string> upstream_master_address_list(const std::string& name)
+	std::vector<std::string> upstream_main_address_list(const std::string& name)
 	{
 		std::vector<std::string> addr_list;
 		Upstream *upstream = NULL;
@@ -908,7 +908,7 @@ public:
 		}
 
 		if (upstream)
-			upstream->get_all_master(addr_list);
+			upstream->get_all_main(addr_list);
 
 		return addr_list;
 	}
@@ -1076,11 +1076,11 @@ int UpstreamManager::upstream_enable_server(const std::string& name,
 	return manager->upstream_enable_server(name, address);
 }
 
-std::vector<std::string> UpstreamManager::upstream_master_address_list(const std::string& name)
+std::vector<std::string> UpstreamManager::upstream_main_address_list(const std::string& name)
 {
 	auto *manager = __UpstreamManager::get_instance();
 
-	return manager->upstream_master_address_list(name);
+	return manager->upstream_main_address_list(name);
 }
 
 int UpstreamManager::upstream_delete(const std::string& name)

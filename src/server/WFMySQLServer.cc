@@ -39,7 +39,7 @@ CommConnection *WFMySQLServer::new_connection(int accept_fd)
 		{
 #ifdef _WIN32
 			for (int i = 0; i < count; i++)
-				_write(accept_fd, vec[i].iov_base, (unsigned int)vec[i].iov_len);
+				send(accept_fd, (const char*)vec[i].iov_base, (int)vec[i].iov_len, 0);
 
 			return conn;
 #else

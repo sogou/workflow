@@ -195,7 +195,7 @@ int CommMessageIn::feedback(const char *buf, size_t size)
 	int ret;
 
 	if (!entry->ssl)
-		return _write((int)entry->sockfd, buf, (unsigned int)size);
+		return send(entry->sockfd, buf, (int)size, 0);
 
 	if (size == 0)
 		return 0;
@@ -215,7 +215,7 @@ int CommMessageIn::feedback(const char *buf, size_t size)
 
 	char *ssl_buf = new char[sz];
 	if (sz == BIO_read(entry->bio_send, ssl_buf, sz))
-		ret = _write((int)entry->sockfd, ssl_buf, (unsigned int)size);
+		ret = send(entry->sockfd, ssl_buf, (int)size, 0);
 	else
 		ret = -1;
 

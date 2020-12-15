@@ -195,7 +195,7 @@ int CommMessageIn::feedback(const char *buf, size_t size)
 	int ret;
 
 	if (!entry->ssl)
-		return _write((int)entry->sockfd, buf, (unsigned int)size);
+		return send(entry->sockfd, buf, (int)size, 0);
 
 	if (size == 0)
 		return 0;
@@ -215,7 +215,7 @@ int CommMessageIn::feedback(const char *buf, size_t size)
 
 	char *ssl_buf = new char[sz];
 	if (sz == BIO_read(entry->bio_send, ssl_buf, sz))
-		ret = _write((int)entry->sockfd, ssl_buf, (unsigned int)size);
+		ret = send(entry->sockfd, ssl_buf, (int)size, 0);
 	else
 		ret = -1;
 
@@ -867,7 +867,9 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 
 			session = entry->session;
 			session->in = session->message_in();
-			if (session->in == NULL)
+			if (session->in)
+				session->in->entry = entry;
+			else
 			{
 				cs_state = CS_STATE_ERROR;
 				res->error = errno;
@@ -961,7 +963,9 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 		if (ctx->msgsize == 0)
 		{
 			session->in = session->message_in();
-			if (session->in == NULL)
+			if (session->in)
+				session->in->entry = entry;
+			else
 			{
 				cs_state = CS_STATE_ERROR;
 				res->error = errno;

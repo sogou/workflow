@@ -72,6 +72,7 @@ WFFuture<WFFacilities::WFNetworkResult<RESP>> WFFacilities::async_request(Transp
 	return fr;
 }
 
+#ifndef _WIN32
 inline WFFuture<ssize_t> WFFacilities::async_pread(int fd, void *buf, size_t count, off_t offset)
 {
 	auto *pr = new WFPromise<ssize_t>();
@@ -137,6 +138,7 @@ inline WFFuture<int> WFFacilities::async_fdatasync(int fd)
 	task->start();
 	return fr;
 }
+#endif
 
 inline void WFFacilities::__timer_future_callback(WFTimerTask *task)
 {

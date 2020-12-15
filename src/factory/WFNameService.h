@@ -23,6 +23,7 @@
 #include <functional>
 #include <utility>
 #include "rbtree.h"
+#include "Communicator.h"
 #include "Workflow.h"
 #include "WFTask.h"
 #include "RouteManager.h"
@@ -33,10 +34,15 @@ class WFRouterTask : public WFGenericTask
 {
 public:
 	RouteManager::RouteResult *get_result() { return &this->result; }
+	void *get_cookie() const { return this->cookie; }
 
 protected:
 	RouteManager::RouteResult result;
+	void *cookie;
 	std::function<void (WFRouterTask *)> callback;
+
+public:
+	void set_cookie(void *cookie) { this->cookie = cookie; }
 
 protected:
 	virtual SubTask *done()
@@ -54,6 +60,7 @@ public:
 	WFRouterTask(std::function<void (WFRouterTask *)>&& cb) :
 		callback(std::move(cb))
 	{
+		this->cookie = NULL;
 	}
 };
 
@@ -73,6 +80,18 @@ class WFNSPolicy
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
 											 router_callback_t callback) = 0;
+
+	virtual void success(RouteManager::RouteResult *result, void *cookie,
+						 CommTarget *target)
+	{
+		RouteManager::notify_available(result->cookie, target);
+	}
+
+	virtual void failed(RouteManager::RouteResult *result, void *cookie,
+						CommTarget *target)
+	{
+		RouteManager::notify_unavailable(result->cookie, target);
+	}
 
 public:
 	virtual ~WFNSPolicy() { }

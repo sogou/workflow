@@ -146,6 +146,7 @@ public:
 		retry_max_ = retry_max;
 		retry_times_ = 0;
 		redirect_ = false;
+		ns_policy_ = NULL;
 		router_task_ = NULL;
 	}
 
@@ -236,8 +237,10 @@ protected:
 	CTX ctx_;
 	int retry_max_;
 	int retry_times_;
+	WFNSPolicy *ns_policy_;
 	WFRouterTask *router_task_;
 	RouteManager::RouteResult route_result_;
+	void *cookie_;
 
 public:
 	CTX *get_mutable_ctx() { return &ctx_; }
@@ -257,28 +260,29 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 {
 	if (redirect_)
 	{
+		ns_policy_ = NULL;
 		route_result_.clear();
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
 	}
 
+	const auto *params = &WFGlobal::get_global_settings()->endpoint_params;
+	struct addrinfo addrinfo = {
+		.ai_flags = 0,
+		.ai_family = addr->sa_family,
+		.ai_socktype = SOCK_STREAM,
+		.ai_protocol = 0,
+		.ai_addr = (struct sockaddr *)addr,
+		.ai_addrlen = addrlen,
+		.ai_canonname = NULL,
+		.ai_next = NULL,
+	};
+
 	type_ = type;
 	info_.assign(info);
-	struct addrinfo addrinfo;
-	const auto *params = &WFGlobal::get_global_settings()->endpoint_params;
-
-	addrinfo.ai_addrlen = addrlen;
-	addrinfo.ai_addr = (struct sockaddr *)addr;
-	addrinfo.ai_canonname = NULL;
-	addrinfo.ai_next = NULL;
-	addrinfo.ai_flags = 0;
-	addrinfo.ai_family = addr->sa_family;
-	addrinfo.ai_socktype = SOCK_STREAM;
-	addrinfo.ai_protocol = 0;
-
 	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, params,
-										  route_result_) < 0)
+										   route_result_) < 0)
 	{
 		this->state = WFT_STATE_SYS_ERROR;
 		this->error = errno;
@@ -338,6 +342,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
 	if (redirect_)
 	{
+		ns_policy_ = NULL;
 		route_result_.clear();
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
@@ -370,7 +375,6 @@ template<class REQ, class RESP, typename CTX>
 WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	WFNSPolicy *policy = ns->get_policy(uri_.host ? uri_.host : "");
 	auto&& cb = std::bind(&WFComplexClientTask::router_callback,
 						  this,
 						  std::placeholders::_1);
@@ -381,7 +385,8 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		.fixed_addr		=	fixed_addr_,
 		.retry_times	=	retry_times_,
 	};
-	return policy->create_router_task(&params, cb);
+	ns_policy_ = ns->get_policy(uri_.host ? uri_.host : "");
+	return ns_policy_->create_router_task(&params, cb);
 }
 
 template<class REQ, class RESP, typename CTX>
@@ -389,7 +394,10 @@ void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 {
 	this->state = task->get_state();
 	if (this->state == WFT_STATE_SUCCESS)
+	{
 		route_result_ = std::move(*task->get_result());
+		cookie_ = task->get_cookie();
+	}
 	else if (this->state == WFT_STATE_UNDEFINED)
 	{
 		/* should not happend */
@@ -467,15 +475,21 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 
 	bool is_user_request = this->finish_once();
 
+	if (ns_policy_ && this->target)
+	{
+		if (this->state == WFT_STATE_SYS_ERROR)
+			ns_policy_->failed(&route_result_, cookie_, this->target);
+		else
+			ns_policy_->success(&route_result_, cookie_, this->target);
+	}
+
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		RouteManager::notify_available(route_result_.cookie, this->target);
 		if (!is_user_request)
 			return this;
 	}
 	else if (this->state == WFT_STATE_SYS_ERROR)
 	{
-		RouteManager::notify_unavailable(route_result_.cookie, this->target);
 		if (retry_times_ < retry_max_)
 		{
 			redirect_ = true;

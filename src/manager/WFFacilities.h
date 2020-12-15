@@ -49,6 +49,7 @@ public:
 	template<class REQ, class RESP>
 	static WFFuture<WFNetworkResult<RESP>> async_request(TransportType type, const std::string& url, REQ&& req, int retry_max);
 
+#ifndef _WIN32
 public:// async fileIO
 	static WFFuture<ssize_t> async_pread(int fd, void *buf, size_t count, off_t offset);
 	static WFFuture<ssize_t> async_pwrite(int fd, const void *buf, size_t count, off_t offset);
@@ -56,6 +57,7 @@ public:// async fileIO
 	static WFFuture<ssize_t> async_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset);
 	static WFFuture<int> async_fsync(int fd);
 	static WFFuture<int> async_fdatasync(int fd);
+#endif
 
 public:
 	class WaitGroup

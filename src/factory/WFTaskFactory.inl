@@ -243,7 +243,6 @@ public:
 		type_(TT_TCP),
 		retry_times_(0),
 		is_retry_(false),
-		has_original_uri_(true),
 		redirect_(false)
 	{}
 
@@ -292,7 +291,6 @@ public:
 			  socklen_t addrlen,
 			  const std::string& info);
 
-	const ParsedURI *get_original_uri() const { return &original_uri_; }
 	const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
@@ -350,7 +348,6 @@ protected:
 	TransportType get_transport_type() const { return type_; }
 
 	ParsedURI uri_;
-	ParsedURI original_uri_;
 
 	int retry_max_;
 	bool is_sockaddr_;
@@ -378,7 +375,6 @@ private:
 	/* state 0: uninited or failed; 1: inited but not checked; 2: checked. */
 	char init_state_;
 	bool is_retry_;
-	bool has_original_uri_;
 	bool redirect_;
 };
 
@@ -473,12 +469,6 @@ bool WFComplexClientTask<REQ, RESP, CTX>::set_port()
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
-	if (has_original_uri_)
-	{
-		original_uri_ = uri_;
-		has_original_uri_ = true;
-	}
-
 	route_result_.clear();
 	if (uri_.state == URI_STATE_SUCCESS && this->set_port())
 	{
@@ -710,7 +700,7 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 				if (is_sockaddr_)
 					set_retry();
 				else
-					set_retry(original_uri_);
+					set_retry(uri_);
 
 				is_retry_ = true; // will influence next round dns cache time
 			}

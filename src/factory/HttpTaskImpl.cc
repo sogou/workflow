@@ -338,10 +338,7 @@ bool ComplexHttpTask::finish_once()
 			this->disable_retry();
 	}
 	else
-	{
 		this->get_resp()->end_parsing();
-		redirect_count_ = 0;
-	}
 
 	return true;
 }

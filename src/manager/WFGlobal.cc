@@ -103,18 +103,7 @@ public:
 	}
 
 private:
-	__WFGlobal():
-		settings_(GLOBAL_SETTINGS_DEFAULT)
-	{
-		static_scheme_port_["http"] = "80";
-		static_scheme_port_["https"] = "443";
-		static_scheme_port_["redis"] = "6379";
-		static_scheme_port_["rediss"] = "6379";
-		static_scheme_port_["mysql"] = "3306";
-		static_scheme_port_["kafka"] = "9092";
-		sync_count_ = 0;
-		sync_max_ = 0;
-	}
+	__WFGlobal();
 
 private:
 	struct WFGlobalSettings settings_;
@@ -125,6 +114,40 @@ private:
 	int sync_count_;
 	int sync_max_;
 };
+
+__WFGlobal::__WFGlobal() : settings_(GLOBAL_SETTINGS_DEFAULT)
+{
+	static_scheme_port_["http"] = "80";
+	static_scheme_port_["Http"] = "80";
+	static_scheme_port_["HTTP"] = "80";
+
+	static_scheme_port_["https"] = "443";
+	static_scheme_port_["Https"] = "443";
+	static_scheme_port_["HTTPs"] = "443";
+	static_scheme_port_["HTTPS"] = "443";
+
+	static_scheme_port_["redis"] = "6379";
+	static_scheme_port_["Redis"] = "6379";
+	static_scheme_port_["REDIS"] = "6379";
+
+	static_scheme_port_["rediss"] = "6379";
+	static_scheme_port_["Rediss"] = "6379";
+	static_scheme_port_["REDISs"] = "6379";
+	static_scheme_port_["REDISS"] = "6379";
+
+	static_scheme_port_["mysql"] = "3306";
+	static_scheme_port_["Mysql"] = "3306";
+	static_scheme_port_["MySql"] = "3306";
+	static_scheme_port_["MySQL"] = "3306";
+	static_scheme_port_["MYSQL"] = "3306";
+
+	static_scheme_port_["kafka"] = "9092";
+	static_scheme_port_["Kafka"] = "9092";
+	static_scheme_port_["KAFKA"] = "9092";
+
+	sync_count_ = 0;
+	sync_max_ = 0;
+}
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 static std::mutex *__ssl_mutex;

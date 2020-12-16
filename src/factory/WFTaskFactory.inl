@@ -692,7 +692,12 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		}
 		else if (this->state == WFT_STATE_SYS_ERROR)
 		{
-			RouteManager::notify_unavailable(route_result_.cookie, this->target);
+			if (this->target)
+			{
+				RouteManager::notify_unavailable(route_result_.cookie,
+												 this->target);
+			}
+
 			UpstreamManager::notify_unavailable(upstream_result_.cookie);
 			// 5. complex task failed: retry
 			if (retry_times_ < retry_max_)

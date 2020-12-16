@@ -157,6 +157,26 @@ public:
 		return &this->cgroup;
 	}
 
+	void set_meta_list(const KafkaMetaList& meta_list)
+	{
+		this->meta_list = meta_list;
+	}
+
+	KafkaMetaList *get_meta_list()
+	{
+		return &this->meta_list;
+	}
+
+	void set_config(const KafkaConfig& config)
+	{
+		this->config = config;
+	}
+
+	KafkaConfig *get_config()
+	{
+		return &this->config;
+	}
+
 	void set_uri(const ParsedURI& uri)
 	{
 		this->uri = uri;
@@ -177,10 +197,23 @@ public:
 		return &this->lock_status;
 	}
 
+	void set_client(WFKafkaClient *client)
+	{
+		this->client = client;
+	}
+
+	WFKafkaClient *get_client()
+	{
+		return this->client;
+	}
+
 private:
 	KafkaCgroup cgroup;
+	KafkaMetaList meta_list;
+	KafkaConfig config;
 	ParsedURI uri;
 	KafkaLockStatus lock_status;
+	WFKafkaClient *client;
 };
 
 class ComplexKafkaTask : public WFKafkaTask
@@ -209,26 +242,7 @@ public:
 
 	virtual ~ComplexKafkaTask()
 	{
-		if (this->lock_status.get_cnt()->fetch_sub(1) == 2 &&
-			this->cgroup.get_group())
-		{
-			KafkaBroker *coordinator = this->cgroup.get_coordinator();
-
-			const struct sockaddr *addr;
-			socklen_t socklen;
-			coordinator->get_broker_addr(&addr, &socklen);
-
-			if (coordinator->is_to_addr())
-			{
-				__WFKafkaTask *task;
-				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-															   this->retry_max, nullptr);
-				task->get_req()->set_api(Kafka_LeaveGroup);
-				task->get_req()->set_broker(*coordinator);
-				task->get_req()->set_cgroup(this->cgroup);
-				task->start();
-			}
-		}
+		this->lock_status.get_cnt()->fetch_sub(1);
 	}
 
 	ParsedURI *get_uri() { return &this->uri; }
@@ -265,6 +279,10 @@ private:
 	static void kafka_heartbeat_callback(__WFKafkaTask *task);
 
 	static void kafka_leavegroup_callback(__WFKafkaTask *task);
+
+	static void kafka_rebalance_proc(KafkaHeartbeat *t);
+
+	static void kafka_rebalance_callback(__WFKafkaTask *task);
 
 	void kafka_move_task_callback(__WFKafkaTask *task);
 
@@ -356,6 +374,84 @@ void ComplexKafkaTask::kafka_leavegroup_callback(__WFKafkaTask *task)
 	t->error = task->get_error();
 }
 
+void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
+{
+	KafkaHeartbeat *t = (KafkaHeartbeat *)task->user_data;
+
+	if (task->get_state() == WFT_STATE_ABORTED ||
+		t->get_lock_status()->get_cnt()->fetch_add(0) == 1)
+	{
+		delete t;
+		return;
+	}
+
+	t->get_lock_status()->get_mutex()->lock();
+
+	if (task->get_state() == 0)
+	{
+		*t->get_lock_status()->get_status() |= KAFKA_CGROUP_DONE;
+		*t->get_lock_status()->get_status() &= (~(KAFKA_CGROUP_INIT|KAFKA_CGROUP_DOING));
+		t->get_cgroup()->set_coordinator(task->get_resp()->get_broker());
+
+		if (*t->get_lock_status()->get_status() & KAFKA_HEARTBEAT_INIT)
+		{
+			__WFKafkaTask *kafka_task;
+			KafkaBroker *coordinator = t->get_cgroup()->get_coordinator();
+
+			const struct sockaddr *addr;
+			socklen_t socklen;
+			coordinator->get_broker_addr(&addr, &socklen);
+
+			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
+												  0, kafka_heartbeat_callback);
+			kafka_task->user_data = t;
+			kafka_task->get_req()->set_api(Kafka_Heartbeat);
+			kafka_task->get_req()->set_cgroup(*t->get_cgroup());
+			kafka_task->get_req()->set_broker(*coordinator);
+			kafka_task->start();
+			*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_DOING;
+			*t->get_lock_status()->get_status() &= ~KAFKA_HEARTBEAT_INIT;
+		}
+
+		t->get_lock_status()->get_mutex()->unlock();
+
+		char name[64];
+		snprintf(name, 64, "%p.cgroup", t->get_client());
+		WFTaskFactory::count_by_name(name, (unsigned int)-1);
+	}
+	else
+		kafka_rebalance_proc(t);
+}
+
+void ComplexKafkaTask::kafka_rebalance_proc(KafkaHeartbeat *t)
+{
+	if (t->get_lock_status()->get_cnt()->fetch_add(0) == 1)
+	{
+		t->get_lock_status()->get_mutex()->unlock();
+		delete t;
+		return;
+	}
+
+	__WFKafkaTask *task;
+	task = __WFKafkaTaskFactory::create_kafka_task(*t->get_uri(), 0,
+												   kafka_rebalance_callback);
+	task->user_data = t;
+	task->get_req()->set_config(*t->get_config());
+	task->get_req()->set_api(Kafka_FindCoordinator);
+	task->get_req()->set_cgroup(*t->get_cgroup());
+	task->get_req()->set_meta_list(*t->get_meta_list());
+
+	*t->get_lock_status()->get_status() |= KAFKA_CGROUP_DOING;
+	*t->get_lock_status()->get_status() &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_INIT));
+
+	*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_INIT;
+	*t->get_lock_status()->get_status() &= (~(KAFKA_HEARTBEAT_DONE|KAFKA_HEARTBEAT_DOING));
+
+	t->get_lock_status()->get_mutex()->unlock();
+
+	task->start();
+}
+
 void ComplexKafkaTask::kafka_heartbeat_callback(__WFKafkaTask *task)
 {
 	KafkaHeartbeat *t = (KafkaHeartbeat *)task->user_data;
@@ -371,15 +467,7 @@ void ComplexKafkaTask::kafka_heartbeat_callback(__WFKafkaTask *task)
 
 	if (t->get_cgroup()->get_error() != 0)
 	{
-		*t->get_lock_status()->get_status() |= KAFKA_CGROUP_INIT;
-		*t->get_lock_status()->get_status() &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_DOING));
-
-		*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_INIT;
-		*t->get_lock_status()->get_status() &= (~(KAFKA_HEARTBEAT_DONE|KAFKA_HEARTBEAT_DOING));
-
-		t->get_lock_status()->get_mutex()->unlock();
-
-		delete t;
+		kafka_rebalance_proc(t);
 		return;
 	}
 	else
@@ -526,9 +614,12 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 		{
 			KafkaHeartbeat *hb = new KafkaHeartbeat;
 			hb->set_cgroup(t->cgroup);
+			hb->set_meta_list(t->client_meta_list);
+			hb->set_config(t->config);
 			hb->set_uri(t->uri);
 			t->lock_status.add_cnt();
 			hb->set_lock_status(t->lock_status);
+			hb->set_client(t->client);
 			__WFKafkaTask *kafka_task;
 			KafkaBroker *coordinator = t->cgroup.get_coordinator();
 
@@ -1390,6 +1481,7 @@ void WFKafkaClient::set_heartbeat_interval(size_t interval_ms)
 
 void WFKafkaClient::deinit()
 {
+	this->member->lock_status->dec_cnt();
 	delete this->member;
 	this->member = NULL;
 }

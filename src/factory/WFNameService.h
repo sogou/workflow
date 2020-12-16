@@ -90,7 +90,8 @@ public:
 	virtual void failed(RouteManager::RouteResult *result, void *cookie,
 						CommTarget *target)
 	{
-		RouteManager::notify_unavailable(result->cookie, target);
+		if (target)
+			RouteManager::notify_unavailable(result->cookie, target);
 	}
 
 public:

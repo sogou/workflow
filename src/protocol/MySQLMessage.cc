@@ -254,7 +254,6 @@ static inline std::string __sha1_bin(const std::string& str)
 #define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
 #define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
 #define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
-#define MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH		0x00080000
 #define MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS	0x00010000
 #define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
 #define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
@@ -269,7 +268,6 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	int4store(pos, MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
 				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
 				   MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB |
-				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
 				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
@@ -296,7 +294,6 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	buf_.append(username_.c_str(), username_.size() + 1);
 	buf_.append(native);
 	buf_.append(db_.c_str(), db_.size() + 1);
-	buf_.append("mysql_native_password", 22);
 	return this->MySQLMessage::encode(vectors, max);
 }
 

@@ -269,7 +269,6 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	int4store(pos, MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
 				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
 				   MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB |
-				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
 				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
@@ -296,7 +295,6 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	buf_.append(username_.c_str(), username_.size() + 1);
 	buf_.append(native);
 	buf_.append(db_.c_str(), db_.size() + 1);
-	buf_.append("mysql_native_password", 22);
 	return this->MySQLMessage::encode(vectors, max);
 }
 

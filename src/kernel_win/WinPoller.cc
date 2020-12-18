@@ -95,7 +95,7 @@ WinPoller::WinPoller(size_t poller_threads)
 	timer_queue_ = new std::set<IOCPData *, CMP>();
 	timer_thread_ = NULL;
 	stop_ = false;
-	timer_handle_ = CreateWaitableTimer(NULL, TRUE, NULL);
+	timer_handle_ = CreateWaitableTimer(NULL, FALSE, NULL);
 	iocp_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, (DWORD)poller_threads);
 
 	GUID GuidConnectEx = WSAID_CONNECTEX;
@@ -193,6 +193,10 @@ void WinPoller::timer_routine()
 				timer_queue->erase(it);
 				iocp_data->decref();
 			}
+		}
+		else
+		{
+			printf("else\n");
 		}
 	}
 

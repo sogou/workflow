@@ -1612,9 +1612,12 @@ KafkaMessage::KafkaMessage()
 
 KafkaMessage::~KafkaMessage()
 {
-	kafka_parser_deinit(this->parser);
-	delete this->parser;
-	delete this->stream;
+	if (this->parser)
+	{
+		kafka_parser_deinit(this->parser);
+		delete this->parser;
+		delete this->stream;
+	}
 }
 
 KafkaMessage::KafkaMessage(KafkaMessage&& msg)
@@ -1623,8 +1626,9 @@ KafkaMessage::KafkaMessage(KafkaMessage&& msg)
 	msg.size_limit = (size_t)-1;
 
 	this->parser = msg.parser;
-	msg.parser = new kafka_parser_t;
-	kafka_parser_init(msg.parser);
+	this->stream = msg.stream;
+	msg.parser = NULL;
+	msg.stream = NULL;
 
 	this->msgbuf = std::move(msg.msgbuf);
 	this->headbuf = std::move(msg.headbuf);
@@ -1652,10 +1656,12 @@ KafkaMessage& KafkaMessage::operator= (KafkaMessage &&msg)
 
 		kafka_parser_deinit(this->parser);
 		delete this->parser;
+		delete this->stream;
 
 		this->parser = msg.parser;
-		msg.parser = new kafka_parser_t;
-		kafka_parser_init(msg.parser);
+		this->stream = msg.stream;
+		msg.parser = NULL;
+		msg.stream = NULL;
 
 		this->msgbuf = std::move(msg.msgbuf);
 		this->headbuf = std::move(msg.headbuf);

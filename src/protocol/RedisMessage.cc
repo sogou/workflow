@@ -494,10 +494,9 @@ RedisMessage::RedisMessage(RedisMessage&& move)
 	stream_ = move.stream_;
 	cur_size_ = move.cur_size_;
 
-	move.parser_ = new redis_parser_t;
-	move.stream_ = new EncodeStream;
+	move.parser_ = NULL;
+	move.stream_ = NULL;
 	move.cur_size_ = 0;
-	redis_parser_init(move.parser_);
 }
 
 RedisMessage& RedisMessage::operator= (RedisMessage &&move)
@@ -515,10 +514,9 @@ RedisMessage& RedisMessage::operator= (RedisMessage &&move)
 		stream_ = move.stream_;
 		cur_size_ = move.cur_size_;
 
-		move.parser_ = new redis_parser_t;
-		move.stream_ = new EncodeStream;
+		move.parser_ = NULL;
+		move.stream_ = NULL;
 		move.cur_size_ = 0;
-		redis_parser_init(move.parser_);
 	}
 
 	return *this;

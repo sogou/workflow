@@ -122,9 +122,9 @@ int main()
 * SeriesWork和ParallelWork是两种框架对象，同样在callback之后被回收。
 * 项目中不使用``std::shared_ptr``来管理内存。
 
-#### 更多设计文档
-持续更新中……
-
+# 使用中有疑问？
+可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
+非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。
 
 #### Authors
 

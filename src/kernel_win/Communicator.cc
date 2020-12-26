@@ -1590,7 +1590,7 @@ void Communicator::handle_accept_result(struct poller_result *res)
 				if (!service->ssl_ctx || __ssl_accept(service->ssl_ctx, entry) >= 0)
 				{
 					if (this->poller->put_io(&data, timeout) >= 0)
-						return;
+						break;
 				}
 
 				delete new_ctx;

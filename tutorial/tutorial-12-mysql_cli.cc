@@ -23,6 +23,12 @@
 #include <signal.h>
 #include <vector>
 #include <map>
+
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/MySQLResult.h"

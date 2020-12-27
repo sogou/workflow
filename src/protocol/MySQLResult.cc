@@ -111,7 +111,7 @@ void MySQLResultCursor::init(MySQLResponse *resp)
 
 	if (!list_empty(&this->parser->result_set_list))
 	{
-		struct __mysql_result_set *result_set;
+		struct __mysql_result_set *result_set = nullptr;
 
 		mysql_result_set_cursor_init(&this->cursor, this->parser);
 		mysql_result_set_cursor_next(&result_set, &this->cursor);

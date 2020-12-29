@@ -31,7 +31,7 @@ int main()
 * 实现自定义协议client/server，构建自己的RPC系统。
   * [srpc](https://github.com/sogou/srpc)就是以它为基础，作为独立项目开源。支持``srpc``，``brpc``和``thrift``等协议。
 * 构建异步任务流，支持常用的串并联，也支持更加复杂的DAG结构。
-* 作为并行编程工具使用。除了网络任务，我们也包含计算任务的调度。所有类型的任务都可以放入同一个流中。
+* 作为并行计算工具使用。除了网络任务，我们也包含计算任务的调度。所有类型的任务都可以放入同一个流中。
 * 在``Linux``系统下作为文件异步IO工具使用，性能超过任何标准调用。磁盘IO也是一种任务。
 * 实现任何计算与通讯关系非常复杂的高性能高并发的后端服务。
 * 构建服务网格（service mesh）系统。
@@ -122,9 +122,9 @@ int main()
 * SeriesWork和ParallelWork是两种框架对象，同样在callback之后被回收。
 * 项目中不使用``std::shared_ptr``来管理内存。
 
-#### 更多设计文档
-持续更新中……
-
+# 使用中有疑问？
+可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
+非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。
 
 #### Authors
 

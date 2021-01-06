@@ -10,6 +10,7 @@ set(SRC
 	Workflow.cc
 	WFNameService.cc
 	WFDNSResolver.cc
+	GovernancePolicy.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

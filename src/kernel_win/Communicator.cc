@@ -1761,6 +1761,15 @@ int Communicator::send_message(CommConnEntry *entry)
 		return -1;
 	}
 
+	// cnt should not be zero on Windows platform
+	// it will return error INVALID_PARAM by WSASend
+	if (cnt == 0)
+	{
+		vectors[0].iov_base = NULL;
+		vectors[0].iov_len = 0;
+		cnt = 1;
+	}
+
 	return this->send_message_async(vectors, cnt, entry);
 }
 

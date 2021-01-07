@@ -154,6 +154,8 @@ public:
 	virtual void disable_server(const std::string& address);
 	// virtual void server_list_change(/* std::vector<server> status */) {}
 
+private:
+
 public:
 	GovernancePolicy()
 	{
@@ -174,9 +176,12 @@ private:
 	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
 	virtual const EndpointAddress *first_stradegy(const ParsedURI& uri);
 	virtual const EndpointAddress *another_stradegy(const ParsedURI& uri);
-	virtual void fuse_server(const EndpointAddress *addr);
-	virtual void recover_server(const EndpointAddress *addr);
-	void recover_breaker(); // check_all_breaker()
+	virtual void fuse_one_server(const EndpointAddress *addr);
+	virtual void recover_one_server(const EndpointAddress *addr);
+
+	void fuse_server_to_breaker(EndpointAddress *addr);
+	void recover_server_from_breaker(EndpointAddress *addr);
+	void check_breaker();
 
 	bool try_another;
 	std::atomic<int> nalive;

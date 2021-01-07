@@ -34,22 +34,38 @@ EndpointAddress::EndpointAddress(const std::string& address,
 	}
 }
 
-void GovernancePolicy::success(RouteManager::RouteResult *result, void *cookie,
-					 		   CommTarget *target)
+inline void GovernancePolicy::recover_server_from_breaker(EndpointAddress *addr)
 {
-	EndpointAddress *server = (EndpointAddress *)cookie;
-
-	pthread_rwlock_rdlock(&this->rwlock);
-	server->fail_count = 0;
+	addr->fail_count = 0;
 	this->breaker_lock.lock();
-	if (server->list.next)
+	if (addr->list.next)
 	{
-		list_del(&server->list);
-		server->list.next = NULL;
-		this->recover_server(server);
+		list_del(&addr->list);
+		addr->list.next = NULL;
+		this->recover_one_server(addr);
 		//this->server_list_change();
 	}
 	this->breaker_lock.unlock();
+}
+
+inline void GovernancePolicy::fuse_server_to_breaker(EndpointAddress *addr)
+{
+	this->breaker_lock.lock();
+	if (!addr->list.next)
+	{
+		addr->broken_timeout = GET_CURRENT_SECOND + MTTR_SECOND;
+		list_add_tail(&addr->list, &this->breaker_list);
+		this->fuse_one_server(addr);
+		//this->server_list_change();
+	}
+	this->breaker_lock.unlock();
+}
+
+void GovernancePolicy::success(RouteManager::RouteResult *result, void *cookie,
+					 		   CommTarget *target)
+{
+	pthread_rwlock_rdlock(&this->rwlock);
+	this->recover_server_from_breaker((EndpointAddress *)cookie);
 	pthread_rwlock_unlock(&this->rwlock);
 
 	WFDNSResolver::success(result, NULL, target);
@@ -63,33 +79,24 @@ void GovernancePolicy::failed(RouteManager::RouteResult *result, void *cookie,
 	pthread_rwlock_rdlock(&this->rwlock);
 	int fail_count = ++server->fail_count;
 	if (fail_count == server->params.max_fails)
-	{
-		this->breaker_lock.lock();
-		if (!server->list.next)
-		{
-			server->broken_timeout = GET_CURRENT_SECOND + MTTR_SECOND;
-			list_add_tail(&server->list, &this->breaker_list);
-			this->fuse_server(server);
-			//this->server_list_change();
-		}
-		this->breaker_lock.unlock();
-	}
+		this->fuse_server_to_breaker(server);
+
 	pthread_rwlock_unlock(&this->rwlock);
 
 	WFDNSResolver::failed(result, NULL, target);
 }
 
-void GovernancePolicy::recover_server(const EndpointAddress *addr)
+inline void GovernancePolicy::recover_one_server(const EndpointAddress *addr)
 {
 	this->nalive++;
 }
 
-void GovernancePolicy::fuse_server(const EndpointAddress *addr)
+inline void GovernancePolicy::fuse_one_server(const EndpointAddress *addr)
 {
 	this->nalive--;
 }
 
-void GovernancePolicy::recover_breaker()
+void GovernancePolicy::check_breaker()
 {
 	this->breaker_lock.lock();
 	if (!list_empty(&this->breaker_list))
@@ -140,7 +147,7 @@ bool GovernancePolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 		return false;
 	}
 
-	this->recover_breaker();
+	this->check_breaker();
 	if (this->nalive == 0)
 	{
 		pthread_rwlock_unlock(&this->rwlock);
@@ -222,14 +229,33 @@ int GovernancePolicy::remove_server(const std::string& address)
 
 void GovernancePolicy::enable_server(const std::string& address)
 {
+	pthread_rwlock_rdlock(&this->rwlock);
+	const auto map_it = this->server_map.find(address);
+	if (map_it != this->server_map.cend())
+	{
+		for (EndpointAddress *addr : map_it->second)
+			this->recover_server_from_breaker(addr);
+	}
+	pthread_rwlock_unlock(&this->rwlock);
 }
 
 void GovernancePolicy::disable_server(const std::string& address)
 {
+	pthread_rwlock_rdlock(&this->rwlock);
+	const auto map_it = this->server_map.find(address);
+	if (map_it != this->server_map.cend())
+	{
+		for (EndpointAddress *addr : map_it->second)
+		{
+			addr->fail_count = addr->params.max_fails;
+			this->fuse_server_to_breaker(addr);
+		}
+	}
+	pthread_rwlock_unlock(&this->rwlock);
 }
 
 /*
-void GroupPolicy::recover_breaker()
+void GroupPolicy::check_breaker()
 {
 	// recover every group in this policy
 }
@@ -248,7 +274,7 @@ bool GroupPolicy::select(const ParsedURI& uri, EndpointAddress *addr)
 		return true;
 	}
 
-	this->recover_breaker();
+	this->check_breaker();
 
 	// select_addr == NULL will only happened in consistent_hash
 	const EndpointAddress *select_addr = this->select_stradegy(uri);

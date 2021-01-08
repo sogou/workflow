@@ -73,6 +73,35 @@ public:
 	const EndpointAddress *get_one_backup();
 };
 
+static inline bool strdup_uri(ParsedURI& uri, EndpointAddress *addr)
+{
+	char *host = NULL;
+	char *port = NULL;
+
+	if (!addr->host.empty())
+	{
+		host = strdup(addr->host.c_str());
+		if (!host)
+			return false;
+	}
+
+	if (addr->port_value > 0)
+	{
+		port = strdup(addr->port.c_str());
+		if (!port)
+		{
+			free(host);
+			return false;
+		}
+		free(uri.port);
+		uri.port = port;
+	}
+
+	free(uri.host);
+	uri.host = host;
+	return true;
+}
+
 class WFSelectorFailTask : public WFRouterTask
 {
 public:
@@ -99,41 +128,19 @@ public:
 		EndpointAddress *addr = NULL;
 		WFRouterTask *task = NULL;
 
-		if (this->select(params->uri, &addr))
+		if (this->select(params->uri, &addr) &&
+			strdup_uri(params->uri, addr))
 		{
-			char *host = NULL;
-			char *port = NULL;
-			if (!addr->host.empty())
-			{
-				host = strdup(addr->host.c_str());
-				if (host)
-				{
-					if (addr->port_value > 0)
-					{
-						port = strdup(addr->port.c_str());
-						if (port)
-						{
-							free(params->uri.port);
-							params->uri.port = port;
-							free(params->uri.host);
-							params->uri.host = host;
-							const auto *settings = WFGlobal::get_global_settings();
-							unsigned int dns_ttl_default = settings->dns_ttl_default;
-							unsigned int dns_ttl_min = settings->dns_ttl_min;
-							const struct EndpointParams *endpoint_params = &settings->endpoint_params;
-							int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
-																			 DNS_CACHE_LEVEL_1;
-							task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
-												endpoint_params, std::move(callback));
-						}
-						else
-							free(host);
-					}
-				}
-			}
+			const auto *settings = WFGlobal::get_global_settings();
+			unsigned int dns_ttl_default = settings->dns_ttl_default;
+			unsigned int dns_ttl_min = settings->dns_ttl_min;
+			const struct EndpointParams *endpoint_params = &settings->endpoint_params;
+			int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
+															 DNS_CACHE_LEVEL_1;
+			task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
+								endpoint_params, std::move(callback));
 		}
-
-		if (!task)
+		else
 			task = new WFSelectorFailTask(std::move(callback));
 
 		task->set_cookie(addr);

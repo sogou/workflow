@@ -488,6 +488,11 @@ int WinPoller::get_io_result(struct poller_result *res, int timeout)
 		res->state = PR_ST_ERROR;
 		res->error = ENOENT;
 	}
+	else if (bytes_transferred == 0)
+	{
+		res->state = PR_ST_SUCCESS;
+		res->error = ECONNRESET;
+	}
 	else
 	{
 		res->state = PR_ST_SUCCESS;

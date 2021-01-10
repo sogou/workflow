@@ -1027,12 +1027,10 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 	case PR_ST_FINISHED:
 	case PR_ST_ERROR:
 	case PR_ST_TIMEOUT:
-		session = NULL;
 		cs_state = CS_STATE_ERROR;
 		break;
 
 	case PR_ST_STOPPED:
-		session = NULL;
 		cs_state = CS_STATE_STOPPED;
 		break;
 
@@ -1043,8 +1041,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 
 	delete ctx;
 	target->release();
-	if (session)
-		session->handle(cs_state, res->error);
+	session->handle(cs_state, res->error);
 	if (--entry->ref == 0)
 		this->release_conn(entry);
 }

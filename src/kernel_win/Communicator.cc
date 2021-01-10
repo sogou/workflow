@@ -1051,7 +1051,7 @@ void Communicator::handle_incoming_idle(struct poller_result *res)
 	ReadContext *ctx = (ReadContext *)res->data.context;
 	CommConnEntry *entry = (CommConnEntry *)ctx->entry;
 	CommTarget *target = entry->target;
-	CommSession *session = entry->session;
+	CommSession *session = NULL;
 	int cs_state;
 
 	target->mutex.lock();
@@ -1060,6 +1060,8 @@ void Communicator::handle_incoming_idle(struct poller_result *res)
 		list_del(&entry->list);
 		entry->state = CONN_STATE_FREE;
 	}
+	else
+		session = entry->session;
 
 	target->mutex.unlock();
 

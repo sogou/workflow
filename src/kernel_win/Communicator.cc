@@ -1223,6 +1223,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	switch (res->state)
 	{
 	case PR_ST_SUCCESS:
+	case PR_ST_FINISHED:
 		do
 		{
 			if (nleft >= buffer->len)
@@ -1293,7 +1294,6 @@ void Communicator::handle_request_result(struct poller_result *res)
 
 		break;
 
-	case PR_ST_FINISHED:
 	case PR_ST_ERROR:
 	case PR_ST_TIMEOUT:
 		cs_state = CS_STATE_ERROR;

@@ -1,6 +1,35 @@
 #include "GovernancePolicy.h"
 #include "StringUtil.h"
 
+static  bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
+{
+	char *host = NULL;
+	char *port = NULL;
+
+	if (!addr->host.empty())
+	{
+		host = strdup(addr->host.c_str());
+		if (!host)
+			return false;
+	}
+
+	if (addr->port_value > 0)
+	{
+		port = strdup(addr->port.c_str());
+		if (!port)
+		{
+			free(host);
+			return false;
+		}
+		free(uri.port);
+		uri.port = port;
+	}
+
+	free(uri.host);
+	uri.host = host;
+	return true;
+}
+
 EndpointAddress::EndpointAddress(const std::string& address,
 								 const struct AddressParams *address_params)
 {
@@ -32,6 +61,31 @@ EndpointAddress::EndpointAddress(const std::string& address,
 		this->port = arr[1];
 		this->port_value = atoi(arr[1].c_str());
 	}
+}
+
+WFRouterTask *GovernancePolicy::create_router_task(const struct WFNSParams *params,
+											 	   router_callback_t callback)
+{
+	EndpointAddress *addr = NULL;
+	WFRouterTask *task = NULL;
+
+	if (this->select(params->uri, &addr) && copy_host_port(params->uri, addr))
+	{
+		const auto *settings = WFGlobal::get_global_settings();
+		unsigned int dns_ttl_default = settings->dns_ttl_default;
+		unsigned int dns_ttl_min = settings->dns_ttl_min;
+		const struct EndpointParams *endpoint_params = &settings->endpoint_params;
+		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
+														 DNS_CACHE_LEVEL_1;
+		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
+							endpoint_params, std::move(callback));
+	}
+	else
+		task = new WFSelectorFailTask(std::move(callback));
+
+	task->set_cookie(addr);
+
+	return task;
 }
 
 inline void GovernancePolicy::recover_server_from_breaker(EndpointAddress *addr)
@@ -86,16 +140,6 @@ void GovernancePolicy::failed(RouteManager::RouteResult *result, void *cookie,
 	WFDNSResolver::failed(result, NULL, target);
 }
 
-inline void GovernancePolicy::recover_one_server(const EndpointAddress *addr)
-{
-	this->nalive++;
-}
-
-inline void GovernancePolicy::fuse_one_server(const EndpointAddress *addr)
-{
-	this->nalive--;
-}
-
 void GovernancePolicy::check_breaker()
 {
 	this->breaker_lock.lock();
@@ -113,7 +157,7 @@ void GovernancePolicy::check_breaker()
 				if (addr->fail_count >= addr->params.max_fails)
 				{
 					addr->fail_count = addr->params.max_fails - 1;
-					this->nalive++;
+					this->recover_one_server(addr);
 				}
 				list_del(pos);
 				addr->list.next = NULL;
@@ -183,7 +227,7 @@ void GovernancePolicy::add_server(const std::string& address,
 	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
 	this->servers.push_back(addr);
-	this->nalive++;
+	this->recover_one_server(addr);
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
@@ -193,19 +237,19 @@ int GovernancePolicy::remove_server(const std::string& address)
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
 	{
-		for (auto addr : map_it->second)
+		for (EndpointAddress *addr : map_it->second)
 		{
 			if (addr->fail_count < addr->params.max_fails) // or not: it has already been -- in nalive
-				this->nalive--;
+				this->fuse_one_server(addr);
 		}
 
 		this->server_map.erase(map_it);
 	}
 
-	int n = this->servers.size();
-	int new_n = 0;
+	size_t n = this->servers.size();
+	size_t new_n = 0;
 
-	for (int i = 0; i < n; i++)
+	for (size_t i = 0; i < n; i++)
 	{
 		if (this->servers[i]->address != address)
 		{
@@ -253,176 +297,4 @@ void GovernancePolicy::disable_server(const std::string& address)
 	}
 	pthread_rwlock_unlock(&this->rwlock);
 }
-
-/*
-void GroupPolicy::check_breaker()
-{
-	// recover every group in this policy
-}
-
-bool GroupPolicy::select(const ParsedURI& uri, EndpointAddress *addr)
-{
-	pthread_rwlock_rdlock(&this->rwlock);
-	unsigned int n = (unsigned int)this->servers.size();
-
-	if (n == 0)
-		return false;
-
-	if (n == 1)
-	{
-		addr = this->servers[0];
-		return true;
-	}
-
-	this->check_breaker();
-
-	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->select_stradegy(uri);
-
-	if (!select_addr || select_addr->fail_count >= select_addr->params.max_fails)
-	{
-		select_addr = this->get_one(); // check_one_strong/weak()
-		if (!select_addr && this->try_another)
-			select_addr = this->another_stradegy();
-	}
-	addr = select_addr;
-
-	pthread_rwlock_unlock(&this->rwlock);
-	return addr != NULL;
-}
-void GroupPolicy::add_server(const std::string& address,
-							 const AddressParams *address_params)
-{
-	auto *addr = new EndpointAddress(address, address_params);
-	int group_id = addr->group_id;
-	rb_node **p = &this->group_map.rb_node;
-	rb_node *parent = NULL;
-	EndpointGroup *group;
-
-	pthread_rwlock_wrlock(&this->rwlock);
-	this->addresses.push_back(addr);
-	this->server_map[addr->address].push_back(addr);
-
-	while (*p)
-	{
-		parent = *p;
-		group = rb_entry(*p, EndpointGroup, rb);
-
-		if (group_id < group->group_id)
-			p = &(*p)->rb_left;
-		else if (group_id > group->group_id)
-			p = &(*p)->rb_right;
-		else
-			break;
-	}
-
-	if (*p == NULL)
-	{
-		group = new EndpointGroup(group_id, this);
-		rb_link_node(&group->rb, parent, p);
-		rb_insert_color(&group->rb, &this->group_map);
-	}
-
-	if (addr->params.server_type == 0)
-	{
-		this->total_weight += addr->params.weight;
-		this->main.push_back(addr);
-	}
-
-	group->mutex.lock();
-	this->gain_one_server(addr);
-	addr->group = group;
-	if (addr->params.server_type == 0)
-	{
-		group->weight += addr->params.weight;
-		group->mains.push_back(addr);
-	}
-	else
-		group->backups.push_back(addr);
-	group->mutex.unlock();
-
-	pthread_rwlock_unlock(&this->rwlock);
-	return;
-}
-
-int GroupPolicy::remove_server(const std::string& address)
-{
-	pthread_rwlock_rdlock(&this->rwlock);
-	const auto map_it = this->server_map.find(address);
-
-	if (map_it != this->server_map.cend())
-	{
-		for (auto addr : map_it->second)
-		{
-			auto *group = addr->group;
-			std::vector<EndpointAddress *> *vec;
-
-			if (addr->params->server_type == 0)
-			{
-				this->total_weight -= addr->params.weight; // this is for WeightedRandom
-				vec = &group->mains;
-			}
-			else
-				vec = &group->backups;
-
-			std::lock_guard<std::mutex> lock(group->mutex);
-			if (addr->fail_count < addr->params.max_fails)
-				group->lose_one_server(addr);
-			if (addr->params.server_type == 0)
-				group->weight -= addr->params.weight;
-			for (auto it = vec->begin(); it != vec->end(); ++it)
-			{
-				if (*it == addr)
-				{
-					vec->erase(it);
-					break;
-				}
-			}
-		}
-
-		this->server_map.erase(map_it);
-	}
-
-	int n = this->servers.size();
-	int new_n = 0;
-
-	for (int i = 0; i < n; i++)
-	{
-		if (this->servers[i]->address != address)
-		{
-			if (new_n != i)
-				this->servers[new_n++] = this->servers[i];
-			else
-				new_n++;
-		}
-	}
-
-	if (new_n < n)
-	{
-		this->servers.resize(new_n);
-		pthread_rwlock_unlock(&this->rwlock);
-		return n - new_n;
-	}
-
-	pthread_rwlock_unlock(&this->rwlock);
-	return 0;
-}
-
-void GroupPolicy::gain_one_server(const EndpointAddress *addr)
-{
-	//this->navlive++;
-	this->group->gain_one_server();
-}
-
-void GroupPolicy::lose_one_server(const EndpointAddress *addr)
-{
-	this->group->lose_one_server();
-}
-
-void WeightedRandomPolicy::gain_one_server(const EndpointAddress *addr)
-{
-	// TODO:
-	this->available_weight += addr->params.weight;
-}
-*/
 

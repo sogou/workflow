@@ -61,46 +61,19 @@ public:
 	std::mutex mutex;
 	std::vector<EndpointAddress *> mains;
 	std::vector<EndpointAddress *> backups;
+	std::atomic<int> nalive;
 
 	EndpointGroup(int group_id, GroupPolicy *policy)
 	{
 		this->group_id = group_id;
 		this->policy = policy;
+		this->nalive = 0;
 	}
 
 public:
 	const EndpointAddress *get_one();
 	const EndpointAddress *get_one_backup();
 };
-
-static inline bool strdup_uri(ParsedURI& uri, EndpointAddress *addr)
-{
-	char *host = NULL;
-	char *port = NULL;
-
-	if (!addr->host.empty())
-	{
-		host = strdup(addr->host.c_str());
-		if (!host)
-			return false;
-	}
-
-	if (addr->port_value > 0)
-	{
-		port = strdup(addr->port.c_str());
-		if (!port)
-		{
-			free(host);
-			return false;
-		}
-		free(uri.port);
-		uri.port = port;
-	}
-
-	free(uri.host);
-	uri.host = host;
-	return true;
-}
 
 class WFSelectorFailTask : public WFRouterTask
 {
@@ -123,44 +96,19 @@ class GovernancePolicy : public WFDNSResolver
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
-											 router_callback_t callback)
-	{
-		EndpointAddress *addr = NULL;
-		WFRouterTask *task = NULL;
-
-		if (this->select(params->uri, &addr) &&
-			strdup_uri(params->uri, addr))
-		{
-			const auto *settings = WFGlobal::get_global_settings();
-			unsigned int dns_ttl_default = settings->dns_ttl_default;
-			unsigned int dns_ttl_min = settings->dns_ttl_min;
-			const struct EndpointParams *endpoint_params = &settings->endpoint_params;
-			int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
-															 DNS_CACHE_LEVEL_1;
-			task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
-								endpoint_params, std::move(callback));
-		}
-		else
-			task = new WFSelectorFailTask(std::move(callback));
-
-		task->set_cookie(addr);
-
-		return task;
-	}
-
+											 router_callback_t callback);
 	virtual void success(RouteManager::RouteResult *result, void *cookie,
 					 	 CommTarget *target);
 	virtual void failed(RouteManager::RouteResult *result, void *cookie,
 						CommTarget *target);
 
-	// dynamic_cast<>
+	// GovernancePolicy *gp = dynamic_cast<GovernancePolicy *>(policy); gp->add_server(...);
 	virtual void add_server(const std::string& address, const AddressParams *address_params);
 	virtual int remove_server(const std::string& address);
 
 	virtual void enable_server(const std::string& address);
 	virtual void disable_server(const std::string& address);
 	// virtual void server_list_change(/* std::vector<server> status */) {}
-
 private:
 
 public:
@@ -183,15 +131,22 @@ private:
 	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
 	virtual const EndpointAddress *first_stradegy(const ParsedURI& uri);
 	virtual const EndpointAddress *another_stradegy(const ParsedURI& uri);
-	virtual void fuse_one_server(const EndpointAddress *addr);
-	virtual void recover_one_server(const EndpointAddress *addr);
 
-	void fuse_server_to_breaker(EndpointAddress *addr);
+	virtual void recover_one_server(const EndpointAddress *addr)
+	{
+		this->nalive++;
+	}
+
+	virtual void fuse_one_server(const EndpointAddress *addr)
+	{
+		this->nalive--;
+	}
+
 	void recover_server_from_breaker(EndpointAddress *addr);
+	void fuse_server_to_breaker(EndpointAddress *addr);
 	void check_breaker();
 
 	bool try_another;
-	std::atomic<int> nalive;
 	std::vector<EndpointAddress *> servers; // current servers
 	std::vector<EndpointAddress *> addresses; // memory management
 	std::unordered_map<std::string,
@@ -199,14 +154,15 @@ private:
 	pthread_rwlock_t rwlock;
 	struct list_head breaker_list;
 	std::mutex breaker_lock;
+
+protected:
+	std::atomic<int> nalive;
 };
 
 class GroupPolicy : public GovernancePolicy
 {
 public:
 	struct rb_root group_map;
-	std::vector<EndpointAddress *> mains;
-	std::vector<EndpointAddress *> backups;
 	EndpointGroup *default_group;
 
 	GroupPolicy()
@@ -218,8 +174,17 @@ public:
 	}
 
 private:
-	virtual void gain_one_server(EndpointGroup *group, const EndpointAddress *addr);
-	virtual void lose_one_server(EndpointGroup *group, const EndpointAddress *addr);
+	virtual void recover_one_server(const EndpointAddress *addr)
+	{
+		this->nalive++;
+		addr->group->nalive++;
+	}
+
+	virtual void fuse_one_server(const EndpointAddress *addr)
+	{
+		this->nalive--;
+		addr->group->nalive--;
+	}
 };
 
 /*

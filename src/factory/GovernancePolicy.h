@@ -165,14 +165,6 @@ public:
 	struct rb_root group_map;
 	EndpointGroup *default_group;
 
-	GroupPolicy()
-	{
-		this->group_map.rb_node = NULL;
-		this->default_group = new EndpointGroup(-1, this);
-		rb_link_node(&this->default_group->rb, NULL, &this->group_map.rb_node);
-		rb_insert_color(&this->default_group->rb, &this->group_map);
-	}
-
 private:
 	virtual void recover_one_server(const EndpointAddress *addr)
 	{
@@ -185,6 +177,7 @@ private:
 		this->nalive--;
 		addr->group->nalive--;
 	}
+	// override: select() add_server() remove_server()
 };
 
 /*

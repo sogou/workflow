@@ -1,6 +1,24 @@
 #include "GovernancePolicy.h"
 
-// no need override for success(), failed(), check_breaker()
+GroupPolicy::GroupPolicy()
+{
+	this->group_map.rb_node = NULL;
+	this->default_group = new EndpointGroup(-1, this);
+	rb_link_node(&this->default_group->rb, NULL, &this->group_map.rb_node);
+	rb_insert_color(&this->default_group->rb, &this->group_map);
+}
+
+GroupPolicy::~GroupPolicy()
+{
+    EndpointGroup *group;
+
+    while (this->group_map.rb_node)
+    {    
+        group = rb_entry(this->group_map.rb_node, EndpointGroup, rb);
+        rb_erase(this->group.rb_node, &this->group_map);
+        delete group;
+    }
+}
 
 bool GroupPolicy::select(const ParsedURI& uri, EndpointAddress *addr)
 {

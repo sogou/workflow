@@ -532,6 +532,9 @@ static inline const char *__get_task_error_string(int error)
 	case WFT_ERR_MYSQL_COMMAND_DISALLOWED:
 		return "MySQL Command Disallowed";
 
+	case WFT_ERR_MYSQL_QUERY_NOT_SET:
+		return "MySQL Query Not Set";
+
 	case WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED:
 		return "Kafka parse response failed";
 

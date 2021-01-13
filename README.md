@@ -7,6 +7,7 @@ still need crypto for sha1 and md5.
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
+[![Build Status](https://travis-ci.org/sogou/workflow.svg?branch=master)](https://travis-ci.org/sogou/workflow)
 
 搜狗公司C++服务器引擎，支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理超百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数C++后端开发需求。  
 #### 你可以用来：
@@ -129,10 +130,3 @@ int main()
 # 使用中有疑问？
 可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
 非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。
-
-#### Authors
-
-* **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
-* **Wu Jiaxu** - *[void00@foxmail.com](mailto:void00@foxmail.com)*
-* **Wang Zhulei** - *[wangzhulei@sogou-inc.com](mailto:wangzhulei@sogou-inc.com)* - Kafka Protocol Implementation
-* **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*

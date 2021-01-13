@@ -1603,9 +1603,11 @@ void Communicator::handle_accept_result(struct poller_result *res)
 				target->decref();
 		}
 		else
+		{
 			closesocket(sockfd);
-
-		delete target;
+			delete target;
+		}
+		
 		break;
 
 	case PR_ST_ERROR:

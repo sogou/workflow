@@ -126,10 +126,3 @@ int main()
 # 使用中有疑问？
 可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
 非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。
-
-#### Authors
-
-* **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
-* **Wu Jiaxu** - *[void00@foxmail.com](mailto:void00@foxmail.com)*
-* **Wang Zhulei** - *[wangzhulei@sogou-inc.com](mailto:wangzhulei@sogou-inc.com)* - Kafka Protocol Implementation
-* **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*

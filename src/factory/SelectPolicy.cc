@@ -47,7 +47,7 @@ const EndpointAddress *WeightedRandomPolicy::another_stradegy(const ParsedURI& u
 }
 
 
-virtual void WeightedRandomPolicy::recover_one_server(const EndpointAddress *addr)
+void WeightedRandomPolicy::recover_one_server(const EndpointAddress *addr)
 {
 	this->nalives++;
 	if (addr->group->nalives++ == 0 && addr->group->id > 0)
@@ -57,7 +57,7 @@ virtual void WeightedRandomPolicy::recover_one_server(const EndpointAddress *add
 		this->available_weight += addr->params.weight;
 }
 
-virtual void WeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
+void WeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 {
 	this->nalives--;
 	if (--addr->group->nalives == 0 && addr->group->id > 0)

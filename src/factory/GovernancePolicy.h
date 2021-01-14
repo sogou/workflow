@@ -14,10 +14,6 @@
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 //#define VIRTUAL_GROUP_SIZE  16
 
-// or #include "WFTaskFactory.h"
-#define DNS_CACHE_LEVEL_1		1
-#define DNS_CACHE_LEVEL_2		2
-
 struct AddressParams
 {
 	struct EndpointParams endpoint_params;
@@ -55,41 +51,32 @@ public:
 class EndpointGroup
 {
 public:
-	int group_id;
+	int id;
 	GroupPolicy *policy;
 	struct rb_node rb;
-	std::mutex mutex;
+	pthread_mutex_t mutex;
 	std::vector<EndpointAddress *> mains;
 	std::vector<EndpointAddress *> backups;
-	std::atomic<int> nalive;
+	std::atomic<int> nalives;
+	int weight;
 
 	EndpointGroup(int group_id, GroupPolicy *policy)
 	{
-		this->group_id = group_id;
+		this->id = group_id;
 		this->policy = policy;
-		this->nalive = 0;
+		this->nalives = 0;
+		this->weight = 0;
+		pthread_mutex_init(&this->mutex, NULL);
+	}
+
+	~EndpointGroup()
+	{
+		pthread_mutex_destroy(&this->mutex);
 	}
 
 public:
 	const EndpointAddress *get_one();
 	const EndpointAddress *get_one_backup();
-};
-
-class WFSelectorFailTask : public WFRouterTask
-{
-public:
-	WFSelectorFailTask(router_callback_t&& cb)
-		: WFRouterTask(std::move(cb))
-	{
-	}
-
-	virtual void dispatch()
-	{
-		this->state = WFT_STATE_TASK_ERROR;
-		this->error = WFT_ERR_UPSTREAM_UNAVAILABLE;
-
-		return this->subtask_done();
-	}
 };
 
 class GovernancePolicy : public WFDNSResolver
@@ -114,14 +101,16 @@ private:
 public:
 	GovernancePolicy()
 	{
-		this->nalive = 0;
+		this->nalives = 0;
 		this->try_another = false;
 		pthread_rwlock_init(&this->rwlock, NULL);
+		pthread_mutex_init(&this->breaker_lock, NULL);
 		INIT_LIST_HEAD(&this->breaker_list);
 	}
 
 	~GovernancePolicy()
 	{
+		pthread_mutex_destroy(&this->breaker_lock);
 		pthread_rwlock_destroy(&this->rwlock);
 		for (EndpointAddress *addr : this->addresses)
 			delete addr;
@@ -134,29 +123,29 @@ private:
 
 	virtual void recover_one_server(const EndpointAddress *addr)
 	{
-		this->nalive++;
+		this->nalives++;
 	}
 
 	virtual void fuse_one_server(const EndpointAddress *addr)
 	{
-		this->nalive--;
+		this->nalives--;
 	}
 
 	void recover_server_from_breaker(EndpointAddress *addr);
 	void fuse_server_to_breaker(EndpointAddress *addr);
 	void check_breaker();
 
-	bool try_another;
-	std::vector<EndpointAddress *> servers; // current servers
 	std::vector<EndpointAddress *> addresses; // memory management
 	std::unordered_map<std::string,
 					   std::vector<EndpointAddress *>> server_map;
 	pthread_rwlock_t rwlock;
 	struct list_head breaker_list;
-	std::mutex breaker_lock;
+	pthread_mutex_t breaker_lock;
 
 protected:
-	std::atomic<int> nalive;
+	std::vector<EndpointAddress *> servers; // current servers
+	std::atomic<int> nalives;
+	bool try_another;
 };
 
 class GroupPolicy : public GovernancePolicy
@@ -168,59 +157,58 @@ public:
 private:
 	virtual void recover_one_server(const EndpointAddress *addr)
 	{
-		this->nalive++;
-		addr->group->nalive++;
+		this->nalives++;
+		addr->group->nalives++;
 	}
 
 	virtual void fuse_one_server(const EndpointAddress *addr)
 	{
-		this->nalive--;
-		addr->group->nalive--;
+		this->nalives--;
+		addr->group->nalives--;
 	}
 	// override: select() add_server() remove_server()
+
+protected:
+	const EndpointAddress *consistent_hash_with_group(unsigned int hash) const;
+
+	inline const EndpointAddress *check_and_get(const EndpointAddress *addr) // check_get_weak
+	{
+		if (addr && addr->fail_count >= addr->params.max_fails && addr->params.group_id >= 0)
+		{
+			const auto *ret = addr->group->get_one();
+
+			if (ret)
+				addr = ret;
+		}
+		return addr;
+	}
+
+	inline bool is_alive_or_group_alive(const EndpointAddress *addr)
+	{
+		return ((addr->params.group_id < 0 && addr->fail_count < addr->params.max_fails) || 
+				(addr->params.group_id >= 0 && addr->group->nalives > 0));
+	}
 };
 
-/*
 class WeightedRandomPolicy : public GroupPolicy
 {
 public:
-	EndpointAddrress *first_stradegy(const ParsedURI& uri)
-	{
-		int x = 0;
-		int s = 0;
-		int idx, temp_weight;
-
-		temp_weight = this->total_weight;
-
-		if (temp_weight > 0)
-			x = rand() % temp_weight;
-
-		for (idx = 0; idx < this->servers.size(); idx++)
-		{
-			s += this->servers[idx].params.weight;
-			if (s > x)
-				break;
-		}
-		if (idx == this->servers.size())
-			idx--;
-
-		return &this->servers[idx];
-	}
-
-	EndpointAddrress *another_stradegy(const ParsedURI& uri)
-	{
-		// weighted_random_try_another();
-	}
-
-	WeightedRandomPolicy()
+	WeightedRandomPolicy(bool try_another)
 	{
 		this->total_weight = 0;
 		this->available_weight = 0;
+		this->try_another = try_another;
 	}
+	const EndpointAddress *first_stradegy(const ParsedURI& uri);
+	const EndpointAddress *another_stradegy(const ParsedURI& uri);
 
 protected:
 	int total_weight;
 	int available_weight;
+
+private:
+	virtual void recover_one_server(const EndpointAddress *addr);
+	virtual void fuse_one_server(const EndpointAddress *addr);
 };
 
 using select_t = std::function<unsigned int (const char *, const char *, const char *)>;
@@ -233,33 +221,18 @@ public:
 		this->consistent_hash = this->default_consistent_hash;
 	}
 
-	ConsistentHashPolicy(select_t select)
+	ConsistentHashPolicy(select_t consistent_hash)
 	{
-		this->consistent_hash = std::move(select);
+		this->consistent_hash = std::move(consistent_hash);
 	}
 
-	EndpointAddrress *another_stradegy(const ParsedURI& uri)
-	{
-		unsigned int hash_value = this->consistent_hash(uri.path ? uri.path : "",
-														uri.query ? uri.query : "",
-														uri.fragment ? uri.fragment : "");
-
-		return consistent_hash_select(hash_value);
-	}
-
-	EndpointAddrress *first_stradegy(const ParsedURI& uri)
-	{
-		return NULL;
-	}
+protected:
+	const EndpointAddress *first_stradegy(const ParsedURI& uri);
 
 private:
 	select_t consistent_hash;
 
-private:
-	const EndpointAddress *consistent_hash_select(unsigned int hash) const
-	{
-	}
-
+public:
 	static unsigned int default_consistent_hash(const char *path,
 												const char *query,
 												const char *fragment)
@@ -279,45 +252,17 @@ public:
 	ManualPolicy(bool try_another, select_t select, select_t try_another_select)
 	{
 		this->try_another = try_another;
-		this->select = select;
+		this->manual_select = select;
 		this->try_another_select = try_another_select;
 	}
 	
-	EndpointAddrress *first_stradegy(const ParsedURI& uri)
-	{
-    	int idx = this->manual_select(uri.path ? uri.path : "",
-                           			  uri.query ? uri.query : "",
-                                      uri.fragment ? uri.fragment : ""); 
-
-        if (idx >= n)
-            idx %= n;
-
-		return this->servers[idx];
-	}
-
-	EndpointAddrress *another_stradegy(const ParsedURI& uri)
-	{
-		if (this->try_another_select)
-		{
-			int idx = this->try_another_select(uri.path ? uri.path : "",
-											   uri.query ? uri.query : "",
-											   uri.fragment ? uri.fragment : "");
-			if (idx >= n)
-				idx %= n;
-			return this->servers[idx];
-		}
-
-		// get address after hash_value
-		return this->default_consistent_hash_select(uri.path ? uri.path : "",
-											 		uri.query ? uri.query : "",
-											 		uri.fragment ? uri.fragment : "");
-	}
+	const EndpointAddress *first_stradegy(const ParsedURI& uri);
+	const EndpointAddress *another_stradegy(const ParsedURI& uri);
 
 private:
 	select_t manual_select;
 	select_t try_another_select;
 };
-*/
 
 #endif
 

@@ -1,5 +1,7 @@
 #include "GovernancePolicy.h"
 
+#define VIRTUAL_GROUP_SIZE	16
+
 GroupPolicy::GroupPolicy()
 {
 	this->group_map.rb_node = NULL;
@@ -32,14 +34,14 @@ bool GroupPolicy::select(const ParsedURI& uri, EndpointAddress *addr)
 	}
 
 	this->check_breaker();
-	if (this->nalive == 0)
+	if (this->nalives == 0)
 	{
 		pthread_rwlock_unlock(&this->rwlock);
 		return false;
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->select_stradegy(uri);
+	const EndpointAddress *select_addr = this->first_stradegy(uri);
 
 	if (!select_addr || select_addr->fail_count >= select_addr->params.max_fails)
 	{
@@ -66,41 +68,59 @@ bool GroupPolicy::select(const ParsedURI& uri, EndpointAddress *addr)
 
 const EndpointAddress *EndpointGroup::get_one()
 {
-	if (this->nalive == 0)
+	if (this->nalives == 0)
 		return NULL;
 
-	std::lock_guard<std::mutex> lock(this->mutex);
+	const EndpointAddress *addr = NULL;
+	pthread_mutex_lock(&this->mutex);
 
 	std::random_shuffle(this->mains.begin(), this->mains.end());
-	for (const EndpointAddress *main : this->mains)
+	for (size_t i = 0; i < this->mains.size(); i++)
 	{
-		if (main->fail_count < main->params.max_fails)
-			return main;
+		if (this->mains[i]->fail_count < this->mains[i]->params.max_fails)
+		{
+			addr = this->mains[i];
+			break;
+		}
 	}
 
-	std::random_shuffle(this->backups.begin(), this->backups.end());
-	for (const EndpointAddress *backup : this->backups)
+	if (!addr)
 	{
-		if (backup->fail_count < backup->params.max_fails)
-			return backup;
+		std::random_shuffle(this->backups.begin(), this->backups.end());
+		for (size_t i = 0; i < this->backups.size(); i++)
+		{
+			if (this->backups[i]->fail_count < this->backups[i]->params.max_fails)
+			{
+				addr = this->backups[i];
+				break;
+			}
+		}
 	}
 
-	return NULL;
+	pthread_mutex_unlock(&this->mutex);
+	return addr;
 }
 
 const EndpointAddress *EndpointGroup::get_one_backup()
 {
-	if (this->nalive == 0)
+	if (this->nalives == 0)
 		return NULL;
 
-	std::lock_guard<std::mutex> lock(this->mutex);
+	const EndpointAddress *addr = NULL;
+	pthread_mutex_lock(&this->mutex);
+
 	std::random_shuffle(this->backups.begin(), this->backups.end());
-	for (const EndpointAddress *backup : this->backups)
+	for (size_t i = 0; i < this->backups.size(); i++)
 	{
-		if (backup->fail_count < backup->params.max_fails)
-			return backup;
+		if (this->backups[i]->fail_count < this->backups[i]->params.max_fails)
+		{
+			addr = this->backups[i];
+			break;
+		}
 	}
-	return NULL;
+
+	pthread_mutex_unlock(&this->mutex);
+	return addr;
 }
 
 void GroupPolicy::add_server(const std::string& address,
@@ -121,9 +141,9 @@ void GroupPolicy::add_server(const std::string& address,
 		parent = *p;
 		group = rb_entry(*p, EndpointGroup, rb);
 
-		if (group_id < group->group_id)
+		if (group_id < group->id)
 			p = &(*p)->rb_left;
-		else if (group_id > group->group_id)
+		else if (group_id > group->id)
 			p = &(*p)->rb_right;
 		else
 			break;
@@ -140,7 +160,10 @@ void GroupPolicy::add_server(const std::string& address,
 	this->recover_one_server();
 	addr->group = group;
 	if (addr->params.server_type == 0)
+	{
 		group->mains.push_back(addr);
+		group->weight += addr->params.weight; // TODO
+	}
 	else
 		group->backups.push_back(addr);
 	group->mutex.unlock();
@@ -169,6 +192,9 @@ int GroupPolicy::remove_server(const std::string& address)
 			std::lock_guard<std::mutex> lock(group->mutex);
 			if (addr->fail_count < addr->params.max_fails)
 				this->fuse_one_server(addr);
+
+			if (addr->params->server_type == 0)
+				group->weight -= ua->params.weight; // TODO
 
 			for (auto it = vec->begin(); it != vec->end(); ++it)
 			{
@@ -208,11 +234,30 @@ int GroupPolicy::remove_server(const std::string& address)
 	return ret;
 }
 
-/*
-void WeightedRandomPolicy::gain_one_server(const EndpointAddress *addr)
+const EndpointAddress *GroupPolicy::consistent_hash_with_group(unsigned int hash) const
 {
-	// TODO:
-	this->available_weight += addr->params.weight;
+	const EndpointAddress *addr = NULL;
+	unsigned int min_dis = (unsigned int)-1;
+
+	for (const EndpointAddress *server : this->servers)
+	{
+		if (this->is_alive_or_group_alive(server))
+		{
+			for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
+			{
+				unsigned int dis = std::min<unsigned int>
+										   (hash - main->consistent_hash[i],
+											main->consistent_hash[i] - hash);
+
+				if (dis < min_dis)
+				{
+					min_dis = dis;
+					addr = server;
+				}
+			}
+		}
+	}
+
+	return this->check_and_get(addr);
 }
-*/
 

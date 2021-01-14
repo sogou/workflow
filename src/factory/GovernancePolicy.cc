@@ -1,6 +1,26 @@
 #include "GovernancePolicy.h"
 #include "StringUtil.h"
 
+#define DNS_CACHE_LEVEL_1		1
+#define DNS_CACHE_LEVEL_2		2
+
+class WFSelectorFailTask : public WFRouterTask
+{
+public:
+	WFSelectorFailTask(router_callback_t&& cb)
+		: WFRouterTask(std::move(cb))
+	{
+	}
+
+	virtual void dispatch()
+	{
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_UPSTREAM_UNAVAILABLE;
+
+		return this->subtask_done();
+	}
+};
+
 static  bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
 {
 	char *host = NULL;
@@ -91,7 +111,7 @@ WFRouterTask *GovernancePolicy::create_router_task(const struct WFNSParams *para
 inline void GovernancePolicy::recover_server_from_breaker(EndpointAddress *addr)
 {
 	addr->fail_count = 0;
-	this->breaker_lock.lock();
+	pthread_mutex_lock(&this->breaker_lock);
 	if (addr->list.next)
 	{
 		list_del(&addr->list);
@@ -99,12 +119,12 @@ inline void GovernancePolicy::recover_server_from_breaker(EndpointAddress *addr)
 		this->recover_one_server(addr);
 		//this->server_list_change();
 	}
-	this->breaker_lock.unlock();
+	pthread_mutex_unlock(&this->breaker_lock);
 }
 
 inline void GovernancePolicy::fuse_server_to_breaker(EndpointAddress *addr)
 {
-	this->breaker_lock.lock();
+	pthread_mutex_lock(&this->breaker_lock);
 	if (!addr->list.next)
 	{
 		addr->broken_timeout = GET_CURRENT_SECOND + MTTR_SECOND;
@@ -112,7 +132,7 @@ inline void GovernancePolicy::fuse_server_to_breaker(EndpointAddress *addr)
 		this->fuse_one_server(addr);
 		//this->server_list_change();
 	}
-	this->breaker_lock.unlock();
+	pthread_mutex_unlock(&this->breaker_lock);
 }
 
 void GovernancePolicy::success(RouteManager::RouteResult *result, void *cookie,
@@ -142,7 +162,7 @@ void GovernancePolicy::failed(RouteManager::RouteResult *result, void *cookie,
 
 void GovernancePolicy::check_breaker()
 {
-	this->breaker_lock.lock();
+	pthread_mutex_lock(&this->breaker_lock);
 	if (!list_empty(&this->breaker_list))
 	{
 		int64_t cur_time = GET_CURRENT_SECOND;
@@ -164,7 +184,7 @@ void GovernancePolicy::check_breaker()
 			}
 		}
 	}
-	this->breaker_lock.unlock();
+	pthread_mutex_unlock(&this->breaker_lock);
 	
 	//this->server_list_change();
 }
@@ -192,7 +212,7 @@ bool GovernancePolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 	}
 
 	this->check_breaker();
-	if (this->nalive == 0)
+	if (this->nalives == 0)
 	{
 		pthread_rwlock_unlock(&this->rwlock);
 		return false;
@@ -239,7 +259,7 @@ int GovernancePolicy::remove_server(const std::string& address)
 	{
 		for (EndpointAddress *addr : map_it->second)
 		{
-			if (addr->fail_count < addr->params.max_fails) // or not: it has already been -- in nalive
+			if (addr->fail_count < addr->params.max_fails) // or not: it has already been -- in nalives
 				this->fuse_one_server(addr);
 		}
 

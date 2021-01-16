@@ -170,7 +170,6 @@ protected:
 			this->set_last_task(task);
 			this->service = task->service;
 			this->service->incref();
-			this->task = task;
 		}
 
 		virtual ~Series()
@@ -180,7 +179,6 @@ protected:
 		}
 
 		CommService *service;
-		WFServerTask<REQ, RESP> *task;
 	};
 
 public:

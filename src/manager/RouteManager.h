@@ -47,11 +47,7 @@ public:
 		int state;
 
 	private:
-#ifdef _WIN32
-		virtual CommConnection *new_connection(SOCKET)
-#else
 		virtual CommConnection *new_connection(int)
-#endif
 		{
 			return new WFConnection;
 		}

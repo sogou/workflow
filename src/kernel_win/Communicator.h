@@ -66,7 +66,7 @@ private:
 		return (int)socket(this->addr->sa_family, SOCK_STREAM, 0);
 	}
 
-	virtual CommConnection *new_connection(SOCKET connect_fd)
+	virtual CommConnection *new_connection(int connect_fd)
 	{
 		return new CommConnection;
 	}

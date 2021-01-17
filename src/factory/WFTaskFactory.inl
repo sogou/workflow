@@ -789,9 +789,11 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
+WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
+				std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
 {
-	return new WFServerTask<REQ, RESP>(WFGlobal::get_scheduler(), process);
+	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(),
+									   process);
 }
 
 /**********Server Factory**********/
@@ -799,8 +801,10 @@ WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetwor
 class WFServerTaskFactory
 {
 public:
-	static WFHttpTask *create_http_task(std::function<void (WFHttpTask *)>& process);
-	static WFMySQLTask *create_mysql_task(std::function<void (WFMySQLTask *)>& process);
+	static WFHttpTask *create_http_task(CommService *service,
+					std::function<void (WFHttpTask *)>& process);
+	static WFMySQLTask *create_mysql_task(CommService *service,
+					std::function<void (WFMySQLTask *)>& process);
 };
 
 /**********Template Network Factory Sepcial**********/

@@ -47,7 +47,7 @@ public:
 		int state;
 
 	private:
-		virtual CommConnection *new_connection(SOCKET)
+		virtual CommConnection *new_connection(int)
 		{
 			return new WFConnection;
 		}

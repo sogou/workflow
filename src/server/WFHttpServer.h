@@ -50,7 +50,7 @@ inline CommSession *WFHttpServer::new_session(long long seq, CommConnection *con
 {
 	WFHttpTask *task;
 
-	task = WFServerTaskFactory::create_http_task(this->process);
+	task = WFServerTaskFactory::create_http_task(this, this->process);
 	task->set_keep_alive(this->params.keep_alive_timeout);
 	task->set_receive_timeout(this->params.receive_timeout);
 	task->get_req()->set_size_limit(this->params.request_size_limit);

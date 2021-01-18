@@ -228,8 +228,7 @@ HttpMessage::HttpMessage(HttpMessage&& msg)
 	msg.size_limit = (size_t)-1;
 
 	this->parser = msg.parser;
-	msg.parser = new http_parser_t;
-	http_parser_init(this->parser->is_resp, msg.parser);
+	msg.parser = NULL;
 
 	INIT_LIST_HEAD(&this->output_body);
 	list_splice_init(&msg.output_body, &this->output_body);
@@ -251,8 +250,7 @@ HttpMessage& HttpMessage::operator = (HttpMessage&& msg)
 		delete this->parser;
 
 		this->parser = msg.parser;
-		msg.parser = new http_parser_t;
-		http_parser_init(this->parser->is_resp, msg.parser);
+		msg.parser = NULL;
 
 		this->clear_output_body();
 		list_splice_init(&msg.output_body, &this->output_body);

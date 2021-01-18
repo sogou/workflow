@@ -32,10 +32,13 @@ namespace protocol
 
 MySQLMessage::~MySQLMessage()
 {
-	mysql_parser_deinit(parser_);
-	mysql_stream_deinit(stream_);
-	delete parser_;
-	delete stream_;
+	if (parser_)
+	{
+		mysql_parser_deinit(parser_);
+		mysql_stream_deinit(stream_);
+		delete parser_;
+		delete stream_;
+	}
 }
 
 MySQLMessage::MySQLMessage(MySQLMessage&& move)
@@ -48,12 +51,10 @@ MySQLMessage::MySQLMessage(MySQLMessage&& move)
 	seqid_ = move.seqid_;
 	cur_size_ = move.cur_size_;
 
-	move.parser_ = new mysql_parser_t;
-	move.stream_ = new mysql_stream_t;
+	move.parser_ = NULL;
+	move.stream_ = NULL;
 	move.seqid_ = 0;
 	move.cur_size_ = 0;
-	mysql_parser_init(move.parser_);
-	mysql_stream_init(move.stream_);
 }
 
 MySQLMessage& MySQLMessage::operator= (MySQLMessage&& move)
@@ -73,12 +74,10 @@ MySQLMessage& MySQLMessage::operator= (MySQLMessage&& move)
 		seqid_ = move.seqid_;
 		cur_size_ = move.cur_size_;
 
-		move.parser_ = new mysql_parser_t;
-		move.stream_ = new mysql_stream_t;
+		move.parser_ = NULL;
+		move.stream_ = NULL;
 		move.seqid_ = 0;
 		move.cur_size_ = 0;
-		mysql_parser_init(move.parser_);
-		mysql_stream_init(move.stream_);
 	}
 
 	return *this;
@@ -254,7 +253,6 @@ static inline std::string __sha1_bin(const std::string& str)
 #define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
 #define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
 #define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
-#define MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH		0x00080000
 #define MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS	0x00010000
 #define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
 #define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
@@ -269,7 +267,6 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	int4store(pos, MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
 				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
 				   MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB |
-				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
 				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
@@ -296,7 +293,6 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	buf_.append(username_.c_str(), username_.size() + 1);
 	buf_.append(native);
 	buf_.append(db_.c_str(), db_.size() + 1);
-	buf_.append("mysql_native_password", 22);
 	return this->MySQLMessage::encode(vectors, max);
 }
 

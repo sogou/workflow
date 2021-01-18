@@ -243,7 +243,6 @@ public:
 		type_(TT_TCP),
 		retry_times_(0),
 		is_retry_(false),
-		has_original_uri_(true),
 		redirect_(false)
 	{}
 
@@ -292,7 +291,6 @@ public:
 			  socklen_t addrlen,
 			  const std::string& info);
 
-	const ParsedURI *get_original_uri() const { return &original_uri_; }
 	const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
@@ -350,7 +348,6 @@ protected:
 	TransportType get_transport_type() const { return type_; }
 
 	ParsedURI uri_;
-	ParsedURI original_uri_;
 
 	int retry_max_;
 	bool is_sockaddr_;
@@ -378,7 +375,6 @@ private:
 	/* state 0: uninited or failed; 1: inited but not checked; 2: checked. */
 	char init_state_;
 	bool is_retry_;
-	bool has_original_uri_;
 	bool redirect_;
 };
 
@@ -473,12 +469,6 @@ bool WFComplexClientTask<REQ, RESP, CTX>::set_port()
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
-	if (has_original_uri_)
-	{
-		original_uri_ = uri_;
-		has_original_uri_ = true;
-	}
-
 	route_result_.clear();
 	if (uri_.state == URI_STATE_SUCCESS && this->set_port())
 	{
@@ -702,7 +692,12 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		}
 		else if (this->state == WFT_STATE_SYS_ERROR)
 		{
-			RouteManager::notify_unavailable(route_result_.cookie, this->target);
+			if (this->target)
+			{
+				RouteManager::notify_unavailable(route_result_.cookie,
+												 this->target);
+			}
+
 			UpstreamManager::notify_unavailable(upstream_result_.cookie);
 			// 5. complex task failed: retry
 			if (retry_times_ < retry_max_)
@@ -710,7 +705,7 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 				if (is_sockaddr_)
 					set_retry();
 				else
-					set_retry(original_uri_);
+					set_retry(uri_);
 
 				is_retry_ = true; // will influence next round dns cache time
 			}
@@ -794,9 +789,11 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
+WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
+				std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
 {
-	return new WFServerTask<REQ, RESP>(WFGlobal::get_scheduler(), process);
+	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(),
+									   process);
 }
 
 /**********Server Factory**********/
@@ -804,8 +801,10 @@ WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetwor
 class WFServerTaskFactory
 {
 public:
-	static WFHttpTask *create_http_task(std::function<void (WFHttpTask *)>& process);
-	static WFMySQLTask *create_mysql_task(std::function<void (WFMySQLTask *)>& process);
+	static WFHttpTask *create_http_task(CommService *service,
+					std::function<void (WFHttpTask *)>& process);
+	static WFMySQLTask *create_mysql_task(CommService *service,
+					std::function<void (WFMySQLTask *)>& process);
 };
 
 /**********Template Network Factory Sepcial**********/

@@ -90,7 +90,7 @@ Item name | Type | Default value | Description
 ------ | ---- | -------| -------  
 produce_timeout | int | 100ms | Maximum time for produce. 
 produce_msg_max_bytes | int | 1000000 bytes | Maximum length for one message. 
-produce_msgset_cnt | int | int | 10000 | Maximun numbers of messges in one communication set 
+produce_msgset_cnt | int | 10000 | Maximun numbers of messges in one communication set 
 produce_msgset_max_bytes | int | 1000000 bytes | Maximum length of messages in one communication. 
 fetch_timeout | int | 100ms | Maximum timeout for fetch. 
 fetch_min_bytes | int | 1 byte | Minimum length of messages in one fetch communication. 
@@ -233,7 +233,9 @@ int main(int argc, char *argv[])
 
 3\. Committing offset
 
-In the consumer group mode, after a message is consumed, you can create a commit task in the callback to automatically submit the consumption record. For example:
+In the consumer group mode, after a message is consumed, you can create a commit task in the callback to automatically submit the consumption record. 
+
+For example:
 
 ~~~cpp
 void kafka_callback(WFKafkaTask *task)

@@ -6,6 +6,9 @@ set(SRC
 	UpstreamManager.cc
 	RouteManager.cc
 	WFGlobal.cc
+	GovernancePolicy.cc
+	GroupPolicy.cc
+	SelectPolicy.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

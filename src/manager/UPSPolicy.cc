@@ -1,4 +1,4 @@
-#include "GovernancePolicy.h"
+#include "UPSPolicy.h"
 #include "StringUtil.h"
 
 #define DNS_CACHE_LEVEL_1		1
@@ -21,7 +21,7 @@ public:
 	}
 };
 
-static  bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
+static bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
 {
 	char *host = NULL;
 	char *port = NULL;
@@ -87,7 +87,7 @@ EndpointAddress::EndpointAddress(const std::string& address,
 	}
 }
 
-WFRouterTask *GovernancePolicy::create_router_task(const struct WFNSParams *params,
+WFRouterTask *UPSPolicy::create_router_task(const struct WFNSParams *params,
 											 	   router_callback_t callback)
 {
 	EndpointAddress *addr = NULL;
@@ -112,7 +112,7 @@ WFRouterTask *GovernancePolicy::create_router_task(const struct WFNSParams *para
 	return task;
 }
 
-inline void GovernancePolicy::recover_server_from_breaker(EndpointAddress *addr)
+inline void UPSPolicy::recover_server_from_breaker(EndpointAddress *addr)
 {
 	addr->fail_count = 0;
 	pthread_mutex_lock(&this->breaker_lock);
@@ -126,7 +126,7 @@ inline void GovernancePolicy::recover_server_from_breaker(EndpointAddress *addr)
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-inline void GovernancePolicy::fuse_server_to_breaker(EndpointAddress *addr)
+inline void UPSPolicy::fuse_server_to_breaker(EndpointAddress *addr)
 {
 	pthread_mutex_lock(&this->breaker_lock);
 	if (!addr->list.next)
@@ -139,7 +139,7 @@ inline void GovernancePolicy::fuse_server_to_breaker(EndpointAddress *addr)
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-void GovernancePolicy::success(RouteManager::RouteResult *result, void *cookie,
+void UPSPolicy::success(RouteManager::RouteResult *result, void *cookie,
 					 		   CommTarget *target)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
@@ -149,7 +149,7 @@ void GovernancePolicy::success(RouteManager::RouteResult *result, void *cookie,
 	WFDNSResolver::success(result, NULL, target);
 }
 
-void GovernancePolicy::failed(RouteManager::RouteResult *result, void *cookie,
+void UPSPolicy::failed(RouteManager::RouteResult *result, void *cookie,
 							  CommTarget *target)
 {
 	EndpointAddress *server = (EndpointAddress *)cookie;
@@ -164,7 +164,7 @@ void GovernancePolicy::failed(RouteManager::RouteResult *result, void *cookie,
 	WFDNSResolver::failed(result, NULL, target);
 }
 
-void GovernancePolicy::check_breaker()
+void UPSPolicy::check_breaker()
 {
 	pthread_mutex_lock(&this->breaker_lock);
 	if (!list_empty(&this->breaker_list))
@@ -193,18 +193,18 @@ void GovernancePolicy::check_breaker()
 	//this->server_list_change();
 }
 
-const EndpointAddress *GovernancePolicy::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSPolicy::first_stradegy(const ParsedURI& uri)
 {
 	unsigned int idx = rand() % this->servers.size();
 	return this->servers[idx];
 }
 
-const EndpointAddress *GovernancePolicy::another_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSPolicy::another_stradegy(const ParsedURI& uri)
 {
 	return this->first_stradegy(uri);
 }
 
-bool GovernancePolicy::select(const ParsedURI& uri, EndpointAddress **addr)
+bool UPSPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	unsigned int n = (unsigned int)this->servers.size();
@@ -242,22 +242,16 @@ bool GovernancePolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 	return false;
 }
 
-void GovernancePolicy::add_server(const std::string& address,
-								  const AddressParams *address_params)
+void UPSPolicy::__add_server(EndpointAddress *addr)
 {
-	auto *addr = new EndpointAddress(address, address_params);
-
-	pthread_rwlock_wrlock(&this->rwlock);
 	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
 	this->servers.push_back(addr);
 	this->recover_one_server(addr);
-	pthread_rwlock_unlock(&this->rwlock);
 }
 
-int GovernancePolicy::remove_server(const std::string& address)
+int UPSPolicy::__remove_server(const std::string& address)
 {
-	pthread_rwlock_wrlock(&this->rwlock);
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
 	{
@@ -291,11 +285,42 @@ int GovernancePolicy::remove_server(const std::string& address)
 		ret = n - new_n;
 	}
 
+	return ret;
+}
+
+void UPSPolicy::add_server(const std::string& address,
+						   const AddressParams *address_params)
+{
+	EndpointAddress *addr = new EndpointAddress(address, address_params);
+
+	pthread_rwlock_wrlock(&this->rwlock);
+	this->__add_server(addr);
+	pthread_rwlock_unlock(&this->rwlock);
+}
+
+int UPSPolicy::remove_server(const std::string& address)
+{
+	int ret;
+	pthread_rwlock_wrlock(&this->rwlock);
+	ret = this->__remove_server(address);
 	pthread_rwlock_unlock(&this->rwlock);
 	return ret;
 }
 
-void GovernancePolicy::enable_server(const std::string& address)
+int UPSPolicy::replace_server(const std::string& address,
+							  const AddressParams *address_params)
+{
+	int ret;
+	EndpointAddress *addr = new EndpointAddress(address, address_params);
+
+	pthread_rwlock_wrlock(&this->rwlock);
+	this->__add_server(addr);
+	ret = this->__remove_server(address);
+	pthread_rwlock_unlock(&this->rwlock);
+	return ret;
+}
+
+void UPSPolicy::enable_server(const std::string& address)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	const auto map_it = this->server_map.find(address);
@@ -307,7 +332,7 @@ void GovernancePolicy::enable_server(const std::string& address)
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
-void GovernancePolicy::disable_server(const std::string& address)
+void UPSPolicy::disable_server(const std::string& address)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	const auto map_it = this->server_map.find(address);

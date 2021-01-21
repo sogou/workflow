@@ -3,12 +3,12 @@ project(manager)
 
 set(SRC
 	DNSCache.cc
-	UpstreamManager.cc
+#	UpstreamManager.cc
 	RouteManager.cc
 	WFGlobal.cc
-	GovernancePolicy.cc
-	GroupPolicy.cc
-	SelectPolicy.cc
+	UPSPolicy.cc
+	UPSGroupPolicy.cc
+	UPSSelectPolicy.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

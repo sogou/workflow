@@ -23,6 +23,8 @@
 #include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
+#include "WFGlobal.h"
+#include "WFNameService.h"
 
 /**
  * @file    UpstreamManager.h
@@ -234,6 +236,14 @@ public:
 									   const std::string& address,
 									   const struct AddressParams *address_params);
 
+	UpstreamManager()
+	{
+		pthread_mutex_init(&this->lock, NULL);
+	}
+private:
+	std::vector<NSPolicy *policy> policies;
+	pthread_mutex_t lock;
+/*
 public:
 	/// @brief Internal use only
 	class UpstreamResult
@@ -267,6 +277,7 @@ public:
 	static void notify_unavailable(void *cookie);
 	/// @brief Internal use only
 	static void notify_available(void *cookie);
+*/
 };
 
 #endif

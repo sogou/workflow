@@ -26,8 +26,8 @@ struct AddressParams
 };
 
 class EndpointGroup;
-class GovernancePolicy;
-class GroupPolicy;
+class UPSPolicy;
+class UPSGroupPolicy;
 
 class EndpointAddress
 {
@@ -52,7 +52,7 @@ class EndpointGroup
 {
 public:
 	int id;
-	GroupPolicy *policy;
+	UPSGroupPolicy *policy;
 	struct rb_node rb;
 	pthread_mutex_t mutex;
 	std::vector<EndpointAddress *> mains;
@@ -60,7 +60,7 @@ public:
 	std::atomic<int> nalives;
 	int weight;
 
-	EndpointGroup(int group_id, GroupPolicy *policy)
+	EndpointGroup(int group_id, UPSGroupPolicy *policy)
 	{
 		this->id = group_id;
 		this->policy = policy;
@@ -79,7 +79,7 @@ public:
 	const EndpointAddress *get_one_backup();
 };
 
-class GovernancePolicy : public WFDNSResolver
+class UPSPolicy : public WFDNSResolver
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
@@ -89,17 +89,17 @@ public:
 	virtual void failed(RouteManager::RouteResult *result, void *cookie,
 						CommTarget *target);
 
-	// GovernancePolicy *gp = dynamic_cast<GovernancePolicy *>(policy); gp->add_server(...);
-	virtual void add_server(const std::string& address, const AddressParams *address_params);
-	virtual int remove_server(const std::string& address);
+	// UPSPolicy *gp = dynamic_cast<UPSPolicy *>(policy); gp->add_server(...);
+	void add_server(const std::string& address, const AddressParams *address_params);
+	int remove_server(const std::string& address);
+	int replace_server(const std::string& address, const AddressParams *address_params);
 
 	virtual void enable_server(const std::string& address);
 	virtual void disable_server(const std::string& address);
 	// virtual void server_list_change(/* std::vector<server> status */) {}
-private:
 
 public:
-	GovernancePolicy()
+	UPSPolicy()
 	{
 		this->nalives = 0;
 		this->try_another = false;
@@ -108,7 +108,7 @@ public:
 		INIT_LIST_HEAD(&this->breaker_list);
 	}
 
-	~GovernancePolicy()
+	~UPSPolicy()
 	{
 		pthread_mutex_destroy(&this->breaker_lock);
 		pthread_rwlock_destroy(&this->rwlock);
@@ -128,6 +128,9 @@ private:
 	{
 		this->nalives--;
 	}
+
+	virtual void __add_server(EndpointAddress *addr);
+	virtual int __remove_server(const std::string& address);
 
 	void recover_server_from_breaker(EndpointAddress *addr);
 	void fuse_server_to_breaker(EndpointAddress *addr);
@@ -149,15 +152,13 @@ protected:
 	bool try_another;
 };
 
-class GroupPolicy : public GovernancePolicy
+class UPSGroupPolicy : public UPSPolicy
 {
 public:
-	GroupPolicy();
-	~GroupPolicy();
+	UPSGroupPolicy();
+	~UPSGroupPolicy();
 	struct rb_root group_map;
 	EndpointGroup *default_group;
-	virtual void add_server(const std::string& address, const AddressParams *address_params);
-	virtual int remove_server(const std::string& address);
 
 private:
 	virtual void recover_one_server(const EndpointAddress *addr)
@@ -173,6 +174,8 @@ private:
 	}
 	// override: select() add_server() remove_server()
 	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
+	virtual void __add_server(EndpointAddress *addr);
+	virtual int __remove_server(const std::string& address);
 
 protected:
 	const EndpointAddress *consistent_hash_with_group(unsigned int hash) const;
@@ -196,10 +199,10 @@ protected:
 	}
 };
 
-class WeightedRandomPolicy : public GroupPolicy
+class UPSWeightedRandomPolicy : public UPSGroupPolicy
 {
 public:
-	WeightedRandomPolicy(bool try_another)
+	UPSWeightedRandomPolicy(bool try_another)
 	{
 		this->total_weight = 0;
 		this->available_weight = 0;
@@ -219,15 +222,15 @@ private:
 
 using select_t = std::function<unsigned int (const char *, const char *, const char *)>;
 
-class ConsistentHashPolicy : public GroupPolicy
+class UPSConsistentHashPolicy : public UPSGroupPolicy
 {
 public:
-	ConsistentHashPolicy()
+	UPSConsistentHashPolicy()
 	{
 		this->consistent_hash = this->default_consistent_hash;
 	}
 
-	ConsistentHashPolicy(select_t consistent_hash)
+	UPSConsistentHashPolicy(select_t consistent_hash)
 	{
 		this->consistent_hash = std::move(consistent_hash);
 	}
@@ -252,10 +255,10 @@ public:
 	}
 };
 
-class ManualPolicy : public GroupPolicy
+class UPSManualPolicy : public UPSGroupPolicy
 {
 public:
-	ManualPolicy(bool try_another, select_t select, select_t try_another_select)
+	UPSManualPolicy(bool try_another, select_t select, select_t try_another_select)
 	{
 		this->try_another = try_another;
 		this->manual_select = select;

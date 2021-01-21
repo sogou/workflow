@@ -1,8 +1,8 @@
-#include "GovernancePolicy.h"
+#include "UPSPolicy.h"
 
 #define VIRTUAL_GROUP_SIZE	16
 
-GroupPolicy::GroupPolicy()
+UPSGroupPolicy::UPSGroupPolicy()
 {
 	this->group_map.rb_node = NULL;
 	this->default_group = new EndpointGroup(-1, this);
@@ -10,7 +10,7 @@ GroupPolicy::GroupPolicy()
 	rb_insert_color(&this->default_group->rb, &this->group_map);
 }
 
-GroupPolicy::~GroupPolicy()
+UPSGroupPolicy::~UPSGroupPolicy()
 {
     EndpointGroup *group;
 
@@ -22,7 +22,7 @@ GroupPolicy::~GroupPolicy()
     }
 }
 
-bool GroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
+bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	unsigned int n = (unsigned int)this->servers.size();
@@ -123,16 +123,13 @@ const EndpointAddress *EndpointGroup::get_one_backup()
 	return addr;
 }
 
-void GroupPolicy::add_server(const std::string& address,
-							 const AddressParams *address_params)
+void UPSGroupPolicy::__add_server(EndpointAddress *addr)
 {
-	EndpointAddress *addr = new EndpointAddress(address, address_params);
 	int group_id = addr->params.group_id;
 	rb_node **p = &this->group_map.rb_node;
 	rb_node *parent = NULL;
 	EndpointGroup *group;
 
-	pthread_rwlock_wrlock(&this->rwlock);
 	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
 
@@ -168,13 +165,11 @@ void GroupPolicy::add_server(const std::string& address,
 		group->backups.push_back(addr);
 	pthread_mutex_unlock(&group->mutex);
 
-	pthread_rwlock_unlock(&this->rwlock);
 	return;
 }
 
-int GroupPolicy::remove_server(const std::string& address)
+int UPSGroupPolicy::__remove_server(const std::string& address)
 {
-	pthread_rwlock_rdlock(&this->rwlock);
 	const auto map_it = this->server_map.find(address);
 
 	if (map_it != this->server_map.cend())
@@ -232,11 +227,10 @@ int GroupPolicy::remove_server(const std::string& address)
 		ret = n - new_n;
 	}
 
-	pthread_rwlock_unlock(&this->rwlock);
 	return ret;
 }
 
-const EndpointAddress *GroupPolicy::consistent_hash_with_group(unsigned int hash) const
+const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash) const
 {
 	const EndpointAddress *addr = NULL;
 	unsigned int min_dis = (unsigned int)-1;

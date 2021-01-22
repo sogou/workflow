@@ -242,8 +242,8 @@ const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int h
 			for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
 			{
 				unsigned int dis = std::min<unsigned int>
-										   (hash - server->consistent_hash[i],
-											server->consistent_hash[i] - hash);
+								   (hash - server->consistent_hash[i],
+								   server->consistent_hash[i] - hash);
 
 				if (dis < min_dis)
 				{

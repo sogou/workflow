@@ -17,35 +17,77 @@
 */
 
 #include "UpstreamManager.h"
-#include "workflow/WFNameService.h"
+#include "WFNameService.h"
 #include "UPSPolicy.h"
 
-// existed: -1; success: 0;
-UpstreamManager::~UpstreamManager()
+class __UpstreamManager
 {
-	for (const NSPolicy *policy : this->policies)
-		delete policy;
-	pthread_mutex_destroy(&this->lock);
-}
+public:
+	static __UpstreamManager *get_instance()
+	{
+		static __UpstreamManager kInstance;
+		return &kInstance;
+	}
+
+	void add_policy_name(const std::string& name)
+	{
+		pthread_mutex_lock(&this->lock);
+		this->upstream_names.push_back(name);
+		pthread_mutex_unlock(&this->lock);
+	}
+
+private:
+	__UpstreamManager()
+	{
+		pthread_mutex_init(&this->lock, NULL);
+	}
+	
+	~__UpstreamManager()
+	{
+		WFNSPolicy *policy;
+		WFNameService *ns = WFGlobal::get_name_service();
+
+		for (const std::string& name : this->upstream_names)
+		{
+			policy = ns->del_policy(name.c_str());
+			delete policy;
+		}
+
+		pthread_mutex_destroy(&this->lock);
+	}
+
+	pthread_mutex_t lock;
+	std::vector<std::string> upstream_names;
+};
 
 int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 													 upstream_route_t consistent_hash)
 {
+	auto *ns = WFGlobal::get_name_service();
 	UPSConsistentHashPolicy *policy = new UPSConsistentHashPolicy(std::move(consistent_hash));
-	pthread_mutex_lock(&this->lock);
-	this->policies->push_back(policy);
-	pthread_mutex_unlock(&this->lock);
-	return WFGlobal::get_name_service()->add_policy(name, policy);
+
+	if (ns->add_policy(name.c_str(), policy) >= 0)
+	{
+		__UpstreamManager::get_instance()->add_policy_name(name);
+		return 0;
+	}
+
+	return -1;
 }
 
 int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 													 bool try_another)
 {
+	auto *ns = WFGlobal::get_name_service();
 	UPSWeightedRandomPolicy *policy = new UPSWeightedRandomPolicy(try_another);
-	pthread_mutex_lock(&this->lock);
-	this->policies->push_back(policy);
-	pthread_mutex_unlock(&this->lock);
-	return WFGlobal::get_name_service()->add_policy(name, policy);
+
+	if (ns->add_policy(name.c_str(), policy) >= 0)
+	{
+		__UpstreamManager::get_instance()->add_policy_name(name);
+		return 0;
+	}
+
+	return -1;
 }
 
 int UpstreamManager::upstream_create_manual(const std::string& name,
@@ -53,19 +95,24 @@ int UpstreamManager::upstream_create_manual(const std::string& name,
 											bool try_another,
 											upstream_route_t consitent_hash)
 {
+	auto *ns = WFGlobal::get_name_service();
 	UPSManualPolicy *policy = new UPSManualPolicy(try_another,
 												  std::move(select),
 												  std::move(consitent_hash));
-	pthread_mutex_lock(&this->lock);
-	this->policies->push_back(policy);
-	pthread_mutex_unlock(&this->lock);
-	return WFGlobal::get_name_service()->add_policy(name, policy);
+	if (ns->add_policy(name.c_str(), policy) >= 0)
+	{
+		__UpstreamManager::get_instance()->add_policy_name(name);
+		return 0;
+	}
+
+	return -1;
 }
 
 int UpstreamManager::upstream_add_server(const std::string& name,
 										 const std::string& address)
 {
-	return this->upstream_add_server(name, address, &ADDRESS_PARAMS_DEFAULT);
+	return UpstreamManager::upstream_add_server(name, address,
+												&ADDRESS_PARAMS_DEFAULT);
 }
 
 int UpstreamManager::upstream_add_server(const std::string& name,
@@ -73,12 +120,15 @@ int UpstreamManager::upstream_add_server(const std::string& name,
 										 const AddressParams *address_params)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>ns->get_policy(name);
+	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+
 	if (policy)
 	{
 		policy->add_server(address, address_params);
 		return 0;
 	}
+
+	errno = ENOENT;
 	return -1;
 }
 
@@ -86,12 +136,15 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 											const std::string& address)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>ns->get_policy(name);
+	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+
 	if (policy)
 	{
 		policy->remove_server(address);
 		return 0;
 	}
+
+	errno = ENOENT;
 	return -1;
 }
 
@@ -99,20 +152,28 @@ std::vector<std::string>
 UpstreamManager::upstream_main_address_list(const std::string& name)
 {
 	std::vector<std::string> address;
-	//TODO
-	return address
+	WFNameService *ns = WFGlobal::get_name_service();
+	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+
+	if (policy)
+		policy->get_main_address(address);
+
+	return address;
 }
 
 int UpstreamManager::upstream_disable_server(const std::string& name,
 											 const std::string& address)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>ns->get_policy(name);
+	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+
 	if (policy)
 	{
 		policy->disable_server(address);
 		return 0;
 	}
+
+	errno = ENOENT;
 	return -1;
 }
 
@@ -120,12 +181,15 @@ int UpstreamManager::upstream_enable_server(const std::string& name,
 											const std::string& address)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>ns->get_policy(name);
+	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+
 	if (policy)
 	{
 		policy->enable_server(address);
 		return 0;
 	}
+
+	errno = ENOENT;
 	return -1;
 }
 
@@ -134,12 +198,15 @@ int UpstreamManager::upstream_replace_server(const std::string& name,
 											 const struct AddressParams *address_params)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>ns->get_policy(name);
+	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+
 	if (policy)
 	{
 		policy->replace_server(address, address_params);
 		return 0;
 	}
+
+	errno = ENOENT;
 	return -1;
 }
 

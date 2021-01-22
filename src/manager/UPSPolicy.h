@@ -3,6 +3,7 @@
 #include "WFDNSResolver.h"
 #include "WFGlobal.h"
 #include "WFTaskError.h"
+#include "UpstreamManager.h"
 
 #include <unordered_map>
 #include <vector>
@@ -13,17 +14,6 @@
 #define MTTR_SECOND			30
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 #define VIRTUAL_GROUP_SIZE  16
-
-struct AddressParams
-{
-	struct EndpointParams endpoint_params;
-	unsigned int dns_ttl_default;
-	unsigned int dns_ttl_min;
-	unsigned int max_fails;
-	unsigned short weight;
-	int server_type;
-	int group_id;
-};
 
 class EndpointGroup;
 class UPSPolicy;
@@ -96,6 +86,7 @@ public:
 
 	virtual void enable_server(const std::string& address);
 	virtual void disable_server(const std::string& address);
+	virtual void get_main_address(std::vector<std::string>& addr_list);
 	// virtual void server_list_change(/* std::vector<server> status */) {}
 
 public:
@@ -157,6 +148,8 @@ class UPSGroupPolicy : public UPSPolicy
 public:
 	UPSGroupPolicy();
 	~UPSGroupPolicy();
+
+protected:
 	struct rb_root group_map;
 	EndpointGroup *default_group;
 

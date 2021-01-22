@@ -347,3 +347,12 @@ void UPSPolicy::disable_server(const std::string& address)
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
+void UPSPolicy::get_main_address(std::vector<std::string>& addr_list)
+{
+	pthread_rwlock_rdlock(&this->rwlock);
+
+	for (const EndpointAddress *server : this->servers)
+		addr_list.push_back(server->address);
+
+	pthread_rwlock_unlock(&this->rwlock);
+}

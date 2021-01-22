@@ -193,17 +193,6 @@ int CommService::drain(int max)
 	return cnt;
 }
 
-inline void CommService::incref()
-{
-	__sync_add_and_fetch(&this->ref, 1);
-}
-
-inline void CommService::decref()
-{
-	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
-		this->handle_unbound();
-}
-
 class CommServiceTarget : public CommTarget
 {
 public:

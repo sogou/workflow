@@ -7,8 +7,6 @@ set(SRC
 	RouteManager.cc
 	WFGlobal.cc
 	UPSPolicy.cc
-	UPSGroupPolicy.cc
-	UPSSelectPolicy.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

@@ -13,6 +13,7 @@
 
 #define MTTR_SECOND			30
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
+
 #define VIRTUAL_GROUP_SIZE  16
 
 class EndpointGroup;

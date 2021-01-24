@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "UPSPolicy.h"
 #include "StringUtil.h"
 #include "WFDNSResolver.h"
@@ -156,7 +157,7 @@ void UPSPolicy::failed(RouteManager::RouteResult *result, void *cookie,
 	EndpointAddress *server = (EndpointAddress *)cookie;
 
 	pthread_rwlock_rdlock(&this->rwlock);
-	int fail_count = ++server->fail_count;
+	size_t fail_count = ++server->fail_count;
 	if (fail_count == server->params.max_fails)
 		this->fuse_server_to_breaker(server);
 
@@ -617,7 +618,8 @@ const EndpointAddress *UPSWeightedRandomPolicy::first_stradegy(const ParsedURI& 
 {
 	int x = 0;
 	int s = 0;
-	int idx, temp_weight;
+	size_t idx;
+	int temp_weight;
 
 	temp_weight = this->total_weight;
 
@@ -697,9 +699,9 @@ const EndpointAddress *UPSConsistentHashPolicy::first_stradegy(const ParsedURI& 
 
 const EndpointAddress *UPSManualPolicy::first_stradegy(const ParsedURI& uri)
 {
-	int idx = this->manual_select(uri.path ? uri.path : "",
-								  uri.query ? uri.query : "",
-								  uri.fragment ? uri.fragment : ""); 
+	unsigned int idx = this->manual_select(uri.path ? uri.path : "",
+										   uri.query ? uri.query : "",
+										   uri.fragment ? uri.fragment : ""); 
 
 	if (idx >= this->servers.size())
 		idx %= this->servers.size();

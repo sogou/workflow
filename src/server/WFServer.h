@@ -196,9 +196,10 @@ protected:
 template<class REQ, class RESP>
 CommSession *WFServer<REQ, RESP>::new_session(long long seq, CommConnection *conn)
 {
+	using factory = WFNetworkTaskFactory<REQ, RESP>;
 	WFNetworkTask<REQ, RESP> *task;
 
-	task = WFNetworkTaskFactory<REQ, RESP>::create_server_task(this->process);
+	task = factory::create_server_task(this, this->process);
 	task->set_keep_alive(this->params.keep_alive_timeout);
 	task->set_receive_timeout(this->params.receive_timeout);
 	task->get_req()->set_size_limit(this->params.request_size_limit);

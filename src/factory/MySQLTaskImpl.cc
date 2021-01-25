@@ -555,8 +555,9 @@ WFMySQLTask *WFTaskFactory::create_mysql_task(const ParsedURI& uri,
 class WFMySQLServerTask : public WFServerTask<MySQLRequest, MySQLResponse>
 {
 public:
-	WFMySQLServerTask(std::function<void (WFMySQLTask *)>& process):
-		WFServerTask(WFGlobal::get_scheduler(), process)
+	WFMySQLServerTask(CommService *service,
+					  std::function<void (WFMySQLTask *)>& process):
+		WFServerTask(service, WFGlobal::get_scheduler(), process)
 	{}
 
 protected:
@@ -595,8 +596,9 @@ CommMessageIn *WFMySQLServerTask::message_in()
 
 /**********Server Factory**********/
 
-WFMySQLTask *WFServerTaskFactory::create_mysql_task(std::function<void (WFMySQLTask *)>& process)
+WFMySQLTask *WFServerTaskFactory::create_mysql_task(CommService *service,
+							std::function<void (WFMySQLTask *)>& process)
 {
-	return new WFMySQLServerTask(process);
+	return new WFMySQLServerTask(service, process);
 }
 

@@ -283,7 +283,7 @@ void WFResolverTask::dns_callback(WFDNSTask *dns_task)
 	delete this;
 }
 
-inline WFRouterTask *
+WFRouterTask *
 WFDNSResolver::create(const struct WFNSParams *params, int dns_cache_level,
 					  unsigned int dns_ttl_default, unsigned int dns_ttl_min,
 					  const struct EndpointParams *endpoint_params,

@@ -14,59 +14,7 @@ Generally, as long as you writes the program normally and follows the methods in
   * ParallelWork is a kind of tasks, which also needs to run to its callback.
   * This rule can be violated under certain circumstances where the procedural behavior is strictly defined. However, if you don't understand the core principles, you should abide by this principle, otherwise the program can't exit normally.
 * All server must stop, otherwise the behavior is undefined. Because all users know how to call the stop operation, generally a server program will not have any exit problems.
-
-As long as the above three conditions are met, the program can exit normally without any memory leakage. Despite the strict definition, please note the conditions for the completion of a server stop.
-
-* The call of **stop()** on a server will wait for the callbacks of all server tasks to finish (the callback is empty by default) and no new server tasks are processed.
-* However, the framework can't stop you from starting a new task in the process, and not added to the series of the server task. The server **stop()** can't wait for the completion of this new task.
-* Similarly, if the user adds a new task (such as logging) to the series of the server task in its callback, the new task is not controlled by the server.
-* In both cases, if the main function exits immediately after **server.stop()**, it may violate the second rule above. Because there may still be tasks that have not run to their callback.
-
-In the above situation, you need to ensure that the started task has run to its callback. You can use a counter to record the number of running tasks, and wait for the count value to reach 0 before the main function returns.   
-In the following example, in the callback of a server task, a log file writing task is added to the current series (assuming that file writing is very slow and asynchronous IO needs to be started once).
-
-~~~cpp
-std::mutex mutex;
-std::condition_variable cond;
-int log_task_cnt = 0;
-
-void log_callback(WFFileIOTask *log_task)
-{
-    mutex.lock();
-    if (--log_task_cnt == 0)
-        cond.notify_one();
-    mutex.unlock();
-}
-
-void reply_callback(WFHttpTask *server_task)
-{
-    WFFileIOTask *log_task = WFTaskFactory::create_pwrite_task(..., log_callback);
-
-    mutex.lock();
-    log_task_cnt++;
-    mutex.unlock();
-    *series_of(server_task) << log_task;
-}
-
-int main(void)
-{
-    WFHttpServer server;
-
-    server.start();
-    pause();
-    ...
-
-    server.stop();
-
-    std::unique_lock<std::mutex> lock(mutex);
-    while (log_task_cnt != 0)
-        cond.wait(lock);
-    lock.unlock();
-    return 0;
-}
-~~~
-
-Although the above method is feasible, it does increase the complexity and the error probability of the program, which should be avoided as much as possible. For example, you can write log directly in reply callback.
+  * Server's stop() method will block until all server tasks' series end. But if you start a task directly in process function, you have to take care of the end this task.
 
 # About memory leakage of OpenSSL 1.1 in exiting
 

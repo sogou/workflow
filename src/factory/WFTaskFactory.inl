@@ -475,7 +475,7 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 
 	bool is_user_request = this->finish_once();
 
-	if (ns_policy_)
+	if (ns_policy_ && route_result_.request_object)
 	{
 		if (this->state == WFT_STATE_SYS_ERROR)
 			ns_policy_->failed(&route_result_, cookie_, this->target);
@@ -576,9 +576,11 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
+WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
+				std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
 {
-	return new WFServerTask<REQ, RESP>(WFGlobal::get_scheduler(), process);
+	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(),
+									   process);
 }
 
 /**********Server Factory**********/
@@ -586,8 +588,10 @@ WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetwor
 class WFServerTaskFactory
 {
 public:
-	static WFHttpTask *create_http_task(std::function<void (WFHttpTask *)>& process);
-	static WFMySQLTask *create_mysql_task(std::function<void (WFMySQLTask *)>& process);
+	static WFHttpTask *create_http_task(CommService *service,
+					std::function<void (WFHttpTask *)>& process);
+	static WFMySQLTask *create_mysql_task(CommService *service,
+					std::function<void (WFMySQLTask *)>& process);
 };
 
 /**********Template Network Factory Sepcial**********/

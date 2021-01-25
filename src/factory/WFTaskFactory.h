@@ -251,7 +251,8 @@ public:
 								 std::function<void (T *)> callback);
 
 public:
-	static T *create_server_task(std::function<void (T *)>& process);
+	static T *create_server_task(CommService *service,
+								 std::function<void (T *)>& process);
 };
 
 template<class INPUT, class OUTPUT>

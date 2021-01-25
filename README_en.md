@@ -85,7 +85,7 @@ int main()
   * [About connection context](docs/en/about-connection-context.md)
 * Built-in protocols
   * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
-  * [Asynchronous Kafka client: kafka\_cli](docs/tutorial-13-kafka_cli.md)
+  * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 
 #### System design features
 
@@ -136,9 +136,3 @@ Memory reclamation mechanism
 
 To be continued...
 
-## Authors
-
-* **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
-* **Wu Jiaxu** - *[wujiaxu@sogou-inc.com](mailto:wujiaxu@sogou-inc.com)*
-* **Wang Zhulei** - *[wangzhulei@sogou-inc.com](mailto:wangzhulei@sogou-inc.com)* - Kafka Protocol Implementation
-* **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*

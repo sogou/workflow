@@ -475,7 +475,7 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 
 	bool is_user_request = this->finish_once();
 
-	if (ns_policy_)
+	if (ns_policy_ && route_result_.request_object)
 	{
 		if (this->state == WFT_STATE_SYS_ERROR)
 			ns_policy_->failed(&route_result_, cookie_, this->target);

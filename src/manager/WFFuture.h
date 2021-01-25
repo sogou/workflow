@@ -72,7 +72,7 @@ public:
 
 	WFFuture<RES> get_future()
 	{
-		return WFFuture<RES>(std::move(this->promise.get_future()));
+		return WFFuture<RES>(this->promise.get_future());
 	}
 
 	void set_value(const RES& value) { this->promise.set_value(value); }

@@ -132,11 +132,14 @@ protected:
 	}
 
 protected:
+	CommService *service;
+
+protected:
 	class Processor : public SubTask
 	{
 	public:
 		Processor(WFServerTask<REQ, RESP> *task,
-				 std::function<void (WFNetworkTask<REQ, RESP> *)>& proc) :
+				  std::function<void (WFNetworkTask<REQ, RESP> *)>& proc) :
 			process(proc)
 		{
 			this->task = task;
@@ -158,12 +161,33 @@ protected:
 		WFServerTask<REQ, RESP> *task;
 	} processor;
 
+	class Series : public SeriesWork
+	{
+	public:
+		Series(WFServerTask<REQ, RESP> *task) :
+			SeriesWork(&task->processor, nullptr)
+		{
+			this->set_last_task(task);
+			this->service = task->service;
+			this->service->incref();
+		}
+
+		virtual ~Series()
+		{
+			this->callback = nullptr;
+			this->service->decref();
+		}
+
+		CommService *service;
+	};
+
 public:
-	WFServerTask(CommScheduler *scheduler,
+	WFServerTask(CommService *service, CommScheduler *scheduler,
 				 std::function<void (WFNetworkTask<REQ, RESP> *)>& proc) :
 		WFNetworkTask<REQ, RESP>(NULL, scheduler, nullptr),
 		processor(this, proc)
 	{
+		this->service = service;
 	}
 
 protected:
@@ -177,7 +201,8 @@ void WFServerTask<REQ, RESP>::handle(int state, int error)
 	{
 		this->state = WFT_STATE_TOREPLY;
 		this->target = this->get_target();
-		Workflow::start_series_work(&this->processor, this, nullptr);
+		new Series(this);
+		this->processor.dispatch();
 	}
 	else if (this->state == WFT_STATE_TOREPLY)
 	{

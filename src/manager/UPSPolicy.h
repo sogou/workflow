@@ -168,10 +168,11 @@ private:
 	}
 	// override: select() add_server() remove_server()
 	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
+
+protected:
 	virtual void __add_server(EndpointAddress *addr);
 	virtual int __remove_server(const std::string& address);
 
-protected:
 	const EndpointAddress *consistent_hash_with_group(unsigned int hash) const;
 
 	inline const EndpointAddress *check_and_get(const EndpointAddress *addr) const // check_get_weak
@@ -212,6 +213,8 @@ protected:
 private:
 	virtual void recover_one_server(const EndpointAddress *addr);
 	virtual void fuse_one_server(const EndpointAddress *addr);
+	virtual void __add_server(EndpointAddress *addr);
+	virtual int __remove_server(const std::string& address);
 };
 
 using select_t = std::function<unsigned int (const char *, const char *, const char *)>;

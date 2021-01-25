@@ -511,8 +511,8 @@ void UPSGroupPolicy::__add_server(EndpointAddress *addr)
 	}
 
 	pthread_mutex_lock(&group->mutex);
-	this->recover_one_server(addr);
 	addr->group = group;
+	this->recover_one_server(addr);
 	if (addr->params.server_type == 0)
 	{
 		group->mains.push_back(addr);
@@ -614,14 +614,39 @@ const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int h
 	return this->check_and_get(addr);
 }
 
+void UPSWeightedRandomPolicy::__add_server(EndpointAddress *addr)
+{
+	UPSGroupPolicy::__add_server(addr);
+	if (addr->params.server_type == 0)
+	{
+		this->total_weight += addr->params.weight;
+		this->servers.push_back(addr);
+	}
+	return;
+}
+
+int UPSWeightedRandomPolicy::__remove_server(const std::string& address)
+{
+	const auto map_it = this->server_map.find(address);
+
+	if (map_it != this->server_map.cend())
+	{
+		for (EndpointAddress *addr : map_it->second)
+		{
+			if (addr->params.server_type == 0)
+				this->total_weight -= addr->params.weight;
+		}
+	}
+
+	return UPSGroupPolicy::__remove_server(address);
+}
+
 const EndpointAddress *UPSWeightedRandomPolicy::first_stradegy(const ParsedURI& uri)
 {
 	int x = 0;
 	int s = 0;
 	size_t idx;
-	int temp_weight;
-
-	temp_weight = this->total_weight;
+	int temp_weight = this->total_weight;
 
 	if (temp_weight > 0)
 		x = rand() % temp_weight;
@@ -660,7 +685,6 @@ const EndpointAddress *UPSWeightedRandomPolicy::another_stradegy(const ParsedURI
 	}
 	return this->check_and_get(addr);
 }
-
 
 void UPSWeightedRandomPolicy::recover_one_server(const EndpointAddress *addr)
 {

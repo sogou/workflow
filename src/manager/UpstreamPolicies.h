@@ -121,8 +121,8 @@ private:
 		this->nalives--;
 	}
 
-	virtual void __add_server(EndpointAddress *addr);
-	virtual int __remove_server(const std::string& address);
+	virtual void add_server_locked(EndpointAddress *addr);
+	virtual int remove_server_locked(const std::string& address);
 
 	void recover_server_from_breaker(EndpointAddress *addr);
 	void fuse_server_to_breaker(EndpointAddress *addr);
@@ -170,8 +170,8 @@ private:
 	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
 
 protected:
-	virtual void __add_server(EndpointAddress *addr);
-	virtual int __remove_server(const std::string& address);
+	virtual void add_server_locked(EndpointAddress *addr);
+	virtual int remove_server_locked(const std::string& address);
 
 	const EndpointAddress *consistent_hash_with_group(unsigned int hash) const;
 
@@ -213,8 +213,8 @@ protected:
 private:
 	virtual void recover_one_server(const EndpointAddress *addr);
 	virtual void fuse_one_server(const EndpointAddress *addr);
-	virtual void __add_server(EndpointAddress *addr);
-	virtual int __remove_server(const std::string& address);
+	virtual void add_server_locked(EndpointAddress *addr);
+	virtual int remove_server_locked(const std::string& address);
 };
 
 using select_t = std::function<unsigned int (const char *, const char *, const char *)>;

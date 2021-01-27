@@ -18,7 +18,7 @@
 
 #include "UpstreamManager.h"
 #include "WFNameService.h"
-#include "UpstreamPolicy.h"
+#include "UpstreamPolicies.h"
 
 class __UpstreamManager
 {

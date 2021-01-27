@@ -1,6 +1,6 @@
 #include <algorithm>
-#include "UpstreamPolicy.h"
 #include "StringUtil.h"
+#include "UpstreamPolicies.h"
 #include "WFDNSResolver.h"
 
 #define DNS_CACHE_LEVEL_1		1
@@ -244,7 +244,7 @@ bool UPSPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 	return false;
 }
 
-void UPSPolicy::__add_server(EndpointAddress *addr)
+void UPSPolicy::add_server_locked(EndpointAddress *addr)
 {
 	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
@@ -252,14 +252,15 @@ void UPSPolicy::__add_server(EndpointAddress *addr)
 	this->recover_one_server(addr);
 }
 
-int UPSPolicy::__remove_server(const std::string& address)
+int UPSPolicy::remove_server_locked(const std::string& address)
 {
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
 	{
 		for (EndpointAddress *addr : map_it->second)
 		{
-			if (addr->fail_count < addr->params.max_fails) // or not: it has already been -- in nalives
+			// or not: it has already been -- in nalives
+			if (addr->fail_count < addr->params.max_fails)
 				this->fuse_one_server(addr);
 		}
 
@@ -296,7 +297,7 @@ void UPSPolicy::add_server(const std::string& address,
 	EndpointAddress *addr = new EndpointAddress(address, address_params);
 
 	pthread_rwlock_wrlock(&this->rwlock);
-	this->__add_server(addr);
+	this->add_server_locked(addr);
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
@@ -304,7 +305,7 @@ int UPSPolicy::remove_server(const std::string& address)
 {
 	int ret;
 	pthread_rwlock_wrlock(&this->rwlock);
-	ret = this->__remove_server(address);
+	ret = this->remove_server_locked(address);
 	pthread_rwlock_unlock(&this->rwlock);
 	return ret;
 }
@@ -316,8 +317,8 @@ int UPSPolicy::replace_server(const std::string& address,
 	EndpointAddress *addr = new EndpointAddress(address, address_params);
 
 	pthread_rwlock_wrlock(&this->rwlock);
-	this->__add_server(addr);
-	ret = this->__remove_server(address);
+	this->add_server_locked(addr);
+	ret = this->remove_server_locked(address);
 	pthread_rwlock_unlock(&this->rwlock);
 	return ret;
 }
@@ -480,7 +481,7 @@ const EndpointAddress *EndpointGroup::get_one_backup()
 	return addr;
 }
 
-void UPSGroupPolicy::__add_server(EndpointAddress *addr)
+void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 {
 	int group_id = addr->params.group_id;
 	rb_node **p = &this->group_map.rb_node;
@@ -528,7 +529,7 @@ void UPSGroupPolicy::__add_server(EndpointAddress *addr)
 	return;
 }
 
-int UPSGroupPolicy::__remove_server(const std::string& address)
+int UPSGroupPolicy::remove_server_locked(const std::string& address)
 {
 	const auto map_it = this->server_map.find(address);
 
@@ -617,15 +618,15 @@ const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int h
 	return this->check_and_get(addr);
 }
 
-void UPSWeightedRandomPolicy::__add_server(EndpointAddress *addr)
+void UPSWeightedRandomPolicy::add_server_locked(EndpointAddress *addr)
 {
-	UPSGroupPolicy::__add_server(addr);
+	UPSGroupPolicy::add_server_locked(addr);
 	if (addr->params.server_type == 0)
 		this->total_weight += addr->params.weight;
 	return;
 }
 
-int UPSWeightedRandomPolicy::__remove_server(const std::string& address)
+int UPSWeightedRandomPolicy::remove_server_locked(const std::string& address)
 {
 	const auto map_it = this->server_map.find(address);
 
@@ -638,7 +639,7 @@ int UPSWeightedRandomPolicy::__remove_server(const std::string& address)
 		}
 	}
 
-	return UPSGroupPolicy::__remove_server(address);
+	return UPSGroupPolicy::remove_server_locked(address);
 }
 
 const EndpointAddress *UPSWeightedRandomPolicy::first_stradegy(const ParsedURI& uri)

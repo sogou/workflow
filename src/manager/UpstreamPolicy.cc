@@ -1,5 +1,5 @@
 #include <algorithm>
-#include "UPSPolicy.h"
+#include "UpstreamPolicy.h"
 #include "StringUtil.h"
 #include "WFDNSResolver.h"
 
@@ -490,6 +490,9 @@ void UPSGroupPolicy::__add_server(EndpointAddress *addr)
 	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
 
+	if (addr->params.server_type == 0)
+		this->servers.push_back(addr);
+
 	while (*p)
 	{
 		parent = *p;
@@ -516,7 +519,7 @@ void UPSGroupPolicy::__add_server(EndpointAddress *addr)
 	if (addr->params.server_type == 0)
 	{
 		group->mains.push_back(addr);
-		group->weight += addr->params.weight; // TODO
+		group->weight += addr->params.weight;
 	}
 	else
 		group->backups.push_back(addr);
@@ -547,7 +550,7 @@ int UPSGroupPolicy::__remove_server(const std::string& address)
 				this->fuse_one_server(addr);
 
 			if (addr->params.server_type == 0)
-				group->weight -= addr->params.weight; // TODO
+				group->weight -= addr->params.weight;
 
 			for (auto it = vec->begin(); it != vec->end(); ++it)
 			{
@@ -618,10 +621,7 @@ void UPSWeightedRandomPolicy::__add_server(EndpointAddress *addr)
 {
 	UPSGroupPolicy::__add_server(addr);
 	if (addr->params.server_type == 0)
-	{
 		this->total_weight += addr->params.weight;
-		this->servers.push_back(addr);
-	}
 	return;
 }
 
@@ -692,7 +692,7 @@ void UPSWeightedRandomPolicy::recover_one_server(const EndpointAddress *addr)
 	if (addr->group->nalives++ == 0 && addr->group->id > 0)
 		this->available_weight += addr->group->weight;
 
-	if (addr->params.group_id < 0 && addr->params.server_type == 0) // TODO
+	if (addr->params.group_id < 0 && addr->params.server_type == 0)
 		this->available_weight += addr->params.weight;
 }
 
@@ -702,7 +702,7 @@ void UPSWeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 	if (--addr->group->nalives == 0 && addr->group->id > 0)
 		this->available_weight -= addr->group->weight;
 
-	if (addr->params.group_id < 0 && addr->params.server_type == 0) // TODO
+	if (addr->params.group_id < 0 && addr->params.server_type == 0)
 		this->available_weight -= addr->params.weight;
 }
 

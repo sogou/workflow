@@ -1625,7 +1625,7 @@ KafkaMessage::KafkaMessage(KafkaMessage&& msg)
 	this->size_limit = msg.size_limit;
 	msg.size_limit = (size_t)-1;
 
-	this->attachment = msg.attchment;
+	this->attachment = msg.attachment;
 	msg.attachment = NULL;
 
 	this->parser = msg.parser;
@@ -1657,7 +1657,7 @@ KafkaMessage& KafkaMessage::operator= (KafkaMessage &&msg)
 		this->size_limit = msg.size_limit;
 		msg.size_limit = (size_t)-1;
 
-		this->attachment = msg.attchment;
+		this->attachment = msg.attachment;
 		msg.attachment = NULL;
 
 		kafka_parser_deinit(this->parser);

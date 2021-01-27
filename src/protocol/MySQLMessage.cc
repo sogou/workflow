@@ -46,6 +46,9 @@ MySQLMessage::MySQLMessage(MySQLMessage&& move)
 	this->size_limit = move.size_limit;
 	move.size_limit = (size_t)-1;
 
+	this->attachment = move.attachment;
+	move.attachment = NULL;
+
 	parser_ = move.parser_;
 	stream_ = move.stream_;
 	seqid_ = move.seqid_;
@@ -63,6 +66,9 @@ MySQLMessage& MySQLMessage::operator= (MySQLMessage&& move)
 	{
 		this->size_limit = move.size_limit;
 		move.size_limit = (size_t)-1;
+
+		this->attachment = move.attachment;
+		move.attachment = NULL;
 
 		mysql_parser_deinit(parser_);
 		mysql_stream_deinit(stream_);

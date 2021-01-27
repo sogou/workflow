@@ -227,6 +227,9 @@ HttpMessage::HttpMessage(HttpMessage&& msg)
 	this->size_limit = msg.size_limit;
 	msg.size_limit = (size_t)-1;
 
+	this->attachment = msg.attachment;
+	msg.attachment = NULL;
+
 	this->parser = msg.parser;
 	msg.parser = NULL;
 
@@ -245,6 +248,9 @@ HttpMessage& HttpMessage::operator = (HttpMessage&& msg)
 	{
 		this->size_limit = msg.size_limit;
 		msg.size_limit = (size_t)-1;
+
+		this->attachment = msg.attachment;
+		msg.attachment = NULL;
 
 		http_parser_deinit(this->parser);
 		delete this->parser;

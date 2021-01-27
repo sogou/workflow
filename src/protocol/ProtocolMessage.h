@@ -73,6 +73,8 @@ public:
 
 protected:
 	size_t size_limit;
+
+private:
 	Attachment *attachment;
 
 public:
@@ -83,6 +85,28 @@ public:
 	}
 
 	virtual ~ProtocolMessage() { delete this->attachment; }
+
+public:
+	ProtocolMessage(ProtocolMessage&& msg)
+	{
+		this->size_limit = msg.size_limit;
+		msg.size_limit = (size_t)-1;
+		this->attachment = msg.attachment;
+		msg.attachment = NULL;
+	}
+
+	ProtocolMessage& operator = (ProtocolMessage&& msg)
+	{
+		if (&msg != this)
+		{
+			this->size_limit = msg.size_limit;
+			msg.size_limit = (size_t)-1;
+			this->attachment = msg.attachment;
+			msg.attachment = NULL;
+		}
+
+		return *this;
+	}
 };
 
 }

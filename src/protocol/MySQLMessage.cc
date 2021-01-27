@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string>
 #include <openssl/sha.h>
+#include <utility>
 #include "MySQLMessage.h"
 #include "mysql_types.h"
 
@@ -41,14 +42,9 @@ MySQLMessage::~MySQLMessage()
 	}
 }
 
-MySQLMessage::MySQLMessage(MySQLMessage&& move)
+MySQLMessage::MySQLMessage(MySQLMessage&& move) :
+	ProtocolMessage(std::move(move))
 {
-	this->size_limit = move.size_limit;
-	move.size_limit = (size_t)-1;
-
-	this->attachment = move.attachment;
-	move.attachment = NULL;
-
 	parser_ = move.parser_;
 	stream_ = move.stream_;
 	seqid_ = move.seqid_;
@@ -64,11 +60,7 @@ MySQLMessage& MySQLMessage::operator= (MySQLMessage&& move)
 {
 	if (this != &move)
 	{
-		this->size_limit = move.size_limit;
-		move.size_limit = (size_t)-1;
-
-		this->attachment = move.attachment;
-		move.attachment = NULL;
+		*(ProtocolMessage *)this = std::move(move);
 
 		mysql_parser_deinit(parser_);
 		mysql_stream_deinit(stream_);

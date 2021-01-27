@@ -485,14 +485,9 @@ std::string RedisValue::debug_string() const
 	return ret;
 }
 
-RedisMessage::RedisMessage(RedisMessage&& move)
+RedisMessage::RedisMessage(RedisMessage&& move) :
+	ProtocolMessage(std::move(move))
 {
-	this->size_limit = move.size_limit;
-	move.size_limit = (size_t)-1;
-
-	this->attachment = move.attachment;
-	move.attachment = NULL;
-
 	parser_ = move.parser_;
 	stream_ = move.stream_;
 	cur_size_ = move.cur_size_;
@@ -506,8 +501,7 @@ RedisMessage& RedisMessage::operator= (RedisMessage &&move)
 {
 	if (this != &move)
 	{
-		this->size_limit = move.size_limit;
-		move.size_limit = (size_t)-1;
+		*(ProtocolMessage *)this = std::move(move);
 
 		redis_parser_deinit(parser_);
 		delete parser_;

@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <utility>
 #include "HttpMessage.h"
 
 namespace protocol
@@ -222,14 +223,9 @@ inline int HttpMessage::append(const void *buf, size_t *size)
 	return ret;
 }
 
-HttpMessage::HttpMessage(HttpMessage&& msg)
+HttpMessage::HttpMessage(HttpMessage&& msg) :
+	ProtocolMessage(std::move(msg))
 {
-	this->size_limit = msg.size_limit;
-	msg.size_limit = (size_t)-1;
-
-	this->attachment = msg.attachment;
-	msg.attachment = NULL;
-
 	this->parser = msg.parser;
 	msg.parser = NULL;
 
@@ -246,11 +242,7 @@ HttpMessage& HttpMessage::operator = (HttpMessage&& msg)
 {
 	if (&msg != this)
 	{
-		this->size_limit = msg.size_limit;
-		msg.size_limit = (size_t)-1;
-
-		this->attachment = msg.attachment;
-		msg.attachment = NULL;
+		*(ProtocolMessage *)this = std::move(msg);
 
 		http_parser_deinit(this->parser);
 		delete this->parser;

@@ -278,12 +278,8 @@ public:
 
 	/* for std::move() */
 public:
-	HttpRequest(HttpRequest&& req) : HttpMessage(std::move(req)) { }
-	HttpRequest& operator = (HttpRequest&& req)
-	{
-		*(HttpMessage *)this = std::move(req);
-		return *this;
-	}
+	HttpRequest(HttpRequest&& req) = default;
+	HttpRequest& operator = (HttpRequest&& req) = default;
 };
 
 class HttpResponse : public HttpMessage
@@ -361,12 +357,8 @@ public:
 
 	/* for std::move() */
 public:
-	HttpResponse(HttpResponse&& resp) : HttpMessage(std::move(resp)) { }
-	HttpResponse& operator = (HttpResponse&& resp)
-	{
-		*(HttpMessage *)this = std::move(resp);
-		return *this;
-	}
+	HttpResponse(HttpResponse&& resp) = default;
+	HttpResponse& operator = (HttpResponse&& resp) = default;
 };
 
 }

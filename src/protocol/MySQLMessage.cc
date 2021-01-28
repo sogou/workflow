@@ -32,36 +32,34 @@ namespace protocol
 
 MySQLMessage::~MySQLMessage()
 {
-	mysql_parser_deinit(parser_);
-	mysql_stream_deinit(stream_);
-	delete parser_;
-	delete stream_;
+	if (parser_)
+	{
+		mysql_parser_deinit(parser_);
+		mysql_stream_deinit(stream_);
+		delete parser_;
+		delete stream_;
+	}
 }
 
-MySQLMessage::MySQLMessage(MySQLMessage&& move)
+MySQLMessage::MySQLMessage(MySQLMessage&& move) :
+	ProtocolMessage(std::move(move))
 {
-	this->size_limit = move.size_limit;
-	move.size_limit = (size_t)-1;
-
 	parser_ = move.parser_;
 	stream_ = move.stream_;
 	seqid_ = move.seqid_;
 	cur_size_ = move.cur_size_;
 
-	move.parser_ = new mysql_parser_t;
-	move.stream_ = new mysql_stream_t;
+	move.parser_ = NULL;
+	move.stream_ = NULL;
 	move.seqid_ = 0;
 	move.cur_size_ = 0;
-	mysql_parser_init(move.parser_);
-	mysql_stream_init(move.stream_);
 }
 
 MySQLMessage& MySQLMessage::operator= (MySQLMessage&& move)
 {
 	if (this != &move)
 	{
-		this->size_limit = move.size_limit;
-		move.size_limit = (size_t)-1;
+		*(ProtocolMessage *)this = std::move(move);
 
 		mysql_parser_deinit(parser_);
 		mysql_stream_deinit(stream_);
@@ -73,12 +71,10 @@ MySQLMessage& MySQLMessage::operator= (MySQLMessage&& move)
 		seqid_ = move.seqid_;
 		cur_size_ = move.cur_size_;
 
-		move.parser_ = new mysql_parser_t;
-		move.stream_ = new mysql_stream_t;
+		move.parser_ = NULL;
+		move.stream_ = NULL;
 		move.seqid_ = 0;
 		move.cur_size_ = 0;
-		mysql_parser_init(move.parser_);
-		mysql_stream_init(move.stream_);
 	}
 
 	return *this;

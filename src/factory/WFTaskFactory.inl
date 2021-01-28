@@ -61,8 +61,8 @@ inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 													 timer_callback_t callback)
 {
 	struct timespec value = {
-	/*	.tv_sec		=	*/	(time_t)microseconds / 1000000,
-	/*	.tv_nsec	=	*/	(long)microseconds % 1000000 * 1000
+	/*	.tv_sec		=	*/	microseconds / 1000000,
+	/*	.tv_nsec	=	*/	microseconds % 1000000 * 1000
 	};
 
 	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
@@ -81,17 +81,17 @@ class __WFGoTask : public WFGoTask
 protected:
 	virtual void execute()
 	{
-		this->func();
+		this->go();
 	}
 
 protected:
-	std::function<void ()> func;
+	std::function<void ()> go;
 
 public:
 	__WFGoTask(ExecQueue *queue, Executor *executor,
-			   std::function<void ()>&& f) :
+			   std::function<void ()>&& func) :
 		WFGoTask(queue, executor),
-		func(std::move(f))
+		go(std::move(func))
 	{
 	}
 };
@@ -100,10 +100,35 @@ template<class FUNC, class... ARGS>
 inline WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
 											   FUNC&& func, ARGS&&... args)
 {
-	auto&& routine = std::bind(std::move(func), std::forward<ARGS>(args)...);
+	auto&& tmp = std::bind(std::move(func), std::forward<ARGS>(args)...);
 	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
 						  WFGlobal::get_compute_executor(),
-						  std::move(routine));
+						  std::move(tmp));
+}
+
+class __WFDynamicTask : public WFDynamicTask
+{
+protected:
+	virtual void dispatch()
+	{
+		series_of(this)->push_front(this->create(this));
+		this->WFDynamicTask::dispatch();
+	}
+
+protected:
+	std::function<SubTask *(WFDynamicTask *)> create;
+
+public:
+	__WFDynamicTask(std::function<SubTask *(WFDynamicTask *)>&& func) :
+		create(std::move(func))
+	{
+	}
+};
+
+inline WFDynamicTask *
+WFTaskFactory::create_dynamic_task(dynamic_create_t create)
+{
+	return new __WFDynamicTask(std::move(create));
 }
 
 /**********WFComplexClientTask**********/
@@ -218,7 +243,6 @@ public:
 		type_(TT_TCP),
 		retry_times_(0),
 		is_retry_(false),
-		has_original_uri_(true),
 		redirect_(false)
 	{}
 
@@ -267,7 +291,6 @@ public:
 			  socklen_t addrlen,
 			  const std::string& info);
 
-	const ParsedURI *get_original_uri() const { return &original_uri_; }
 	const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
@@ -325,7 +348,6 @@ protected:
 	TransportType get_transport_type() const { return type_; }
 
 	ParsedURI uri_;
-	ParsedURI original_uri_;
 
 	int retry_max_;
 	bool is_sockaddr_;
@@ -353,7 +375,6 @@ private:
 	/* state 0: uninited or failed; 1: inited but not checked; 2: checked. */
 	char init_state_;
 	bool is_retry_;
-	bool has_original_uri_;
 	bool redirect_;
 };
 
@@ -448,12 +469,6 @@ bool WFComplexClientTask<REQ, RESP, CTX>::set_port()
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
-	if (has_original_uri_)
-	{
-		original_uri_ = uri_;
-		has_original_uri_ = true;
-	}
-
 	route_result_.clear();
 	if (uri_.state == URI_STATE_SUCCESS && this->set_port())
 	{
@@ -691,7 +706,7 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 				if (is_sockaddr_)
 					set_retry();
 				else
-					set_retry(original_uri_);
+					set_retry(uri_);
 
 				is_retry_ = true; // will influence next round dns cache time
 			}
@@ -775,9 +790,11 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
+WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
+				std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
 {
-	return new WFServerTask<REQ, RESP>(WFGlobal::get_scheduler(), process);
+	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(),
+									   process);
 }
 
 /**********Server Factory**********/
@@ -785,8 +802,10 @@ WFNetworkTaskFactory<REQ, RESP>::create_server_task(std::function<void (WFNetwor
 class WFServerTaskFactory
 {
 public:
-	static WFHttpTask *create_http_task(std::function<void (WFHttpTask *)>& process);
-	static WFMySQLTask *create_mysql_task(std::function<void (WFMySQLTask *)>& process);
+	static WFHttpTask *create_http_task(CommService *service,
+					std::function<void (WFHttpTask *)>& process);
+	static WFMySQLTask *create_mysql_task(CommService *service,
+					std::function<void (WFMySQLTask *)>& process);
 };
 
 /**********Template Network Factory Sepcial**********/

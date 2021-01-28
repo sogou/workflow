@@ -20,25 +20,25 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 #include <vector>
 #include <map>
-#include <mutex>
-#include <condition_variable>
 
-#include <signal.h>
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/MySQLResult.h"
+#include "workflow/WFFacilities.h"
 
 using namespace protocol;
 
 #define RETRY_MAX       0
 
-std::mutex mutex;
-std::condition_variable cond;
-
-bool task_finished;
-bool stop_flag;
+volatile bool stop_flag;
 
 void mysql_callback(WFMySQLTask *task);
 
@@ -87,37 +87,18 @@ void mysql_callback(WFMySQLTask *task)
 
 	if (task->get_state() != WFT_STATE_SUCCESS)
 	{
-		fprintf(stderr, "task error = %d\n", task->get_error());
+		fprintf(stderr, "error msg: %s\n",
+				WFGlobal::get_error_string(task->get_state(),
+										   task->get_error()));
 		return;
 	}
 
-	switch (resp->get_packet_type())
+	if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
 	{
-	case MYSQL_PACKET_OK:
-		fprintf(stderr, "OK. %llu ", task->get_resp()->get_affected_rows());
-		if (task->get_resp()->get_affected_rows() == 1)
-			fprintf(stderr, "row ");
-		else
-			fprintf(stderr, "rows ");
-		fprintf(stderr, "affected. %d warnings. insert_id=%llu.\n",
-				task->get_resp()->get_warnings(),
-				task->get_resp()->get_last_insert_id());
-		break;
-
-	case MYSQL_PACKET_ERROR:
-		fprintf(stderr, "ERROR. error_code=%d %s\n",
-				task->get_resp()->get_error_code(),
-				task->get_resp()->get_error_msg().c_str());
-		break;
-
-	case MYSQL_PACKET_EOF:
 		fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u\n",	
 			cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
 
 		do {
-			if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT)
-				break;
-
 			fprintf(stderr, "-------- RESULT SET --------\n");
 			//nocopy api
 			fields = cursor.fetch_fields();
@@ -202,24 +183,36 @@ void mysql_callback(WFMySQLTask *task)
 			fprintf(stderr, "-------- RESULT SET END --------\n");
 		} while (cursor.next_result_set());
 
-		break;
-
-	default:
+	}
+	else if (resp->get_packet_type() == MYSQL_PACKET_OK)
+	{
+		fprintf(stderr, "OK. %llu ", task->get_resp()->get_affected_rows());
+		if (task->get_resp()->get_affected_rows() == 1)
+			fprintf(stderr, "row ");
+		else
+			fprintf(stderr, "rows ");
+		fprintf(stderr, "affected. %d warnings. insert_id=%llu. %s\n",
+				task->get_resp()->get_warnings(),
+				task->get_resp()->get_last_insert_id(),
+				task->get_resp()->get_info().c_str());
+	}
+	else if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
+	{
+		fprintf(stderr, "ERROR. error_code=%d %s\n",
+				task->get_resp()->get_error_code(),
+				task->get_resp()->get_error_msg().c_str());
+	}
+	else if (resp->get_packet_type() == MYSQL_PACKET_EOF)
+	{
+		fprintf(stderr, "EOF packet without any ResultSets\n");
+	}
+	else
+	{
 		fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
-		break;
 	}
 
 	get_next_cmd(task);
 	return;
-}
-
-void series_callback(const SeriesWork *series)
-{
-	/* signal the main() to continue */
-	mutex.lock();
-	task_finished = true;
-	cond.notify_one();
-	mutex.unlock();
 }
 
 static void sighandler(int signo)
@@ -252,15 +245,16 @@ int main(int argc, char *argv[])
 
 	task = WFTaskFactory::create_mysql_task(url, RETRY_MAX, mysql_callback);
 	task->get_req()->set_query(query);
-	task_finished = false;
 
-	SeriesWork *series = Workflow::create_series_work(task, series_callback);
+	WFFacilities::WaitGroup wait_group(1);
+	SeriesWork *series = Workflow::create_series_work(task,
+		[&wait_group](const SeriesWork *series) {
+			wait_group.done();
+		});
+
 	series->set_context(&url);
 	series->start();
 
-	std::unique_lock<std::mutex> lock(mutex);
-	while (task_finished == false)
-		cond.wait(lock);
-	lock.unlock();
+	wait_group.wait();
 	return 0;
 }

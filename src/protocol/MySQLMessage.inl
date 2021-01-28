@@ -24,7 +24,11 @@
 namespace protocol
 {
 
-using MySQLHandshakeRequest = MySQLRequest;
+class MySQLHandshakeRequest : public MySQLRequest
+{
+private:
+	virtual int encode(struct iovec vectors[], int max) { return 0; }
+};
 
 class MySQLHandshakeResponse : public MySQLResponse
 {

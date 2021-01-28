@@ -149,12 +149,14 @@ public:
 	void reset(MySQLResponse *resp);
 
 private:
-	void __init(MySQLResponse *resp);
-	void __init();
-	void __clear();
+	void init(MySQLResponse *resp);
+	void init();
+	void clear();
+
+	void fetch_result_set(const struct __mysql_result_set *result_set);
 
 	template<class T>
-	bool __fetch_row(T& row_map); 
+	bool fetch_row(T& row_map); 
 
 	const void *start;
 	const void *end;

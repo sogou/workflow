@@ -239,17 +239,6 @@ int CommService::drain(int max)
 	return cnt;
 }
 
-inline void CommService::incref()
-{
-	__sync_add_and_fetch(&this->ref, 1);
-}
-
-inline void CommService::decref()
-{
-	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
-		this->handle_unbound();
-}
-
 class CommServiceTarget : public CommTarget
 {
 public:
@@ -402,7 +391,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 	ssize_t n;
 	int i;
 
-	while (1)
+	while (cnt > 0)
 	{
 		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
 		if (n < 0)
@@ -420,14 +409,8 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 			}
 		}
 
-		cnt -= i;
-		if (cnt == 0)
-			break;
-
-		if (i < IOV_MAX)
-			return cnt;
-
 		vectors += i;
+		cnt -= i;
 	}
 
 	service = entry->service;

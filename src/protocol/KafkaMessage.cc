@@ -1651,9 +1651,12 @@ KafkaMessage& KafkaMessage::operator= (KafkaMessage &&msg)
 	{
 		*(ProtocolMessage *)this = std::move(msg);
 
-		kafka_parser_deinit(this->parser);
-		delete this->parser;
-		delete this->stream;
+		if (this->parser)
+		{
+			kafka_parser_deinit(this->parser);
+			delete this->parser;
+			delete this->stream;
+		}
 
 		this->parser = msg.parser;
 		this->stream = msg.stream;

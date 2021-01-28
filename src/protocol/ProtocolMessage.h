@@ -101,6 +101,7 @@ public:
 		{
 			this->size_limit = msg.size_limit;
 			msg.size_limit = (size_t)-1;
+			delete this->attachment;
 			this->attachment = msg.attachment;
 			msg.attachment = NULL;
 		}

@@ -282,17 +282,12 @@ bool ComplexHttpTask::redirect_url(HttpResponse *client_resp)
 			if (url[1] != '/')
 			{
 				if (uri_.port)
-				{
-					url = uri_.port + url;
-					url = ":" + url;
-				}
+					url = ':' + (uri_.port + url);
 
-				url = uri_.host + url;
-				url = "//" + url;
+				url = "//" + (uri_.host + url);
 			}
 
-			url = ":" + url;
-			url = uri_.scheme + url;
+			url = uri_.scheme + (':' + url);
 		}
 
 		URIParser::parse(url, uri_);

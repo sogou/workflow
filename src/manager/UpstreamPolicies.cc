@@ -1,3 +1,21 @@
+/*
+  Copyright (c) 2021 Sogou, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+*/
+
 #include <algorithm>
 #include "StringUtil.h"
 #include "UpstreamPolicies.h"
@@ -90,10 +108,10 @@ EndpointAddress::EndpointAddress(const std::string& address,
 }
 
 WFRouterTask *UPSPolicy::create_router_task(const struct WFNSParams *params,
-											 	   router_callback_t callback)
+											router_callback_t callback)
 {
-	EndpointAddress *addr = NULL;
-	WFRouterTask *task = NULL;
+	EndpointAddress *addr;
+	WFRouterTask *task;
 
 	if (this->select(params->uri, &addr) && copy_host_port(params->uri, addr))
 	{
@@ -105,11 +123,10 @@ WFRouterTask *UPSPolicy::create_router_task(const struct WFNSParams *params,
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 							endpoint_params, std::move(callback));
+		task->set_cookie(addr);
 	}
 	else
 		task = new WFSelectorFailTask(std::move(callback));
-
-	task->set_cookie(addr);
 
 	return task;
 }

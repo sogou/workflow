@@ -1,3 +1,24 @@
+/*
+  Copyright (c) 2021 Sogou, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+*/
+
+#ifndef _UPSTREAM_POLICIES_H_
+#define _UPSTREAM_POLICIES_H_ 
+
 #include "EndpointParams.h"
 #include "WFNameService.h"
 #include "WFDNSResolver.h"
@@ -8,13 +29,10 @@
 #include <unordered_map>
 #include <vector>
 
-#ifndef _GOVERNANCE_POLICY_H_
-#define _GOVERNANCE_POLICY_H_ 
-
 #define MTTR_SECOND			30
-#define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
-
 #define VIRTUAL_GROUP_SIZE  16
+
+#define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
 class EndpointGroup;
 class UPSPolicy;
@@ -51,18 +69,13 @@ public:
 	std::atomic<int> nalives;
 	int weight;
 
-	EndpointGroup(int group_id, UPSGroupPolicy *policy)
+	EndpointGroup(int group_id, UPSGroupPolicy *policy) :
+			mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
 		this->id = group_id;
 		this->policy = policy;
 		this->nalives = 0;
 		this->weight = 0;
-		pthread_mutex_init(&this->mutex, NULL);
-	}
-
-	~EndpointGroup()
-	{
-		pthread_mutex_destroy(&this->mutex);
 	}
 
 public:
@@ -80,7 +93,6 @@ public:
 	virtual void failed(RouteManager::RouteResult *result, void *cookie,
 						CommTarget *target);
 
-	// UPSPolicy *gp = dynamic_cast<UPSPolicy *>(policy); gp->add_server(...);
 	void add_server(const std::string& address, const AddressParams *address_params);
 	int remove_server(const std::string& address);
 	int replace_server(const std::string& address, const AddressParams *address_params);
@@ -91,19 +103,17 @@ public:
 	// virtual void server_list_change(/* std::vector<server> status */) {}
 
 public:
-	UPSPolicy()
+	UPSPolicy() :
+		breaker_lock(PTHREAD_MUTEX_INITIALIZER),
+		rwlock(PTHREAD_RWLOCK_INITIALIZER)
 	{
 		this->nalives = 0;
 		this->try_another = false;
-		pthread_rwlock_init(&this->rwlock, NULL);
-		pthread_mutex_init(&this->breaker_lock, NULL);
 		INIT_LIST_HEAD(&this->breaker_list);
 	}
 
-	~UPSPolicy()
+	virtual ~UPSPolicy()
 	{
-		pthread_mutex_destroy(&this->breaker_lock);
-		pthread_rwlock_destroy(&this->rwlock);
 		for (EndpointAddress *addr : this->addresses)
 			delete addr;
 	}
@@ -166,7 +176,7 @@ private:
 		this->nalives--;
 		addr->group->nalives--;
 	}
-	// override: select() add_server() remove_server()
+
 	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
 
 protected:
@@ -175,9 +185,11 @@ protected:
 
 	const EndpointAddress *consistent_hash_with_group(unsigned int hash) const;
 
-	inline const EndpointAddress *check_and_get(const EndpointAddress *addr) const // check_get_weak
+ 	// check_get_weak
+	inline const EndpointAddress *check_and_get(const EndpointAddress *addr) const
 	{
-		if (addr && addr->fail_count >= addr->params.max_fails && addr->params.group_id >= 0)
+		if (addr && addr->fail_count >= addr->params.max_fails &&
+			addr->params.group_id >= 0)
 		{
 			const auto *ret = addr->group->get_one();
 
@@ -189,8 +201,10 @@ protected:
 
 	inline bool is_alive_or_group_alive(const EndpointAddress *addr) const
 	{
-		return ((addr->params.group_id < 0 && addr->fail_count < addr->params.max_fails) || 
-				(addr->params.group_id >= 0 && addr->group->nalives > 0));
+		return ((addr->params.group_id < 0 &&
+					addr->fail_count < addr->params.max_fails) || 
+				(addr->params.group_id >= 0 &&
+					addr->group->nalives > 0));
 	}
 };
 
@@ -217,8 +231,6 @@ private:
 	virtual int remove_server_locked(const std::string& address);
 };
 
-using select_t = std::function<unsigned int (const char *, const char *, const char *)>;
-
 class UPSConsistentHashPolicy : public UPSGroupPolicy
 {
 public:
@@ -227,7 +239,7 @@ public:
 		this->consistent_hash = this->default_consistent_hash;
 	}
 
-	UPSConsistentHashPolicy(select_t consistent_hash)
+	UPSConsistentHashPolicy(upstream_route_t consistent_hash)
 	{
 		this->consistent_hash = std::move(consistent_hash);
 	}
@@ -236,7 +248,7 @@ protected:
 	const EndpointAddress *first_stradegy(const ParsedURI& uri);
 
 private:
-	select_t consistent_hash;
+	upstream_route_t consistent_hash;
 
 public:
 	static unsigned int default_consistent_hash(const char *path,
@@ -255,7 +267,8 @@ public:
 class UPSManualPolicy : public UPSGroupPolicy
 {
 public:
-	UPSManualPolicy(bool try_another, select_t select, select_t try_another_select)
+	UPSManualPolicy(bool try_another, upstream_route_t select,
+					upstream_route_t try_another_select)
 	{
 		this->try_another = try_another;
 		this->manual_select = select;
@@ -266,8 +279,8 @@ public:
 	const EndpointAddress *another_stradegy(const ParsedURI& uri);
 
 private:
-	select_t manual_select;
-	select_t try_another_select;
+	upstream_route_t manual_select;
+	upstream_route_t try_another_select;
 };
 
 #endif

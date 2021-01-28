@@ -193,8 +193,11 @@ public:
 	virtual ~HttpMessage()
 	{
 		this->clear_output_body();
-		http_parser_deinit(this->parser);
-		delete this->parser;
+		if (this->parser)
+		{
+			http_parser_deinit(this->parser);
+			delete this->parser;
+		}
 	}
 
 	/* for std::move() */

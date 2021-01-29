@@ -109,12 +109,6 @@ public:
 	static CommScheduler *get_scheduler();
 	static DNSCache *get_dns_cache();
 	static RouteManager *get_route_manager();
-<<<<<<< HEAD
-	/// @brief Internal use only
-=======
-	static SSL_CTX *get_ssl_client_ctx();
-	static SSL_CTX *get_ssl_server_ctx();
->>>>>>> d4cca2e72e003252f471e52a7de3509fe3f38302
 	static ExecQueue *get_exec_queue(const std::string& queue_name);
 	static Executor *get_compute_executor();
 	static IOService *get_io_service();

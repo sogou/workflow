@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <arpa/inet.h>
+#include <utility>
 #include "message.h"
 
 namespace protocol
@@ -106,11 +107,9 @@ int TutorialMessage::set_message_body(const void *body, size_t size)
 	return 0;
 }
 
-TutorialMessage::TutorialMessage(TutorialMessage&& msg)
+TutorialMessage::TutorialMessage(TutorialMessage&& msg) :
+	ProtocolMessage(std::move(msg))
 {
-	this->size_limit = msg.size_limit;
-	msg.size_limit = (size_t)-1;
-
 	memcpy(this->head, msg.head, 4);
 	this->head_received = msg.head_received;
 	this->body = msg.body;
@@ -126,8 +125,7 @@ TutorialMessage& TutorialMessage::operator = (TutorialMessage&& msg)
 {
 	if (&msg != this)
 	{
-		this->size_limit = msg.size_limit;
-		msg.size_limit = (size_t)-1;
+		*(ProtocolMessage *)this = std::move(msg);
 
 		memcpy(this->head, msg.head, 4);
 		this->head_received = msg.head_received;

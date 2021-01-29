@@ -244,8 +244,11 @@ HttpMessage& HttpMessage::operator = (HttpMessage&& msg)
 	{
 		*(ProtocolMessage *)this = std::move(msg);
 
-		http_parser_deinit(this->parser);
-		delete this->parser;
+		if (this->parser)
+		{
+			http_parser_deinit(this->parser);
+			delete this->parser;
+		}
 
 		this->parser = msg.parser;
 		msg.parser = NULL;

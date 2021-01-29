@@ -61,11 +61,53 @@ public:
 	void set_size_limit(size_t limit) { this->size_limit = limit; }
 	size_t get_size_limit() const { return this->size_limit; }
 
+public:
+	class Attachment
+	{
+	public:
+		virtual ~Attachment() { }
+	};
+
+	void set_attachment(Attachment *att) { this->attachment = att; }
+	Attachment *get_attachment() const { return this->attachment; }
+
 protected:
 	size_t size_limit;
 
+private:
+	Attachment *attachment;
+
 public:
-	ProtocolMessage() { this->size_limit = (size_t)-1; }
+	ProtocolMessage()
+	{
+		this->size_limit = (size_t)-1;
+		this->attachment = NULL;
+	}
+
+	virtual ~ProtocolMessage() { delete this->attachment; }
+
+public:
+	ProtocolMessage(ProtocolMessage&& msg)
+	{
+		this->size_limit = msg.size_limit;
+		msg.size_limit = (size_t)-1;
+		this->attachment = msg.attachment;
+		msg.attachment = NULL;
+	}
+
+	ProtocolMessage& operator = (ProtocolMessage&& msg)
+	{
+		if (&msg != this)
+		{
+			this->size_limit = msg.size_limit;
+			msg.size_limit = (size_t)-1;
+			delete this->attachment;
+			this->attachment = msg.attachment;
+			msg.attachment = NULL;
+		}
+
+		return *this;
+	}
 };
 
 }

@@ -1620,11 +1620,9 @@ KafkaMessage::~KafkaMessage()
 	}
 }
 
-KafkaMessage::KafkaMessage(KafkaMessage&& msg)
+KafkaMessage::KafkaMessage(KafkaMessage&& msg) :
+	ProtocolMessage(std::move(msg))
 {
-	this->size_limit = msg.size_limit;
-	msg.size_limit = (size_t)-1;
-
 	this->parser = msg.parser;
 	this->stream = msg.stream;
 	msg.parser = NULL;
@@ -1651,12 +1649,14 @@ KafkaMessage& KafkaMessage::operator= (KafkaMessage &&msg)
 {
 	if (this != &msg)
 	{
-		this->size_limit = msg.size_limit;
-		msg.size_limit = (size_t)-1;
+		*(ProtocolMessage *)this = std::move(msg);
 
-		kafka_parser_deinit(this->parser);
-		delete this->parser;
-		delete this->stream;
+		if (this->parser)
+		{
+			kafka_parser_deinit(this->parser);
+			delete this->parser;
+			delete this->stream;
+		}
 
 		this->parser = msg.parser;
 		this->stream = msg.stream;

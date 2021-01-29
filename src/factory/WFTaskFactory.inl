@@ -268,16 +268,11 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 	}
 
 	const auto *params = &WFGlobal::get_global_settings()->endpoint_params;
-	struct addrinfo addrinfo = {
-		.ai_flags = 0,
-		.ai_family = addr->sa_family,
-		.ai_socktype = SOCK_STREAM,
-		.ai_protocol = 0,
-		.ai_addr = (struct sockaddr *)addr,
-		.ai_addrlen = addrlen,
-		.ai_canonname = NULL,
-		.ai_next = NULL,
-	};
+	struct addrinfo addrinfo = { };
+	addrinfo.ai_family = addr->sa_family;
+	addrinfo.ai_socktype = SOCK_STREAM;
+	addrinfo.ai_addr = (struct sockaddr *)addr;
+	addrinfo.ai_addrlen = addrlen;
 
 	type_ = type;
 	info_.assign(info);

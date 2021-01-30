@@ -233,7 +233,7 @@ void WFResolverTask::dns_callback_internal(DNSOutput *dns_out,
 									 (unsigned int)ttl_default,
 									 (unsigned int)ttl_min);
 		if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
-							   this->result) >= 0)
+							   this->result) < 0)
 		{
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;

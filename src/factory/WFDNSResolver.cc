@@ -95,7 +95,7 @@ void WFResolverTask::dispatch()
 	if (dns_cache_level_ != DNS_CACHE_LEVEL_0)
 	{
 		auto *dns_cache = WFGlobal::get_dns_cache();
-		const DNSHandle *addr_handle = NULL;
+		const DNSCache::DNSHandle *addr_handle = NULL;
 
 		switch (dns_cache_level_)
 		{
@@ -117,38 +117,27 @@ void WFResolverTask::dispatch()
 
 		if (addr_handle)
 		{
-			if (addr_handle->value.addrinfo)
+			auto *route_manager = WFGlobal::get_route_manager();
+			struct addrinfo *addrinfo = addr_handle->value.addrinfo;
+			struct addrinfo first;
+
+			if (first_addr_only_ && addrinfo->ai_next)
 			{
-				auto *route_manager = WFGlobal::get_route_manager();
-				struct addrinfo *addrinfo = addr_handle->value.addrinfo;
-				struct addrinfo first;
-
-				if (first_addr_only_ && addrinfo->ai_next)
-				{
-					first = *addrinfo;
-					first.ai_next = NULL;
-					addrinfo = &first;
-				}
-
-				if (route_manager->get(type_, addrinfo,
-									   info_, &endpoint_params_,
-									   this->result) < 0)
-				{
-					this->state = WFT_STATE_SYS_ERROR;
-					this->error = errno;
-				}
-				else if (!this->result.request_object)
-				{
-					//should not happen
-					this->state = WFT_STATE_SYS_ERROR;
-					this->error = EAGAIN;
-				}
-				else
-					this->state = WFT_STATE_SUCCESS;
-
-				insert_dns_ = false;
+				first = *addrinfo;
+				first.ai_next = NULL;
+				addrinfo = &first;
 			}
 
+			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
+								   this->result) < 0)
+			{
+				this->state = WFT_STATE_SYS_ERROR;
+				this->error = errno;
+			}
+			else
+				this->state = WFT_STATE_SUCCESS;
+
+			insert_dns_ = false;
 			dns_cache->release(addr_handle);
 		}
 	}
@@ -230,40 +219,24 @@ void WFResolverTask::dns_callback_internal(DNSOutput *dns_out,
 	}
 	else
 	{
+		auto *route_manager = WFGlobal::get_route_manager();
+		auto *dns_cache = WFGlobal::get_dns_cache();
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
-		const DNSHandle *addr_handle;
+		const DNSCache::DNSHandle *addr_handle;
 
-		if (addrinfo)
+		addr_handle = dns_cache->put(host_, port_, addrinfo,
+									 (unsigned int)ttl_default,
+									 (unsigned int)ttl_min);
+		if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
+							   this->result) < 0)
 		{
-			auto *route_manager = WFGlobal::get_route_manager();
-			auto *dns_cache = WFGlobal::get_dns_cache();
-			
-			addr_handle = dns_cache->put(host_, port_, addrinfo,
-										 (unsigned int)ttl_default,
-										 (unsigned int)ttl_min);
-			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
-								   this->result) < 0)
-			{
-				this->state = WFT_STATE_SYS_ERROR;
-				this->error = errno;
-			}
-			else if (!this->result.request_object)
-			{
-				//should not happen
-				this->state = WFT_STATE_SYS_ERROR;
-				this->error = EAGAIN;
-			}
-			else
-				this->state = WFT_STATE_SUCCESS;
-
-			dns_cache->release(addr_handle);
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
 		}
 		else
-		{
-			//system promise addrinfo not null, here should not happen
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = EINVAL;
-		}
+			this->state = WFT_STATE_SUCCESS;
+
+		dns_cache->release(addr_handle);
 	}
 }
 

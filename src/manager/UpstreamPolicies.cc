@@ -795,4 +795,3 @@ const EndpointAddress *UPSManualPolicy::another_stradegy(const ParsedURI& uri)
 																   uri.fragment ? uri.fragment : "");
 	return this->consistent_hash_with_group(hash_value);
 }
-

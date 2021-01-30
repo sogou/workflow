@@ -37,6 +37,7 @@ set(TEST_LIST
 	facilities_unittest
 	graph_unittest
 	memory_unittest
+	upstream_unittest
 )
 
 if (APPLE)

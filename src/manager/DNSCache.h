@@ -47,36 +47,75 @@ public:
 	}
 };
 
-typedef std::pair<std::string, unsigned short> HostPort;
-typedef LRUHandle<HostPort, DNSCacheValue> DNSHandle;
-
 // RAII: NO. Release handle by user
 // Thread safety: YES
 // MUST call release when handle no longer used
 class DNSCache
 {
 public:
+	using HostPort = std::pair<std::string, unsigned short>;
+	using DNSHandle = LRUHandle<HostPort, DNSCacheValue>;
+
+public:
 	// release handle by get/put
-	void release(DNSHandle *handle);
-	void release(const DNSHandle *handle);
+	void release(DNSHandle *handle)
+	{
+		cache_pool_.release(handle);
+	}
+
+	void release(const DNSHandle *handle)
+	{
+		cache_pool_.release(handle);
+	}
 
 	// get handler
 	// Need call release when handle no longer needed
 	//Handle *get(const KEY &key);
-	const DNSHandle *get(const HostPort& host_port);
-	const DNSHandle *get(const std::string& host, unsigned short port);
-	const DNSHandle *get(const char *host, unsigned short port);
+	const DNSHandle *get(const HostPort& host_port)
+	{
+		return cache_pool_.get(host_port);
+	}
 
-	const DNSHandle *get_ttl(const HostPort& host_port);
-	const DNSHandle *get_ttl(const std::string& host, unsigned short port);
-	const DNSHandle *get_ttl(const char *host, unsigned short port);
+	const DNSHandle *get(const std::string& host, unsigned short port)
+	{
+		return get(HostPort(host, port));
+	}
 
-	const DNSHandle *get_confident(const HostPort& host_port);
-	const DNSHandle *get_confident(const std::string& host, unsigned short port);
-	const DNSHandle *get_confident(const char *host, unsigned short port);
+	const DNSHandle *get(const char *host, unsigned short port)
+	{
+		return get(std::string(host), port);
+	}
 
-	// put copy
-	// Need call release when handle no longer needed
+	const DNSHandle *get_ttl(const HostPort& host_port)
+	{
+		return get_inner(host_port, GET_TYPE_TTL);
+	}
+
+	const DNSHandle *get_ttl(const std::string& host, unsigned short port)
+	{
+		return get_ttl(HostPort(host, port));
+	}
+
+	const DNSHandle *get_ttl(const char *host, unsigned short port)
+	{
+		return get_ttl(std::string(host), port);
+	}
+
+	const DNSHandle *get_confident(const HostPort& host_port)
+	{
+		return get_inner(host_port, GET_TYPE_CONFIDENT);
+	}
+
+	const DNSHandle *get_confident(const std::string& host, unsigned short port)
+	{
+		return get_confident(HostPort(host, port));
+	}
+
+	const DNSHandle *get_confident(const char *host, unsigned short port)
+	{
+		return get_confident(std::string(host), port);
+	}
+
 	const DNSHandle *put(const HostPort& host_port,
 						 struct addrinfo *addrinfo,
 						 unsigned int dns_ttl_default,
@@ -86,18 +125,35 @@ public:
 						 unsigned short port,
 						 struct addrinfo *addrinfo,
 						 unsigned int dns_ttl_default,
-						 unsigned int dns_ttl_min);
+						 unsigned int dns_ttl_min)
+	{
+		return put(HostPort(host, port), addrinfo, dns_ttl_default, dns_ttl_min);
+	}
 
 	const DNSHandle *put(const char *host,
 						 unsigned short port,
 						 struct addrinfo *addrinfo,
 						 unsigned int dns_ttl_default,
-						 unsigned int dns_ttl_min);
+						 unsigned int dns_ttl_min)
+	{
+		return put(std::string(host), port, addrinfo, dns_ttl_default, dns_ttl_min);
+	}
 
 	// delete from cache, deleter delay called when all inuse-handle release.
-	void del(const HostPort& key);
-	void del(const std::string& host, unsigned short port);
-	void del(const char *host, unsigned short port);
+	void del(const HostPort& key)
+	{
+		cache_pool_.del(key);
+	}
+
+	void del(const std::string& host, unsigned short port)
+	{
+		del(HostPort(host, port));
+	}
+
+	void del(const char *host, unsigned short port)
+	{
+		del(std::string(host), port);
+	}
 
 private:
 	const DNSHandle *get_inner(const HostPort& host_port, int type);
@@ -105,96 +161,6 @@ private:
 	std::mutex mutex_;
 	LRUCache<HostPort, DNSCacheValue, ValueDeleter> cache_pool_;
 };
-
-////////////////////
-
-inline void DNSCache::release(DNSHandle *handle)
-{
-	cache_pool_.release(handle);
-}
-
-inline void DNSCache::release(const DNSHandle *handle)
-{
-	cache_pool_.release(handle);
-}
-
-inline const DNSHandle *DNSCache::get(const HostPort& host_port)
-{
-	return cache_pool_.get(host_port);
-}
-
-inline const DNSHandle *DNSCache::get(const std::string& host, unsigned short port)
-{
-	return get(HostPort(host, port));
-}
-
-inline const DNSHandle *DNSCache::get(const char *host, unsigned short port)
-{
-	return get(std::string(host), port);
-}
-
-inline const DNSHandle *DNSCache::get_ttl(const HostPort& host_port)
-{
-	return get_inner(host_port, GET_TYPE_TTL);
-}
-
-inline const DNSHandle *DNSCache::get_ttl(const std::string& host, unsigned short port)
-{
-	return get_ttl(HostPort(host, port));
-}
-
-inline const DNSHandle *DNSCache::get_ttl(const char *host, unsigned short port)
-{
-	return get_ttl(std::string(host), port);
-}
-
-inline const DNSHandle *DNSCache::get_confident(const HostPort& host_port)
-{
-	return get_inner(host_port, GET_TYPE_CONFIDENT);
-}
-
-inline const DNSHandle *DNSCache::get_confident(const std::string& host, unsigned short port)
-{
-	return get_confident(HostPort(host, port));
-}
-
-inline const DNSHandle *DNSCache::get_confident(const char *host, unsigned short port)
-{
-	return get_confident(std::string(host), port);
-}
-
-inline const DNSHandle *DNSCache::put(const std::string& host,
-									  unsigned short port,
-									  struct addrinfo *addrinfo,
-									  unsigned int dns_ttl_default,
-									  unsigned int dns_ttl_min)
-{
-	return put(HostPort(host, port), addrinfo, dns_ttl_default, dns_ttl_min);
-}
-
-inline const DNSHandle *DNSCache::put(const char *host,
-									  unsigned short port,
-									  struct addrinfo *addrinfo,
-									  unsigned int dns_ttl_default,
-									  unsigned int dns_ttl_min)
-{
-	return put(std::string(host), port, addrinfo, dns_ttl_default, dns_ttl_min);
-}
-
-inline void DNSCache::del(const HostPort& key)
-{
-	cache_pool_.del(key);
-}
-
-inline void DNSCache::del(const std::string& host, unsigned short port)
-{
-	del(HostPort(host, port));
-}
-
-inline void DNSCache::del(const char *host, unsigned short port)
-{
-	del(std::string(host), port);
-}
 
 #endif
 

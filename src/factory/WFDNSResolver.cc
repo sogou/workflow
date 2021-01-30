@@ -95,7 +95,7 @@ void WFResolverTask::dispatch()
 	if (dns_cache_level_ != DNS_CACHE_LEVEL_0)
 	{
 		auto *dns_cache = WFGlobal::get_dns_cache();
-		const DNSHandle *addr_handle = NULL;
+		const DNSCache::DNSHandle *addr_handle = NULL;
 
 		switch (dns_cache_level_)
 		{
@@ -222,7 +222,7 @@ void WFResolverTask::dns_callback_internal(DNSOutput *dns_out,
 		auto *route_manager = WFGlobal::get_route_manager();
 		auto *dns_cache = WFGlobal::get_dns_cache();
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
-		const DNSHandle *addr_handle;
+		const DNSCache::DNSHandle *addr_handle;
 
 		addr_handle = dns_cache->put(host_, port_, addrinfo,
 									 (unsigned int)ttl_default,

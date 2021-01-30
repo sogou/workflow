@@ -117,32 +117,27 @@ void WFResolverTask::dispatch()
 
 		if (addr_handle)
 		{
-			if (addr_handle->value.addrinfo)
+			auto *route_manager = WFGlobal::get_route_manager();
+			struct addrinfo *addrinfo = addr_handle->value.addrinfo;
+			struct addrinfo first;
+
+			if (first_addr_only_ && addrinfo->ai_next)
 			{
-				auto *route_manager = WFGlobal::get_route_manager();
-				struct addrinfo *addrinfo = addr_handle->value.addrinfo;
-				struct addrinfo first;
-
-				if (first_addr_only_ && addrinfo->ai_next)
-				{
-					first = *addrinfo;
-					first.ai_next = NULL;
-					addrinfo = &first;
-				}
-
-				if (route_manager->get(type_, addrinfo,
-									   info_, &endpoint_params_,
-									   this->result) < 0)
-				{
-					this->state = WFT_STATE_SYS_ERROR;
-					this->error = errno;
-				}
-				else
-					this->state = WFT_STATE_SUCCESS;
-
-				insert_dns_ = false;
+				first = *addrinfo;
+				first.ai_next = NULL;
+				addrinfo = &first;
 			}
 
+			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
+								   this->result) < 0)
+			{
+				this->state = WFT_STATE_SYS_ERROR;
+				this->error = errno;
+			}
+			else
+				this->state = WFT_STATE_SUCCESS;
+
+			insert_dns_ = false;
 			dns_cache->release(addr_handle);
 		}
 	}

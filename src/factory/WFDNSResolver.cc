@@ -137,12 +137,6 @@ void WFResolverTask::dispatch()
 					this->state = WFT_STATE_SYS_ERROR;
 					this->error = errno;
 				}
-				else if (!this->result.request_object)
-				{
-					//should not happen
-					this->state = WFT_STATE_SYS_ERROR;
-					this->error = EAGAIN;
-				}
 				else
 					this->state = WFT_STATE_SUCCESS;
 
@@ -230,40 +224,24 @@ void WFResolverTask::dns_callback_internal(DNSOutput *dns_out,
 	}
 	else
 	{
+		auto *route_manager = WFGlobal::get_route_manager();
+		auto *dns_cache = WFGlobal::get_dns_cache();
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
 		const DNSHandle *addr_handle;
-
-		if (addrinfo)
-		{
-			auto *route_manager = WFGlobal::get_route_manager();
-			auto *dns_cache = WFGlobal::get_dns_cache();
 			
-			addr_handle = dns_cache->put(host_, port_, addrinfo,
-										 (unsigned int)ttl_default,
-										 (unsigned int)ttl_min);
-			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
-								   this->result) < 0)
-			{
-				this->state = WFT_STATE_SYS_ERROR;
-				this->error = errno;
-			}
-			else if (!this->result.request_object)
-			{
-				//should not happen
-				this->state = WFT_STATE_SYS_ERROR;
-				this->error = EAGAIN;
-			}
-			else
-				this->state = WFT_STATE_SUCCESS;
-
-			dns_cache->release(addr_handle);
+		addr_handle = dns_cache->put(host_, port_, addrinfo,
+									 (unsigned int)ttl_default,
+									 (unsigned int)ttl_min);
+		if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
+							   this->result) >= 0)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
 		}
 		else
-		{
-			//system promise addrinfo not null, here should not happen
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = EINVAL;
-		}
+			this->state = WFT_STATE_SUCCESS;
+
+		dns_cache->release(addr_handle);
 	}
 }
 

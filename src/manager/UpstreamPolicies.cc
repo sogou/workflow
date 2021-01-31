@@ -117,10 +117,9 @@ WFRouterTask *UPSPolicy::create_router_task(const struct WFNSParams *params,
 
 	if (this->select(params->uri, &addr) && copy_host_port(params->uri, addr))
 	{
-		const auto *settings = WFGlobal::get_global_settings();
-		unsigned int dns_ttl_default = settings->dns_ttl_default;
-		unsigned int dns_ttl_min = settings->dns_ttl_min;
-		const struct EndpointParams *endpoint_params = &settings->endpoint_params;
+		unsigned int dns_ttl_default = addr->params.dns_ttl_default;
+		unsigned int dns_ttl_min = addr->params.dns_ttl_min;
+		const struct EndpointParams *endpoint_params = &addr->params.endpoint_params;
 		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,

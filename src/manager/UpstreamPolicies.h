@@ -183,21 +183,8 @@ protected:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	const EndpointAddress *consistent_hash_with_group(unsigned int hash) const;
-
- 	// check_get_weak
-	inline const EndpointAddress *check_and_get(const EndpointAddress *addr) const
-	{
-		if (addr && addr->fail_count >= addr->params.max_fails &&
-			addr->params.group_id >= 0)
-		{
-			const auto *ret = addr->group->get_one();
-
-			if (ret)
-				addr = ret;
-		}
-		return addr;
-	}
+	const EndpointAddress *consistent_hash_with_group(unsigned int hash);
+	const EndpointAddress *check_and_get(const EndpointAddress *addr, bool flag);
 
 	inline bool is_alive_or_group_alive(const EndpointAddress *addr) const
 	{

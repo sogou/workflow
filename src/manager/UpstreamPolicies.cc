@@ -76,6 +76,8 @@ EndpointAddress::EndpointAddress(const std::string& address,
 	std::vector<std::string> arr = StringUtil::split(address, ':');
 	this->params = *address_params;
 	this->address = address;
+	this->list.next = NULL;
+	this->fail_count = 0;
 
 	static std::hash<std::string> std_hash;
 	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
@@ -115,10 +117,9 @@ WFRouterTask *UPSPolicy::create_router_task(const struct WFNSParams *params,
 
 	if (this->select(params->uri, &addr) && copy_host_port(params->uri, addr))
 	{
-		const auto *settings = WFGlobal::get_global_settings();
-		unsigned int dns_ttl_default = settings->dns_ttl_default;
-		unsigned int dns_ttl_min = settings->dns_ttl_min;
-		const struct EndpointParams *endpoint_params = &settings->endpoint_params;
+		unsigned int dns_ttl_default = addr->params.dns_ttl_default;
+		unsigned int dns_ttl_min = addr->params.dns_ttl_min;
+		const struct EndpointParams *endpoint_params = &addr->params.endpoint_params;
 		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
@@ -421,10 +422,13 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 	if (!select_addr || select_addr->fail_count >= select_addr->params.max_fails)
 	{
 		if (select_addr)
-			select_addr = select_addr->group->get_one();
+			select_addr = this->check_and_get(select_addr, true);
 
 		if (!select_addr && this->try_another)
+		{
 			select_addr = this->another_stradegy(uri);
+			select_addr = this->check_and_get(select_addr, false);
+		}
 	}
 
 	if (!select_addr)
@@ -439,6 +443,30 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 	}
 
 	return false;
+}
+
+// flag true : guarantee addr != NULL, and please return an available one
+// flag false : means addr maybe useful but want one any way. addr may be NULL
+inline const EndpointAddress *UPSGroupPolicy::check_and_get(const EndpointAddress *addr,
+															bool flag)
+{
+	if (flag == true) // && addr->fail_count >= addr->params.max_fails
+	{
+		if (addr->params.group_id == -1)
+			return NULL;
+
+		return addr->group->get_one();
+	}
+
+	if (addr && addr->fail_count >= addr->params.max_fails &&
+		addr->params.group_id >= 0)
+	{
+		const EndpointAddress *tmp = addr->group->get_one();
+		if (tmp)
+			addr = tmp;
+	}
+
+	return addr;
 }
 
 const EndpointAddress *EndpointGroup::get_one()
@@ -608,7 +636,7 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 	return ret;
 }
 
-const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash) const
+const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash)
 {
 	const EndpointAddress *addr = NULL;
 	unsigned int min_dis = (unsigned int)-1;
@@ -632,7 +660,7 @@ const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int h
 		}
 	}
 
-	return this->check_and_get(addr);
+	return this->check_and_get(addr, false);
 }
 
 void UPSWeightedRandomPolicy::add_server_locked(EndpointAddress *addr)
@@ -701,7 +729,8 @@ const EndpointAddress *UPSWeightedRandomPolicy::another_stradegy(const ParsedURI
 				break;
 		}
 	}
-	return this->check_and_get(addr);
+
+	return this->check_and_get(addr, false);
 }
 
 void UPSWeightedRandomPolicy::recover_one_server(const EndpointAddress *addr)
@@ -765,4 +794,3 @@ const EndpointAddress *UPSManualPolicy::another_stradegy(const ParsedURI& uri)
 																   uri.fragment ? uri.fragment : "");
 	return this->consistent_hash_with_group(hash_value);
 }
-

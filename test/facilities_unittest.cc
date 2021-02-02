@@ -78,6 +78,7 @@ TEST(async_request, facilities_unittest)
 	}
 }
 
+#ifndef _WIN32
 TEST(fileIO, facilities_unittest)
 {
 	uint64_t data = 0x1234;
@@ -92,6 +93,7 @@ TEST(fileIO, facilities_unittest)
 	EXPECT_EQ(data, 0x1234);
 	close(fd);
 }
+#endif
 
 static inline void f(int i, WFFacilities::WaitGroup *wg)
 {

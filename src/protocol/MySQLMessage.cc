@@ -61,10 +61,13 @@ MySQLMessage& MySQLMessage::operator= (MySQLMessage&& move)
 	{
 		*(ProtocolMessage *)this = std::move(move);
 
-		mysql_parser_deinit(parser_);
-		mysql_stream_deinit(stream_);
-		delete parser_;
-		delete stream_;
+		if (parser_)
+		{
+			mysql_parser_deinit(parser_);
+			mysql_stream_deinit(stream_);
+			delete parser_;
+			delete stream_;
+		}
 
 		parser_ = move.parser_;
 		stream_ = move.stream_;

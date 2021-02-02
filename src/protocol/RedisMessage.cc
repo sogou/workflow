@@ -503,9 +503,12 @@ RedisMessage& RedisMessage::operator= (RedisMessage &&move)
 	{
 		*(ProtocolMessage *)this = std::move(move);
 
-		redis_parser_deinit(parser_);
-		delete parser_;
-		delete stream_;
+		if (parser_)
+		{
+			redis_parser_deinit(parser_);
+			delete parser_;
+			delete stream_;
+		}
 
 		parser_ = move.parser_;
 		stream_ = move.stream_;

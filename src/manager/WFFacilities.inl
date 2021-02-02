@@ -148,6 +148,7 @@ inline void WFFacilities::__timer_future_callback(WFTimerTask *task)
 	delete pr;
 }
 
+#ifndef _WIN32
 inline void WFFacilities::__fio_future_callback(WFFileIOTask *task)
 {
 	auto *pr = static_cast<WFPromise<ssize_t> *>(task->user_data);
@@ -163,6 +164,7 @@ inline void WFFacilities::__fvio_future_callback(WFFileVIOTask *task)
 	pr->set_value(task->get_retval());
 	delete pr;
 }
+#endif
 
 inline void WFFacilities::__fsync_future_callback(WFFileSyncTask *task)
 {

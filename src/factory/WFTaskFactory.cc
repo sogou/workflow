@@ -78,6 +78,7 @@ public:
 
 	void count_n(const std::string& name, unsigned int n);
 	void count(struct __CounterList *counters, struct __counter_node *node);
+	void remove(struct __CounterList *counters, struct __counter_node *node);
 
 	virtual ~__CounterMap();
 
@@ -104,6 +105,12 @@ public:
 		node_.target_value = target_value;
 		node_.task = this;
 		counters_->push_back(&node_);
+	}
+
+	virtual ~__WFCounterTask()
+	{
+		if (this->value != 0)
+			__CounterMap::get_instance()->remove(counters_, &node_);
 	}
 
 	virtual void count()
@@ -259,6 +266,20 @@ void __CounterMap::count(struct __CounterList *counters,
 	mutex_.unlock();
 	if (task)
 		task->WFCounterTask::count();
+}
+
+void __CounterMap::remove(struct __CounterList *counters,
+						  struct __counter_node *node)
+{
+	mutex_.lock();
+	counters->del(node);
+	if (counters->empty())
+	{
+		rb_erase(&counters->rb, &counters_map_);
+		delete counters;
+	}
+
+	mutex_.unlock();
 }
 
 WFCounterTask *WFTaskFactory::create_counter_task(const std::string& counter_name,

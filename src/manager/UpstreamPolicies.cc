@@ -16,7 +16,9 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+#include <pthread.h>
 #include <algorithm>
+#include "URIParser.h"
 #include "StringUtil.h"
 #include "UpstreamPolicies.h"
 #include "WFDNSResolver.h"

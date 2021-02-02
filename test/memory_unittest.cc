@@ -36,7 +36,7 @@ TEST(memory_unittest, dismiss)
 	auto *timer_task = WFTaskFactory::create_timer_task(0, nullptr);
 	tasks.push_back(timer_task);
 
-	auto *counter_task = WFTaskFactory::create_counter_task("", 0, nullptr);
+	auto *counter_task = WFTaskFactory::create_counter_task("", 1, nullptr);
 	tasks.push_back(counter_task);
 
 	auto *go_task = WFTaskFactory::create_go_task("", [](){});

@@ -37,7 +37,7 @@ public:
 		CommSchedObject *request_object;
 
 	public:
-	//	RouteResult(): cookie(NULL), request_object(NULL) { }
+		RouteResult(): cookie(NULL), request_object(NULL) { }
 		void clear() { cookie = NULL; request_object = NULL; }
 	};
 

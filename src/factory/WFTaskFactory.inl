@@ -100,7 +100,8 @@ template<class FUNC, class... ARGS>
 inline WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
 											   FUNC&& func, ARGS&&... args)
 {
-	auto&& tmp = std::bind(std::move(func), std::forward<ARGS>(args)...);
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
 	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
 						  WFGlobal::get_compute_executor(),
 						  std::move(tmp));

@@ -374,11 +374,11 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 						  this,
 						  std::placeholders::_1);
 	struct WFNSParams params = {
-		.type			=	type_,
-		.uri			=	uri_,
-		.info			=	info_.c_str(),
-		.fixed_addr		=	fixed_addr_,
-		.retry_times	=	retry_times_,
+		/*.type			=*/	type_,
+		/*.uri			=*/	uri_,
+		/*.info			=*/	info_.c_str(),
+		/*.fixed_addr	=*/	fixed_addr_,
+		/*.retry_times	=*/	retry_times_,
 	};
 	ns_policy_ = ns->get_policy(uri_.host ? uri_.host : "");
 	return ns_policy_->create_router_task(&params, cb);

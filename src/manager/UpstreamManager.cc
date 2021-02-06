@@ -16,6 +16,7 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+#include <pthread.h>
 #include "UpstreamManager.h"
 #include "WFNameService.h"
 #include "UpstreamPolicies.h"
@@ -31,15 +32,15 @@ public:
 
 	void add_policy_name(const std::string& name)
 	{
-		pthread_mutex_lock(&this->lock);
+		pthread_mutex_lock(&this->mutex);
 		this->upstream_names.push_back(name);
-		pthread_mutex_unlock(&this->lock);
+		pthread_mutex_unlock(&this->mutex);
 	}
 
 private:
-	__UpstreamManager()
+	__UpstreamManager() :
+		mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
-		pthread_mutex_init(&this->lock, NULL);
 	}
 	
 	~__UpstreamManager()
@@ -52,11 +53,9 @@ private:
 			policy = ns->del_policy(name.c_str());
 			delete policy;
 		}
-
-		pthread_mutex_destroy(&this->lock);
 	}
 
-	pthread_mutex_t lock;
+	pthread_mutex_t mutex;
 	std::vector<std::string> upstream_names;
 };
 

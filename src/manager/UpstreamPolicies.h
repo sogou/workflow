@@ -19,15 +19,17 @@
 #ifndef _UPSTREAM_POLICIES_H_
 #define _UPSTREAM_POLICIES_H_ 
 
+#include <pthread.h>
+#include <unordered_map>
+#include <vector>
+#include <atomic>
+#include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
 #include "WFDNSResolver.h"
 #include "WFGlobal.h"
 #include "WFTaskError.h"
 #include "UpstreamManager.h"
-
-#include <unordered_map>
-#include <vector>
 
 #define MTTR_SECOND			30
 #define VIRTUAL_GROUP_SIZE  16
@@ -49,7 +51,7 @@ public:
 	short port_value;
 	struct list_head list;
 	std::atomic<unsigned int> fail_count;
-	int64_t broken_timeout;
+	long long broken_timeout;
 	unsigned int consistent_hash[VIRTUAL_GROUP_SIZE];
 
 public:

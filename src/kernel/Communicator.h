@@ -249,7 +249,7 @@ public:
 	void io_unbind(IOService *service);
 
 public:
-	int is_handler_thread();
+	int is_handler_thread() const;
 	int increase_handler_thread();
 
 private:

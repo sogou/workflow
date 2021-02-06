@@ -340,8 +340,8 @@ public:
 	void io_unbind(IOService *service);
 
 public:
+	int is_handler_thread() const { return thrdpool_in_pool(this->thrdpool); }
 	int increase_handler_thread();
-	int is_handler_thread() { return thrdpool_in_pool(this->thrdpool); }
 
 private:
 	WinPoller *poller;

@@ -24,6 +24,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -1340,7 +1341,7 @@ int Communicator::create_poller(size_t poller_threads)
 
 int Communicator::init(size_t poller_threads, size_t handler_threads)
 {
-	if (poller_threads == 0 || handler_threads == 0)
+	if (poller_threads == 0)
 	{
 		errno = EINVAL;
 		return -1;
@@ -1669,7 +1670,7 @@ int Communicator::sleep(SleepSession *session)
 	return -1;
 }
 
-int Communicator::is_handler_thread()
+int Communicator::is_handler_thread() const
 {
 	return thrdpool_in_pool(this->thrdpool);
 }

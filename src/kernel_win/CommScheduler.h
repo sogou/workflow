@@ -173,14 +173,14 @@ public:
 	}
 //#endif
 public:
+	int is_handler_thread() const
+	{
+		return this->comm.is_handler_thread();
+	}
+
 	int increase_handler_thread()
 	{
 		return this->comm.increase_handler_thread();
-	}
-
-	int is_handler_thread()
-	{
-		return this->comm.is_handler_thread();
 	}
 
 private:

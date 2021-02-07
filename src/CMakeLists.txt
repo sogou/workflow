@@ -3,12 +3,7 @@ cmake_minimum_required(VERSION 3.6)
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
-if (WIN32)
-	add_subdirectory(kernel_win)
-else ()
-	add_subdirectory(kernel)
-endif ()
-
+add_subdirectory(kernel)
 add_subdirectory(util)
 add_subdirectory(manager)
 add_subdirectory(algorithm)
@@ -38,6 +33,20 @@ add_library(
 	$<TARGET_OBJECTS:client>
 )
 
+if (KAFKA STREQUAL "y")
+	add_dependencies(client_kafka LINK_HEADERS)
+	add_dependencies(util_kafka LINK_HEADERS)
+	add_dependencies(protocol_kafka LINK_HEADERS)
+	add_dependencies(factory_kafka LINK_HEADERS)
+	add_library(
+		"wfkafka" STATIC
+		$<TARGET_OBJECTS:client_kafka>
+		$<TARGET_OBJECTS:util_kafka>
+		$<TARGET_OBJECTS:protocol_kafka>
+		$<TARGET_OBJECTS:factory_kafka>
+	)
+endif ()
+
 install(
 	TARGETS ${PROJECT_NAME}
 	ARCHIVE
@@ -54,6 +63,19 @@ else ()
 		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSO}
 	)
 	add_dependencies(SCRIPT_SHARED_LIB ${PROJECT_NAME})
+endif ()
+
+if (KAFKA STREQUAL "y")
+	if (APPLE)
+		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.a)
+	else ()
+		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.so)
+		add_custom_target(
+			SCRIPT_SHARED_LIB_KAFKA ALL
+			COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
+		)
+		add_dependencies(SCRIPT_SHARED_LIB_KAFKA "wfkafka")
+	endif ()
 endif ()
 
 install(

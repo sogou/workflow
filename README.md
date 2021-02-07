@@ -1,9 +1,10 @@
 [English version](README_en.md)
 
 ## Sogou C++ Workflow
-[![license MIT](https://img.shields.io/badge/License-Apache-yellow.svg)](https://git.sogou-inc.com/wujiaxu/Filter/blob/master/LICENSE)
-[![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
-[![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
+[![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
+[![Build Status](https://travis-ci.org/sogou/workflow.svg?branch=master)](https://travis-ci.org/sogou/workflow)
 
 搜狗公司C++服务器引擎，支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理超百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数C++后端开发需求。  
 #### 你可以用来：
@@ -27,20 +28,22 @@ int main()
 }
 ~~~
 * 作为万能异步客户端。目前支持``http``，``redis``，``mysql``和``kafka``协议。
+  * 轻松构建效率极高的spider。
 * 实现自定义协议client/server，构建自己的RPC系统。
   * [srpc](https://github.com/sogou/srpc)就是以它为基础，作为独立项目开源。支持``srpc``，``brpc``和``thrift``等协议。
 * 构建异步任务流，支持常用的串并联，也支持更加复杂的DAG结构。
-* 作为并行编程工具使用。除了网络任务，我们也包含计算任务的调度。所有类型的任务都可以放入同一个流中。
+* 作为并行计算工具使用。除了网络任务，我们也包含计算任务的调度。所有类型的任务都可以放入同一个流中。
 * 在``Linux``系统下作为文件异步IO工具使用，性能超过任何标准调用。磁盘IO也是一种任务。
 * 实现任何计算与通讯关系非常复杂的高性能高并发的后端服务。
-* 构建服务网格（service mesh）系统。
+* 构建微服务系统。
   * 项目内置服务治理与负载均衡等功能。
 
 #### 编译和运行环境
 * 项目支持``Linux``，``macOS``，``Windows``等操作系统。
-  *  ``Windows``版暂时以独立branch发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
+  *  ``Windows``版以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
 * 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器。
 * 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。
+  * 不喜欢SSL的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分支，代码更简洁。但仍需链接``crypto``。
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
 * 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
 
@@ -63,6 +66,7 @@ int main()
   * 计算任务
     * [使用内置算法工厂：sort_task](docs/tutorial-07-sort_task.md)
     * [自定义计算任务：matrix_multiply](docs/tutorial-08-matrix_multiply.md)
+    * [更加简单的使用计算任务：go_task](docs/about-go-task.md)
   * 文件异步IO任务
     * [异步IO的http server：http_file_server](docs/tutorial-09-http_file_server.md)
   * 用户定义协议基础
@@ -77,10 +81,11 @@ int main()
     * [关于连接上下文](docs/about-connection-context.md)
   * 内置协议用法
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
+    * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
 
 #### 系统设计特点
 
-我们认为，一个典型的后端程序由以下三个部分组成，并且完全独立开发。
+我们认为，一个典型的后端程序由三个部分组成，并且完全独立开发。即：程序=协议+算法+任务流。
 * 协议
   * 大多数情况下，用户使用的是内置的通用网络协议，例如http，redis或各种rpc。
   * 用户可以方便的自定义网络协议，只需提供序列化和反序列化函数，就可以定义出自己的client/server。
@@ -116,14 +121,10 @@ int main()
 * 任何任务都会在callback之后被自动内存回收。如果创建的任务不想运行，则需要通过dismiss方法释放。
 * 任务中的数据，例如网络请求的resp，也会随着任务被回收。此时用户可通过``std::move()``把需要的数据移走。
 * SeriesWork和ParallelWork是两种框架对象，同样在callback之后被回收。
+  * 如果某个series是parallel的一个分支，则将在其所在parallel的callback之后再回收。
 * 项目中不使用``std::shared_ptr``来管理内存。
 
-#### 更多设计文档
-持续更新中……
-
-
-#### Authors
-
-* **Xie Han** - *[xiehan@sogou-inc.com](mailto:xiehan@sogou-inc.com)*
-* **Wu Jiaxu** - *[wujiaxu@sogou-inc.com](mailto:wujiaxu@sogou-inc.com)*
-* **Li Yingxin** - *[liyingxin@sogou-inc.com](mailto:liyingxin@sogou-inc.com)*
+# 使用中有疑问？
+可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
+非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。  
+也可以通过QQ群：``618773193`` 联系我们。

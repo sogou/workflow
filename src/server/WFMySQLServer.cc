@@ -48,7 +48,8 @@ CommSession *WFMySQLServer::new_session(long long seq, CommConnection *conn)
 	static mysql_process_t empty = [](WFMySQLTask *){ };
 	WFMySQLTask *task;
 
-	task = WFServerTaskFactory::create_mysql_task(seq ? this->process : empty);
+	task = WFServerTaskFactory::create_mysql_task(this, seq ? this->process :
+															  empty);
 	task->set_keep_alive(this->params.keep_alive_timeout);
 	task->set_receive_timeout(this->params.receive_timeout);
 	task->get_req()->set_size_limit(this->params.request_size_limit);

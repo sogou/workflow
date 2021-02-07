@@ -24,6 +24,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -239,17 +240,6 @@ int CommService::drain(int max)
 	return cnt;
 }
 
-inline void CommService::incref()
-{
-	__sync_add_and_fetch(&this->ref, 1);
-}
-
-inline void CommService::decref()
-{
-	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
-		this->handle_unbound();
-}
-
 class CommServiceTarget : public CommTarget
 {
 public:
@@ -402,7 +392,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 	ssize_t n;
 	int i;
 
-	while (1)
+	while (cnt > 0)
 	{
 		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
 		if (n < 0)
@@ -420,14 +410,8 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 			}
 		}
 
-		cnt -= i;
-		if (cnt == 0)
-			break;
-
-		if (i < IOV_MAX)
-			return cnt;
-
 		vectors += i;
+		cnt -= i;
 	}
 
 	service = entry->service;
@@ -1357,7 +1341,7 @@ int Communicator::create_poller(size_t poller_threads)
 
 int Communicator::init(size_t poller_threads, size_t handler_threads)
 {
-	if (poller_threads == 0 || handler_threads == 0)
+	if (poller_threads == 0)
 	{
 		errno = EINVAL;
 		return -1;
@@ -1686,7 +1670,7 @@ int Communicator::sleep(SleepSession *session)
 	return -1;
 }
 
-int Communicator::is_handler_thread()
+int Communicator::is_handler_thread() const
 {
 	return thrdpool_in_pool(this->thrdpool);
 }

@@ -66,6 +66,7 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
+	src/manager/UpstreamPolicies.h
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h
@@ -74,6 +75,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFConnection.h
 	src/factory/WFTask.h
 	src/factory/WFTask.inl
+	src/factory/WFGraphTask.h
 	src/factory/WFTaskError.h
 	src/factory/WFTaskFactory.h
 	src/factory/WFTaskFactory.inl
@@ -81,5 +83,19 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFNameService.h
+	src/factory/WFDNSResolver.h
 )
 
+if(KAFKA STREQUAL "y")
+	set(INCLUDE_HEADERS
+		${INCLUDE_HEADERS}
+		src/util/crc32c.h
+		src/protocol/KafkaMessage.h
+		src/protocol/KafkaDataTypes.h
+		src/protocol/KafkaResult.h
+		src/protocol/kafka_parser.h
+		src/client/WFKafkaClient.h
+		src/factory/KafkaTaskImpl.inl
+	)
+endif()

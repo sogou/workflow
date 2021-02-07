@@ -85,7 +85,7 @@ http_task->start();
 基本原理
 1. 随机选择一个目标
 2. 如果try_another配置为true，那么将在所有存活的目标中随机选择一个
-3. 仅在master中选择，选中目标所在group的主备和无group的备都视为有效的可选对象
+3. 仅在main中选择，选中目标所在group的主备和无group的备都视为有效的可选对象
 
 ### 例2 在多个目标中按照权重大小随机访问
 配置一个本地反向代理，将本地发出的weighted.random所有请求按照5/20/1的权重分配打到3个目标server上
@@ -107,7 +107,7 @@ http_task->start();
 基本原理
 1. 按照权重分配，随机选择一个目标，权重越大概率越大
 2. 如果try_another配置为true，那么将在所有存活的目标中按照权重分配随机选择一个
-3. 仅在master中选择，选中目标所在group的主备和无group的备都视为有效的可选对象
+3. 仅在main中选择，选中目标所在group的主备和无group的备都视为有效的可选对象
 
 ### 例3 在多个目标中按照框架默认的一致性哈希访问
 ~~~cpp
@@ -125,11 +125,11 @@ auto *http_task = WFTaskFactory::create_http_task("http://abc.local/service/meth
 http_task->start();
 ~~~
 基本原理
-1. 每1个master视为16个虚拟节点
+1. 每1个main视为16个虚拟节点
 2. 框架会使用std::hash对所有节点的address+虚拟index进行运算，作为一致性哈希的node值
 3. 框架会使用std::hash对path+query+fragment进行运算，作为一致性哈希data值
 4. 每次都选择存活node最近的值作为目标
-5. 对于每一个master、只要有存活group内master/有存活group内slave/有存活no group slave，即视为存活
+5. 对于每一个main、只要有存活group内main/有存活group内backup/有存活no group backup，即视为存活
 
 ### 例4 自定义一致性哈希函数
 ~~~cpp
@@ -183,8 +183,8 @@ auto *http_task = WFTaskFactory::create_http_task("http://xyz.cdn/sompath?key=so
 http_task->start();
 ~~~
 基本原理
-1. 框架首先依据用户提供的普通选取函数、按照取模，在master列表中确定选取
-2. 对于每一个master、只要有存活group内master/有存活group内slave/有存活no group slave，即视为存活
+1. 框架首先依据用户提供的普通选取函数、按照取模，在main列表中确定选取
+2. 对于每一个main、只要有存活group内main/有存活group内backup/有存活no group backup，即视为存活
 3. 如果选中目标不再存活且try_another设为true，将再使用一致性哈希函数进行二次选取
 4. 如果触发二次选取，一致性哈希将保证一定会选择一个存活目标、除非全部机器都被熔断掉
 
@@ -195,10 +195,10 @@ UpstreamManager::upstream_create_weighted_random(
     true);//一主一备这项设什么没区别
 
 AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
-address_params.server_type = SERVER_TYPE_MASTER;
-UpstreamManager::upstream_add_server("simple.name", "master01.test.ted.bj.sogou", &address_params);//主
-address_params.server_type = SERVER_TYPE_SLAVE;
-UpstreamManager::upstream_add_server("simple.name", "slave01.test.ted.gd.sogou", &address_params);//备
+address_params.server_type = 0;
+UpstreamManager::upstream_add_server("simple.name", "main01.test.ted.bj.sogou", &address_params);//主
+address_params.server_type = 1;
+UpstreamManager::upstream_add_server("simple.name", "backup01.test.ted.gd.sogou", &address_params);//备
 
 auto *http_task = WFTaskFactory::create_http_task("http://simple.name/request", 0, 0, nullptr);
 auto *redis_task = WFTaskFactory::create_redis_task("redis://simple.name/2", 0, nullptr);
@@ -219,33 +219,33 @@ UpstreamManager::upstream_create_consistent_hash(
     nullptr);//nullptr代表使用框架默认的一致性哈希函数
 
 AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
-address_params.server_type = SERVER_TYPE_MASTER;
+address_params.server_type = 0;
 address_params.group_id = 1001;
-UpstreamManager::upstream_add_server("abc.local", "192.168.2.100:8081", &address_params);//master in group 1001
-address_params.server_type = SERVER_TYPE_SLAVE;
+UpstreamManager::upstream_add_server("abc.local", "192.168.2.100:8081", &address_params);//main in group 1001
+address_params.server_type = 1;
 address_params.group_id = 1001;
-UpstreamManager::upstream_add_server("abc.local", "192.168.2.100:8082", &address_params);//slave for group 1001
-address_params.server_type = SERVER_TYPE_MASTER;
+UpstreamManager::upstream_add_server("abc.local", "192.168.2.100:8082", &address_params);//backup for group 1001
+address_params.server_type = 0;
 address_params.group_id = 1002;
-UpstreamManager::upstream_add_server("abc.local", "master01.test.ted.bj.sogou", &address_params);//master in group 1002
-address_params.server_type = SERVER_TYPE_SLAVE;
+UpstreamManager::upstream_add_server("abc.local", "main01.test.ted.bj.sogou", &address_params);//main in group 1002
+address_params.server_type = 1;
 address_params.group_id = 1002;
-UpstreamManager::upstream_add_server("abc.local", "slave01.test.ted.gd.sogou", &address_params);//slave for group 1002
-address_params.server_type = SERVER_TYPE_SLAVE;
+UpstreamManager::upstream_add_server("abc.local", "backup01.test.ted.gd.sogou", &address_params);//backup for group 1002
+address_params.server_type = 1;
 address_params.group_id = -1;
-UpstreamManager::upstream_add_server("abc.local", "test.sogou.com:8080", &address_params);//slave for no group mean slave for all group and no group
-UpstreamManager::upstream_add_server("abc.local", "abc.sogou.com");//master, no group
+UpstreamManager::upstream_add_server("abc.local", "test.sogou.com:8080", &address_params);//backup for no group mean backup for all group and no group
+UpstreamManager::upstream_add_server("abc.local", "abc.sogou.com");//main, no group
 
 auto *http_task = WFTaskFactory::create_http_task("http://abc.local/service/method", 0, 0, nullptr);
 http_task->start();
 ~~~
 基本原理
 1. 组号-1代表无组，这种目标不属于任何组
-2. 无组的master之间是平等的，甚至可以视为同一个组。但与有组的master之间是隔离的
-3. 无组的slave可以为全局任何组目标/任何无组目标作为备
+2. 无组的main之间是平等的，甚至可以视为同一个组。但与有组的main之间是隔离的
+3. 无组的backup可以为全局任何组目标/任何无组目标作为备
 4. 组号可以区分哪些主备是在一起工作的
-5. 不同组之间的备是相互隔离的，只为本组的master服务
-6. 添加目标的默认组号-1，type为master
+5. 不同组之间的备是相互隔离的，只为本组的main服务
+6. 添加目标的默认组号-1，type为0，表示主节点。
 
 # Upstream选择策略
 
@@ -287,8 +287,6 @@ struct AddressParams
     unsigned int dns_ttl_min;
     unsigned int max_fails;
     unsigned short weight;
-#define SERVER_TYPE_MASTER    0
-#define SERVER_TYPE_SLAVE     1
     int server_type;
     int group_id;
 };
@@ -299,8 +297,8 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
     .dns_ttl_default    =    12 * 3600,
     .dns_ttl_min        =    180,
     .max_fails          =    200,
-    .weight             =    1,    //only for master of UPSTREAM_WEIGHTED_RANDOM
-    .server_type        =    SERVER_TYPE_MASTER,
+    .weight             =    1,    //only for main of UPSTREAM_WEIGHTED_RANDOM
+    .server_type        =    0,
     .group_id           =    -1,
 };
 ~~~
@@ -309,7 +307,7 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
   * dns_ttl_default：dns cache中默认的ttl，单位秒，默认12小时，dns cache是针对当前进程的，即进程退出就会消失，配置也仅对当前进程有效
   * dns_ttl_min：dns最短生效时间，单位秒，默认3分钟，用于在通信失败重试时是否进行重新dns的决策
   * max_fails：触发熔断的【连续】失败次数（注：每次通信成功，计数会清零）
-  * weight：权重，默认1，仅对master有效，用于Upstream随机策略选取，权重越大越容易被选中；其他策略下此参数无意义
+  * weight：权重，默认1，仅对main有效，用于Upstream随机策略选取，权重越大越容易被选中；其他策略下此参数无意义
   * server_type：主备配置，默认主。无论什么时刻，同组的主优先级永远高于其他的备
   * group_id：分组依据，默认-1。-1代表无分组(游离)，游离的备可视为任何主的备，有组的备优先级永远高于游离的备。
 
@@ -343,8 +341,8 @@ Address在熔断期间，一旦被策略选中，Upstream会根据具体配置�
 2. 一致性哈希策略，全部目标都处于熔断期
 3. 手动策略 && try_another==true，全部目标都处于熔断期  
 4. 手动策略 && try_another==false，且同时满足下面三个条件：  
-  1). select函数选中的master处于熔断期，，且游离的备都处于熔断期  
-  2). 这个master是游离的主，或者这个master所在的group其他目标都处于熔断期  
+  1). select函数选中的main处于熔断期，，且游离的备都处于熔断期  
+  2). 这个main是游离的主，或者这个main所在的group其他目标都处于熔断期  
   3). 所有游离的备都处于熔断期  
 
 # Upstream端口优先级

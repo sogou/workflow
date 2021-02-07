@@ -203,9 +203,17 @@ private:
 	int ssl_accept_timeout;
 	SSL_CTX *ssl_ctx;
 
-private:
-	void incref();
-	void decref();
+public:
+	void incref()
+	{
+		__sync_add_and_fetch(&this->ref, 1);
+	}
+
+	void decref()
+	{
+		if (__sync_sub_and_fetch(&this->ref, 1) == 0)
+			this->handle_unbound();
+	}
 
 private:
 	int listen_fd;
@@ -260,7 +268,7 @@ public:
 	void io_unbind(IOService *service);
 
 public:
-	int is_handler_thread();
+	int is_handler_thread() const;
 	int increase_handler_thread();
 
 private:

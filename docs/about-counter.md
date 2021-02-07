@@ -23,7 +23,7 @@ class WFTaskFactory
 };
 ~~~
 每个计数器都包含一个target_value，当计数器的计数到达target_value，callback被调用。  
-以上两个接口分别产生匿名计数器和命名计数器，匿名计算器直接通过WFCounterTask的count方法来增加计数：  
+以上两个接口分别产生匿名计数器和命名计数器，匿名计数器直接通过WFCounterTask的count方法来增加计数：  
 ~~~cpp
 class WFCounterTask
 {

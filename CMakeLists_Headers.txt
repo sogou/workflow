@@ -85,6 +85,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 	src/factory/WFNameService.h
 	src/factory/WFDNSResolver.h
+	src/service/ServiceGovernance.h
 )
 
 if(KAFKA STREQUAL "y")

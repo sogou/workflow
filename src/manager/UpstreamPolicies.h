@@ -20,7 +20,6 @@
 #define _UPSTREAM_POLICIES_H_ 
 
 #include <pthread.h>
-#include <unordered_map>
 #include <vector>
 #include <atomic>
 #include "URIParser.h"
@@ -30,33 +29,20 @@
 #include "WFGlobal.h"
 #include "WFTaskError.h"
 #include "UpstreamManager.h"
-
-#define MTTR_SECOND			30
-#define VIRTUAL_GROUP_SIZE  16
-
-#define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
+#include "ServiceGovernance.h"
 
 class EndpointGroup;
-class UPSPolicy;
 class UPSGroupPolicy;
 
-class EndpointAddress
+class UPSAddress : public EndpointAddress
 {
 public:
 	EndpointGroup *group;
-	AddressParams params;
-	std::string address;
-	std::string host;
-	std::string port;
-	short port_value;
-	struct list_head list;
-	std::atomic<unsigned int> fail_count;
-	long long broken_timeout;
 	unsigned int consistent_hash[VIRTUAL_GROUP_SIZE];
 
 public:
-	EndpointAddress(const std::string& address,
-					const struct AddressParams *address_params);
+	UPSAddress(const std::string& address,
+			   const struct AddressParams *address_params);
 };
 
 class EndpointGroup
@@ -66,8 +52,8 @@ public:
 	UPSGroupPolicy *policy;
 	struct rb_node rb;
 	pthread_mutex_t mutex;
-	std::vector<EndpointAddress *> mains;
-	std::vector<EndpointAddress *> backups;
+	std::vector<UPSAddress *> mains;
+	std::vector<UPSAddress *> backups;
 	std::atomic<int> nalives;
 	int weight;
 
@@ -81,82 +67,11 @@ public:
 	}
 
 public:
-	const EndpointAddress *get_one();
-	const EndpointAddress *get_one_backup();
+	const UPSAddress *get_one();
+	const UPSAddress *get_one_backup();
 };
 
-class UPSPolicy : public WFDNSResolver
-{
-public:
-	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
-											 router_callback_t callback);
-	virtual void success(RouteManager::RouteResult *result, void *cookie,
-					 	 CommTarget *target);
-	virtual void failed(RouteManager::RouteResult *result, void *cookie,
-						CommTarget *target);
-
-	void add_server(const std::string& address, const AddressParams *address_params);
-	int remove_server(const std::string& address);
-	int replace_server(const std::string& address, const AddressParams *address_params);
-
-	virtual void enable_server(const std::string& address);
-	virtual void disable_server(const std::string& address);
-	virtual void get_main_address(std::vector<std::string>& addr_list);
-	// virtual void server_list_change(/* std::vector<server> status */) {}
-
-public:
-	UPSPolicy() :
-		breaker_lock(PTHREAD_MUTEX_INITIALIZER),
-		rwlock(PTHREAD_RWLOCK_INITIALIZER)
-	{
-		this->nalives = 0;
-		this->try_another = false;
-		INIT_LIST_HEAD(&this->breaker_list);
-	}
-
-	virtual ~UPSPolicy()
-	{
-		for (EndpointAddress *addr : this->addresses)
-			delete addr;
-	}
-
-private:
-	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
-
-	virtual void recover_one_server(const EndpointAddress *addr)
-	{
-		this->nalives++;
-	}
-
-	virtual void fuse_one_server(const EndpointAddress *addr)
-	{
-		this->nalives--;
-	}
-
-	virtual void add_server_locked(EndpointAddress *addr);
-	virtual int remove_server_locked(const std::string& address);
-
-	void recover_server_from_breaker(EndpointAddress *addr);
-	void fuse_server_to_breaker(EndpointAddress *addr);
-
-	struct list_head breaker_list;
-	pthread_mutex_t breaker_lock;
-
-protected:
-	virtual const EndpointAddress *first_stradegy(const ParsedURI& uri);
-	virtual const EndpointAddress *another_stradegy(const ParsedURI& uri);
-	void check_breaker();
-
-	std::vector<EndpointAddress *> servers; // current servers
-	std::vector<EndpointAddress *> addresses; // memory management
-	std::unordered_map<std::string,
-					   std::vector<EndpointAddress *>> server_map;
-	pthread_rwlock_t rwlock;
-	std::atomic<int> nalives;
-	bool try_another;
-};
-
-class UPSGroupPolicy : public UPSPolicy
+class UPSGroupPolicy : public ServiceGovernance
 {
 public:
 	UPSGroupPolicy();
@@ -167,28 +82,28 @@ protected:
 	EndpointGroup *default_group;
 
 private:
-	virtual void recover_one_server(const EndpointAddress *addr)
+	virtual void recover_one_server(const UPSAddress *addr)
 	{
 		this->nalives++;
 		addr->group->nalives++;
 	}
 
-	virtual void fuse_one_server(const EndpointAddress *addr)
+	virtual void fuse_one_server(const UPSAddress *addr)
 	{
 		this->nalives--;
 		addr->group->nalives--;
 	}
 
-	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
+	virtual bool select(const ParsedURI& uri, UPSAddress **addr);
 
 protected:
-	virtual void add_server_locked(EndpointAddress *addr);
+	virtual void add_server_locked(UPSAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	const EndpointAddress *consistent_hash_with_group(unsigned int hash);
-	const EndpointAddress *check_and_get(const EndpointAddress *addr, bool flag);
+	const UPSAddress *consistent_hash_with_group(unsigned int hash);
+	const UPSAddress *check_and_get(const UPSAddress *addr, bool flag);
 
-	inline bool is_alive_or_group_alive(const EndpointAddress *addr) const
+	inline bool is_alive_or_group_alive(const UPSAddress *addr) const
 	{
 		return ((addr->params.group_id < 0 &&
 					addr->fail_count < addr->params.max_fails) || 
@@ -206,17 +121,17 @@ public:
 		this->available_weight = 0;
 		this->try_another = try_another;
 	}
-	const EndpointAddress *first_stradegy(const ParsedURI& uri);
-	const EndpointAddress *another_stradegy(const ParsedURI& uri);
+	const UPSAddress *first_stradegy(const ParsedURI& uri);
+	const UPSAddress *another_stradegy(const ParsedURI& uri);
 
 protected:
 	int total_weight;
 	int available_weight;
 
 private:
-	virtual void recover_one_server(const EndpointAddress *addr);
-	virtual void fuse_one_server(const EndpointAddress *addr);
-	virtual void add_server_locked(EndpointAddress *addr);
+	virtual void recover_one_server(const UPSAddress *addr);
+	virtual void fuse_one_server(const UPSAddress *addr);
+	virtual void add_server_locked(UPSAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 };
 
@@ -234,7 +149,7 @@ public:
 	}
 
 protected:
-	const EndpointAddress *first_stradegy(const ParsedURI& uri);
+	const UPSAddress *first_stradegy(const ParsedURI& uri);
 
 private:
 	upstream_route_t consistent_hash;
@@ -264,8 +179,8 @@ public:
 		this->try_another_select = try_another_select;
 	}
 	
-	const EndpointAddress *first_stradegy(const ParsedURI& uri);
-	const EndpointAddress *another_stradegy(const ParsedURI& uri);
+	const UPSAddress *first_stradegy(const ParsedURI& uri);
+	const UPSAddress *another_stradegy(const ParsedURI& uri);
 
 private:
 	upstream_route_t manual_select;

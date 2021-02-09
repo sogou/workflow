@@ -19,3 +19,5 @@ jobs:
 
 script:
   - make
+  - cd tutorial
+  - make

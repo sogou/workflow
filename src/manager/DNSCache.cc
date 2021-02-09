@@ -25,7 +25,7 @@
 #define CONFIDENT_INC		10
 #define	TTL_INC				10
 
-const DNSHandle *DNSCache::get_inner(const HostPort& host_port, int type)
+const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int type)
 {
 	const DNSHandle *handle = cache_pool_.get(host_port);
 
@@ -73,10 +73,10 @@ const DNSHandle *DNSCache::get_inner(const HostPort& host_port, int type)
 	return handle;
 }
 
-const DNSHandle *DNSCache::put(const HostPort& host_port,
-							   struct addrinfo *addrinfo,
-							   unsigned int dns_ttl_default,
-							   unsigned int dns_ttl_min)
+const DNSCache::DNSHandle *DNSCache::put(const HostPort& host_port,
+										 struct addrinfo *addrinfo,
+										 unsigned int dns_ttl_default,
+										 unsigned int dns_ttl_min)
 {
 	int64_t expire_time;
 	int64_t confident_time;

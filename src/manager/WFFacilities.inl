@@ -36,7 +36,7 @@ inline WFFuture<void> WFFacilities::async_usleep(unsigned int microseconds)
 template<class FUNC, class... ARGS>
 void WFFacilities::go(const std::string& queue_name, FUNC&& func, ARGS&&... args)
 {
-	WFTaskFactory::create_go_task(queue_name, std::move(func), std::forward<ARGS>(args)...)->start();
+	WFTaskFactory::create_go_task(queue_name, std::forward<FUNC>(func), std::forward<ARGS>(args)...)->start();
 }
 
 template<class REQ, class RESP>

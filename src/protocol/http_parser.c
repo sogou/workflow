@@ -292,7 +292,7 @@ static int __parse_start_line(const char *ptr, size_t len,
 			return 1;
 		}
 
-		if (start_line[i] == '\0')
+		if ((signed char)start_line[i] <= 0)
 			return -2;
 	}
 
@@ -325,7 +325,7 @@ static int __parse_header_name(const char *ptr, size_t len,
 			return 1;
 		}
 
-		if (ptr[i] == '\0')
+		if ((signed char)ptr[i] <= 0)
 			return -2;
 
 		parser->namebuf[i] = ptr[i];
@@ -370,7 +370,7 @@ static int __parse_header_value(const char *ptr, size_t len,
 			if (header_value[i] == '\r')
 				break;
 
-			if (header_value[i] == '\0')
+			if ((signed char)header_value[i] <= 0)
 				return -2;
 
 			i++;

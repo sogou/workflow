@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <utility>
 #include "HttpMessage.h"
 
 namespace protocol
@@ -222,14 +223,11 @@ inline int HttpMessage::append(const void *buf, size_t *size)
 	return ret;
 }
 
-HttpMessage::HttpMessage(HttpMessage&& msg)
+HttpMessage::HttpMessage(HttpMessage&& msg) :
+	ProtocolMessage(std::move(msg))
 {
-	this->size_limit = msg.size_limit;
-	msg.size_limit = (size_t)-1;
-
 	this->parser = msg.parser;
-	msg.parser = new http_parser_t;
-	http_parser_init(this->parser->is_resp, msg.parser);
+	msg.parser = NULL;
 
 	INIT_LIST_HEAD(&this->output_body);
 	list_splice_init(&msg.output_body, &this->output_body);
@@ -244,15 +242,16 @@ HttpMessage& HttpMessage::operator = (HttpMessage&& msg)
 {
 	if (&msg != this)
 	{
-		this->size_limit = msg.size_limit;
-		msg.size_limit = (size_t)-1;
+		*(ProtocolMessage *)this = std::move(msg);
 
-		http_parser_deinit(this->parser);
-		delete this->parser;
+		if (this->parser)
+		{
+			http_parser_deinit(this->parser);
+			delete this->parser;
+		}
 
 		this->parser = msg.parser;
-		msg.parser = new http_parser_t;
-		http_parser_init(this->parser->is_resp, msg.parser);
+		msg.parser = NULL;
 
 		this->clear_output_body();
 		list_splice_init(&msg.output_body, &this->output_body);

@@ -195,7 +195,7 @@ int CommMessageIn::feedback(const char *buf, size_t size)
 	int ret;
 
 	if (!entry->ssl)
-		return _write((int)entry->sockfd, buf, (unsigned int)size);
+		return send(entry->sockfd, buf, (int)size, 0);
 
 	if (size == 0)
 		return 0;
@@ -215,7 +215,7 @@ int CommMessageIn::feedback(const char *buf, size_t size)
 
 	char *ssl_buf = new char[sz];
 	if (sz == BIO_read(entry->bio_send, ssl_buf, sz))
-		ret = _write((int)entry->sockfd, ssl_buf, (unsigned int)size);
+		ret = send(entry->sockfd, ssl_buf, (int)size, 0);
 	else
 		ret = -1;
 
@@ -271,17 +271,6 @@ int CommService::drain(int max)
 
 	this->mutex.unlock();
 	return cnt;
-}
-
-inline void CommService::incref()
-{
-	this->ref++;
-}
-
-inline void CommService::decref()
-{
-	if (--this->ref == 0)
-		this->handle_unbound();
 }
 
 class CommServiceTarget : public CommTarget
@@ -360,7 +349,7 @@ CommSession::~CommSession()
 
 int Communicator::init(size_t poller_threads, size_t handler_threads)
 {
-	if (poller_threads == 0 || handler_threads == 0)
+	if (poller_threads == 0)
 	{
 		errno = EINVAL;
 		return -1;
@@ -867,7 +856,9 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 
 			session = entry->session;
 			session->in = session->message_in();
-			if (session->in == NULL)
+			if (session->in)
+				session->in->entry = entry;
+			else
 			{
 				cs_state = CS_STATE_ERROR;
 				res->error = errno;
@@ -961,7 +952,9 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 		if (ctx->msgsize == 0)
 		{
 			session->in = session->message_in();
-			if (session->in == NULL)
+			if (session->in)
+				session->in->entry = entry;
+			else
 			{
 				cs_state = CS_STATE_ERROR;
 				res->error = errno;
@@ -1047,7 +1040,7 @@ void Communicator::handle_incoming_idle(struct poller_result *res)
 	ReadContext *ctx = (ReadContext *)res->data.context;
 	CommConnEntry *entry = (CommConnEntry *)ctx->entry;
 	CommTarget *target = entry->target;
-	CommSession *session = entry->session;
+	CommSession *session = NULL;
 	int cs_state;
 
 	target->mutex.lock();
@@ -1056,6 +1049,8 @@ void Communicator::handle_incoming_idle(struct poller_result *res)
 		list_del(&entry->list);
 		entry->state = CONN_STATE_FREE;
 	}
+	else
+		session = entry->session;
 
 	target->mutex.unlock();
 
@@ -1217,6 +1212,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	switch (res->state)
 	{
 	case PR_ST_SUCCESS:
+	case PR_ST_FINISHED:
 		do
 		{
 			if (nleft >= buffer->len)
@@ -1287,7 +1283,6 @@ void Communicator::handle_request_result(struct poller_result *res)
 
 		break;
 
-	case PR_ST_FINISHED:
 	case PR_ST_ERROR:
 	case PR_ST_TIMEOUT:
 		cs_state = CS_STATE_ERROR;
@@ -1586,7 +1581,7 @@ void Communicator::handle_accept_result(struct poller_result *res)
 				if (!service->ssl_ctx || __ssl_accept(service->ssl_ctx, entry) >= 0)
 				{
 					if (this->poller->put_io(&data, timeout) >= 0)
-						return;
+						break;
 				}
 
 				delete new_ctx;
@@ -1597,9 +1592,11 @@ void Communicator::handle_accept_result(struct poller_result *res)
 				target->decref();
 		}
 		else
+		{
 			closesocket(sockfd);
-
-		delete target;
+			delete target;
+		}
+		
 		break;
 
 	case PR_ST_ERROR:
@@ -1755,6 +1752,15 @@ int Communicator::send_message(CommConnEntry *entry)
 			errno = EOVERFLOW;
 
 		return -1;
+	}
+
+	// cnt should not be zero on Windows platform
+	// it will return error INVALID_PARAM by WSASend
+	if (cnt == 0)
+	{
+		vectors[0].iov_base = NULL;
+		vectors[0].iov_len = 0;
+		cnt = 1;
 	}
 
 	return this->send_message_async(vectors, cnt, entry);

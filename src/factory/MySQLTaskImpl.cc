@@ -471,13 +471,13 @@ bool ComplexMySQLTask::init_success()
 		transaction_state_ = TRANSACTION_OUT;
 		this->WFComplexClientTask::set_info(std::string("?maxconn=1&") +
 											info + "|txn:" + transaction);
-		this->first_addr_only_ = true;
+		this->fixed_addr_ = true;
 	}
 	else
 	{
 		transaction_state_ = NO_TRANSACTION;
 		this->WFComplexClientTask::set_info(info);
-		this->first_addr_only_ = false;
+		this->fixed_addr_ = false;
 	}
 
 	delete []info;
@@ -555,8 +555,9 @@ WFMySQLTask *WFTaskFactory::create_mysql_task(const ParsedURI& uri,
 class WFMySQLServerTask : public WFServerTask<MySQLRequest, MySQLResponse>
 {
 public:
-	WFMySQLServerTask(std::function<void (WFMySQLTask *)>& process):
-		WFServerTask(WFGlobal::get_scheduler(), process)
+	WFMySQLServerTask(CommService *service,
+					  std::function<void (WFMySQLTask *)>& process):
+		WFServerTask(service, WFGlobal::get_scheduler(), process)
 	{}
 
 protected:
@@ -595,8 +596,9 @@ CommMessageIn *WFMySQLServerTask::message_in()
 
 /**********Server Factory**********/
 
-WFMySQLTask *WFServerTaskFactory::create_mysql_task(std::function<void (WFMySQLTask *)>& process)
+WFMySQLTask *WFServerTaskFactory::create_mysql_task(CommService *service,
+							std::function<void (WFMySQLTask *)>& process)
 {
-	return new WFMySQLServerTask(process);
+	return new WFMySQLServerTask(service, process);
 }
 

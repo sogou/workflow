@@ -321,9 +321,12 @@ inline RedisMessage::RedisMessage():
 
 inline RedisMessage::~RedisMessage()
 {
-	redis_parser_deinit(parser_);
-	delete parser_;
-	delete stream_;
+	if (parser_)
+	{
+		redis_parser_deinit(parser_);
+		delete parser_;
+		delete stream_;
+	}
 }
 
 inline bool RedisMessage::parse_success() const { return parser_->parse_succ; }

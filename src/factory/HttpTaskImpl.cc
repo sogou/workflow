@@ -277,6 +277,19 @@ bool ComplexHttpTask::redirect_url(HttpResponse *client_resp)
 			return false;
 		}
 
+		if (url[0] == '/')
+		{
+			if (url[1] != '/')
+			{
+				if (uri_.port)
+					url = ':' + (uri_.port + url);
+
+				url = "//" + (uri_.host + url);
+			}
+
+			url = uri_.scheme + (':' + url);
+		}
+
 		URIParser::parse(url, uri_);
 		return true;
 	}
@@ -338,10 +351,7 @@ bool ComplexHttpTask::finish_once()
 			this->disable_retry();
 	}
 	else
-	{
 		this->get_resp()->end_parsing();
-		redirect_count_ = 0;
-	}
 
 	return true;
 }
@@ -383,8 +393,9 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 class WFHttpServerTask : public WFServerTask<HttpRequest, HttpResponse>
 {
 public:
-	WFHttpServerTask(std::function<void (WFHttpTask *)>& process):
-		WFServerTask(WFGlobal::get_scheduler(), process),
+	WFHttpServerTask(CommService *service,
+					 std::function<void (WFHttpTask *)>& process):
+		WFServerTask(service, WFGlobal::get_scheduler(), process),
 		req_is_alive_(false),
 		req_header_has_keep_alive_(false)
 	{}
@@ -559,8 +570,9 @@ CommMessageOut *WFHttpServerTask::message_out()
 
 /**********Server Factory**********/
 
-WFHttpTask *WFServerTaskFactory::create_http_task(std::function<void (WFHttpTask *)>& process)
+WFHttpTask *WFServerTaskFactory::create_http_task(CommService *service,
+							std::function<void (WFHttpTask *)>& process)
 {
-	return new WFHttpServerTask(process);
+	return new WFHttpServerTask(service, process);
 }
 

@@ -475,7 +475,7 @@ std::string RedisValue::debug_string() const
 		for (size_t i = 0; i < l; i++)
 		{
 			if (i)
-				ret += " ,";
+				ret += ", ";
 
 			ret += (*this)[i].debug_string();
 		}
@@ -485,40 +485,38 @@ std::string RedisValue::debug_string() const
 	return ret;
 }
 
-RedisMessage::RedisMessage(RedisMessage&& move)
+RedisMessage::RedisMessage(RedisMessage&& move) :
+	ProtocolMessage(std::move(move))
 {
-	this->size_limit = move.size_limit;
-	move.size_limit = (size_t)-1;
-
 	parser_ = move.parser_;
 	stream_ = move.stream_;
 	cur_size_ = move.cur_size_;
 
-	move.parser_ = new redis_parser_t;
-	move.stream_ = new EncodeStream;
+	move.parser_ = NULL;
+	move.stream_ = NULL;
 	move.cur_size_ = 0;
-	redis_parser_init(move.parser_);
 }
 
 RedisMessage& RedisMessage::operator= (RedisMessage &&move)
 {
 	if (this != &move)
 	{
-		this->size_limit = move.size_limit;
-		move.size_limit = (size_t)-1;
+		*(ProtocolMessage *)this = std::move(move);
 
-		redis_parser_deinit(parser_);
-		delete parser_;
-		delete stream_;
+		if (parser_)
+		{
+			redis_parser_deinit(parser_);
+			delete parser_;
+			delete stream_;
+		}
 
 		parser_ = move.parser_;
 		stream_ = move.stream_;
 		cur_size_ = move.cur_size_;
 
-		move.parser_ = new redis_parser_t;
-		move.stream_ = new EncodeStream;
+		move.parser_ = NULL;
+		move.stream_ = NULL;
 		move.cur_size_ = 0;
-		redis_parser_init(move.parser_);
 	}
 
 	return *this;

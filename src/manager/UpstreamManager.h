@@ -23,6 +23,7 @@
 #include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
+#include "WFGlobal.h"
 
 /**
  * @file    UpstreamManager.h
@@ -58,9 +59,9 @@ struct AddressParams
  * - If max_fails is set to 1, it means server would out of upstream selection in 30 seconds when failed only once
  */
 	unsigned int max_fails;                ///< [1, INT32_MAX] max_fails = 0 means max_fails = 1
-	unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for main
+	unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for main server
 	int server_type;                       ///< 0 for main and 1 for backup
-	int group_id;                          ///< -1 means no group. Backup without group will backup for any main
+	int group_id;                          ///< -1 means no group. Backup without group will be backup for any main
 };
 
 /**
@@ -84,7 +85,7 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
  *   1. Weighted-Random
  *   2. Consistent-Hash
  *   3. Manual-Select
- * - Additional, we support Main-Backup & Group for server and working well in any mode.
+ * - Additional, we support Main-backup & Group for server and working well in any mode.
  *
  * @code{.cc}
 	upstream_create_weighted_random("abc.sogou", true);           //UPSTREAM_WIGHTED_RANDOM
@@ -218,9 +219,9 @@ public:
 									  const std::string& address);
 
 	/**
-	 * @brief      get all main address list from one upstream
+	 * @brief      get all main servers address list from one upstream
 	 * @param[in]  name             upstream name
-	 * @return     all main address list
+	 * @return     all main servers' address list
 	 * @warning    If server servers has the same address in this upstream, then will appear in the vector multiply times
 	 */
 	static std::vector<std::string> upstream_main_address_list(const std::string& name);
@@ -234,39 +235,6 @@ public:
 									   const std::string& address,
 									   const struct AddressParams *address_params);
 
-public:
-	/// @brief Internal use only
-	class UpstreamResult
-	{
-public:
-		void *cookie;
-		const struct AddressParams *address_params;
-#define UPSTREAM_SUCCESS	0
-#define UPSTREAM_NOTFOUND	1
-#define UPSTREAM_ALL_DOWN	2
-		int state;
-
-public:
-		UpstreamResult():
-			cookie(NULL),
-			address_params(NULL),
-			state(UPSTREAM_NOTFOUND)
-		{}
-
-		void clear()
-		{
-			cookie = NULL;
-			address_params = NULL;
-			state = UPSTREAM_NOTFOUND;
-		}
-	};
-
-	/// @brief Internal use only
-	static int choose(ParsedURI& uri, UpstreamResult& result);
-	/// @brief Internal use only
-	static void notify_unavailable(void *cookie);
-	/// @brief Internal use only
-	static void notify_available(void *cookie);
 };
 
 #endif

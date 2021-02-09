@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <utility>
 #include "workflow/PlatformSocket.h"
 #include "message.h"
 
@@ -108,8 +109,7 @@ int TutorialMessage::set_message_body(const void *body, size_t size)
 
 TutorialMessage::TutorialMessage(TutorialMessage&& msg)
 {
-	this->size_limit = msg.size_limit;
-	msg.size_limit = (size_t)-1;
+	*(ProtocolMessage *)this = std::move(msg);
 
 	memcpy(this->head, msg.head, 4);
 	this->head_received = msg.head_received;

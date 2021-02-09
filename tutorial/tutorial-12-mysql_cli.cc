@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <vector>
 #include <map>
+
 #include "workflow/Workflow.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/MySQLResult.h"

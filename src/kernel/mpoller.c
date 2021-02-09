@@ -16,6 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <stddef.h>
 #include <stdlib.h>
 #include "poller.h"
 #include "mpoller.h"

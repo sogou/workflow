@@ -105,8 +105,6 @@ TEST(upstream_unittest, BasicPolicy)
 {
 	WFFacilities::WaitGroup wait_group(3);
 
-	register_upstream_hosts();
-
 	char url[3][30] = {"http://weighted.random", "http://hash", "http://manual"};
 
 	http_callback_t cb = std::bind(basic_callback, std::placeholders::_1,
@@ -128,7 +126,6 @@ TEST(upstream_unittest, EnableAndDisable)
 
 	UpstreamManager::upstream_disable_server("weighted.random", "127.0.0.1:8001");
 
-	//fprintf(stderr, "disable server and try......................\n");
 	std::string url = "http://weighted.random";
 	WFHttpTask *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 											  		   [&wait_group, &url](WFHttpTask *task){
@@ -136,7 +133,6 @@ TEST(upstream_unittest, EnableAndDisable)
 		EXPECT_EQ(state, WFT_STATE_TASK_ERROR);
 		EXPECT_EQ(task->get_error(), WFT_ERR_UPSTREAM_UNAVAILABLE);
 		UpstreamManager::upstream_enable_server("weighted.random", "127.0.0.1:8001");
-		//fprintf(stderr, "ensable server and try......................\n");
 		auto *task2 = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 													  std::bind(basic_callback,
 													  			std::placeholders::_1,
@@ -220,6 +216,8 @@ TEST(upstream_unittest, TryAnother)
 int main(int argc, char* argv[])
 {
 	::testing::InitGoogleTest(&argc, argv);
+
+	register_upstream_hosts();
 
 	EXPECT_TRUE(http_server1.start("127.0.0.1", 8001) == 0)
 				<< "http server start failed";

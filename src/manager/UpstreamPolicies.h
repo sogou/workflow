@@ -45,7 +45,6 @@ public:
 
 	UPSAddrParams();
 	UPSAddrParams(const struct AddressParams *params, const std::string& address);
-	virtual ~UPSAddrParams() {}
 };
 
 class EndpointGroup

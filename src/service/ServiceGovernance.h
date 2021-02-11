@@ -31,26 +31,53 @@
 #include "WFTaskError.h"
 #include "UpstreamManager.h"
 
-#define MTTR_SECOND			30
+#define MTTR_SECOND			5
 #define VIRTUAL_GROUP_SIZE  16
 
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
+enum ServerChangeState
+{
+	ADD_SERVER		=	0,
+	REMOVE_SERVER	=	1,
+	RECOVER_SERVER	=	2,
+	FUSE_SERVER		=	3,
+};
+
+class PolicyAddrParams
+{
+public:
+	struct EndpointParams endpoint_params;
+	unsigned int dns_ttl_default;
+	unsigned int dns_ttl_min;
+	unsigned int max_fails;
+
+	PolicyAddrParams();
+	PolicyAddrParams(const struct AddressParams *params);
+};
+/*
+struct address_list
+{
+	struct list_head node;
+	EndpointAddress *ptr;
+};
+*/
 class EndpointAddress
 {
 public:
-	AddressParams params;
 	std::string address;
 	std::string host;
 	std::string port;
-	short port_value; //TODO
+	unsigned short port_value; //TODO
 	struct list_head list;
+//	struct address_list list;
 	std::atomic<unsigned int> fail_count;
 	long long broken_timeout;
+	PolicyAddrParams *params;
 
 public:
-	EndpointAddress(const std::string& address,
-					const struct AddressParams *address_params);
+	EndpointAddress(const std::string& address, PolicyAddrParams *params);
+	virtual ~EndpointAddress() { delete this->params; }
 };
 
 class ServiceGovernance : public WFDNSResolver
@@ -63,14 +90,14 @@ public:
 	virtual void failed(RouteManager::RouteResult *result, void *cookie,
 						CommTarget *target);
 
-	void add_server(const std::string& address, const AddressParams *address_params);
-	int remove_server(const std::string& address);
-	int replace_server(const std::string& address, const AddressParams *address_params);
+	virtual void add_server(const std::string& address, const AddressParams *params);
+	virtual int remove_server(const std::string& address);
+	virtual int replace_server(const std::string& address, const AddressParams *params);
 
 	virtual void enable_server(const std::string& address);
 	virtual void disable_server(const std::string& address);
-	virtual void get_main_address(std::vector<std::string>& addr_list);
-	// virtual void server_list_change(/* std::vector<server> status */) {}
+	virtual void get_current_address(std::vector<std::string>& addr_list);
+	virtual void server_list_change(const EndpointAddress *address, int state);
 
 public:
 	ServiceGovernance() :

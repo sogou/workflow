@@ -152,7 +152,7 @@ UpstreamManager::upstream_main_address_list(const std::string& name)
 {
 	std::vector<std::string> address;
 	WFNameService *ns = WFGlobal::get_name_service();
-	ServiceGovernance *policy = dynamic_cast<ServiceGovernance *>(ns->get_policy(name.c_str()));
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
 		policy->get_main_address(address);

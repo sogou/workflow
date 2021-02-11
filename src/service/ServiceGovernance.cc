@@ -24,6 +24,19 @@
 #define DNS_CACHE_LEVEL_1		1
 #define DNS_CACHE_LEVEL_2		2
 
+PolicyAddrParams::PolicyAddrParams()
+{
+	PolicyAddrParams(ADDRESS_PARAMS_DEFAULT);
+}
+
+PolicyAddrParams::PolicyAddrParams(const struct AddressParams *params) :
+	endpoint_params(params->endpoint_params)
+{
+	this->dns_ttl_default = params->dns_ttl_default;
+	this->dns_ttl_min = params->dns_ttl_min;
+	this->max_fails = params->max_fails;
+}
+
 class WFSelectorFailTask : public WFRouterTask
 {
 public:
@@ -71,16 +84,17 @@ static bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
 }
 
 EndpointAddress::EndpointAddress(const std::string& address,
-								 const struct AddressParams *address_params)
+								 PolicyAddrParams *address_params)
 {
 	std::vector<std::string> arr = StringUtil::split(address, ':');
-	this->params = *address_params;
-	this->address = address;
-	this->list.next = NULL;
-	this->fail_count = 0;
 
-	if (this->params.max_fails == 0)
-		this->params.max_fails = 1;
+	this->params = address_params;
+	if (this->params->max_fails == 0)
+		this->params->max_fails = 1;
+
+	this->address = address;
+	this->fail_count = 0;
+	this->list.next = NULL;
 
 	if (arr.size() == 0)
 		this->host = "";
@@ -107,9 +121,9 @@ WFRouterTask *ServiceGovernance::create_router_task(const struct WFNSParams *par
 
 	if (this->select(params->uri, &addr) && copy_host_port(params->uri, addr))
 	{
-		unsigned int dns_ttl_default = addr->params.dns_ttl_default;
-		unsigned int dns_ttl_min = addr->params.dns_ttl_min;
-		const struct EndpointParams *endpoint_params = &addr->params.endpoint_params;
+		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
+		unsigned int dns_ttl_min = addr->params->dns_ttl_min;
+		const struct EndpointParams *endpoint_params = &addr->params->endpoint_params;
 		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
@@ -122,6 +136,12 @@ WFRouterTask *ServiceGovernance::create_router_task(const struct WFNSParams *par
 	return task;
 }
 
+void ServiceGovernance::server_list_change(const EndpointAddress *address, int state)
+{
+	fprintf(stderr, "server_list_change(). addr: %s state: %d\n",
+			address->address.c_str(), state);
+}
+
 inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
 {
 	addr->fail_count = 0;
@@ -131,7 +151,7 @@ inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr
 		list_del(&addr->list);
 		addr->list.next = NULL;
 		this->recover_one_server(addr);
-		//this->server_list_change();
+		this->server_list_change(addr, RECOVER_SERVER);
 	}
 	pthread_mutex_unlock(&this->breaker_lock);
 }
@@ -144,7 +164,7 @@ inline void ServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 		addr->broken_timeout = GET_CURRENT_SECOND + MTTR_SECOND;
 		list_add_tail(&addr->list, &this->breaker_list);
 		this->fuse_one_server(addr);
-		//this->server_list_change();
+		this->server_list_change(addr, FUSE_SERVER);
 	}
 	pthread_mutex_unlock(&this->breaker_lock);
 }
@@ -166,7 +186,7 @@ void ServiceGovernance::failed(RouteManager::RouteResult *result, void *cookie,
 
 	pthread_rwlock_rdlock(&this->rwlock);
 	size_t fail_count = ++server->fail_count;
-	if (fail_count == server->params.max_fails)
+	if (fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
 
 	pthread_rwlock_unlock(&this->rwlock);
@@ -188,19 +208,18 @@ void ServiceGovernance::check_breaker()
 			addr = list_entry(pos, EndpointAddress, list);
 			if (cur_time >= addr->broken_timeout)
 			{
-				if (addr->fail_count >= addr->params.max_fails)
+				if (addr->fail_count >= addr->params->max_fails)
 				{
-					addr->fail_count = addr->params.max_fails - 1;
+					addr->fail_count = addr->params->max_fails - 1;
 					this->recover_one_server(addr);
+					this->server_list_change(addr, RECOVER_SERVER);
 				}
 				list_del(pos);
 				addr->list.next = NULL;
 			}
 		}
 	}
-	pthread_mutex_unlock(&this->breaker_lock);
-	
-	//this->server_list_change();
+	pthread_mutex_unlock(&this->breaker_lock);	
 }
 
 const EndpointAddress *ServiceGovernance::first_stradegy(const ParsedURI& uri)
@@ -235,7 +254,7 @@ bool ServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
 	// select_addr == NULL will only happened in consistent_hash
 	const EndpointAddress *select_addr = this->first_stradegy(uri);
 
-	if (!select_addr || select_addr->fail_count >= select_addr->params.max_fails)
+	if (!select_addr || select_addr->fail_count >= select_addr->params->max_fails)
 	{
 		if (this->try_another)
 			select_addr = this->another_stradegy(uri);
@@ -258,6 +277,7 @@ void ServiceGovernance::add_server_locked(EndpointAddress *addr)
 	this->server_map[addr->address].push_back(addr);
 	this->servers.push_back(addr);
 	this->recover_one_server(addr);
+	this->server_list_change(addr, ADD_SERVER);
 }
 
 int ServiceGovernance::remove_server_locked(const std::string& address)
@@ -268,8 +288,11 @@ int ServiceGovernance::remove_server_locked(const std::string& address)
 		for (EndpointAddress *addr : map_it->second)
 		{
 			// or not: it has already been -- in nalives
-			if (addr->fail_count < addr->params.max_fails)
+			if (addr->fail_count < addr->params->max_fails)
+			{
 				this->fuse_one_server(addr);
+				this->server_list_change(addr, REMOVE_SERVER);
+			}
 		}
 
 		this->server_map.erase(map_it);
@@ -300,9 +323,10 @@ int ServiceGovernance::remove_server_locked(const std::string& address)
 }
 
 void ServiceGovernance::add_server(const std::string& address,
-								   const AddressParams *address_params)
+								   const AddressParams *params)
 {
-	EndpointAddress *addr = new EndpointAddress(address, address_params);
+	EndpointAddress *addr = new EndpointAddress(address,
+												new PolicyAddrParams(params));
 
 	pthread_rwlock_wrlock(&this->rwlock);
 	this->add_server_locked(addr);
@@ -319,10 +343,11 @@ int ServiceGovernance::remove_server(const std::string& address)
 }
 
 int ServiceGovernance::replace_server(const std::string& address,
-									  const AddressParams *address_params)
+									  const AddressParams *params)
 {
 	int ret;
-	EndpointAddress *addr = new EndpointAddress(address, address_params);
+	EndpointAddress *addr = new EndpointAddress(address,
+												new PolicyAddrParams(params));
 
 	pthread_rwlock_wrlock(&this->rwlock);
 	this->add_server_locked(addr);
@@ -351,14 +376,14 @@ void ServiceGovernance::disable_server(const std::string& address)
 	{
 		for (EndpointAddress *addr : map_it->second)
 		{
-			addr->fail_count = addr->params.max_fails;
+			addr->fail_count = addr->params->max_fails;
 			this->fuse_server_to_breaker(addr);
 		}
 	}
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
-void ServiceGovernance::get_main_address(std::vector<std::string>& addr_list)
+void ServiceGovernance::get_current_address(std::vector<std::string>& addr_list)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 

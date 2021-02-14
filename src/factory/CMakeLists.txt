@@ -8,8 +8,6 @@ set(SRC
 	MySQLTaskImpl.cc
 	WFTaskFactory.cc
 	Workflow.cc
-	WFNameService.cc
-	WFDNSResolver.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

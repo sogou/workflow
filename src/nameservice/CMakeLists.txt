@@ -5,6 +5,7 @@ set(SRC
 	WFNameService.cc
 	WFDNSResolver.cc
 	ServiceGovernance.cc
+	UpstreamPolicies.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

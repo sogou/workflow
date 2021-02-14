@@ -94,8 +94,8 @@ EndpointAddress::EndpointAddress(const std::string& address,
 
 	this->address = address;
 	this->fail_count = 0;
-	this->list.node.next = NULL;
-	this->list.ptr = this;
+	this->entry.list.next = NULL;
+	this->entry.ptr = this;
 
 	if (arr.size() == 0)
 		this->host = "";
@@ -135,10 +135,10 @@ inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr
 {
 	addr->fail_count = 0;
 	pthread_mutex_lock(&this->breaker_lock);
-	if (addr->list.node.next)
+	if (addr->entry.list.next)
 	{
-		list_del(&addr->list.node);
-		addr->list.node.next = NULL;
+		list_del(&addr->entry.list);
+		addr->entry.list.next = NULL;
 		this->recover_one_server(addr);
 		this->server_list_change(addr, RECOVER_SERVER);
 	}
@@ -148,10 +148,10 @@ inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr
 inline void ServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 {
 	pthread_mutex_lock(&this->breaker_lock);
-	if (!addr->list.node.next)
+	if (!addr->entry.list.next)
 	{
 		addr->broken_timeout = GET_CURRENT_SECOND + this->mttr_second;
-		list_add_tail(&addr->list.node, &this->breaker_list);
+		list_add_tail(&addr->entry.list, &this->breaker_list);
 		this->fuse_one_server(addr);
 		this->server_list_change(addr, FUSE_SERVER);
 	}
@@ -190,13 +190,13 @@ void ServiceGovernance::check_breaker()
 	{
 		int64_t cur_time = GET_CURRENT_SECOND;
 		struct list_head *pos, *tmp;
-		struct address_list *node;
+		struct address_entry *entry;
 		EndpointAddress *addr;
 
 		list_for_each_safe(pos, tmp, &this->breaker_list)
 		{
-			node = list_entry(pos, struct address_list, node);
-			addr = node->ptr;
+			entry = list_entry(pos, struct address_entry, list);
+			addr = entry->ptr;
 
 			if (cur_time >= addr->broken_timeout)
 			{
@@ -207,7 +207,7 @@ void ServiceGovernance::check_breaker()
 					this->server_list_change(addr, RECOVER_SERVER);
 				}
 				list_del(pos);
-				addr->list.node.next = NULL;
+				addr->entry.list.next = NULL;
 			}
 		}
 	}

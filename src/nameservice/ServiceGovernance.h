@@ -58,9 +58,9 @@ public:
 
 class EndpointAddress;
 
-struct address_list
+struct address_entry
 {
-	struct list_head node;
+	struct list_head list;
 	EndpointAddress *ptr;
 //	address_list(EndpointAddress *addr) { ptr = addr; node.next = NULL; }
 };
@@ -71,7 +71,7 @@ public:
 	std::string address;
 	std::string host;
 	std::string port;
-	struct address_list list;
+	struct address_entry entry;
 	std::atomic<unsigned int> fail_count;
 	long long broken_timeout;
 	PolicyAddrParams *params;
@@ -91,14 +91,17 @@ public:
 	virtual void failed(RouteManager::RouteResult *result, void *cookie,
 						CommTarget *target);
 
-	virtual void add_server(const std::string& address, const AddressParams *params);
+	virtual void add_server(const std::string& address,
+							const AddressParams *params);
 	int remove_server(const std::string& address);
-	virtual int replace_server(const std::string& address, const AddressParams *params);
+	virtual int replace_server(const std::string& address,
+							   const AddressParams *params);
 
 	void enable_server(const std::string& address);
 	void disable_server(const std::string& address);
 	virtual void get_current_address(std::vector<std::string>& addr_list);
-	virtual void server_list_change(const EndpointAddress *address, int state) {}
+	virtual void server_list_change(const EndpointAddress *address, int state)
+	{}
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
 
 public:

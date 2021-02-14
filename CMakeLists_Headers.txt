@@ -66,7 +66,6 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
-	src/manager/UpstreamPolicies.h
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h
@@ -86,6 +85,7 @@ set(INCLUDE_HEADERS
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
 	src/nameservice/ServiceGovernance.h
+	src/nameservice/UpstreamPolicies.h
 )
 
 if(KAFKA STREQUAL "y")

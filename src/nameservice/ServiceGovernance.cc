@@ -40,8 +40,8 @@ PolicyAddrParams::PolicyAddrParams(const struct AddressParams *params) :
 class WFSelectorFailTask : public WFRouterTask
 {
 public:
-	WFSelectorFailTask(router_callback_t&& cb)
-		: WFRouterTask(std::move(cb))
+	WFSelectorFailTask(router_callback_t&& cb) :
+		WFRouterTask(std::move(cb))
 	{
 	}
 

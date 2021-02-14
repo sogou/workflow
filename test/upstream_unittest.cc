@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2020 Sogou, Inc.
+  Copyright (c) 2021 Sogou, Inc.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -21,10 +21,11 @@
 #include "workflow/WFHttpServer.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFFacilities.h"
+#include "workflow/UpstreamPolicies.h"
 
-#define REDIRECT_MAX	3
-#define RETRY_MAX		3
-#define MTTR			30
+#define REDIRECT_MAX	2
+#define RETRY_MAX		2
+#define MTTR			2
 #define MAX_FAILS		200
 
 static void __http_process1(WFHttpTask *task)
@@ -152,10 +153,23 @@ TEST(upstream_unittest, FuseAndRecover)
 	WFHttpTask *task;
 	SeriesWork *series;
 	protocol::HttpRequest *req;
-	std::string url = "http://weighted.random";
+	std::string url = "http://test_policy";
 	int batch = MAX_FAILS + 50;
-	int timeout = (MTTR + 3) * 1000000;
+	int timeout = (MTTR + 1) * 1000000;
+
+	UPSWeightedRandomPolicy test_policy(false);
+	test_policy.set_mttr_second(MTTR);
+	AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
 	
+	address_params.weight = 1000;
+	test_policy.add_server("127.0.0.1:8001", &address_params);
+
+	address_params.weight = 1;
+	test_policy.add_server("127.0.0.1:8002", &address_params);
+
+	auto *ns = WFGlobal::get_name_service();
+	EXPECT_EQ(ns->add_policy("test_policy", &test_policy), 0);
+
 	http_server1.stop();
 	fprintf(stderr, "server 1 stopped start %d tasks to fuse it\n", batch);
 	ParallelWork *pwork = Workflow::create_parallel_work(

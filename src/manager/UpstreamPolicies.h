@@ -44,7 +44,8 @@ public:
 	unsigned int consistent_hash[VIRTUAL_GROUP_SIZE];
 
 	UPSAddrParams();
-	UPSAddrParams(const struct AddressParams *params, const std::string& address);
+	UPSAddrParams(const struct AddressParams *params,
+				  const std::string& address);
 };
 
 class EndpointGroup
@@ -79,6 +80,11 @@ public:
 	UPSGroupPolicy();
 	~UPSGroupPolicy();
 
+	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
+	virtual void add_server(const std::string& address,
+							const AddressParams *params);
+	virtual int replace_server(const std::string& address,
+							   const AddressParams *params);
 	void get_main_address(std::vector<std::string>& addr_list);
 
 protected:
@@ -99,10 +105,6 @@ private:
 		UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
 		params->group->nalives--;
 	}
-
-	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
-	virtual void add_server(const std::string& address, const AddressParams *params);
-	virtual int replace_server(const std::string& address, const AddressParams *params);
 
 protected:
 	virtual void add_server_locked(EndpointAddress *addr);

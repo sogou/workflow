@@ -131,12 +131,6 @@ WFRouterTask *ServiceGovernance::create_router_task(const struct WFNSParams *par
 	return task;
 }
 
-void ServiceGovernance::server_list_change(const EndpointAddress *address, int state)
-{
-	fprintf(stderr, "server_list_change(). addr: %s state: %d\n",
-			address->address.c_str(), state);
-}
-
 inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
 {
 	addr->fail_count = 0;

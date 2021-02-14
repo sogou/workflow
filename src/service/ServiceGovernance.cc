@@ -66,7 +66,7 @@ static bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
 			return false;
 	}
 
-	if (addr->port_value > 0)
+	if (!addr->port.empty())
 	{
 		port = strdup(addr->port.c_str());
 		if (!port)
@@ -94,7 +94,8 @@ EndpointAddress::EndpointAddress(const std::string& address,
 
 	this->address = address;
 	this->fail_count = 0;
-	this->list.next = NULL;
+	this->list.node.next = NULL;
+	this->list.ptr = this;
 
 	if (arr.size() == 0)
 		this->host = "";
@@ -102,15 +103,9 @@ EndpointAddress::EndpointAddress(const std::string& address,
 		this->host = arr[0];
 
 	if (arr.size() <= 1)
-	{
 		this->port = "";
-		this->port_value = 0;
-	}
 	else
-	{
 		this->port = arr[1];
-		this->port_value = atoi(arr[1].c_str());
-	}
 }
 
 WFRouterTask *ServiceGovernance::create_router_task(const struct WFNSParams *params,
@@ -146,10 +141,10 @@ inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr
 {
 	addr->fail_count = 0;
 	pthread_mutex_lock(&this->breaker_lock);
-	if (addr->list.next)
+	if (addr->list.node.next)
 	{
-		list_del(&addr->list);
-		addr->list.next = NULL;
+		list_del(&addr->list.node);
+		addr->list.node.next = NULL;
 		this->recover_one_server(addr);
 		this->server_list_change(addr, RECOVER_SERVER);
 	}
@@ -159,10 +154,10 @@ inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr
 inline void ServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 {
 	pthread_mutex_lock(&this->breaker_lock);
-	if (!addr->list.next)
+	if (!addr->list.node.next)
 	{
-		addr->broken_timeout = GET_CURRENT_SECOND + MTTR_SECOND;
-		list_add_tail(&addr->list, &this->breaker_list);
+		addr->broken_timeout = GET_CURRENT_SECOND + this->mttr_second;
+		list_add_tail(&addr->list.node, &this->breaker_list);
 		this->fuse_one_server(addr);
 		this->server_list_change(addr, FUSE_SERVER);
 	}
@@ -201,11 +196,14 @@ void ServiceGovernance::check_breaker()
 	{
 		int64_t cur_time = GET_CURRENT_SECOND;
 		struct list_head *pos, *tmp;
+		struct address_list *node;
 		EndpointAddress *addr;
 
 		list_for_each_safe(pos, tmp, &this->breaker_list)
 		{
-			addr = list_entry(pos, EndpointAddress, list);
+			node = list_entry(pos, struct address_list, node);
+			addr = node->ptr;
+
 			if (cur_time >= addr->broken_timeout)
 			{
 				if (addr->fail_count >= addr->params->max_fails)
@@ -215,7 +213,7 @@ void ServiceGovernance::check_breaker()
 					this->server_list_change(addr, RECOVER_SERVER);
 				}
 				list_del(pos);
-				addr->list.next = NULL;
+				addr->list.node.next = NULL;
 			}
 		}
 	}
@@ -254,7 +252,8 @@ bool ServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
 	// select_addr == NULL will only happened in consistent_hash
 	const EndpointAddress *select_addr = this->first_stradegy(uri);
 
-	if (!select_addr || select_addr->fail_count >= select_addr->params->max_fails)
+	if (!select_addr ||
+		select_addr->fail_count >= select_addr->params->max_fails)
 	{
 		if (this->try_another)
 			select_addr = this->another_stradegy(uri);
@@ -326,7 +325,7 @@ void ServiceGovernance::add_server(const std::string& address,
 								   const AddressParams *params)
 {
 	EndpointAddress *addr = new EndpointAddress(address,
-												new PolicyAddrParams(params));
+									new PolicyAddrParams(params));
 
 	pthread_rwlock_wrlock(&this->rwlock);
 	this->add_server_locked(addr);
@@ -347,7 +346,7 @@ int ServiceGovernance::replace_server(const std::string& address,
 {
 	int ret;
 	EndpointAddress *addr = new EndpointAddress(address,
-												new PolicyAddrParams(params));
+									new PolicyAddrParams(params));
 
 	pthread_rwlock_wrlock(&this->rwlock);
 	this->add_server_locked(addr);

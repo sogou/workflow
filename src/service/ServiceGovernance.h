@@ -31,7 +31,7 @@
 #include "WFTaskError.h"
 #include "UpstreamManager.h"
 
-#define MTTR_SECOND			30
+#define MTTR_SECOND_DEFAULT	30
 #define VIRTUAL_GROUP_SIZE  16
 
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
@@ -55,22 +55,23 @@ public:
 	PolicyAddrParams();
 	PolicyAddrParams(const struct AddressParams *params);
 };
-/*
+
+class EndpointAddress;
+
 struct address_list
 {
 	struct list_head node;
 	EndpointAddress *ptr;
+//	address_list(EndpointAddress *addr) { ptr = addr; node.next = NULL; }
 };
-*/
+
 class EndpointAddress
 {
 public:
 	std::string address;
 	std::string host;
 	std::string port;
-	unsigned short port_value; //TODO
-	struct list_head list;
-//	struct address_list list;
+	struct address_list list;
 	std::atomic<unsigned int> fail_count;
 	long long broken_timeout;
 	PolicyAddrParams *params;
@@ -91,13 +92,14 @@ public:
 						CommTarget *target);
 
 	virtual void add_server(const std::string& address, const AddressParams *params);
-	virtual int remove_server(const std::string& address);
+	int remove_server(const std::string& address);
 	virtual int replace_server(const std::string& address, const AddressParams *params);
 
-	virtual void enable_server(const std::string& address);
-	virtual void disable_server(const std::string& address);
+	void enable_server(const std::string& address);
+	void disable_server(const std::string& address);
 	virtual void get_current_address(std::vector<std::string>& addr_list);
 	virtual void server_list_change(const EndpointAddress *address, int state);
+	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
 
 public:
 	ServiceGovernance() :
@@ -106,6 +108,7 @@ public:
 	{
 		this->nalives = 0;
 		this->try_another = false;
+		this->mttr_second = MTTR_SECOND_DEFAULT;
 		INIT_LIST_HEAD(&this->breaker_list);
 	}
 
@@ -136,6 +139,7 @@ private:
 
 	struct list_head breaker_list;
 	pthread_mutex_t breaker_lock;
+	unsigned int mttr_second;
 
 protected:
 	virtual const EndpointAddress *first_stradegy(const ParsedURI& uri);

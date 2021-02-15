@@ -16,8 +16,10 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <vector>
 #include "URIParser.h"
 #include "StringUtil.h"
+#include "WFNameService.h"
 #include "WFDNSResolver.h"
 #include "ServiceGovernance.h"
 
@@ -159,7 +161,7 @@ inline void ServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 }
 
 void ServiceGovernance::success(RouteManager::RouteResult *result, void *cookie,
-					 		   CommTarget *target)
+								CommTarget *target)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	this->recover_server_from_breaker((EndpointAddress *)cookie);
@@ -169,7 +171,7 @@ void ServiceGovernance::success(RouteManager::RouteResult *result, void *cookie,
 }
 
 void ServiceGovernance::failed(RouteManager::RouteResult *result, void *cookie,
-							  CommTarget *target)
+							   CommTarget *target)
 {
 	EndpointAddress *server = (EndpointAddress *)cookie;
 
@@ -190,12 +192,13 @@ void ServiceGovernance::check_breaker()
 	{
 		int64_t cur_time = GET_CURRENT_SECOND;
 		struct list_head *pos, *tmp;
-		struct address_entry *entry;
+		struct EndpointAddress::address_entry *entry;
 		EndpointAddress *addr;
 
 		list_for_each_safe(pos, tmp, &this->breaker_list)
 		{
-			entry = list_entry(pos, struct address_entry, list);
+			entry = list_entry(pos, struct EndpointAddress::address_entry,
+							   list);
 			addr = entry->ptr;
 
 			if (cur_time >= addr->broken_timeout)

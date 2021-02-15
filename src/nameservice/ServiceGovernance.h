@@ -56,25 +56,21 @@ public:
 	PolicyAddrParams(const struct AddressParams *params);
 };
 
-class EndpointAddress;
-
-struct address_entry
-{
-	struct list_head list;
-	EndpointAddress *ptr;
-//	address_list(EndpointAddress *addr) { ptr = addr; node.next = NULL; }
-};
-
 class EndpointAddress
 {
 public:
 	std::string address;
 	std::string host;
 	std::string port;
-	struct address_entry entry;
 	std::atomic<unsigned int> fail_count;
 	long long broken_timeout;
 	PolicyAddrParams *params;
+
+	struct address_entry
+	{
+		struct list_head list;
+		EndpointAddress *ptr;
+	} entry;
 
 public:
 	EndpointAddress(const std::string& address, PolicyAddrParams *params);

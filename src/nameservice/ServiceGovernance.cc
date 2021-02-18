@@ -22,16 +22,21 @@
 #include "WFNameService.h"
 #include "WFDNSResolver.h"
 #include "ServiceGovernance.h"
+#include "UpstreamManager.h"
 
 #define DNS_CACHE_LEVEL_1		1
 #define DNS_CACHE_LEVEL_2		2
 
 PolicyAddrParams::PolicyAddrParams()
 {
-	PolicyAddrParams(ADDRESS_PARAMS_DEFAULT);
+	const AddressParams *params = &ADDRESS_PARAMS_DEFAULT;
+	this->endpoint_params = params->endpoint_params;
+	this->dns_ttl_default = params->dns_ttl_default;
+	this->dns_ttl_min = params->dns_ttl_min;
+	this->max_fails = params->max_fails;
 }
 
-PolicyAddrParams::PolicyAddrParams(const struct AddressParams *params) :
+PolicyAddrParams::PolicyAddrParams(const AddressParams *params) :
 	endpoint_params(params->endpoint_params)
 {
 	this->dns_ttl_default = params->dns_ttl_default;
@@ -214,7 +219,7 @@ void ServiceGovernance::check_breaker()
 			}
 		}
 	}
-	pthread_mutex_unlock(&this->breaker_lock);	
+	pthread_mutex_unlock(&this->breaker_lock);
 }
 
 const EndpointAddress *ServiceGovernance::first_stradegy(const ParsedURI& uri)

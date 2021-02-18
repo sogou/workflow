@@ -17,7 +17,7 @@
 */
 
 #ifndef _SERVICE_GOVERNANCE_H_
-#define _SERVICE_GOVERNANCE_H_ 
+#define _SERVICE_GOVERNANCE_H_
 
 #include <pthread.h>
 #include <unordered_map>
@@ -31,7 +31,7 @@
 #include "WFTaskError.h"
 #include "UpstreamManager.h"
 
-#define MTTR_SECOND_DEFAULT	30
+#define MTTR_SECOND_DEFAULT 30
 #define VIRTUAL_GROUP_SIZE  16
 
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
@@ -53,7 +53,7 @@ public:
 	unsigned int max_fails;
 
 	PolicyAddrParams();
-	PolicyAddrParams(const struct AddressParams *params);
+	PolicyAddrParams(const AddressParams *params);
 };
 
 class EndpointAddress

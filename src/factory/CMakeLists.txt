@@ -18,3 +18,4 @@ if (KAFKA STREQUAL "y")
 	)
 	add_library("factory_kafka" OBJECT ${SRC})
 endif ()
+

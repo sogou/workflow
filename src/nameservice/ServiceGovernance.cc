@@ -24,6 +24,8 @@
 #include "ServiceGovernance.h"
 #include "UpstreamManager.h"
 
+#define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
+
 #define DNS_CACHE_LEVEL_1		1
 #define DNS_CACHE_LEVEL_2		2
 

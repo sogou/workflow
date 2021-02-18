@@ -33,8 +33,6 @@
 #define MTTR_SECOND_DEFAULT 30
 #define VIRTUAL_GROUP_SIZE  16
 
-#define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
-
 struct AddressParams
 {
 	struct EndpointParams endpoint_params; ///< Connection config

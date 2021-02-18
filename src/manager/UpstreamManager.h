@@ -23,6 +23,8 @@
 #include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
+#include "ServiceGovernance.h"
+#include "UpstreamPolicies.h"
 #include "WFGlobal.h"
 
 /**
@@ -33,50 +35,6 @@
  * - Do not cost any other network resource, We just simulate in local to choose one target properly.
  * - This is working only for the current process.
  */
-
-/**
- * @brief   Functional for consistent-hash OR manual-select
- * @details
- * - path/query/fragment is empty string when uri not contain that region
- * - path/query/fragment would never be NULL
- */
-using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;
-
-/**
- * @brief   Server config for upstream
- * @details
- * When call UpstreamManager::upstream_add_server, you can set custom config for each target
-*/
-struct AddressParams
-{
-	struct EndpointParams endpoint_params; ///< Connection config
-	unsigned int dns_ttl_default;          ///< in seconds, DNS TTL when network request success
-	unsigned int dns_ttl_min;              ///< in seconds, DNS TTL when network request fail
-/**
- * - The max_fails directive sets the number of consecutive unsuccessful attempts to communicate with the server.
- * - After 30s following the server failure, upstream probe the server with some live client’s requests.
- * - If the probes have been successful, the server is marked as a live one.
- * - If max_fails is set to 1, it means server would out of upstream selection in 30 seconds when failed only once
- */
-	unsigned int max_fails;                ///< [1, INT32_MAX] max_fails = 0 means max_fails = 1
-	unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for main server
-	int server_type;                       ///< 0 for main and 1 for backup
-	int group_id;                          ///< -1 means no group. Backup without group will be backup for any main
-};
-
-/**
- * @brief   Default server config for upstream
- */
-static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
-{
-	.endpoint_params	=	ENDPOINT_PARAMS_DEFAULT,
-	.dns_ttl_default	=	12 * 3600,
-	.dns_ttl_min		=	180,
-	.max_fails			=	200,
-	.weight				=	1,
-	.server_type		=	0,	/* 0 for main and 1 for backup. */
-	.group_id			=	-1,
-};
 
 /**
  * @brief   Upstream Management Class

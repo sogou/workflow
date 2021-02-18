@@ -29,12 +29,39 @@
 #include "WFDNSResolver.h"
 #include "WFGlobal.h"
 #include "WFTaskError.h"
-#include "UpstreamManager.h"
 
 #define MTTR_SECOND_DEFAULT 30
 #define VIRTUAL_GROUP_SIZE  16
 
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
+
+struct AddressParams
+{
+	struct EndpointParams endpoint_params; ///< Connection config
+	unsigned int dns_ttl_default;          ///< in seconds, DNS TTL when network request success
+	unsigned int dns_ttl_min;              ///< in seconds, DNS TTL when network request fail
+/**
+ * - The max_fails directive sets the number of consecutive unsuccessful attempts to communicate with the server.
+ * - After 30s following the server failure, upstream probe the server with some live client’s requests.
+ * - If the probes have been successful, the server is marked as a live one.
+ * - If max_fails is set to 1, it means server would out of upstream selection in 30 seconds when failed only once
+ */
+	unsigned int max_fails;                ///< [1, INT32_MAX] max_fails = 0 means max_fails = 1
+	unsigned short weight;                 ///< [1, 65535] weight = 0 means weight = 1. only for main server
+	int server_type;                       ///< 0 for main and 1 for backup
+	int group_id;                          ///< -1 means no group. Backup without group will be backup for any main
+};
+
+static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
+{
+	.endpoint_params	=	ENDPOINT_PARAMS_DEFAULT,
+	.dns_ttl_default	=	12 * 3600,
+	.dns_ttl_min		=	180,
+	.max_fails			=	200,
+	.weight				=	1,
+	.server_type		=	0,	/* 0 for main and 1 for backup. */
+	.group_id			=	-1,
+};
 
 enum ServerChangeState
 {
@@ -53,7 +80,7 @@ public:
 	unsigned int max_fails;
 
 	PolicyAddrParams();
-	PolicyAddrParams(const AddressParams *params);
+	PolicyAddrParams(const struct AddressParams *params);
 };
 
 class EndpointAddress
@@ -88,10 +115,10 @@ public:
 						CommTarget *target);
 
 	virtual void add_server(const std::string& address,
-							const AddressParams *params);
+							const struct AddressParams *params);
 	int remove_server(const std::string& address);
 	virtual int replace_server(const std::string& address,
-							   const AddressParams *params);
+							   const struct AddressParams *params);
 
 	void enable_server(const std::string& address);
 	void disable_server(const std::string& address);

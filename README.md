@@ -1,14 +1,18 @@
-[English version](README_en.md)
+[中文版入口](README_cn.md)
 
 ## Sogou C++ Workflow
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
-[![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
+[![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
 [![Build Status](https://travis-ci.org/sogou/workflow.svg?branch=master)](https://travis-ci.org/sogou/workflow)
 
-搜狗公司C++服务器引擎，支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理超百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数C++后端开发需求。  
-#### 你可以用来：
-* 快速搭建http服务器：
+As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method，online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
+
+#### You can use it:
+
+* To quickly build an **HTTP server**:
+
 ~~~cpp
 #include <stdio.h>
 #include "workflow/WFHttpServer.h"
@@ -19,7 +23,7 @@ int main()
         task->get_resp()->append_output_body("<html>Hello World!</html>");
     });
 
-    if (server.start(8888) == 0) {  // start server on port 8888
+    if (server.start(8888) == 0) { // start server on port 8888
         getchar(); // press "Enter" to end.
         server.stop();
     }
@@ -27,104 +31,109 @@ int main()
     return 0;
 }
 ~~~
-* 作为万能异步客户端。目前支持``http``，``redis``，``mysql``和``kafka``协议。
-  * 轻松构建效率极高的spider。
-* 实现自定义协议client/server，构建自己的RPC系统。
-  * [srpc](https://github.com/sogou/srpc)就是以它为基础，作为独立项目开源。支持``srpc``，``brpc``和``thrift``等协议。
-* 构建异步任务流，支持常用的串并联，也支持更加复杂的DAG结构。
-* 作为并行计算工具使用。除了网络任务，我们也包含计算任务的调度。所有类型的任务都可以放入同一个流中。
-* 在``Linux``系统下作为文件异步IO工具使用，性能超过任何标准调用。磁盘IO也是一种任务。
-* 实现任何计算与通讯关系非常复杂的高性能高并发的后端服务。
-* 构建微服务系统。
-  * 项目内置服务治理与负载均衡等功能。
 
-#### 编译和运行环境
-* 项目支持``Linux``，``macOS``，``Windows``等操作系统。
-  *  ``Windows``版以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
-* 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器。
-* 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。
-  * 不喜欢SSL的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分支，代码更简洁。但仍需链接``crypto``。
-* 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
-* 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
+* As a **multifunctional asynchronous client**, it currently supports `HTTP`, `Redis`, `MySQL` and `Kafka` protocols.
+* To implement **client/server on user-defined protocol** and build your own **RPC system**.
+  * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc and thrift protocols.
+* To build **asynchronous workflow**; support common **series** and **parallel** structures, and also support any **DAG** structures.
+* As a **parallel computing tool**. In addition to **networking tasks**, Sogou C++ Workflow also includes **the scheduling of computing tasks**. All types of tasks can be put into **the same** flow.
+* As a **asynchronous file IO tool** in `Linux` system, with high performance exceeding any system call. Disk file IO is also a task.
+* To realize any **high-performance** and **high-concurrency** back-end service with a very complex relationship between computing and networking.
+* To build a **micro service** system.
+  * This project has built-in **service governance** and **load balancing** features.
 
-# 试一下！
-  * Client基础
-    * [创建第一个任务：wget](docs/tutorial-01-wget.md)
-    * [实现一次redis写入与读出：redis_cli](docs/tutorial-02-redis_cli.md)
-    * [任务序列的更多功能：wget_to_redis](docs/tutorial-03-wget_to_redis.md)
-  * Server基础
-    * [第一个server：http_echo_server](docs/tutorial-04-http_echo_server.md)
-    * [异步server的示例：http_proxy](docs/tutorial-05-http_proxy.md)
-  * 并行任务与工作流　
-    * [一个简单的并行抓取：parallel_wget](docs/tutorial-06-parallel_wget.md)
-  * 几个重要的话题
-    * [关于错误处理](docs/about-error.md)
-    * [关于超时](docs/about-timeout.md)
-	* [关于全局配置](docs/about-config.md)
-    * [关于DNS](docs/about-dns.md)
-    * [关于程序退出](docs/about-exit.md)
-  * 计算任务
-    * [使用内置算法工厂：sort_task](docs/tutorial-07-sort_task.md)
-    * [自定义计算任务：matrix_multiply](docs/tutorial-08-matrix_multiply.md)
-    * [更加简单的使用计算任务：go_task](docs/about-go-task.md)
-  * 文件异步IO任务
-    * [异步IO的http server：http_file_server](docs/tutorial-09-http_file_server.md)
-  * 用户定义协议基础
-    * [简单的用户自定义协议client/server](docs/tutorial-10-user_defined_protocol.md)
-  * 定时与计数任务
-    * [关于定时器](docs/about-timer.md)
-    * [关于计数器](docs/about-counter.md)
-  * 服务治理
-    * [关于服务治理](docs/about-service-management.md)
-    * [Upstream更多文档](docs/about-upstream.md)
-  * 连接上下文的使用
-    * [关于连接上下文](docs/about-connection-context.md)
-  * 内置协议用法
-    * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
-    * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
+#### Compiling and running environment
 
-#### 系统设计特点
+* This project supports `Linux`, `macOS`, `Windows` and other operating systems.
+  * `Windows` version is currently released as an independent branch, using `iocp` to implement asynchronous networking. All user interfaces are consistent with the `Linux` version.
+* Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors.
+* Relies on `OpenSSL`; `OpenSSL 1.1` and above is recommended. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch. But still need to link `crypto` for `md5` and `sha1`.
+* Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
+* No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
-我们认为，一个典型的后端程序由三个部分组成，并且完全独立开发。即：程序=协议+算法+任务流。
-* 协议
-  * 大多数情况下，用户使用的是内置的通用网络协议，例如http，redis或各种rpc。
-  * 用户可以方便的自定义网络协议，只需提供序列化和反序列化函数，就可以定义出自己的client/server。
-* 算法
-  * 在我们的设计里，算法是与协议对称的概念。
-    * 如果说协议的调用是rpc，算法的调用就是一次apc（Async Procedure Call）。
-  * 我们提供了一些通用算法，例如sort，merge，psort，reduce，可以直接使用。
-  * 与自定义协议相比，自定义算法的使用要常见得多。任何一次边界清晰的复杂计算，都应该包装成算法。
-* 任务流
-  * 任务流就是实际的业务逻辑，就是把开发好的协议与算法放在流程图里使用起来。
-  * 典型的任务流是一个闭合的串并联图。复杂的业务逻辑，可能是一个非闭合的DAG。
-  * 任务流图可以直接构建，也可以根据每一步的结果动态生成。所有任务都是异步执行的。
+# Try it!
 
-基础任务，任务工厂与复合任务
-* 我们系统中包含六种基础任务：通讯，文件IO，CPU，GPU，定时器，计数器。
-* 一切任务都由任务工厂产生，并且在callback之后自动回收。
-  * server任务是一种特殊的通讯任务，由框架调用任务工厂产生，通过process函数交给用户。
-* 大多数情况下，用户通过任务工厂产生的任务，都是一个复合任务，但用户并不感知。
-  * 例如，一次http请求，可能包含许多次异步过程（DNS，重定向），但对用户来讲，就是一次通信任务。
-  * 文件排序，看起来就是一个算法，但其实包括复杂的文件IO与CPU计算的交互过程。
-  * 如果把业务逻辑想象成用设计好的电子元件搭建电路，那么每个电子元件内部可能又是一个复杂电路。
+* Client
+  * [Creating your first task：wget](docs/en/tutorial-01-wget.md)
+  * [Implementing Redis set and get：redis\_cli](docs/en/tutorial-02-redis_cli.md)
+  * [More features about series：wget\_to\_redis](docs/en/tutorial-03-wget_to_redis.md)
+* Server
+  * [First server：http\_echo\_server](docs/en/tutorial-04-http_echo_server.md)
+  * [Asynchronous server：http\_proxy](docs/en/tutorial-05-http_proxy.md)
+* Parallel tasks and Series　
+  * [A simple parallel wget：parallel\_wget](docs/en/tutorial-06-parallel_wget.md)
+* Important topics
+  * [About error](docs/en/about-error.md)
+  * [About timeout](docs/en/about-timeout.md)
+  * [About global configuration](docs/en/about-config.md)
+  * [About DNS](docs/en/about-dns.md)
+  * [About exit](docs/en/about-exit.md)
+* Computing tasks
+  * [Using the build-in algorithm factory：sort\_task](docs/en/tutorial-07-sort_task.md)
+  * [User-defined computing task：matrix\_multiply](docs/en/tutorial-08-matrix_multiply.md)
+  * [Use computing task in a simple way: go task](docs/en/about-go-task.md)
+* Asynchronous File IO tasks
+  * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
+* User-defined protocol
+  * [A simple user-defined portocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
+* Timing tasks and counting tasks
+  * [About timer](docs/en/about-timer.md)
+  * [About counter](docs/en/about-counter.md)
+* Service governance
+  * [About service governance](docs/en/about-service-management.md)
+  * [More documents about upstream](docs/en/about-upstream.md)
+* Connection context
+  * [About connection context](docs/en/about-connection-context.md)
+* Built-in protocols
+  * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
+  * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 
-异步性和基于``C++11 std::function``的封装
-* 不是基于用户态协程。使用者需要知道自己在写异步程序。
-* 一切调用都是异步执行，几乎不存在占着线程等待的操作。
-  * 虽然我们也提供一些便利的半同步接口，但并不是核心的功能。
-* 尽量避免派生，以``std::function``封装用户行为，包括：
-  * 任何任务的callback。
-  * 任何server的process。符合``FaaS``（Function as a Service）思想。
-  * 一个算法的实现，简单来讲也是一个``std::function``。但算法也可以用派生实现。
+#### System design features
 
-内存回收机制
-* 任何任务都会在callback之后被自动内存回收。如果创建的任务不想运行，则需要通过dismiss方法释放。
-* 任务中的数据，例如网络请求的resp，也会随着任务被回收。此时用户可通过``std::move()``把需要的数据移走。
-* SeriesWork和ParallelWork是两种框架对象，同样在callback之后被回收。
-  * 如果某个series是parallel的一个分支，则将在其所在parallel的callback之后再回收。
-* 项目中不使用``std::shared_ptr``来管理内存。
+We believe that a typical back-end program=protocol+algorithm+workflow and should be developed completely independently.
 
-# 使用中有疑问？
-可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
-非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。  
-也可以通过QQ群：``618773193`` 联系我们。
+* Protocol
+  * In most cases, users use built-in common network protocols, such as HTTP, Redis or various rpc.
+  * Users can also easily customize user-defined network protocol. In the customization, they only need to provide serialization and deserialization functions to define their own client/server.
+* Algorithm
+  * In our design, the algorithm is a concept symmetrical to the protocol.
+    * If protocol call is rpc, then algorithm call is an apc (Async Procedure Call).
+  * We have provided some general algorithms, such as sort, merge, psort, reduce, which can be used directly.
+  * Compared with a user-defined protocol, a user-defined algorithm is much more common. Any complicated computation with clear boundaries should be packaged into an algorithm.
+* Workflow
+  * Workflow is the actual bussiness logic, which is to put the protocols and algorithms into the flow graph for use.
+  * The typical workflow is a closed series-parallel graph. Complex business logic may be a non-closed DAG.
+  * The workflow graph can be constructed directly or dynamically generated based on the results of each step. All tasks are executed asynchronously.
+
+Basic task, task factory and complex task
+
+* Our system contains six basic tasks: networking, file IO, CPU, GPU, timer, and counter.
+* All tasks are generated by the task factory and automatically recycled after callback.
+  * Server task is one kind of special networking task, generated by the framework which calls the task factory, and handed over to the user through the process function.
+* In most cases, the task generated by the user through the task factory is a complex task, which is transparent to the user.
+  * For example, an HTTP request may include many asynchronous processes (DNS, redirection), but for user, it is just a networking task.
+  * File sorting seems to be an algorithm, but it actually includes many complex interaction processes between file IO and CPU computation.
+  * If you think of business logic as building circuits with well-designed electronic components, then each electronic component may be a complex circuit.
+
+Asynchrony and encapsulation based on `C++11 std::function`
+
+* Not based on user mode coroutines. Users need to know that they are writing asynchronous programs.
+* All calls are executed asynchronously, and there are almost no operation that occupys a thread.
+  * Although we also provide some facilities with semi-synchronous interfaces, they are not core features.
+* We try to avoid user's derivations, and encapsulate user behavior with `std::function` instead, including:
+  * The callback of any task.
+  * Any server's process. This conforms to the `FaaS` (Function as a Service) idea.
+  * The realization of an algorithm is simply a `std::function`. But the algorithm can also be implemented by derivation.
+
+Memory reclamation mechanism
+
+* Every task will be automatically reclaimed after the callback. If a task is created but a user does not want to run it, the user needs to release it through the dismiss method.
+* Any data in the task, such as the response of the network request, will also be recycled with the task. At this time, the user can use `std::move()` to move the required data.
+* SeriesWork and ParallelWork are two kinds of framework objects, which are also recycled after their callback.
+  * When a series is a branch of a parallel, it will be recycled after the callback of the parallel that it belongs to.
+* This project doesn’t use `std::shared_ptr` to manage memory.
+
+#### More design documents
+
+To be continued...
+

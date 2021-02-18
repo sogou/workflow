@@ -35,6 +35,7 @@ set(TEST_LIST
 	redis_unittest
 	mysql_unittest
 	facilities_unittest
+	upstream_unittest
 )
 
 set(GTEST_LIB GTest::GTest GTest::Main)

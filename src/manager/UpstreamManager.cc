@@ -118,7 +118,7 @@ int UpstreamManager::upstream_add_server(const std::string& name,
 										 const AddressParams *address_params)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
 	{
@@ -134,7 +134,7 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 											const std::string& address)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
 	{
@@ -151,7 +151,7 @@ UpstreamManager::upstream_main_address_list(const std::string& name)
 {
 	std::vector<std::string> address;
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
 		policy->get_main_address(address);
@@ -163,7 +163,7 @@ int UpstreamManager::upstream_disable_server(const std::string& name,
 											 const std::string& address)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
 	{
@@ -179,7 +179,7 @@ int UpstreamManager::upstream_enable_server(const std::string& name,
 											const std::string& address)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
 	{
@@ -196,7 +196,7 @@ int UpstreamManager::upstream_replace_server(const std::string& name,
 											 const struct AddressParams *address_params)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	UPSPolicy *policy = dynamic_cast<UPSPolicy *>(ns->get_policy(name.c_str()));
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
 	{

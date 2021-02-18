@@ -53,7 +53,7 @@ public:
 	unsigned int max_fails;
 
 	PolicyAddrParams();
-	PolicyAddrParams(const AddressParams *params);
+	PolicyAddrParams(const struct AddressParams *params);
 };
 
 class EndpointAddress

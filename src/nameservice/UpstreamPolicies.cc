@@ -270,7 +270,7 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 		rb_insert_color(&group->rb, &this->group_map);
 	}
 
-	pthread_mutex_lock(&group->mutex);
+	group->mutex.lock();
 	params->group = group;
 	this->recover_one_server(addr);
 	if (params->server_type == 0)
@@ -280,7 +280,7 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 	}
 	else
 		group->backups.push_back(addr);
-	pthread_mutex_unlock(&group->mutex);
+	group->mutex.unlock();
 
 	return;
 }
@@ -304,7 +304,7 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 				vec = &group->backups;
 
 			//std::lock_guard<std::mutex> lock(group->mutex);
-			pthread_mutex_lock(&group->mutex);
+			group->mutex.lock();
 			if (addr->fail_count < params->max_fails)
 				this->fuse_one_server(addr);
 
@@ -319,7 +319,7 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 					break;
 				}
 			}
-			pthread_mutex_unlock(&group->mutex);
+			group->mutex.unlock();
 		}
 
 		this->server_map.erase(map_it);

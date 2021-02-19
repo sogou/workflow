@@ -172,7 +172,7 @@ struct EndpointParams
     int ssl_connect_timeout;
 };
 
-// In UpstreamMananger.h
+// In ServiceGovernance.h
 struct AddressParams
 {
     struct EndpointParams endpoint_params; ///< Connection config

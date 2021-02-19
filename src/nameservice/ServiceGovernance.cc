@@ -22,13 +22,20 @@
 #include "WFNameService.h"
 #include "WFDNSResolver.h"
 #include "ServiceGovernance.h"
+#include "UpstreamManager.h"
+
+#define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
 #define DNS_CACHE_LEVEL_1		1
 #define DNS_CACHE_LEVEL_2		2
 
 PolicyAddrParams::PolicyAddrParams()
 {
-	PolicyAddrParams(ADDRESS_PARAMS_DEFAULT);
+	const struct AddressParams *params = &ADDRESS_PARAMS_DEFAULT;
+	this->endpoint_params = params->endpoint_params;
+	this->dns_ttl_default = params->dns_ttl_default;
+	this->dns_ttl_min = params->dns_ttl_min;
+	this->max_fails = params->max_fails;
 }
 
 PolicyAddrParams::PolicyAddrParams(const struct AddressParams *params) :

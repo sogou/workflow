@@ -30,8 +30,9 @@
 #include "WFDNSResolver.h"
 #include "WFGlobal.h"
 #include "WFTaskError.h"
-#include "UpstreamManager.h"
 #include "ServiceGovernance.h"
+
+using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;
 
 class EndpointGroup;
 class UPSGroupPolicy;
@@ -83,9 +84,9 @@ public:
 
 	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
 	virtual void add_server(const std::string& address,
-							const AddressParams *params);
+							const struct AddressParams *params);
 	virtual int replace_server(const std::string& address,
-							   const AddressParams *params);
+							   const struct AddressParams *params);
 	void get_main_address(std::vector<std::string>& addr_list);
 
 protected:

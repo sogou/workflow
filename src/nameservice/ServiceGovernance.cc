@@ -31,14 +31,14 @@
 
 PolicyAddrParams::PolicyAddrParams()
 {
-	const AddressParams *params = &ADDRESS_PARAMS_DEFAULT;
+	const struct AddressParams *params = &ADDRESS_PARAMS_DEFAULT;
 	this->endpoint_params = params->endpoint_params;
 	this->dns_ttl_default = params->dns_ttl_default;
 	this->dns_ttl_min = params->dns_ttl_min;
 	this->max_fails = params->max_fails;
 }
 
-PolicyAddrParams::PolicyAddrParams(const AddressParams *params) :
+PolicyAddrParams::PolicyAddrParams(const struct AddressParams *params) :
 	endpoint_params(params->endpoint_params)
 {
 	this->dns_ttl_default = params->dns_ttl_default;

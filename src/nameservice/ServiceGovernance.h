@@ -40,7 +40,7 @@ struct AddressParams
 	unsigned int dns_ttl_min;              ///< in seconds, DNS TTL when network request fail
 /**
  * - The max_fails directive sets the number of consecutive unsuccessful attempts to communicate with the server.
- * - After 30s following the server failure, upstream probe the server with some live client’s requests.
+ * - After 30s following the server failure, upstream probe the server with some live client`s requests.
  * - If the probes have been successful, the server is marked as a live one.
  * - If max_fails is set to 1, it means server would out of upstream selection in 30 seconds when failed only once
  */

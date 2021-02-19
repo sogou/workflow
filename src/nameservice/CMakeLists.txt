@@ -1,13 +1,11 @@
 cmake_minimum_required(VERSION 3.6)
-project(factory)
+project(nameservice)
 
 set(SRC
-	WFGraphTask.cc
-	HttpTaskImpl.cc
-	RedisTaskImpl.cc
-	MySQLTaskImpl.cc
-	WFTaskFactory.cc
-	Workflow.cc
+	WFNameService.cc
+	WFDNSResolver.cc
+	ServiceGovernance.cc
+	UpstreamPolicies.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

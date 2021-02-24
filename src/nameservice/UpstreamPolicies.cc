@@ -126,7 +126,7 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_stradegy(uri);
+	const EndpointAddress *select_addr = this->first_strategy(uri);
 
 	if (!select_addr || select_addr->fail_count >= select_addr->params->max_fails)
 	{
@@ -135,13 +135,13 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 
 		if (!select_addr && this->try_another)
 		{
-			select_addr = this->another_stradegy(uri);
+			select_addr = this->another_strategy(uri);
 			select_addr = this->check_and_get(select_addr, false);
 		}
 	}
 
 	if (!select_addr)
-		this->default_group->get_one_backup();
+		select_addr = this->default_group->get_one_backup();
 	
 	pthread_rwlock_unlock(&this->rwlock);
 
@@ -407,7 +407,7 @@ int UPSWeightedRandomPolicy::remove_server_locked(const std::string& address)
 	return UPSGroupPolicy::remove_server_locked(address);
 }
 
-const EndpointAddress *UPSWeightedRandomPolicy::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSWeightedRandomPolicy::first_strategy(const ParsedURI& uri)
 {
 	int x = 0;
 	int s = 0;
@@ -431,7 +431,7 @@ const EndpointAddress *UPSWeightedRandomPolicy::first_stradegy(const ParsedURI& 
 	return this->servers[idx];
 }
 
-const EndpointAddress *UPSWeightedRandomPolicy::another_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri)
 {
 	UPSAddrParams *params;
 	int temp_weight = this->available_weight;
@@ -481,7 +481,7 @@ void UPSWeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 		this->available_weight -= params->weight;
 }
 
-const EndpointAddress *UPSConsistentHashPolicy::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSConsistentHashPolicy::first_strategy(const ParsedURI& uri)
 {
 	unsigned int hash_value;
 
@@ -496,7 +496,7 @@ const EndpointAddress *UPSConsistentHashPolicy::first_stradegy(const ParsedURI& 
 	return this->consistent_hash_with_group(hash_value);
 }
 
-const EndpointAddress *UPSManualPolicy::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSManualPolicy::first_strategy(const ParsedURI& uri)
 {
 	unsigned int idx = this->manual_select(uri.path ? uri.path : "",
 										   uri.query ? uri.query : "",
@@ -508,7 +508,7 @@ const EndpointAddress *UPSManualPolicy::first_stradegy(const ParsedURI& uri)
 	return this->servers[idx];
 }
 
-const EndpointAddress *UPSManualPolicy::another_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSManualPolicy::another_strategy(const ParsedURI& uri)
 {
 	unsigned int hash_value;
 

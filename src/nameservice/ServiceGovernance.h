@@ -166,8 +166,8 @@ private:
 	unsigned int mttr_second;
 
 protected:
-	virtual const EndpointAddress *first_stradegy(const ParsedURI& uri);
-	virtual const EndpointAddress *another_stradegy(const ParsedURI& uri);
+	virtual const EndpointAddress *first_strategy(const ParsedURI& uri);
+	virtual const EndpointAddress *another_strategy(const ParsedURI& uri);
 	void check_breaker();
 
 	std::vector<EndpointAddress *> servers; // current servers

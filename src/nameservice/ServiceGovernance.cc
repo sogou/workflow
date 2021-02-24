@@ -224,15 +224,15 @@ void ServiceGovernance::check_breaker()
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-const EndpointAddress *ServiceGovernance::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *ServiceGovernance::first_strategy(const ParsedURI& uri)
 {
 	unsigned int idx = rand() % this->servers.size();
 	return this->servers[idx];
 }
 
-const EndpointAddress *ServiceGovernance::another_stradegy(const ParsedURI& uri)
+const EndpointAddress *ServiceGovernance::another_strategy(const ParsedURI& uri)
 {
-	return this->first_stradegy(uri);
+	return this->first_strategy(uri);
 }
 
 bool ServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
@@ -254,13 +254,13 @@ bool ServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_stradegy(uri);
+	const EndpointAddress *select_addr = this->first_strategy(uri);
 
 	if (!select_addr ||
 		select_addr->fail_count >= select_addr->params->max_fails)
 	{
 		if (this->try_another)
-			select_addr = this->another_stradegy(uri);
+			select_addr = this->another_strategy(uri);
 	}
 
 	pthread_rwlock_unlock(&this->rwlock);

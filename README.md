@@ -1,4 +1,4 @@
-[中文版](README_cn.md)
+[中文版入口](README_cn.md)
 
 ## Sogou C++ Workflow
 

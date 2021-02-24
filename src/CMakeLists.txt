@@ -9,6 +9,7 @@ add_subdirectory(manager)
 add_subdirectory(algorithm)
 add_subdirectory(protocol)
 add_subdirectory(factory)
+add_subdirectory(nameservice)
 add_subdirectory(server)
 add_subdirectory(client)
 
@@ -18,6 +19,7 @@ add_dependencies(manager LINK_HEADERS)
 add_dependencies(algorithm LINK_HEADERS)
 add_dependencies(protocol LINK_HEADERS)
 add_dependencies(factory LINK_HEADERS)
+add_dependencies(nameservice LINK_HEADERS)
 add_dependencies(server LINK_HEADERS)
 add_dependencies(client LINK_HEADERS)
 
@@ -29,6 +31,7 @@ add_library(
 	$<TARGET_OBJECTS:algorithm>
 	$<TARGET_OBJECTS:protocol>
 	$<TARGET_OBJECTS:factory>
+	$<TARGET_OBJECTS:nameservice>
 	$<TARGET_OBJECTS:server>
 	$<TARGET_OBJECTS:client>
 )
@@ -86,7 +89,7 @@ install(
 
 
 install (
-	TARGETS ${CMAKE_PROJECT_NAME} EXPORT ${CMAKE_PROJECT_NAME}-targets
+	TARGETS ${PROJECT_NAME} EXPORT ${CMAKE_PROJECT_NAME}-targets
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

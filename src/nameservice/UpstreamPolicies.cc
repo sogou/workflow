@@ -187,7 +187,7 @@ const EndpointAddress *EndpointGroup::get_one()
 	const EndpointAddress *addr = NULL;
 	pthread_mutex_lock(&this->mutex);
 
-	std::random_shuffle(this->mains.begin(), this->mains.end());
+	std::shuffle(this->mains.begin(), this->mains.end(), this->gen);
 	for (size_t i = 0; i < this->mains.size(); i++)
 	{
 		if (this->mains[i]->fail_count < this->mains[i]->params->max_fails)
@@ -199,7 +199,7 @@ const EndpointAddress *EndpointGroup::get_one()
 
 	if (!addr)
 	{
-		std::random_shuffle(this->backups.begin(), this->backups.end());
+		std::shuffle(this->backups.begin(), this->backups.end(), this->gen);
 		for (size_t i = 0; i < this->backups.size(); i++)
 		{
 			if (this->backups[i]->fail_count < this->backups[i]->params->max_fails)
@@ -222,7 +222,7 @@ const EndpointAddress *EndpointGroup::get_one_backup()
 	const EndpointAddress *addr = NULL;
 	pthread_mutex_lock(&this->mutex);
 
-	std::random_shuffle(this->backups.begin(), this->backups.end());
+	std::shuffle(this->backups.begin(), this->backups.end(), this->gen);
 	for (size_t i = 0; i < this->backups.size(); i++)
 	{
 		if (this->backups[i]->fail_count < this->backups[i]->params->max_fails)

@@ -1,0 +1,16 @@
+language: cpp
+os: windows
+git:
+  depth: 3
+  quiet: true
+branches:
+  only:
+  - windows
+
+before_install:
+- choco install -y openssl
+
+script:
+- cmake -B build
+- cmake --build build --config Debug
+- cmake --build build --config Release

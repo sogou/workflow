@@ -11,4 +11,4 @@ before_install:
 - choco install -y openssl
 
 script: 
-- cmake -B build -S . && cmake --build build && cmake -B build_tutorial -S tutorial && cmake --build build_tutorial
+- cmake -B build -S . && cmake --build build --config Release && cmake -B build_tutorial -S tutorial && cmake --build build_tutorial --config Release

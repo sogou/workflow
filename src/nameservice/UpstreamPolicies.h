@@ -19,6 +19,8 @@
 #ifndef _UPSTREAM_POLICIES_H_
 #define _UPSTREAM_POLICIES_H_ 
 
+#include <algorithm>
+#include <random>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -58,12 +60,14 @@ public:
 	UPSGroupPolicy *policy;
 	struct rb_node rb;
 	std::mutex mutex;
+	std::random_device rd;
+	std::mt19937 gen;
 	std::vector<EndpointAddress *> mains;
 	std::vector<EndpointAddress *> backups;
 	std::atomic<int> nalives;
 	int weight;
 
-	EndpointGroup(int group_id, UPSGroupPolicy *policy)
+	EndpointGroup(int group_id, UPSGroupPolicy *policy) : gen(rd())
 	{
 		this->id = group_id;
 		this->policy = policy;

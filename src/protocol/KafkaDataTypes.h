@@ -323,6 +323,15 @@ public:
 		this->ptr->check_crcs = check_crcs;
 	}
 
+	int get_offset_store() const
+	{
+		return this->ptr->offset_store;
+	}
+	void set_offset_store(int offset_store)
+	{
+		this->ptr->offset_store = offset_store;
+	}
+
 public:
 	KafkaConfig()
 	{

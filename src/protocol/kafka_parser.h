@@ -186,6 +186,12 @@ enum
 	KAFKA_FEATURE_ZSTD = 1<<8,
 };
 
+enum
+{
+	KAFKA_OFFSET_AUTO,
+	KAFKA_OFFSET_ASSIGN,
+};
+
 typedef struct __kafka_api_version
 {
 	short api_key;
@@ -227,6 +233,7 @@ typedef struct __kafka_config
 	int compress_level;
 	char *client_id;
 	int check_crcs;
+	int offset_store;
 } kafka_config_t;
 
 typedef struct __kafka_broker

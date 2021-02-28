@@ -138,8 +138,8 @@ public:
 		this->available_weight = 0;
 		this->try_another = try_another;
 	}
-	const EndpointAddress *first_stradegy(const ParsedURI& uri);
-	const EndpointAddress *another_stradegy(const ParsedURI& uri);
+	const EndpointAddress *first_strategy(const ParsedURI& uri);
+	const EndpointAddress *another_strategy(const ParsedURI& uri);
 
 protected:
 	int total_weight;
@@ -166,7 +166,7 @@ public:
 	}
 
 protected:
-	const EndpointAddress *first_stradegy(const ParsedURI& uri);
+	const EndpointAddress *first_strategy(const ParsedURI& uri);
 
 private:
 	upstream_route_t consistent_hash;
@@ -196,8 +196,8 @@ public:
 		this->try_another_select = try_another_select;
 	}
 	
-	const EndpointAddress *first_stradegy(const ParsedURI& uri);
-	const EndpointAddress *another_stradegy(const ParsedURI& uri);
+	const EndpointAddress *first_strategy(const ParsedURI& uri);
+	const EndpointAddress *another_strategy(const ParsedURI& uri);
 
 private:
 	upstream_route_t manual_select;

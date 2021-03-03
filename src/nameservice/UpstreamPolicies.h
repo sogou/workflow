@@ -20,8 +20,10 @@
 #define _UPSTREAM_POLICIES_H_ 
 
 #include <pthread.h>
+#include <algorithm>
 #include <vector>
 #include <atomic>
+#include <random>
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
@@ -56,13 +58,16 @@ public:
 	UPSGroupPolicy *policy;
 	struct rb_node rb;
 	pthread_mutex_t mutex;
+	std::random_device rd;
+	std::mt19937 gen;
 	std::vector<EndpointAddress *> mains;
 	std::vector<EndpointAddress *> backups;
 	std::atomic<int> nalives;
 	int weight;
 
 	EndpointGroup(int group_id, UPSGroupPolicy *policy) :
-			mutex(PTHREAD_MUTEX_INITIALIZER)
+			mutex(PTHREAD_MUTEX_INITIALIZER),
+			gen(rd())
 	{
 		this->id = group_id;
 		this->policy = policy;

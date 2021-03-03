@@ -70,7 +70,7 @@ private:
 //  protocol_name\n user\n pass\n dbname\n ai_addr ai_addrlen \n....
 //
 
-struct RouterParams
+struct RouteParams
 {
 	TransportType transport_type;
 	const struct addrinfo *addrinfo;
@@ -82,7 +82,7 @@ struct RouterParams
 	size_t max_connections;
 };
 
-class Router
+class RouteResultEntry
 {
 public:
 	struct rb_node rb;
@@ -95,7 +95,7 @@ public:
 	int nleft;
 	int nbreak;
 
-	Router():
+	RouteResultEntry():
 		request_object(NULL),
 		group(NULL)
 	{
@@ -105,7 +105,7 @@ public:
 	}
 
 public:
-	int init(const struct RouterParams *params);
+	int init(const struct RouteParams *params);
 	void deinit();
 
 	void notify_unavailable(CommSchedTarget *target);
@@ -114,9 +114,9 @@ public:
 
 private:
 	void free_list();
-	CommSchedTarget *create_target(const struct RouterParams *params,
+	CommSchedTarget *create_target(const struct RouteParams *params,
 								   const struct addrinfo *addrinfo);
-	int add_group_targets(const struct RouterParams *params);
+	int add_group_targets(const struct RouteParams *params);
 };
 
 struct __breaker_node
@@ -126,8 +126,8 @@ struct __breaker_node
 	struct list_head breaker_list;
 };
 
-CommSchedTarget *Router::create_target(const struct RouterParams *params,
-									   const struct addrinfo *addr)
+CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *params,
+												 const struct addrinfo *addr)
 {
 	CommSchedTarget *target;
 
@@ -160,7 +160,7 @@ CommSchedTarget *Router::create_target(const struct RouterParams *params,
 	return target;
 }
 
-int Router::init(const struct RouterParams *params)
+int RouteResultEntry::init(const struct RouteParams *params)
 {
 	const struct addrinfo *addr = params->addrinfo;
 	CommSchedTarget *target;
@@ -202,7 +202,7 @@ int Router::init(const struct RouterParams *params)
 	return -1;
 }
 
-int Router::add_group_targets(const struct RouterParams *params)
+int RouteResultEntry::add_group_targets(const struct RouteParams *params)
 {
 	const struct addrinfo *addr;
 	CommSchedTarget *target;
@@ -236,7 +236,7 @@ int Router::add_group_targets(const struct RouterParams *params)
 	return 0;
 }
 
-void Router::deinit()
+void RouteResultEntry::deinit()
 {
 	for (auto *target : this->targets)
 	{
@@ -264,7 +264,7 @@ void Router::deinit()
 	}
 }
 
-void Router::notify_unavailable(CommSchedTarget *target)
+void RouteResultEntry::notify_unavailable(CommSchedTarget *target)
 {
 	if (this->targets.size() <= 1)
 		return;
@@ -290,7 +290,7 @@ void Router::notify_unavailable(CommSchedTarget *target)
 	this->nleft--;
 }
 
-void Router::notify_available(CommSchedTarget *target)
+void RouteResultEntry::notify_available(CommSchedTarget *target)
 {
 	if (this->targets.size() <= 1 || this->nbreak == 0)
 		return;
@@ -304,7 +304,7 @@ void Router::notify_available(CommSchedTarget *target)
 		errno = errno_bak;
 }
 
-void Router::check_breaker()
+void RouteResultEntry::check_breaker()
 {
 	if (this->targets.size() <= 1 || this->nbreak == 0)
 		return;
@@ -379,14 +379,14 @@ static uint64_t __generate_key(TransportType type,
 
 RouteManager::~RouteManager()
 {
-	Router *router;
+	RouteResultEntry *entry;
 
 	while (cache_.rb_node)
 	{
-		router = rb_entry(cache_.rb_node, Router, rb);
+		entry = rb_entry(cache_.rb_node, RouteResultEntry, rb);
 		rb_erase(cache_.rb_node, &cache_);
-		router->deinit();
-		delete router;
+		entry->deinit();
+		delete entry;
 	}
 }
 
@@ -407,21 +407,21 @@ int RouteManager::get(TransportType type,
 	uint64_t md5_16 = __generate_key(type, addrinfo, other_info);
 	rb_node **p = &cache_.rb_node;
 	rb_node *parent = NULL;
-	Router *router;
+	RouteResultEntry *entry;
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	while (*p)
 	{
 		parent = *p;
-		router = rb_entry(*p, Router, rb);
+		entry = rb_entry(*p, RouteResultEntry, rb);
 
-		if (md5_16 < router->md5_16)
+		if (md5_16 < entry->md5_16)
 			p = &(*p)->rb_left;
-		else if (md5_16 > router->md5_16)
+		else if (md5_16 > entry->md5_16)
 			p = &(*p)->rb_right;
 		else
 		{
-			router->check_breaker();
+			entry->check_breaker();
 			break;
 		}
 	}
@@ -439,7 +439,7 @@ int RouteManager::get(TransportType type,
 			ssl_connect_timeout = endpoint_params->ssl_connect_timeout;
 		}
 
-		struct RouterParams params =
+		struct RouteParams params =
 		{
 		/*	.transport_type			=	*/	type,
 		/*	.addrinfo 				=	*/	addrinfo,
@@ -460,23 +460,23 @@ int RouteManager::get(TransportType type,
 			params.max_connections = maxconn;
 		}
 
-		router = new Router();
-		if (router->init(&params) >= 0)
+		entry = new RouteResultEntry();
+		if (entry->init(&params) >= 0)
 		{
-			rb_link_node(&router->rb, parent, p);
-			rb_insert_color(&router->rb, &cache_);
+			rb_link_node(&entry->rb, parent, p);
+			rb_insert_color(&entry->rb, &cache_);
 		}
 		else
 		{
-			delete router;
-			router = NULL;
+			delete entry;
+			entry = NULL;
 		}
 	}
 
-	if (router)
+	if (entry)
 	{
-		result.cookie = router;
-		result.request_object = router->request_object;
+		result.cookie = entry;
+		result.request_object = entry->request_object;
 		return 0;
 	}
 
@@ -486,12 +486,12 @@ int RouteManager::get(TransportType type,
 void RouteManager::notify_unavailable(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((Router *)cookie)->notify_unavailable((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_unavailable((CommSchedTarget *)target);
 }
 
 void RouteManager::notify_available(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((Router *)cookie)->notify_available((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_available((CommSchedTarget *)target);
 }
 

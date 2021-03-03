@@ -18,9 +18,39 @@
 
 #include <pthread.h>
 #include <algorithm>
+#include <random>
 #include "URIParser.h"
 #include "StringUtil.h"
 #include "UpstreamPolicies.h"
+
+class EndpointGroup
+{
+public:
+	EndpointGroup(int group_id, UPSGroupPolicy *policy) :
+			mutex(PTHREAD_MUTEX_INITIALIZER),
+			gen(rd())
+	{
+		this->id = group_id;
+		this->policy = policy;
+		this->nalives = 0;
+		this->weight = 0;
+	}
+
+	const EndpointAddress *get_one();
+	const EndpointAddress *get_one_backup();
+
+public:
+	int id;
+	UPSGroupPolicy *policy;
+	struct rb_node rb;
+	pthread_mutex_t mutex;
+	std::random_device rd;
+	std::mt19937 gen;
+	std::vector<EndpointAddress *> mains;
+	std::vector<EndpointAddress *> backups;
+	std::atomic<int> nalives;
+	int weight;
+};
 
 UPSAddrParams::UPSAddrParams() :
 	PolicyAddrParams(&ADDRESS_PARAMS_DEFAULT)
@@ -80,6 +110,29 @@ UPSGroupPolicy::~UPSGroupPolicy()
         rb_erase(this->group_map.rb_node, &this->group_map);
         delete group;
     }
+}
+
+inline bool UPSGroupPolicy::is_alive_or_group_alive(const EndpointAddress *addr) const
+{
+	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+	return ((params->group_id < 0 &&
+				addr->fail_count < addr->params->max_fails) ||
+			(params->group_id >= 0 &&
+				params->group->nalives > 0));
+}
+
+void UPSGroupPolicy::recover_one_server(const EndpointAddress *addr)
+{
+	this->nalives++;
+	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+	params->group->nalives++;
+}
+
+void UPSGroupPolicy::fuse_one_server(const EndpointAddress *addr)
+{
+	this->nalives--;
+	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+	params->group->nalives--;
 }
 
 void UPSGroupPolicy::add_server(const std::string& address,

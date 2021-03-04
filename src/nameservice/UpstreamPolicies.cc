@@ -17,6 +17,7 @@
 */
 
 #include <mutex>
+#include <random>
 #include <algorithm>
 #include "URIParser.h"
 #include "StringUtil.h"
@@ -26,9 +27,7 @@
 class EndpointGroup
 {
 public:
-	EndpointGroup(int group_id, UPSGroupPolicy *policy) :
-			mutex(PTHREAD_MUTEX_INITIALIZER),
-			gen(rd())
+	EndpointGroup(int group_id, UPSGroupPolicy *policy) : gen(rd())
 	{
 		this->id = group_id;
 		this->policy = policy;
@@ -43,7 +42,7 @@ public:
 	int id;
 	UPSGroupPolicy *policy;
 	struct rb_node rb;
-	pthread_mutex_t mutex;
+	std::mutex mutex;
 	std::random_device rd;
 	std::mt19937 gen;
 	std::vector<EndpointAddress *> mains;

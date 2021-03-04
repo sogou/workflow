@@ -23,7 +23,7 @@
 #include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
-#include "ServiceGovernance.h"
+#include "WFServiceGovernance.h"
 #include "UpstreamPolicies.h"
 #include "WFGlobal.h"
 

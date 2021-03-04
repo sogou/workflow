@@ -97,7 +97,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
-	src/nameservice/ServiceGovernance.h
+	src/nameservice/WFServiceGovernance.h
 	src/nameservice/UpstreamPolicies.h
 )
 

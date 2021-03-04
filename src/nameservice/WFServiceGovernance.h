@@ -103,7 +103,7 @@ public:
 	virtual ~EndpointAddress() { delete this->params; }
 };
 
-class ServiceGovernance : public WFDNSResolver
+class WFServiceGovernance : public WFDNSResolver
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
@@ -127,7 +127,7 @@ public:
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
 
 public:
-	ServiceGovernance()
+	WFServiceGovernance()
 	{
 		this->nalives = 0;
 		this->try_another = false;
@@ -135,7 +135,7 @@ public:
 		INIT_LIST_HEAD(&this->breaker_list);
 	}
 
-	virtual ~ServiceGovernance()
+	virtual ~WFServiceGovernance()
 	{
 		for (EndpointAddress *addr : this->addresses)
 			delete addr;

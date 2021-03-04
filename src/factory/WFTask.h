@@ -263,7 +263,7 @@ public:
 	virtual WFConnection *get_connection() const;
 
 public:
-	/* All in milleseconds. timeout == -1 for unlimited. */
+	/* All in milliseconds. timeout == -1 for unlimited. */
 	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
 	void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
 	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
@@ -346,6 +346,12 @@ public:
 	int get_state() const { return this->state; }
 	int get_error() const { return this->error; }
 
+public:
+	void set_callback(std::function<void (WFTimerTask *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
 protected:
 	virtual SubTask *done()
 	{
@@ -395,7 +401,7 @@ public:
 public:
 	ARGS *get_args() { return &this->args; }
 
-	long get_retval()
+	long get_retval() const
 	{
 		if (this->state == WFT_STATE_SUCCESS)
 			return this->get_res();

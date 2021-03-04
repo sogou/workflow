@@ -1,0 +1,14 @@
+language: cpp
+os: windows
+git:
+  depth: 3
+  quiet: true
+branches:
+  only:
+  - windows
+
+before_install:
+- choco install -y openssl
+
+script: 
+- cmake -B build -S . -G "Visual Studio 15 2017 Win64" && cmake --build build --config Release && cmake -B build_tutorial -S tutorial -G "Visual Studio 15 2017 Win64" && cmake --build build_tutorial --config Release

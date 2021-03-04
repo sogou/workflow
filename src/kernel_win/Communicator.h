@@ -272,7 +272,7 @@ private:
 	virtual void handle(int state, int error) = 0;
 
 protected:
-	long get_res() { return this->res; }
+	long get_res() const { return this->res; }
 
 private:
 	char iocb_buf[64];

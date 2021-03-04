@@ -102,7 +102,7 @@ public:
 	virtual ~EndpointAddress() { delete this->params; }
 };
 
-class ServiceGovernance : public WFDNSResolver
+class WFServiceGovernance : public WFDNSResolver
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
@@ -126,7 +126,7 @@ public:
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
 
 public:
-	ServiceGovernance() :
+	WFServiceGovernance() :
 		breaker_lock(PTHREAD_MUTEX_INITIALIZER),
 		rwlock(PTHREAD_RWLOCK_INITIALIZER)
 	{
@@ -136,7 +136,7 @@ public:
 		INIT_LIST_HEAD(&this->breaker_list);
 	}
 
-	virtual ~ServiceGovernance()
+	virtual ~WFServiceGovernance()
 	{
 		for (EndpointAddress *addr : this->addresses)
 			delete addr;
@@ -166,8 +166,8 @@ private:
 	unsigned int mttr_second;
 
 protected:
-	virtual const EndpointAddress *first_stradegy(const ParsedURI& uri);
-	virtual const EndpointAddress *another_stradegy(const ParsedURI& uri);
+	virtual const EndpointAddress *first_strategy(const ParsedURI& uri);
+	virtual const EndpointAddress *another_strategy(const ParsedURI& uri);
 	void check_breaker();
 
 	std::vector<EndpointAddress *> servers; // current servers

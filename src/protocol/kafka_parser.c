@@ -327,6 +327,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->compress_level = 0;
 	conf->client_id = NULL;
 	conf->check_crcs = 0;
+	conf->offset_store = KAFKA_OFFSET_AUTO;
 }
 
 void kafka_config_deinit(kafka_config_t *conf)

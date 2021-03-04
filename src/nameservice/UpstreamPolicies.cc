@@ -18,9 +18,39 @@
 
 #include <pthread.h>
 #include <algorithm>
+#include <random>
 #include "URIParser.h"
 #include "StringUtil.h"
 #include "UpstreamPolicies.h"
+
+class EndpointGroup
+{
+public:
+	EndpointGroup(int group_id, UPSGroupPolicy *policy) :
+			mutex(PTHREAD_MUTEX_INITIALIZER),
+			gen(rd())
+	{
+		this->id = group_id;
+		this->policy = policy;
+		this->nalives = 0;
+		this->weight = 0;
+	}
+
+	const EndpointAddress *get_one();
+	const EndpointAddress *get_one_backup();
+
+public:
+	int id;
+	UPSGroupPolicy *policy;
+	struct rb_node rb;
+	pthread_mutex_t mutex;
+	std::random_device rd;
+	std::mt19937 gen;
+	std::vector<EndpointAddress *> mains;
+	std::vector<EndpointAddress *> backups;
+	std::atomic<int> nalives;
+	int weight;
+};
 
 UPSAddrParams::UPSAddrParams() :
 	PolicyAddrParams(&ADDRESS_PARAMS_DEFAULT)
@@ -82,6 +112,29 @@ UPSGroupPolicy::~UPSGroupPolicy()
     }
 }
 
+inline bool UPSGroupPolicy::is_alive_or_group_alive(const EndpointAddress *addr) const
+{
+	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+	return ((params->group_id < 0 &&
+				addr->fail_count < addr->params->max_fails) ||
+			(params->group_id >= 0 &&
+				params->group->nalives > 0));
+}
+
+void UPSGroupPolicy::recover_one_server(const EndpointAddress *addr)
+{
+	this->nalives++;
+	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+	params->group->nalives++;
+}
+
+void UPSGroupPolicy::fuse_one_server(const EndpointAddress *addr)
+{
+	this->nalives--;
+	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+	params->group->nalives--;
+}
+
 void UPSGroupPolicy::add_server(const std::string& address,
 								const AddressParams *params)
 {
@@ -126,7 +179,7 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_stradegy(uri);
+	const EndpointAddress *select_addr = this->first_strategy(uri);
 
 	if (!select_addr || select_addr->fail_count >= select_addr->params->max_fails)
 	{
@@ -135,13 +188,13 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
 
 		if (!select_addr && this->try_another)
 		{
-			select_addr = this->another_stradegy(uri);
+			select_addr = this->another_strategy(uri);
 			select_addr = this->check_and_get(select_addr, false);
 		}
 	}
 
 	if (!select_addr)
-		this->default_group->get_one_backup();
+		select_addr = this->default_group->get_one_backup();
 	
 	pthread_rwlock_unlock(&this->rwlock);
 
@@ -187,7 +240,7 @@ const EndpointAddress *EndpointGroup::get_one()
 	const EndpointAddress *addr = NULL;
 	pthread_mutex_lock(&this->mutex);
 
-	std::random_shuffle(this->mains.begin(), this->mains.end());
+	std::shuffle(this->mains.begin(), this->mains.end(), this->gen);
 	for (size_t i = 0; i < this->mains.size(); i++)
 	{
 		if (this->mains[i]->fail_count < this->mains[i]->params->max_fails)
@@ -199,7 +252,7 @@ const EndpointAddress *EndpointGroup::get_one()
 
 	if (!addr)
 	{
-		std::random_shuffle(this->backups.begin(), this->backups.end());
+		std::shuffle(this->backups.begin(), this->backups.end(), this->gen);
 		for (size_t i = 0; i < this->backups.size(); i++)
 		{
 			if (this->backups[i]->fail_count < this->backups[i]->params->max_fails)
@@ -222,7 +275,7 @@ const EndpointAddress *EndpointGroup::get_one_backup()
 	const EndpointAddress *addr = NULL;
 	pthread_mutex_lock(&this->mutex);
 
-	std::random_shuffle(this->backups.begin(), this->backups.end());
+	std::shuffle(this->backups.begin(), this->backups.end(), this->gen);
 	for (size_t i = 0; i < this->backups.size(); i++)
 	{
 		if (this->backups[i]->fail_count < this->backups[i]->params->max_fails)
@@ -407,7 +460,7 @@ int UPSWeightedRandomPolicy::remove_server_locked(const std::string& address)
 	return UPSGroupPolicy::remove_server_locked(address);
 }
 
-const EndpointAddress *UPSWeightedRandomPolicy::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSWeightedRandomPolicy::first_strategy(const ParsedURI& uri)
 {
 	int x = 0;
 	int s = 0;
@@ -431,7 +484,7 @@ const EndpointAddress *UPSWeightedRandomPolicy::first_stradegy(const ParsedURI& 
 	return this->servers[idx];
 }
 
-const EndpointAddress *UPSWeightedRandomPolicy::another_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri)
 {
 	UPSAddrParams *params;
 	int temp_weight = this->available_weight;
@@ -481,7 +534,7 @@ void UPSWeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 		this->available_weight -= params->weight;
 }
 
-const EndpointAddress *UPSConsistentHashPolicy::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSConsistentHashPolicy::first_strategy(const ParsedURI& uri)
 {
 	unsigned int hash_value;
 
@@ -496,7 +549,7 @@ const EndpointAddress *UPSConsistentHashPolicy::first_stradegy(const ParsedURI& 
 	return this->consistent_hash_with_group(hash_value);
 }
 
-const EndpointAddress *UPSManualPolicy::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSManualPolicy::first_strategy(const ParsedURI& uri)
 {
 	unsigned int idx = this->manual_select(uri.path ? uri.path : "",
 										   uri.query ? uri.query : "",
@@ -508,7 +561,7 @@ const EndpointAddress *UPSManualPolicy::first_stradegy(const ParsedURI& uri)
 	return this->servers[idx];
 }
 
-const EndpointAddress *UPSManualPolicy::another_stradegy(const ParsedURI& uri)
+const EndpointAddress *UPSManualPolicy::another_strategy(const ParsedURI& uri)
 {
 	unsigned int hash_value;
 

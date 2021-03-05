@@ -241,7 +241,7 @@ protected:
 	WFNSPolicy *ns_policy_;
 	WFRouterTask *router_task_;
 	RouteManager::RouteResult route_result_;
-	void *cookie_;
+	WFNSTracing tracing_;
 
 public:
 	CTX *get_mutable_ctx() { return &ctx_; }
@@ -380,6 +380,7 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		/*.info			=*/	info_.c_str(),
 		/*.fixed_addr	=*/	fixed_addr_,
 		/*.retry_times	=*/	retry_times_,
+		/*.tracing		=*/	&tracing_,
 	};
 	ns_policy_ = ns->get_policy(uri_.host ? uri_.host : "");
 	return ns_policy_->create_router_task(&params, cb);
@@ -390,10 +391,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
 {
 	this->state = task->get_state();
 	if (this->state == WFT_STATE_SUCCESS)
-	{
 		route_result_ = std::move(*task->get_result());
-		cookie_ = task->get_cookie();
-	}
 	else if (this->state == WFT_STATE_UNDEFINED)
 	{
 		/* should not happend */
@@ -474,9 +472,9 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 	if (ns_policy_ && route_result_.request_object)
 	{
 		if (this->state == WFT_STATE_SYS_ERROR)
-			ns_policy_->failed(&route_result_, cookie_, this->target);
+			ns_policy_->failed(&route_result_, &tracing_, this->target);
 		else
-			ns_policy_->success(&route_result_, cookie_, this->target);
+			ns_policy_->success(&route_result_, &tracing_, this->target);
 	}
 
 	if (this->state == WFT_STATE_SUCCESS)

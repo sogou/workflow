@@ -132,7 +132,7 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 							endpoint_params, std::move(callback));
-		task->set_cookie(addr);
+		params->tracing->data = addr;
 	}
 	else
 		task = new WFSelectorFailTask(std::move(callback));
@@ -167,20 +167,22 @@ inline void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 	this->breaker_lock.unlock();
 }
 
-void WFServiceGovernance::success(RouteManager::RouteResult *result, void *cookie,
+void WFServiceGovernance::success(RouteManager::RouteResult *result,
+								  WFNSTracing *tracing,
 								  CommTarget *target)
 {
 	this->rwlock.rlock();
-	this->recover_server_from_breaker((EndpointAddress *)cookie);
+	this->recover_server_from_breaker((EndpointAddress *)tracing->data);
 	this->rwlock.unlock();
 
-	WFDNSResolver::success(result, NULL, target);
+	WFDNSResolver::success(result, tracing, target);
 }
 
-void WFServiceGovernance::failed(RouteManager::RouteResult *result, void *cookie,
+void WFServiceGovernance::failed(RouteManager::RouteResult *result,
+								 WFNSTracing *tracing,
 								 CommTarget *target)
 {
-	EndpointAddress *server = (EndpointAddress *)cookie;
+	EndpointAddress *server = (EndpointAddress *)tracing->data;
 
 	this->rwlock.rlock();
 	size_t fail_count = ++server->fail_count;
@@ -189,7 +191,7 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result, void *cookie
 
 	this->rwlock.unlock();
 
-	WFDNSResolver::failed(result, NULL, target);
+	WFDNSResolver::failed(result, tracing, target);
 }
 
 void WFServiceGovernance::check_breaker()

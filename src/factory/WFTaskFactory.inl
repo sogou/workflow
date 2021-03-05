@@ -487,6 +487,8 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		if (retry_times_ < retry_max_)
 		{
 			redirect_ = true;
+			ns_policy_ = NULL;
+			route_result_.clear();
 			this->state = WFT_STATE_UNDEFINED;
 			this->error = 0;
 			this->timeout_reason = 0;

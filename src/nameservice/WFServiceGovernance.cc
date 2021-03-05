@@ -175,7 +175,7 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 	this->recover_server_from_breaker((EndpointAddress *)tracing->data);
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFDNSResolver::success(result, NULL, target);
+	WFDNSResolver::success(result, tracing, target);
 }
 
 void WFServiceGovernance::failed(RouteManager::RouteResult *result,
@@ -191,7 +191,7 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFDNSResolver::failed(result, NULL, target);
+	WFDNSResolver::failed(result, tracing, target);
 }
 
 void WFServiceGovernance::check_breaker()

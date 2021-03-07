@@ -65,7 +65,6 @@ void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 		struct sockaddr_un *sun = (struct sockaddr_un *)(out->addrinfo_->ai_addr);
 
 		sun->sun_family = AF_UNIX;
-		memset(sun->sun_path, 0, sizeof (sun->sun_path));
 		strcpy(sun->sun_path, in->host_.c_str());
 		return;
 	}

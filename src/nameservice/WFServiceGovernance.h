@@ -145,7 +145,8 @@ public:
 	}
 
 private:
-	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
+	virtual bool select(const ParsedURI& uri, WFNSTracing *tracing,
+						EndpointAddress **addr);
 
 	virtual void recover_one_server(const EndpointAddress *addr)
 	{
@@ -171,6 +172,7 @@ protected:
 	virtual const EndpointAddress *first_strategy(const ParsedURI& uri);
 	virtual const EndpointAddress *another_strategy(const ParsedURI& uri);
 	void check_breaker();
+	static void tracing_deleter(void *data);
 
 	std::vector<EndpointAddress *> servers; // current servers
 	std::vector<EndpointAddress *> addresses; // memory management

@@ -122,8 +122,10 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 {
 	EndpointAddress *addr;
 	WFRouterTask *task;
+	WFNSTracing *tracing =  params->tracing;
 
-	if (this->select(params->uri, &addr) && copy_host_port(params->uri, addr))
+	if (this->select(params->uri, tracing, &addr) &&
+		copy_host_port(params->uri, addr))
 	{
 		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
 		unsigned int dns_ttl_min = addr->params->dns_ttl_min;
@@ -132,12 +134,36 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 							endpoint_params, std::move(callback));
-		params->tracing->data = addr;
+
+		if (!tracing->data)
+			tracing->data = addr;
+		else
+		{
+			std::vector<EndpointAddress *> *v;
+
+			if (!tracing->deleter)
+			{
+				EndpointAddress *last_addr = (EndpointAddress *)tracing->data;
+				v = new std::vector<EndpointAddress *>;
+				v->push_back(last_addr);
+				tracing->deleter = WFServiceGovernance::tracing_deleter;
+				tracing->data = v;
+			}
+			else
+				v = (std::vector<EndpointAddress *> *)tracing->data;
+
+			v->push_back(addr);
+		}
 	}
 	else
 		task = new WFSelectorFailTask(std::move(callback));
 
 	return task;
+}
+
+void WFServiceGovernance::tracing_deleter(void *data)
+{
+	delete (std::vector<EndpointAddress *> *)data;
 }
 
 inline void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
@@ -182,7 +208,14 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 								 WFNSTracing *tracing,
 								 CommTarget *target)
 {
-	EndpointAddress *server = (EndpointAddress *)tracing->data;
+	EndpointAddress *server;
+	if (tracing->deleter)
+	{
+		auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
+		server = (*v)[v->size() - 1];
+	}
+	else
+		server = (EndpointAddress *)tracing->data;
 
 	pthread_rwlock_rdlock(&this->rwlock);
 	size_t fail_count = ++server->fail_count;
@@ -237,7 +270,8 @@ const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& ur
 	return this->first_strategy(uri);
 }
 
-bool WFServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
+bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
+								 EndpointAddress **addr)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	unsigned int n = (unsigned int)this->servers.size();

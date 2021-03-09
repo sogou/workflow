@@ -59,36 +59,38 @@ void register_upstream_hosts()
 										 &address_params);
 
 	UpstreamManager::upstream_create_consistent_hash(
-    "hash",
-    [](const char *path, const char *query, const char *fragment) -> unsigned int {
+	"hash",
+	[](const char *path, const char *query, const char *fragment) -> unsigned int {
 		return 1;
 	});
 	UpstreamManager::upstream_add_server("hash", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("hash", "127.0.0.1:8002");
 
 	UpstreamManager::upstream_create_manual(
-    "manual",
-    [](const char *path, const char *query, const char *fragment) -> unsigned int {
+	"manual",
+	[](const char *path, const char *query, const char *fragment) -> unsigned int {
 		return 0;
 	},
-	false, nullptr);
+	true,
+	[](const char *path, const char *query, const char *fragment) -> unsigned int {
+		return 1; // according to consistent_hash this will hit server[0]
+	});
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8002");
 
-	UpstreamManager::upstream_create_weighted_random("try_another", true);
-	address_params.weight = 1000;
-	UpstreamManager::upstream_add_server("try_another",
-										 "127.0.0.1:8001",
-										 &address_params);
-	address_params.weight = 1;
-	UpstreamManager::upstream_add_server("try_another",
-										 "127.0.0.1:8002",
-										 &address_params);
+	UpstreamManager::upstream_create_manual(
+	"try_another",
+	[](const char *path, const char *query, const char *fragment) -> unsigned int {
+		return 0;
+	},
+	false, nullptr);
+	UpstreamManager::upstream_add_server("try_another", "127.0.0.1:8001");
+	UpstreamManager::upstream_add_server("try_another", "127.0.0.1:8002");
 }
 
 void basic_callback(WFHttpTask *task, std::string& message)
 {
-	auto state = task->get_state();
+	int state = task->get_state();
 	EXPECT_EQ(state, WFT_STATE_SUCCESS);
 	if (state == WFT_STATE_SUCCESS && message.compare(""))
 	{
@@ -130,14 +132,14 @@ TEST(upstream_unittest, EnableAndDisable)
 	std::string url = "http://weighted.random";
 	WFHttpTask *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 											  		   [&wait_group, &url](WFHttpTask *task){
-		auto state = task->get_state();
+		int state = task->get_state();
 		EXPECT_EQ(state, WFT_STATE_TASK_ERROR);
 		EXPECT_EQ(task->get_error(), WFT_ERR_UPSTREAM_UNAVAILABLE);
 		UpstreamManager::upstream_enable_server("weighted.random", "127.0.0.1:8001");
 		auto *task2 = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 													  std::bind(basic_callback,
-													  			std::placeholders::_1,
-								   								std::string("server1")));
+																  std::placeholders::_1,
+																   std::string("server1")));
 		task2->user_data = &wait_group;
 		series_of(task)->push_back(task2);
 	});
@@ -180,7 +182,7 @@ TEST(upstream_unittest, FuseAndRecover)
 	for (int i = 0; i < batch; i++)
 	{
 		task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-										   nullptr);
+											   nullptr);
 		req = task->get_req();
 		req->add_header_pair("Connection", "keep-alive");
 		series = Workflow::create_series_work(task, nullptr);
@@ -200,8 +202,8 @@ TEST(upstream_unittest, FuseAndRecover)
 
 	task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 										   std::bind(basic_callback,
-										   std::placeholders::_1,
-								   		   std::string("server1")));
+													 std::placeholders::_1,
+								 					 std::string("server1")));
 	task->user_data = &wait_group;
 	series->push_back(task);
 
@@ -211,20 +213,54 @@ TEST(upstream_unittest, FuseAndRecover)
 
 TEST(upstream_unittest, TryAnother)
 {
-	WFFacilities::WaitGroup wait_group(1);
+	WFFacilities::WaitGroup wait_group(2);
 
+	UpstreamManager::upstream_disable_server("manual", "127.0.0.1:8001");
 	UpstreamManager::upstream_disable_server("try_another", "127.0.0.1:8001");
 
-	std::string url = "http://try_another";
-	WFHttpTask *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
+	WFHttpTask *task = WFTaskFactory::create_http_task("http://manual",
+													   REDIRECT_MAX, RETRY_MAX,
 													   std::bind(basic_callback,
 													  			 std::placeholders::_1,
 								   								 std::string("server2")));
-		
 	task->user_data = &wait_group;
 	task->start();
+		
+	task = WFTaskFactory::create_http_task("http://try_another",
+										   REDIRECT_MAX, RETRY_MAX,
+										   [&wait_group](WFHttpTask *task){
+		int state = task->get_state();
+		EXPECT_EQ(state, WFT_STATE_TASK_ERROR);
+		EXPECT_EQ(task->get_error(), WFT_ERR_UPSTREAM_UNAVAILABLE);
+		wait_group.done();
+	});
+	task->start();
+
 	wait_group.wait();
+	UpstreamManager::upstream_enable_server("manual", "127.0.0.1:8001");
 	UpstreamManager::upstream_enable_server("try_another", "127.0.0.1:8001");
+}
+
+TEST(upstream_unittest, Cookies)
+{
+	WFFacilities::WaitGroup wait_group(1);
+
+	http_server1.stop();
+
+	//change manual
+	std::string url = "http://weighted.random";
+	WFHttpTask *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
+														 [&wait_group, &url](WFHttpTask *task){
+		int state = task->get_state();
+		EXPECT_EQ(state, WFT_STATE_SYS_ERROR);
+		wait_group.done();
+	});
+	task->user_data = &wait_group;
+	task->start();
+
+	wait_group.wait();
+	EXPECT_TRUE(http_server1.start("127.0.0.1", 8001) == 0)
+				<< "http server start failed";
 }
 
 int main(int argc, char* argv[])

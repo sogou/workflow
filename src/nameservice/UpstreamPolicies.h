@@ -55,7 +55,8 @@ public:
 	UPSGroupPolicy();
 	~UPSGroupPolicy();
 
-	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
+	virtual bool select(const ParsedURI& uri, WFNSTracing *tracing,
+						EndpointAddress **addr);
 	virtual void add_server(const std::string& address,
 							const struct AddressParams *params);
 	virtual int replace_server(const std::string& address,

@@ -163,7 +163,7 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 
 void WFServiceGovernance::tracing_deleter(void *data)
 {
-	delete static_cast<std::vector<EndpointAddress *> *>(data);
+	delete (std::vector<EndpointAddress *> *)data;
 }
 
 inline void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)

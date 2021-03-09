@@ -114,8 +114,6 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				toppar->set_offset_timestamp(-2);
 			else if (toppar->get_offset() == -1)
 				toppar->set_offset_timestamp(this->get_req()->get_config()->get_offset_timestamp());
-			else if (this->get_req()->get_config()->get_offset_store() == KAFKA_OFFSET_ASSIGN)
-				toppar->set_offset_timestamp(this->get_req()->get_config()->get_offset_timestamp());
 			else
 				continue;
 

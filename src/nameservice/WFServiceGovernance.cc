@@ -21,7 +21,7 @@
 #include "StringUtil.h"
 #include "WFNameService.h"
 #include "WFDNSResolver.h"
-#include "ServiceGovernance.h"
+#include "WFServiceGovernance.h"
 #include "UpstreamManager.h"
 
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
@@ -117,8 +117,8 @@ EndpointAddress::EndpointAddress(const std::string& address,
 		this->port = arr[1];
 }
 
-WFRouterTask *ServiceGovernance::create_router_task(const struct WFNSParams *params,
-													router_callback_t callback)
+WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *params,
+													  router_callback_t callback)
 {
 	EndpointAddress *addr;
 	WFRouterTask *task;
@@ -132,7 +132,7 @@ WFRouterTask *ServiceGovernance::create_router_task(const struct WFNSParams *par
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 							endpoint_params, std::move(callback));
-		task->set_cookie(addr);
+		params->tracing->data = addr;
 	}
 	else
 		task = new WFSelectorFailTask(std::move(callback));
@@ -140,7 +140,7 @@ WFRouterTask *ServiceGovernance::create_router_task(const struct WFNSParams *par
 	return task;
 }
 
-inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
+inline void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
 {
 	addr->fail_count = 0;
 	pthread_mutex_lock(&this->breaker_lock);
@@ -154,7 +154,7 @@ inline void ServiceGovernance::recover_server_from_breaker(EndpointAddress *addr
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-inline void ServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
+inline void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 {
 	pthread_mutex_lock(&this->breaker_lock);
 	if (!addr->entry.list.next)
@@ -167,20 +167,22 @@ inline void ServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-void ServiceGovernance::success(RouteManager::RouteResult *result, void *cookie,
-								CommTarget *target)
+void WFServiceGovernance::success(RouteManager::RouteResult *result,
+								  WFNSTracing *tracing,
+								  CommTarget *target)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
-	this->recover_server_from_breaker((EndpointAddress *)cookie);
+	this->recover_server_from_breaker((EndpointAddress *)tracing->data);
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFDNSResolver::success(result, NULL, target);
+	WFDNSResolver::success(result, tracing, target);
 }
 
-void ServiceGovernance::failed(RouteManager::RouteResult *result, void *cookie,
-							   CommTarget *target)
+void WFServiceGovernance::failed(RouteManager::RouteResult *result,
+								 WFNSTracing *tracing,
+								 CommTarget *target)
 {
-	EndpointAddress *server = (EndpointAddress *)cookie;
+	EndpointAddress *server = (EndpointAddress *)tracing->data;
 
 	pthread_rwlock_rdlock(&this->rwlock);
 	size_t fail_count = ++server->fail_count;
@@ -189,10 +191,10 @@ void ServiceGovernance::failed(RouteManager::RouteResult *result, void *cookie,
 
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFDNSResolver::failed(result, NULL, target);
+	WFDNSResolver::failed(result, tracing, target);
 }
 
-void ServiceGovernance::check_breaker()
+void WFServiceGovernance::check_breaker()
 {
 	pthread_mutex_lock(&this->breaker_lock);
 	if (!list_empty(&this->breaker_list))
@@ -224,18 +226,18 @@ void ServiceGovernance::check_breaker()
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-const EndpointAddress *ServiceGovernance::first_stradegy(const ParsedURI& uri)
+const EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri)
 {
 	unsigned int idx = rand() % this->servers.size();
 	return this->servers[idx];
 }
 
-const EndpointAddress *ServiceGovernance::another_stradegy(const ParsedURI& uri)
+const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri)
 {
-	return this->first_stradegy(uri);
+	return this->first_strategy(uri);
 }
 
-bool ServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
+bool WFServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	unsigned int n = (unsigned int)this->servers.size();
@@ -254,13 +256,13 @@ bool ServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_stradegy(uri);
+	const EndpointAddress *select_addr = this->first_strategy(uri);
 
 	if (!select_addr ||
 		select_addr->fail_count >= select_addr->params->max_fails)
 	{
 		if (this->try_another)
-			select_addr = this->another_stradegy(uri);
+			select_addr = this->another_strategy(uri);
 	}
 
 	pthread_rwlock_unlock(&this->rwlock);
@@ -274,7 +276,7 @@ bool ServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
 	return false;
 }
 
-void ServiceGovernance::add_server_locked(EndpointAddress *addr)
+void WFServiceGovernance::add_server_locked(EndpointAddress *addr)
 {
 	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
@@ -283,7 +285,7 @@ void ServiceGovernance::add_server_locked(EndpointAddress *addr)
 	this->server_list_change(addr, ADD_SERVER);
 }
 
-int ServiceGovernance::remove_server_locked(const std::string& address)
+int WFServiceGovernance::remove_server_locked(const std::string& address)
 {
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
@@ -325,8 +327,8 @@ int ServiceGovernance::remove_server_locked(const std::string& address)
 	return ret;
 }
 
-void ServiceGovernance::add_server(const std::string& address,
-								   const AddressParams *params)
+void WFServiceGovernance::add_server(const std::string& address,
+									 const AddressParams *params)
 {
 	EndpointAddress *addr = new EndpointAddress(address,
 									new PolicyAddrParams(params));
@@ -336,7 +338,7 @@ void ServiceGovernance::add_server(const std::string& address,
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
-int ServiceGovernance::remove_server(const std::string& address)
+int WFServiceGovernance::remove_server(const std::string& address)
 {
 	int ret;
 	pthread_rwlock_wrlock(&this->rwlock);
@@ -345,8 +347,8 @@ int ServiceGovernance::remove_server(const std::string& address)
 	return ret;
 }
 
-int ServiceGovernance::replace_server(const std::string& address,
-									  const AddressParams *params)
+int WFServiceGovernance::replace_server(const std::string& address,
+										const AddressParams *params)
 {
 	int ret;
 	EndpointAddress *addr = new EndpointAddress(address,
@@ -359,7 +361,7 @@ int ServiceGovernance::replace_server(const std::string& address,
 	return ret;
 }
 
-void ServiceGovernance::enable_server(const std::string& address)
+void WFServiceGovernance::enable_server(const std::string& address)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	const auto map_it = this->server_map.find(address);
@@ -371,7 +373,7 @@ void ServiceGovernance::enable_server(const std::string& address)
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
-void ServiceGovernance::disable_server(const std::string& address)
+void WFServiceGovernance::disable_server(const std::string& address)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 	const auto map_it = this->server_map.find(address);
@@ -386,7 +388,7 @@ void ServiceGovernance::disable_server(const std::string& address)
 	pthread_rwlock_unlock(&this->rwlock);
 }
 
-void ServiceGovernance::get_current_address(std::vector<std::string>& addr_list)
+void WFServiceGovernance::get_current_address(std::vector<std::string>& addr_list)
 {
 	pthread_rwlock_rdlock(&this->rwlock);
 

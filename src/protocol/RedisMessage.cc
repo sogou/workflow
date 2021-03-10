@@ -491,6 +491,7 @@ RedisMessage::RedisMessage(RedisMessage&& move) :
 	parser_ = move.parser_;
 	stream_ = move.stream_;
 	cur_size_ = move.cur_size_;
+	asking_ = move.asking_;
 
 	move.parser_ = NULL;
 	move.stream_ = NULL;
@@ -513,6 +514,7 @@ RedisMessage& RedisMessage::operator= (RedisMessage &&move)
 		parser_ = move.parser_;
 		stream_ = move.stream_;
 		cur_size_ = move.cur_size_;
+		asking_ = move.asking_;
 
 		move.parser_ = NULL;
 		move.stream_ = NULL;
@@ -654,6 +656,63 @@ bool RedisRequest::get_params(std::vector<std::string>& params) const
 	}
 
 	return false;
+}
+
+#define REDIS_ASK_COMMAND	"ASKING"
+#define REDIS_ASK_REQUEST	"*1\r\n$6\r\nASKING\r\n"
+#define REDIS_ASK_RESPONSE	"+OK\r\n"
+
+int RedisRequest::encode(struct iovec vectors[], int max)
+{
+	stream_->reset(vectors, max);
+
+	if (is_asking())
+		(*stream_) << REDIS_ASK_REQUEST;
+	if (encode_reply(&parser_->reply))
+		return stream_->size();
+
+	return 0;
+}
+
+int RedisRequest::append(const void *buf, size_t *size)
+{
+	int ret = RedisMessage::append(buf, size);
+	if (ret > 0)
+	{
+		std::string command;
+		if (this->get_command(command) &&
+			strcasecmp(command.c_str(), REDIS_ASK_COMMAND) == 0)
+		{
+			redis_parser_deinit(this->parser_);
+			redis_parser_init(this->parser_);
+			set_asking(true);
+			if (feedback(REDIS_ASK_RESPONSE, strlen(REDIS_ASK_RESPONSE)) !=
+				strlen(REDIS_ASK_RESPONSE))
+			{
+				errno = EAGAIN;
+				ret = -1;
+			}
+			else
+				ret = 0;
+		}
+	}
+
+	return ret;
+}
+
+int RedisResponse::append(const void *buf, size_t *size)
+{
+	int ret = RedisMessage::append(buf, size);
+
+	if (ret > 0 && is_asking())
+	{
+		redis_parser_deinit(this->parser_);
+		redis_parser_init(this->parser_);
+		ret = 0;
+		set_asking(false);
+	}
+
+	return ret;
 }
 
 bool RedisResponse::set_result(const RedisValue& value)

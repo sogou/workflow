@@ -692,7 +692,7 @@ int RedisRequest::append(const void *buf, size_t *size)
 			redis_parser_init(this->parser_);
 			set_asking(true);
 
-			ret = this->feedback(REDIS_ASK_RESPONSE, strlen(REDIS_OK_RESPONSE));
+			ret = this->feedback(REDIS_OK_RESPONSE, strlen(REDIS_OK_RESPONSE));
 			if (ret != strlen(REDIS_OK_RESPONSE))
 			{
 				errno = EAGAIN;

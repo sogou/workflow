@@ -87,6 +87,20 @@ install(
 	COMPONENT devel
 )
 
+if (KAFKA STREQUAL "y")
+	install(
+		FILES ${LIB_DIR}/libwfkafka.a
+		DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		COMPONENT devel
+	)
+	if (NOT APPLE)
+		install(
+			FILES ${LIBSOKAFKA}
+			DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			COMPONENT devel
+		)
+	endif()
+endif ()
 
 install (
 	TARGETS ${PROJECT_NAME} EXPORT ${CMAKE_PROJECT_NAME}-targets

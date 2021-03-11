@@ -61,6 +61,7 @@ void set_request(const std::string& command, const std::vector<std::string>& par
 相信经常使用redis的人，对这个接口不会有什么疑问。但必须注意，我们的请求是禁止SELECT命令和AUTH命令的。  
 因为用户每次请求并不能指定具体连接，SELECT之后下一次请求并不能保证在同一个连接上发起，那么这个命令对用户来讲没有任何意义。  
 对数据库选择和密码的指定，请在redis URL里完成。并且，必须是每次请求的URL都带着这些信息。  
+另外，我们的redis client是支持cluster模式的，可以自动处理MOVED和ASK回复并重定向。用户不能自己发送ASKING命令。  
 
 # 处理请求结果
 

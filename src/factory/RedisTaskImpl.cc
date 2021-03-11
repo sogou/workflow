@@ -15,6 +15,7 @@
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <stdio.h>
@@ -109,10 +110,13 @@ CommMessageOut *ComplexRedisTask::message_out()
 
 CommMessageIn *ComplexRedisTask::message_in()
 {
-	auto *req = this->get_req();
-	auto *resp = this->get_resp();
-	if (req->is_asking())
-		resp->set_asking(true);
+	RedisRequest *req = this->get_req();
+	RedisResponse *resp = this->get_resp();
+
+	if (is_user_request_)
+		resp->set_asking(req->is_asking());
+	else
+		resp->set_asking(false);
 
 	return this->WFClientTask::message_in();
 }
@@ -175,6 +179,7 @@ bool ComplexRedisTask::need_redirect()
 	RedisRequest *client_req = this->get_req();
 	RedisResponse *client_resp = this->get_resp();
 	redis_reply_t *reply = client_resp->result_ptr();
+
 	if (reply->type == REDIS_REPLY_TYPE_ERROR)
 	{
 		if (reply->str == NULL)
@@ -194,6 +199,7 @@ bool ComplexRedisTask::need_redirect()
 		if (split_result.size() == 3)
 		{
 			client_req->set_asking(asking);
+
 			// format: COMMAND SLOT HOSTPORT
 			// example: MOVED/ASK 123 127.0.0.1:6379
 			std::string& hostport = split_result[2];
@@ -201,27 +207,21 @@ bool ComplexRedisTask::need_redirect()
 
 			ParsedURI uri;
 			std::string url;
-			if (uri_.scheme)
-				url.append(uri_.scheme);
-			else
-				url.append("redis");
+			url.append(uri_.scheme);
 			url.append("://");
 			url.append(hostport);
 			
 			URIParser::parse(url, uri);
-			password_.clear();
-			db_num_ = 0;
-
 			std::swap(uri.host, uri_.host);
 			std::swap(uri.port, uri_.port);
 			std::swap(uri.state, uri_.state);
 			std::swap(uri.error, uri_.error);
-			if (uri.userinfo)
-				std::swap(uri.userinfo, uri_.userinfo);
+
 			return true;
 		}
 		return false;
 	}
+
 	return false;
 }
 
@@ -253,6 +253,7 @@ bool ComplexRedisTask::finish_once()
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();
 	}
+
 	return true;
 }
 

@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <errno.h>
@@ -677,17 +678,19 @@ int RedisRequest::encode(struct iovec vectors[], int max)
 int RedisRequest::append(const void *buf, size_t *size)
 {
 	int ret = RedisMessage::append(buf, size);
+
 	if (ret > 0)
 	{
 		std::string command;
-		if (this->get_command(command) &&
+		if (get_command(command) &&
 			strcasecmp(command.c_str(), REDIS_ASK_COMMAND) == 0)
 		{
 			redis_parser_deinit(this->parser_);
 			redis_parser_init(this->parser_);
 			set_asking(true);
-			if (feedback(REDIS_ASK_RESPONSE, strlen(REDIS_ASK_RESPONSE)) !=
-				strlen(REDIS_ASK_RESPONSE))
+
+			size_t size = strlen(REDIS_ASK_RESPONSE);
+			if (this->feedback(REDIS_ASK_RESPONSE, size) != size)
 			{
 				errno = EAGAIN;
 				ret = -1;

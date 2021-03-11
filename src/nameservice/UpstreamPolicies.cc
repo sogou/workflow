@@ -159,7 +159,8 @@ int UPSGroupPolicy::replace_server(const std::string& address,
 	return ret;
 }
 
-bool UPSGroupPolicy::select(const ParsedURI& uri, EndpointAddress **addr)
+bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
+							EndpointAddress **addr)
 {
 	this->rwlock.rlock();
 	unsigned int n = (unsigned int)this->servers.size();

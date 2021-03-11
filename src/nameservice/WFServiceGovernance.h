@@ -108,9 +108,11 @@ class WFServiceGovernance : public WFDNSResolver
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
 											 router_callback_t callback);
-	virtual void success(RouteManager::RouteResult *result, void *cookie,
+	virtual void success(RouteManager::RouteResult *result,
+						 WFNSTracing *tracing,
 					 	 CommTarget *target);
-	virtual void failed(RouteManager::RouteResult *result, void *cookie,
+	virtual void failed(RouteManager::RouteResult *result,
+						WFNSTracing *tracing,
 						CommTarget *target);
 
 	virtual void add_server(const std::string& address,

@@ -188,7 +188,7 @@ bool ComplexRedisTask::need_redirect()
 		bool asking = false;
 		if (strncasecmp(reply->str, "ASK ", 4) == 0)
 			asking = true;
-		if (!asking && strncasecmp(reply->str, "MOVED ", 6) != 0)
+		else if (strncasecmp(reply->str, "MOVED ", 6) != 0)
 			return false;
 
 		if (redirect_count_ >= REDIS_REDIRECT_MAX)

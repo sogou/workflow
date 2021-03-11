@@ -497,6 +497,7 @@ RedisMessage::RedisMessage(RedisMessage&& move) :
 	move.parser_ = NULL;
 	move.stream_ = NULL;
 	move.cur_size_ = 0;
+	move.asking_ = false;
 }
 
 RedisMessage& RedisMessage::operator= (RedisMessage &&move)
@@ -520,6 +521,7 @@ RedisMessage& RedisMessage::operator= (RedisMessage &&move)
 		move.parser_ = NULL;
 		move.stream_ = NULL;
 		move.cur_size_ = 0;
+		move.asking_ = false;
 	}
 
 	return *this;

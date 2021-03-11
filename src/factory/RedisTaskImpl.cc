@@ -210,7 +210,7 @@ bool ComplexRedisTask::need_redirect()
 			url.append(uri_.scheme);
 			url.append("://");
 			url.append(hostport);
-			
+
 			URIParser::parse(url, uri);
 			std::swap(uri.host, uri_.host);
 			std::swap(uri.port, uri_.port);

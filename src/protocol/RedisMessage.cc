@@ -663,7 +663,7 @@ bool RedisRequest::get_params(std::vector<std::string>& params) const
 
 #define REDIS_ASK_COMMAND	"ASKING"
 #define REDIS_ASK_REQUEST	"*1\r\n$6\r\nASKING\r\n"
-#define REDIS_ASK_RESPONSE	"+OK\r\n"
+#define REDIS_OK_RESPONSE	"+OK\r\n"
 
 int RedisRequest::encode(struct iovec vectors[], int max)
 {
@@ -684,6 +684,7 @@ int RedisRequest::append(const void *buf, size_t *size)
 	if (ret > 0)
 	{
 		std::string command;
+
 		if (get_command(command) &&
 			strcasecmp(command.c_str(), REDIS_ASK_COMMAND) == 0)
 		{
@@ -691,8 +692,8 @@ int RedisRequest::append(const void *buf, size_t *size)
 			redis_parser_init(this->parser_);
 			set_asking(true);
 
-			size_t size = strlen(REDIS_ASK_RESPONSE);
-			if (this->feedback(REDIS_ASK_RESPONSE, size) != size)
+			ret = this->feedback(REDIS_OK_RESPONSE, strlen(REDIS_OK_RESPONSE));
+			if (ret != strlen(REDIS_OK_RESPONSE))
 			{
 				errno = EAGAIN;
 				ret = -1;

@@ -66,7 +66,8 @@ void set_request(const std::string& command, const std::vector<std::string>& par
 
 There is little doubt about this interface for people who frequently use Redis. However, please note that you cannot use SELECT and AUTH commands in the request.   
 The reason is that as you can't specify the connection every time you send a request and the next request after SELECT may not be initiated on the same connection, this command is meaningless.   
-Please specify the database name and password in the Redis URL. And the URL of every request must contain these data.
+Please specify the database name and password in the Redis URL. And the URL of every request must contain these data.  
+In addition, this redis client fully supports redis cluster mode. The client will process MOVED and ASK response, and redirect correctly.  
 
 # Handling results
 

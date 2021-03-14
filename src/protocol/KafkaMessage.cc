@@ -795,7 +795,7 @@ static int uncompress_buf(void *buf, size_t size, KafkaBlock *block,
 static int append_message_set(KafkaBlock *block,
 							  const KafkaRecord *record,
 							  int offset, int msg_version,
-							  const KafkaConfig& config, void *env, 
+							  const KafkaConfig& config, void *env,
 							  int cur_msg_size)
 {
 	const void *key;
@@ -811,7 +811,7 @@ static int append_message_set(KafkaBlock *block,
 	if (msg_version == 1)
 		message_size += 8;
 
-	int max_msg_size = std::min(config.get_produce_msgset_max_bytes(), 
+	int max_msg_size = std::min(config.get_produce_msgset_max_bytes(),
 								config.get_produce_msg_max_bytes());
 	if (message_size + 8 + 4 + cur_msg_size > max_msg_size)
 		return 1;
@@ -906,7 +906,7 @@ static int append_batch_record(KafkaBlock *block,
 	std::string length_str;
 	append_varint_i32(length_str, length);
 
-	int max_msg_size = std::min(config.get_produce_msgset_max_bytes(), 
+	int max_msg_size = std::min(config.get_produce_msgset_max_bytes(),
 								config.get_produce_msg_max_bytes());
 	if ((int)(length + length_str.size() + cur_msg_size) > max_msg_size)
 		return 1;
@@ -1140,7 +1140,7 @@ static int parse_varint_u64(void **buf, size_t *size, uint64_t *val)
 	return 0;
 }
 
-int KafkaMessage::parse_message_set(void **buf, size_t *size, 
+int KafkaMessage::parse_message_set(void **buf, size_t *size,
 									bool check_crcs, int msg_vers,
 									struct list_head *record_list,
 									KafkaBuffer *uncompressed,
@@ -1266,7 +1266,7 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 
 	if (*size > 0)
 	{
-		return parse_message_set(buf, size, check_crcs, msg_vers, 
+		return parse_message_set(buf, size, check_crcs, msg_vers,
 								 record_list, uncompressed, toppar);
 	}
 
@@ -1385,7 +1385,7 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 	return 0;
 }
 
-int KafkaMessage::parse_record_batch(void **buf, size_t *size, 
+int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 									 bool check_crcs,
 									 struct list_head *record_list,
 									 KafkaBuffer *uncompressed,
@@ -1526,7 +1526,7 @@ int KafkaMessage::parse_records(void **buf, size_t *size, bool check_crcs,
 		{
 		case 0:
 		case 1:
-			ret = parse_message_set(buf, &msg_size, check_crcs, 
+			ret = parse_message_set(buf, &msg_size, check_crcs,
 									magic, record_list,
 									uncompressed, toppar);
 			break;
@@ -2106,7 +2106,7 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			return -1;
 		}
 
-		void *recordset_size_ptr = (void *)((char *)header_block.get_block() + 
+		void *recordset_size_ptr = (void *)((char *)header_block.get_block() +
 											header_block.get_len() - 4);
 
 		int64_t first_timestamp = 0;
@@ -2134,7 +2134,7 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			if (batch_cnt == 0)
 			{
 				if (kafka_compress_prepare(this->config.get_compress_type(),
-										   &this->compress_env, 
+										   &this->compress_env,
 										   &compress_block) < 0)
 				{
 					return -1;
@@ -2145,7 +2145,7 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 
 			int ret = append_record(&record_block, record, batch_cnt,
 									this->message_version, this->config,
-									first_timestamp, this->compress_env, 
+									first_timestamp, this->compress_env,
 									batch_length);
 
 			if (ret < 0)
@@ -2872,7 +2872,7 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 				free(host);
 			}
 
-            return false;
+			return false;
 		}
 	}
 
@@ -3577,7 +3577,11 @@ int KafkaResponse::parse_offsetfetch(void **buf, size_t *size)
 
 			kafka_topic_partition_t *ptr = toppar->get_raw_ptr();
 
-			CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->offset));
+			long offset;
+			CHECK_RET(parse_i64(buf, size, (int64_t *)&offset));
+			if (this->config.get_offset_store() != KAFKA_OFFSET_ASSIGN)
+				ptr->offset = offset;
+
 			CHECK_RET(parse_string(buf, size, &ptr->committed_metadata));
 			CHECK_RET(parse_i16(buf, size, &ptr->error));
 		}

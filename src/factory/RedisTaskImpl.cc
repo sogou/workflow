@@ -15,6 +15,7 @@
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <stdio.h>
@@ -25,7 +26,8 @@
 
 using namespace protocol;
 
-#define REDIS_KEEPALIVE_DEFAULT  (180 * 1000)
+#define REDIS_KEEPALIVE_DEFAULT		(180 * 1000)
+#define REDIS_REDIRECT_MAX			3
 
 /**********Client**********/
 
@@ -35,21 +37,26 @@ public:
 	ComplexRedisTask(int retry_max, redis_callback_t&& callback):
 		WFComplexClientTask(retry_max, std::move(callback)),
 		db_num_(0),
-		is_user_request_(true)
+		is_user_request_(true),
+		redirect_count_(0)
 	{}
 
 protected:
 	virtual bool check_request();
 	virtual CommMessageOut *message_out();
+	virtual CommMessageIn *message_in();
 	virtual int keep_alive_timeout();
 	virtual bool init_success();
 	virtual bool finish_once();
 
 private:
+	bool need_redirect();
+
 	std::string password_;
 	int db_num_;
 	bool succ_;
 	bool is_user_request_;
+	int redirect_count_;
 };
 
 bool ComplexRedisTask::check_request()
@@ -58,7 +65,8 @@ bool ComplexRedisTask::check_request()
 
 	if (this->req.get_command(command) &&
 		(strcasecmp(command.c_str(), "AUTH") == 0 ||
-		 strcasecmp(command.c_str(), "SELECT") == 0))
+		 strcasecmp(command.c_str(), "SELECT") == 0 ||
+		 strcasecmp(command.c_str(), "ASKING") == 0))
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_REDIS_COMMAND_DISALLOWED;
@@ -98,6 +106,19 @@ CommMessageOut *ComplexRedisTask::message_out()
 	}
 
 	return this->WFClientTask::message_out();
+}
+
+CommMessageIn *ComplexRedisTask::message_in()
+{
+	RedisRequest *req = this->get_req();
+	RedisResponse *resp = this->get_resp();
+
+	if (is_user_request_)
+		resp->set_asking(req->is_asking());
+	else
+		resp->set_asking(false);
+
+	return this->WFClientTask::message_in();
 }
 
 int ComplexRedisTask::keep_alive_timeout()
@@ -153,6 +174,57 @@ bool ComplexRedisTask::init_success()
 	return true;
 }
 
+bool ComplexRedisTask::need_redirect()
+{
+	RedisRequest *client_req = this->get_req();
+	RedisResponse *client_resp = this->get_resp();
+	redis_reply_t *reply = client_resp->result_ptr();
+
+	if (reply->type == REDIS_REPLY_TYPE_ERROR)
+	{
+		if (reply->str == NULL)
+			return false;
+
+		bool asking = false;
+		if (strncasecmp(reply->str, "ASK ", 4) == 0)
+			asking = true;
+		else if (strncasecmp(reply->str, "MOVED ", 6) != 0)
+			return false;
+
+		if (redirect_count_ >= REDIS_REDIRECT_MAX)
+			return false;
+
+		std::string err_str(reply->str, reply->len);
+		auto split_result = StringUtil::split_filter_empty(err_str, ' ');
+		if (split_result.size() == 3)
+		{
+			client_req->set_asking(asking);
+
+			// format: COMMAND SLOT HOSTPORT
+			// example: MOVED/ASK 123 127.0.0.1:6379
+			std::string& hostport = split_result[2];
+			redirect_count_++;
+
+			ParsedURI uri;
+			std::string url;
+			url.append(uri_.scheme);
+			url.append("://");
+			url.append(hostport);
+
+			URIParser::parse(url, uri);
+			std::swap(uri.host, uri_.host);
+			std::swap(uri.port, uri_.port);
+			std::swap(uri.state, uri_.state);
+			std::swap(uri.error, uri_.error);
+
+			return true;
+		}
+		return false;
+	}
+
+	return false;
+}
+
 bool ComplexRedisTask::finish_once()
 {
 	if (!is_user_request_)
@@ -173,6 +245,15 @@ bool ComplexRedisTask::finish_once()
 		}
 		return false;
 	}
+
+	if (this->state == WFT_STATE_SUCCESS)
+	{
+		if (need_redirect())
+			this->set_redirect(uri_);
+		else if (this->state != WFT_STATE_SUCCESS)
+			this->disable_retry();
+	}
+
 	return true;
 }
 

@@ -250,7 +250,7 @@ TEST(upstream_unittest, Cookies)
 	//change manual
 	std::string url = "http://weighted.random";
 	WFHttpTask *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-														 [&wait_group, &url](WFHttpTask *task){
+													   [&wait_group](WFHttpTask *task){
 		int state = task->get_state();
 		EXPECT_EQ(state, WFT_STATE_SYS_ERROR);
 		wait_group.done();

@@ -105,7 +105,6 @@ private:
 	virtual void fuse_one_server(const EndpointAddress *addr);
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
-	static void tracing_deleter(void *data);
 	static int tracing_weight(WFNSTracing *tracing);
 };
 

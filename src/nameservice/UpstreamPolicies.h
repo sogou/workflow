@@ -76,7 +76,8 @@ protected:
 	virtual int remove_server_locked(const std::string& address);
 
 	const EndpointAddress *consistent_hash_with_group(unsigned int hash);
-	const EndpointAddress *check_and_get(const EndpointAddress *addr, bool flag);
+	const EndpointAddress *check_and_get(const EndpointAddress *addr,
+										 bool flag, WFNSTracing *tracing);
 
 	bool is_alive_or_group_alive(const EndpointAddress *addr) const;
 };
@@ -90,8 +91,10 @@ public:
 		this->available_weight = 0;
 		this->try_another = try_another;
 	}
-	const EndpointAddress *first_strategy(const ParsedURI& uri);
-	const EndpointAddress *another_strategy(const ParsedURI& uri);
+	const EndpointAddress *first_strategy(const ParsedURI& uri,
+										  WFNSTracing *tracing);
+	const EndpointAddress *another_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
 
 protected:
 	int total_weight;
@@ -102,6 +105,7 @@ private:
 	virtual void fuse_one_server(const EndpointAddress *addr);
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
+	static int tracing_weight(WFNSTracing *tracing);
 };
 
 class UPSConsistentHashPolicy : public UPSGroupPolicy
@@ -118,7 +122,8 @@ public:
 	}
 
 protected:
-	const EndpointAddress *first_strategy(const ParsedURI& uri);
+	const EndpointAddress *first_strategy(const ParsedURI& uri,
+										  WFNSTracing *tracing);
 
 private:
 	upstream_route_t consistent_hash;
@@ -148,8 +153,10 @@ public:
 		this->try_another = try_another;
 	}
 	
-	const EndpointAddress *first_strategy(const ParsedURI& uri);
-	const EndpointAddress *another_strategy(const ParsedURI& uri);
+	const EndpointAddress *first_strategy(const ParsedURI& uri,
+										  WFNSTracing *tracing);
+	const EndpointAddress *another_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
 
 private:
 	upstream_route_t manual_select;

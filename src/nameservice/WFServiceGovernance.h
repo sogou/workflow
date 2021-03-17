@@ -126,6 +126,7 @@ public:
 	virtual void server_list_change(const EndpointAddress *address, int state)
 	{}
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
+	static bool in_tracing(WFNSTracing *tracing, EndpointAddress *addr);
 
 public:
 	WFServiceGovernance() :
@@ -169,8 +170,10 @@ private:
 	unsigned int mttr_second;
 
 protected:
-	virtual const EndpointAddress *first_strategy(const ParsedURI& uri);
-	virtual const EndpointAddress *another_strategy(const ParsedURI& uri);
+	virtual const EndpointAddress *first_strategy(const ParsedURI& uri,
+												  WFNSTracing *tracing);
+	virtual const EndpointAddress *another_strategy(const ParsedURI& uri,
+													WFNSTracing *tracing);
 	void check_breaker();
 	static void tracing_deleter(void *data);
 

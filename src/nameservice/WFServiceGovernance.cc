@@ -197,8 +197,17 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 								  WFNSTracing *tracing,
 								  CommTarget *target)
 {
+	EndpointAddress *server;
+	if (tracing->deleter)
+	{
+		auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
+		server = (*v)[v->size() - 1];
+	}
+	else
+		server = (EndpointAddress *)tracing->data;
+
 	this->rwlock.rlock();
-	this->recover_server_from_breaker((EndpointAddress *)tracing->data);
+	this->recover_server_from_breaker(server);
 	this->rwlock.unlock();
 
 	WFDNSResolver::success(result, tracing, target);

@@ -174,7 +174,8 @@ inline int MySQLCell::as_int() const
 {
 	if (!this->is_int())
 		return 0;
-	char num[MYSQL_NUM_STR_LENGTH + 1];
+
+	char num[MYSQL_INT_STR_LENGTH + 1];
 	memcpy(num, this->data, this->len);
 	num[this->len] = '\0';
 	return atoi(num);
@@ -222,7 +223,7 @@ inline unsigned long long MySQLCell::as_ulonglong() const
 	if (!this->is_ulonglong())
 		return 0;
 
-	char num[MYSQL_NUM_STR_LENGTH + 1];
+	char num[MYSQL_LONG_STR_LENGTH + 1];
 	memcpy(num, this->data, this->len);
 	num[this->len] = '\0';
 	return strtoull(num, NULL, 10);

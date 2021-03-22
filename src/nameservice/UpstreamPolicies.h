@@ -105,7 +105,7 @@ private:
 	virtual void fuse_one_server(const EndpointAddress *addr);
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
-	static int tracing_weight(WFNSTracing *tracing);
+	static int select_history_weight(WFNSTracing *tracing);
 };
 
 class UPSConsistentHashPolicy : public UPSGroupPolicy

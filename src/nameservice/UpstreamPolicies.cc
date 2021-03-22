@@ -239,16 +239,18 @@ const EndpointAddress *EndpointGroup::get_one(WFNSTracing *tracing)
 	if (this->nalives == 0)
 		return NULL;
 
+	EndpointAddress *server;
 	const EndpointAddress *addr = NULL;
 	pthread_mutex_lock(&this->mutex);
 
 	std::shuffle(this->mains.begin(), this->mains.end(), this->gen);
 	for (size_t i = 0; i < this->mains.size(); i++)
 	{
-		if (this->mains[i]->fail_count < this->mains[i]->params->max_fails &&
-			WFServiceGovernance::in_tracing(tracing, this->mains[i]) == false)
+		server = this->mains[i];
+		if (server->fail_count < server->params->max_fails &&
+			WFServiceGovernance::in_select_history(tracing, server) == false)
 		{
-			addr = this->mains[i];
+			addr = server;
 			break;
 		}
 	}
@@ -258,10 +260,11 @@ const EndpointAddress *EndpointGroup::get_one(WFNSTracing *tracing)
 		std::shuffle(this->backups.begin(), this->backups.end(), this->gen);
 		for (size_t i = 0; i < this->backups.size(); i++)
 		{
-			if (this->backups[i]->fail_count < this->backups[i]->params->max_fails &&
-				WFServiceGovernance::in_tracing(tracing, this->backups[i]) == false)
+			server = this->backups[i];
+			if (server->fail_count < server->params->max_fails &&
+				WFServiceGovernance::in_select_history(tracing, server) == false)
 			{
-				addr = this->backups[i];
+				addr = server;
 				break;
 			}
 		}
@@ -276,16 +279,19 @@ const EndpointAddress *EndpointGroup::get_one_backup(WFNSTracing *tracing)
 	if (this->nalives == 0)
 		return NULL;
 
+	EndpointAddress *server;
 	const EndpointAddress *addr = NULL;
+
 	pthread_mutex_lock(&this->mutex);
 
 	std::shuffle(this->backups.begin(), this->backups.end(), this->gen);
 	for (size_t i = 0; i < this->backups.size(); i++)
 	{
-		if (this->backups[i]->fail_count < this->backups[i]->params->max_fails &&
-			WFServiceGovernance::in_tracing(tracing, this->backups[i]) == false)
+		server = this->backups[i];
+		if (server->fail_count < server->params->max_fails &&
+			WFServiceGovernance::in_select_history(tracing, server) == false)
 		{
-			addr = this->backups[i];
+			addr = server;
 			break;
 		}
 	}
@@ -465,7 +471,7 @@ int UPSWeightedRandomPolicy::remove_server_locked(const std::string& address)
 	return UPSGroupPolicy::remove_server_locked(address);
 }
 
-int UPSWeightedRandomPolicy::tracing_weight(WFNSTracing *tracing)
+int UPSWeightedRandomPolicy::select_history_weight(WFNSTracing *tracing)
 {
 	if (!tracing || !tracing->data)
 		return 0;
@@ -499,14 +505,14 @@ const EndpointAddress *UPSWeightedRandomPolicy::first_strategy(const ParsedURI& 
 	size_t idx;
 	UPSAddrParams *params;
 	int temp_weight = this->total_weight;
-	temp_weight -= UPSWeightedRandomPolicy::tracing_weight(tracing);
+	temp_weight -= UPSWeightedRandomPolicy::select_history_weight(tracing);
 
 	if (temp_weight > 0)
 		x = rand() % temp_weight;
 
 	for (idx = 0; idx < this->servers.size(); idx++)
 	{
-		if (WFServiceGovernance::in_tracing(tracing, this->servers[idx]))
+		if (WFServiceGovernance::in_select_history(tracing, this->servers[idx]))
 			continue;
 
 		params = static_cast<UPSAddrParams *>(this->servers[idx]->params);

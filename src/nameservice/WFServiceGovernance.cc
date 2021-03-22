@@ -166,8 +166,8 @@ void WFServiceGovernance::tracing_deleter(void *data)
 	delete (std::vector<EndpointAddress *> *)data;
 }
 
-bool WFServiceGovernance::in_tracing(WFNSTracing *tracing,
-									 EndpointAddress *addr)
+bool WFServiceGovernance::in_select_history(WFNSTracing *tracing,
+											EndpointAddress *addr)
 {
 	if (!tracing || !tracing->data)
 		return false;

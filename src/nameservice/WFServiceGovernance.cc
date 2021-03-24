@@ -321,13 +321,13 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_strategy(uri);
+	const EndpointAddress *select_addr = this->first_strategy(uri, tracing);
 
 	if (!select_addr ||
 		select_addr->fail_count >= select_addr->params->max_fails)
 	{
 		if (this->try_another)
-			select_addr = this->another_strategy(uri);
+			select_addr = this->another_strategy(uri, tracing);
 	}
 
 	this->rwlock.unlock();

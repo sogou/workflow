@@ -127,6 +127,7 @@ public:
 	virtual void server_list_change(const EndpointAddress *address, int state)
 	{}
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
+	static bool in_select_history(WFNSTracing *tracing, EndpointAddress *addr);
 
 public:
 	WFServiceGovernance()

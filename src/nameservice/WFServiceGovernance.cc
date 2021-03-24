@@ -166,6 +166,26 @@ void WFServiceGovernance::tracing_deleter(void *data)
 	delete (std::vector<EndpointAddress *> *)data;
 }
 
+bool WFServiceGovernance::in_select_history(WFNSTracing *tracing,
+											EndpointAddress *addr)
+{
+	if (!tracing || !tracing->data)
+		return false;
+
+	if (!tracing->deleter)
+		return (EndpointAddress *)tracing->data == addr;
+
+	auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
+
+	for (auto *server : (*v))
+	{
+		if (server == addr)
+			return true;
+	}
+
+	return false;
+}
+
 inline void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
 {
 	addr->fail_count = 0;
@@ -268,15 +288,17 @@ void WFServiceGovernance::check_breaker()
 	this->breaker_lock.unlock();
 }
 
-const EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri)
+const EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri,
+														   WFNSTracing *tracing)
 {
 	unsigned int idx = rand() % this->servers.size();
 	return this->servers[idx];
 }
 
-const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri)
+const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri,
+															 WFNSTracing *tracing)
 {
-	return this->first_strategy(uri);
+	return this->first_strategy(uri, tracing);
 }
 
 bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,

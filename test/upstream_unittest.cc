@@ -28,22 +28,22 @@
 #define MTTR			2
 #define MAX_FAILS		200
 
-static void __http_process1(WFHttpTask *task)
+static void __http_process(WFHttpTask *task, const char *name)
 {
 	auto *resp = task->get_resp();
 	resp->add_header_pair("Content-Type", "text/plain");
-	resp->append_output_body_nocopy("server1", 7);
+	resp->append_output_body_nocopy(name, strlen(name));
 }
 
-static void __http_process2(WFHttpTask *task)
-{
-	auto *resp = task->get_resp();
-	resp->add_header_pair("Content-Type", "text/plain");
-	resp->append_output_body_nocopy("server2", 7);
-}
-
-WFHttpServer http_server1(__http_process1);
-WFHttpServer http_server2(__http_process2);
+WFHttpServer http_server1(std::bind(&__http_process,
+									std::placeholders::_1,
+									"server1"));
+WFHttpServer http_server2(std::bind(&__http_process,
+									std::placeholders::_1,
+									"server2"));
+WFHttpServer http_server3(std::bind(&__http_process,
+									std::placeholders::_1,
+									"server3"));
 
 void register_upstream_hosts()
 {
@@ -86,6 +86,20 @@ void register_upstream_hosts()
 	false, nullptr);
 	UpstreamManager::upstream_add_server("try_another", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("try_another", "127.0.0.1:8002");
+
+	UpstreamManager::upstream_create_weighted_random("test_tracing", true);
+	address_params.weight = 1000;
+	UpstreamManager::upstream_add_server("test_tracing",
+										 "127.0.0.1:8001",
+										 &address_params);
+	address_params.weight = 1;
+	UpstreamManager::upstream_add_server("test_tracing",
+										 "127.0.0.1:8002",
+										 &address_params);
+	address_params.weight = 1000;
+	UpstreamManager::upstream_add_server("test_tracing",
+										 "127.0.0.1:8003",
+										 &address_params);
 }
 
 void basic_callback(WFHttpTask *task, std::string& message)
@@ -181,8 +195,7 @@ TEST(upstream_unittest, FuseAndRecover)
 
 	for (int i = 0; i < batch; i++)
 	{
-		task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-											   nullptr);
+		task = WFTaskFactory::create_http_task(url, 0, 0, nullptr);
 		req = task->get_req();
 		req->add_header_pair("Connection", "keep-alive");
 		series = Workflow::create_series_work(task, nullptr);
@@ -203,7 +216,7 @@ TEST(upstream_unittest, FuseAndRecover)
 	task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 										   std::bind(basic_callback,
 													 std::placeholders::_1,
-													  std::string("server1")));
+								 					 std::string("server1")));
 	task->user_data = &wait_group;
 	series->push_back(task);
 
@@ -222,10 +235,10 @@ TEST(upstream_unittest, TryAnother)
 													   REDIRECT_MAX, RETRY_MAX,
 													   std::bind(basic_callback,
 													  			 std::placeholders::_1,
-																	std::string("server2")));
+								   								 std::string("server2")));
 	task->user_data = &wait_group;
 	task->start();
-
+		
 	task = WFTaskFactory::create_http_task("http://try_another",
 										   REDIRECT_MAX, RETRY_MAX,
 										   [&wait_group](WFHttpTask *task){
@@ -241,26 +254,38 @@ TEST(upstream_unittest, TryAnother)
 	UpstreamManager::upstream_enable_server("try_another", "127.0.0.1:8001");
 }
 
-TEST(upstream_unittest, Cookies)
+TEST(upstream_unittest, Tracing)
 {
-	WFFacilities::WaitGroup wait_group(1);
+	WFFacilities::WaitGroup wait_group(2);
 
 	http_server1.stop();
 
-	//change manual
-	std::string url = "http://weighted.random";
-	WFHttpTask *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-														 [&wait_group, &url](WFHttpTask *task){
-		int state = task->get_state();
-		EXPECT_EQ(state, WFT_STATE_SYS_ERROR);
-		wait_group.done();
-	});
+	// test first_strategy()
+	WFHttpTask *task = WFTaskFactory::create_http_task(
+											"http://weighted.random",
+											REDIRECT_MAX, RETRY_MAX,
+											std::bind(basic_callback,
+													  std::placeholders::_1,
+								   					  std::string("server2")));
 	task->user_data = &wait_group;
 	task->start();
+
+	// test another_strategy()
+	UpstreamManager::upstream_disable_server("test_tracing",
+											 "127.0.0.1:8003");
+	WFHttpTask *task2 = WFTaskFactory::create_http_task(
+											"http://test_tracing",
+											REDIRECT_MAX, RETRY_MAX,
+											std::bind(basic_callback,
+													  std::placeholders::_1,
+								   					  std::string("server2")));
+	task2->user_data = &wait_group;
+	task2->start();
 
 	wait_group.wait();
 	EXPECT_TRUE(http_server1.start("127.0.0.1", 8001) == 0)
 				<< "http server start failed";
+	UpstreamManager::upstream_enable_server("test_tracing", "127.0.0.1:8003");
 }
 
 int main(int argc, char* argv[])
@@ -274,11 +299,15 @@ int main(int argc, char* argv[])
 
 	EXPECT_TRUE(http_server2.start("127.0.0.1", 8002) == 0)
 				<< "http server start failed";
-	
+
+	EXPECT_TRUE(http_server3.start("127.0.0.1", 8003) == 0)
+				<< "http server start failed";
+		
 	EXPECT_EQ(RUN_ALL_TESTS(), 0);
 
 	http_server1.stop();
 	http_server2.stop();
+	http_server3.stop();
 
 	return 0;
 }

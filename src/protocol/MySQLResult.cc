@@ -55,6 +55,7 @@ MySQLField::MySQLField(const void *buf, mysql_field_t *field)
 	}
 
 	this->flags = field->flags;
+	this->length = field->length;
 	this->decimals = field->decimals;
 	this->charsetnr = field->charsetnr;
 	this->data_type = field->data_type;

@@ -71,6 +71,8 @@ private:
 		return new CommConnection;
 	}
 
+	virtual int init_ssl(SSL *ssl) { return 0; }
+
 public:
 	virtual void release() { }
 
@@ -199,10 +201,12 @@ private:
 		return new CommConnection;
 	}
 
-	SOCKET create_accept_fd()
+	virtual int create_accept_fd()
 	{
-		return socket(this->bind_addr->sa_family, SOCK_STREAM, 0);
+		return (int)socket(this->bind_addr->sa_family, SOCK_STREAM, 0);
 	}
+
+	virtual int init_ssl(SSL *ssl) { return 0; }
 
 private:
 	struct sockaddr *bind_addr;

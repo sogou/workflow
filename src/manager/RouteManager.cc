@@ -392,7 +392,7 @@ static uint64_t __generate_key(TransportType type,
 		str += '\n';
 	}
 
-	if (endpoint_params->use_tls_sni)
+	if (type == TT_TCP_SSL && endpoint_params->use_tls_sni)
 	{
 		str += hostname;
 		str += '\n';

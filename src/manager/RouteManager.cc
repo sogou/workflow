@@ -69,6 +69,27 @@ private:
 	}
 };
 
+/* To support TLS SNI. */
+class RouteTargetSNI : public RouteManager::RouteTarget
+{
+private:
+	virtual int init_ssl(SSL *ssl)
+	{
+		if (SSL_set_tlsext_host_name(ssl, this->hostname.c_str()) > 0)
+			return 0;
+		else
+			return -1;
+	}
+
+private:
+	std::string hostname;
+
+public:
+	RouteTargetSNI(const std::string& name) : hostname(name)
+	{
+	}
+};
+
 //  protocol_name\n user\n pass\n dbname\n ai_addr ai_addrlen \n....
 //
 
@@ -82,6 +103,8 @@ struct RouteParams
 	int ssl_connect_timeout;
 	int response_timeout;
 	size_t max_connections;
+	bool use_tls_sni;
+	const std::string& hostname;
 };
 
 class RouteResultEntry
@@ -135,9 +158,12 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 
 	switch (params->transport_type)
 	{
-	case TT_TCP:
 	case TT_TCP_SSL:
-		target = new RouteTargetTCP();
+		if (params->use_tls_sni)
+			target = new RouteTargetSNI(params->hostname);
+		else
+	case TT_TCP:
+			target = new RouteTargetTCP();
 		break;
 	case TT_UDP:
 		target = new RouteTargetUDP();
@@ -352,7 +378,9 @@ static inline bool __addr_less(const struct addrinfo *x, const struct addrinfo *
 
 static uint64_t __generate_key(TransportType type,
 							   const struct addrinfo *addrinfo,
-							   const std::string& other_info)
+							   const std::string& other_info,
+							   const struct EndpointParams *endpoint_params,
+							   const std::string& hostname)
 {
 	std::string str = "TT";
 
@@ -361,6 +389,12 @@ static uint64_t __generate_key(TransportType type,
 	if (!other_info.empty())
 	{
 		str += other_info;
+		str += '\n';
+	}
+
+	if (type == TT_TCP_SSL && endpoint_params->use_tls_sni)
+	{
+		str += hostname;
 		str += '\n';
 	}
 
@@ -396,6 +430,7 @@ int RouteManager::get(TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
 					  const struct EndpointParams *endpoint_params,
+					  const std::string& hostname,
 					  RouteResult& result)
 {
 	result.cookie = NULL;
@@ -406,7 +441,8 @@ int RouteManager::get(TransportType type,
 		return -1;
 	}
 
-	uint64_t md5_16 = __generate_key(type, addrinfo, other_info);
+	uint64_t md5_16 = __generate_key(type, addrinfo, other_info,
+									 endpoint_params, hostname);
 	rb_node **p = &cache_.rb_node;
 	rb_node *parent = NULL;
 	RouteResultEntry *entry;
@@ -449,7 +485,9 @@ int RouteManager::get(TransportType type,
 			.connect_timeout		=	endpoint_params->connect_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,
 			.response_timeout		=	endpoint_params->response_timeout,
-			.max_connections		=	endpoint_params->max_connections
+			.max_connections		=	endpoint_params->max_connections,
+			.use_tls_sni			=	endpoint_params->use_tls_sni,
+			.hostname				=	hostname,
 		};
 
 		if (StringUtil::start_with(other_info, "?maxconn="))

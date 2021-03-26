@@ -278,7 +278,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 	if (redirect_)
 		clear_prev_state();
 
-	const auto *params = &WFGlobal::get_global_settings()->endpoint_params;
+	const auto params = WFGlobal::get_global_settings()->endpoint_params;
 	struct addrinfo addrinfo = { };
 	addrinfo.ai_family = addr->sa_family;
 	addrinfo.ai_socktype = SOCK_STREAM;
@@ -287,8 +287,9 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 
 	type_ = type;
 	info_.assign(info);
-	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, params,
-										   route_result_) < 0)
+	params.use_tls_sni = false;
+	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, &params,
+										   "", route_result_) < 0)
 	{
 		this->state = WFT_STATE_SYS_ERROR;
 		this->error = errno;

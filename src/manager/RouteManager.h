@@ -61,6 +61,7 @@ public:
 			const struct addrinfo *addrinfo,
 			const std::string& other_info,
 			const struct EndpointParams *endpoint_params,
+			const std::string& hostname,
 			RouteResult& result);
 
 	RouteManager()

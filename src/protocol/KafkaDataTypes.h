@@ -203,7 +203,7 @@ public:
 
 	void set_produce_msgset_cnt(int cnt)
 	{
-		this->ptr->produce_msgset_cnt = cnt; 
+		this->ptr->produce_msgset_cnt = cnt;
 	}
 	int get_produce_msgset_cnt() const
 	{
@@ -332,6 +332,35 @@ public:
 		this->ptr->offset_store = offset_store;
 	}
 
+	const char *get_sasl_mechanisms() const
+	{
+		return this->ptr->sasl.mechanisms;
+	}
+	bool set_sasl_mechanisms(const char *mechanisms)
+	{
+		char *p = strdup(mechanisms);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->sasl.mechanisms);
+		this->ptr->sasl.mechanisms = p;
+		if (kafka_sasl_set_mechanisms(this->ptr) != 0)
+			return false;
+
+		return true;
+	}
+
+	kafka_sasl_t *get_sasl()
+	{
+		return &this->ptr->sasl;
+	}
+
+	bool new_client()
+	{
+		return this->ptr->sasl.client_new(this->ptr) == 0;
+	}
+
 public:
 	KafkaConfig()
 	{
@@ -386,6 +415,7 @@ public:
 private:
 	kafka_config_t *ptr;
 	std::atomic<int> *ref;
+	std::string sasl_buf;
 };
 
 class KafkaRecord
@@ -664,7 +694,7 @@ public:
 	{
 		this->endpos = this->curpos->next;
 	}
-	
+
 	bool record_reach_end()
 	{
 		return this->endpos == &this->ptr->record_list;
@@ -714,6 +744,11 @@ public:
 		uri += ":";
 		uri += std::to_string(this->ptr->port);
 		return uri;
+	}
+
+	int get_error()
+	{
+		return this->ptr->error;
 	}
 
 public:

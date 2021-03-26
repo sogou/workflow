@@ -77,15 +77,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			const char *brk_ver = this->get_req()->get_config()->get_broker_version();
 			int ret = kafka_api_version_is_queryable(brk_ver, &api, &api_cnt);
 
-			if (ret == 1)
-			{
-				KafkaRequest *req  = new KafkaRequest;
-				req->duplicate(*this->get_req());
-				req->set_api(Kafka_ApiVersions);
-				is_user_request_ = false;
-				return req;
-			}
-			else if (ret == 0)
+			if (ret == 0)
 			{
 				broker->allocate_api_version(api_cnt);
 				memcpy(broker->get_api(), api,
@@ -96,6 +88,16 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				this->state = WFT_STATE_TASK_ERROR;
 				this->error = WFT_ERR_KAFKA_VERSION_DISALLOWED;
 				return NULL;
+			}
+
+			if (this->get_req()->get_config()->get_sasl_mechanisms())
+			{
+				KafkaRequest *req  = new KafkaRequest;
+
+				req->duplicate(*this->get_req());
+				req->set_api(Kafka_SaslHandshake);
+				is_user_request_ = false;
+				return req;
 			}
 		}
 	}
@@ -342,6 +344,19 @@ bool __ComplexKafkaTask::has_next()
 			}
 		}
 
+	case Kafka_SaslHandshake:
+		if (msg->get_broker()->get_error())
+		{
+			this->error = msg->get_broker()->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+			ret = false;
+		}
+		else
+			this->get_req()->set_api(Kafka_SaslAuthenticate);
+
+		break;
+
+	case Kafka_SaslAuthenticate:
 	case Kafka_Fetch:
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:

@@ -2059,6 +2059,8 @@ KafkaRequest::KafkaRequest()
 	this->encode_func_map[Kafka_ListOffsets] = std::bind(&KafkaRequest::encode_listoffset, this, _1, _2);
 	this->encode_func_map[Kafka_LeaveGroup] = std::bind(&KafkaRequest::encode_leavegroup, this, _1, _2);
 	this->encode_func_map[Kafka_ApiVersions] = std::bind(&KafkaRequest::encode_apiversions, this, _1, _2);
+	this->encode_func_map[Kafka_SaslHandshake] = std::bind(&KafkaRequest::encode_saslhandshake, this, _1, _2);
+	this->encode_func_map[Kafka_SaslAuthenticate] = std::bind(&KafkaRequest::encode_saslauthenticate, this, _1, _2);
 
 	this->api_mver_map[Kafka_Metadata] = 4;
 	this->api_mver_map[Kafka_Produce] = 7;
@@ -2072,6 +2074,8 @@ KafkaRequest::KafkaRequest()
 	this->api_mver_map[Kafka_ListOffsets] = 1;
 	this->api_mver_map[Kafka_LeaveGroup] = 1;
 	this->api_mver_map[Kafka_ApiVersions] = 0;
+	this->api_mver_map[Kafka_SaslHandshake] = 1;
+	this->api_mver_map[Kafka_SaslAuthenticate] = 0;
 }
 
 int KafkaRequest::encode_produce(struct iovec vectors[], int max)
@@ -2726,6 +2730,28 @@ int KafkaRequest::encode_apiversions(struct iovec vectors[], int max)
 	return 0;
 }
 
+int KafkaRequest::encode_saslhandshake(struct iovec vectors[], int max)
+{
+	append_string(this->msgbuf, this->config.get_sasl_mechanisms());
+
+	this->cur_size = this->msgbuf.size();
+
+	vectors[0].iov_base = (void *)this->msgbuf.c_str();
+	vectors[0].iov_len = this->msgbuf.size();
+	return 1;
+}
+
+int KafkaRequest::encode_saslauthenticate(struct iovec vectors[], int max)
+{
+	append_bytes(this->msgbuf, this->config.get_sasl()->buf, this->config.get_sasl()->bsize);
+
+	this->cur_size = this->msgbuf.size();
+
+	vectors[0].iov_base = (void *)this->msgbuf.c_str();
+	vectors[0].iov_len = this->msgbuf.size();
+	return 1;
+}
+
 KafkaResponse::KafkaResponse()
 {
 	using namespace std::placeholders;
@@ -2741,6 +2767,8 @@ KafkaResponse::KafkaResponse()
 	this->parse_func_map[Kafka_ListOffsets] = std::bind(&KafkaResponse::parse_listoffset, this, _1, _2);
 	this->parse_func_map[Kafka_LeaveGroup] = std::bind(&KafkaResponse::parse_leavegroup, this, _1, _2);
 	this->parse_func_map[Kafka_ApiVersions] = std::bind(&KafkaResponse::parse_apiversions, this, _1, _2);
+	this->parse_func_map[Kafka_SaslHandshake] = std::bind(&KafkaResponse::parse_saslhandshake, this, _1, _2);
+	this->parse_func_map[Kafka_SaslAuthenticate] = std::bind(&KafkaResponse::parse_saslanthenticate, this, _1, _2);
 }
 
 int KafkaResponse::parse_response()
@@ -3685,6 +3713,48 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 
 	std::sort(ptr->api, ptr->api + api_cnt, kafka_api_version_cmp);
 	this->broker.set_feature(kafka_get_features(ptr->api, ptr->api_elements));
+	return 0;
+}
+
+int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
+{
+	kafka_broker_t *ptr = this->broker.get_raw_ptr();
+	std::string mechanism;
+
+	CHECK_RET(parse_i16(buf, size, &ptr->error));
+	CHECK_RET(parse_string(buf, size, mechanism));
+
+	if (mechanism != this->config.get_sasl_mechanisms())
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
+	if (!this->config.new_client())
+	{
+		ptr->error = KAFKA_SASL_AUTHENTICATION_FAILED;
+		return -1;
+	}
+
+	return 0;
+}
+
+int KafkaResponse::parse_saslanthenticate(void **buf, size_t *size)
+{
+	kafka_broker_t *ptr = this->broker.get_raw_ptr();
+	std::string error_message;
+
+	CHECK_RET(parse_i16(buf, size, &ptr->error));
+	CHECK_RET(parse_string(buf, size, error_message));
+
+	std::string auth_bytes;
+	CHECK_RET(parse_string(buf, size, auth_bytes));
+	if (this->config.get_sasl()->recv(auth_bytes.c_str(), auth_bytes.size()) != 0)
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
 	return 0;
 }
 

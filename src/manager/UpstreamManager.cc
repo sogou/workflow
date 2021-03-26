@@ -147,6 +147,20 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 	return -1;
 }
 
+int UpstreamManager::upstream_delete(const std::string& name)
+{
+	WFNameService *ns = WFGlobal::get_name_service();
+	auto *policy = ns->del_policy(name.c_str());
+
+	if (policy)
+	{
+		delete policy;
+		return 1;
+	}
+
+	return 0;
+}
+
 std::vector<std::string>
 UpstreamManager::upstream_main_address_list(const std::string& name)
 {

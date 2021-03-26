@@ -278,7 +278,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 	if (redirect_)
 		clear_prev_state();
 
-	const auto params = WFGlobal::get_global_settings()->endpoint_params;
+	auto params = WFGlobal::get_global_settings()->endpoint_params;
 	struct addrinfo addrinfo = { };
 	addrinfo.ai_family = addr->sa_family;
 	addrinfo.ai_socktype = SOCK_STREAM;

@@ -131,8 +131,8 @@ public:
 	 * @brief      Delete one upstream
 	 * @param[in]  name             upstream name
 	 * @return     success/fail
-	 * @retval     0                fail, not found
-	 * @retval     1                success
+	 * @retval     0                success
+	 * @retval     -1               fail, not found
 	 */
 	static int upstream_delete(const std::string& name);
 

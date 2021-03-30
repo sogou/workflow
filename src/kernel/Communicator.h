@@ -121,6 +121,7 @@ public:
 #define CS_STATE_ERROR		1
 #define CS_STATE_STOPPED	2
 #define CS_STATE_TOREPLY	3	/* for service session only. */
+#define CS_STATE_SHUTDOWN	4	/* for channel only */
 
 class CommSession
 {
@@ -233,6 +234,38 @@ public:
 	friend class Communicator;
 };
 
+class CommChannel : public CommSession
+{
+private:
+	virtual CommMessageIn *message_in() = 0;
+	virtual int keep_alive_timeout() { return -1; }
+	virtual int first_timeout() { return -1; }
+	virtual void handle_established() = 0;
+	virtual void handle_in(CommMessageIn *msg) = 0;
+	virtual void handle_terminated() { }
+	virtual void handle(int state, int error) = 0;
+
+private:
+	virtual CommMessageOut *message_out(); /* final */
+	CommMessageOut *get_message_out() { return NULL; } /* deleted */
+
+private:
+	struct CommConnEntry *entry;
+	friend class Communicator;
+};
+
+class CommSessionOut : public CommSession
+{
+private:
+	virtual CommMessageOut *message_out(); /* final */
+	virtual CommMessageIn *message_in(); /* final */
+	CommMessageIn *get_message_in() { return NULL; } /* deleted */
+
+private:
+	struct CommConnEntry *entry;
+	friend class Communicator;
+};
+
 #define SS_STATE_COMPLETE	0
 #define SS_STATE_ERROR		1
 #define SS_STATE_DISRUPTED	2
@@ -265,6 +298,11 @@ public:
 
 	int bind(CommService *service);
 	void unbind(CommService *service);
+
+	int establish(CommChannel *channel, CommTarget *target);
+	int send(CommMessageOut *msg, CommSessionOut *session,
+			 CommChannel *channel);
+	void shutdown(CommChannel *channel);
 
 	int sleep(SleepSession *session);
 

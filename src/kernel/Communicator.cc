@@ -314,11 +314,6 @@ private:
 	friend class Communicator;
 };
 
-CommConnection *CommSession::get_connection() const
-{
-	return this->entry ? entry->conn : NULL;
-}
-
 CommSession::~CommSession()
 {
 	struct CommConnEntry *entry;
@@ -361,6 +356,18 @@ CommMessageOut *CommChannel::message_out()
 {
 	static CommMessageOutEmpty empty;
 	return &empty;
+}
+
+CommMessageOut *CommSessionOut::message_out()
+{
+	errno = EPERM;
+	return NULL;
+}
+
+CommMessageIn *CommSessionOut::message_in()
+{
+	errno = EPERM;
+	return NULL;
 }
 
 inline int Communicator::first_timeout(CommSession *session)
@@ -1225,7 +1232,7 @@ int Communicator::create_service_session(struct CommConnEntry *entry)
 		session->passive = 1;
 		entry->session = session;
 		session->target = target;
-		session->entry = entry;
+		session->conn = entry->conn;
 		session->seq = entry->seq++;
 		session->out = NULL;
 		session->in = NULL;
@@ -1359,7 +1366,7 @@ void Communicator::callback(struct poller_result *res, void *context)
 			}
 
 			free(entry);
-			entry = session->entry;
+			entry = ((CommSessionOut *)session)->entry;
 			session->handle(state, res->error);
 			session = entry->session;
 		}
@@ -1622,7 +1629,7 @@ int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
 	if (entry)
 	{
 		entry->session = session;
-		session->entry = entry;
+		session->conn = entry->conn;
 		session->seq = entry->seq++;
 		session->out = session->message_out();
 		if (session->out)
@@ -1665,7 +1672,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 		entry = this->launch_conn(session, target);
 		if (entry)
 		{
-			session->entry = entry;
+			session->conn = entry->conn;
 			session->seq = entry->seq++;
 			data.operation = PD_OP_CONNECT;
 			data.fd = entry->sockfd;
@@ -1677,7 +1684,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 			this->release_conn(entry);
 		}
 
-		session->entry = NULL;
+		session->conn = NULL;
 		session->seq = 0;
 		return -1;
 	}
@@ -1838,21 +1845,18 @@ int Communicator::establish(CommChannel *channel, CommTarget *target)
 	return -1;
 }
 
-void Communicator::prep_send(CommSession *session, CommChannel *channel)
-{
-	session->target = channel->target;
-	session->entry = channel->entry;
-	session->in = NULL;
-	session->seq = 0;
-}
-
-int Communicator::send(CommMessageOut *msg, CommSession *session,
+int Communicator::send(CommMessageOut *msg, CommSessionOut *session,
 					   CommChannel *channel)
 {
 	struct CommConnEntry *entry = channel->entry;
 	struct iovec vectors[ENCODE_IOV_MAX];
 	struct iovec *end;
 	int cnt;
+
+	session->target = channel->target;
+	session->entry = channel->entry;
+	session->in = NULL;
+	session->seq = 0;
 
 	session->out = msg;
 	cnt = msg->encode(vectors, ENCODE_IOV_MAX);
@@ -1867,8 +1871,10 @@ int Communicator::send(CommMessageOut *msg, CommSession *session,
 	if (!entry->ssl || cnt == 0)
 	{
 		cnt = __send_vectors(vectors, cnt, entry);
-		if (cnt <= 0)
-			return cnt;
+		if (cnt == 0)
+			return 1;
+		else if (cnt < 0)
+			return -1;
 	}
 
 	entry = (struct CommConnEntry *)malloc(sizeof (struct CommConnEntry));
@@ -1884,7 +1890,7 @@ int Communicator::send(CommMessageOut *msg, CommSession *session,
 			if (this->send_message_async(end - cnt, cnt, entry) >= 0)
 			{
 				__sync_add_and_fetch(&channel->entry->ref, 1);
-				return 1;
+				return 0;
 			}
 
 			close(entry->sockfd);

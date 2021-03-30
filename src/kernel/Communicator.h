@@ -134,14 +134,14 @@ private:
 
 protected:
 	CommTarget *get_target() const { return this->target; }
+	CommConnection *get_connection() const { return this->conn; }
 	CommMessageOut *get_message_out() const { return this->out; }
 	CommMessageIn *get_message_in() const { return this->in; }
 	long long get_seq() const { return this->seq; }
-	CommConnection *get_connection() const;
 
 private:
 	CommTarget *target;
-	struct CommConnEntry *entry;
+	CommConnection *conn;
 	CommMessageOut *out;
 	CommMessageIn *in;
 	long long seq;
@@ -243,8 +243,22 @@ private:
 
 private:
 	virtual CommMessageOut *message_out(); /* final */
-	virtual CommMessageOut *get_message_out() { return NULL; } /* deleted */
+	CommMessageOut *get_message_out() { return NULL; } /* deleted */
 
+private:
+	struct CommConnEntry *entry;
+	friend class Communicator;
+};
+
+class CommSessionOut : public CommSession
+{
+private:
+	virtual CommMessageOut *message_out(); /* final */
+	virtual CommMessageIn *message_in(); /* final */
+	CommMessageIn *get_message_in() { return NULL; } /* deleted */
+
+private:
+	struct CommConnEntry *entry;
 	friend class Communicator;
 };
 
@@ -282,8 +296,8 @@ public:
 	void unbind(CommService *service);
 
 	int establish(CommChannel *channel, CommTarget *target);
-	void prep_send(CommSession *session, CommChannel *channel);
-	int send(CommMessageOut *msg, CommSession *session, CommChannel *channel);
+	int send(CommMessageOut *msg, CommSessionOut *session,
+			 CommChannel *channel);
 	void shutdown(CommChannel *channel);
 
 	int sleep(SleepSession *session);

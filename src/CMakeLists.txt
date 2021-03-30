@@ -1,7 +1,19 @@
 cmake_minimum_required(VERSION 3.6)
 
-find_package(OpenSSL REQUIRED)
-include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
+## liuyang modified: change depend openssl to android so ##
+# find_package(OpenSSL REQUIRED)
+# include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
+################################################################
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+    find_package(OpenSSL REQUIRED)
+    include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
+else()
+    include_directories(${INC_DIR} ${INC_DIR}/workflow)
+	set(OPENSSL_ROOT_DIR ${PROJECT_SOURCE_DIR}/openssl/${ANDROID_ABI})
+	set(OPENSSL_INCLUDE_DIR ${OPENSSL_ROOT_DIR}/include)
+	set(OPENSSL_LIBRARIES ${OPENSSL_ROOT_DIR}/lib/libcrypto.so ${OPENSSL_ROOT_DIR}/lib/libssl.so)
+endif ()
+## liuyang modified: change depend openssl to android so ##
 
 add_subdirectory(kernel)
 add_subdirectory(util)
@@ -23,18 +35,42 @@ add_dependencies(nameservice LINK_HEADERS)
 add_dependencies(server LINK_HEADERS)
 add_dependencies(client LINK_HEADERS)
 
+
+## liuyang modified: change depend openssl to android so ##
+# add_library(
+# 	${PROJECT_NAME} STATIC
+# 	$<TARGET_OBJECTS:kernel>
+# 	$<TARGET_OBJECTS:util>
+# 	$<TARGET_OBJECTS:manager>
+# 	$<TARGET_OBJECTS:algorithm>
+# 	$<TARGET_OBJECTS:protocol>
+# 	$<TARGET_OBJECTS:factory>
+# 	$<TARGET_OBJECTS:nameservice>
+# 	$<TARGET_OBJECTS:server>
+# 	$<TARGET_OBJECTS:client>
+# )
+############################################################
+if(CMAKE_SHARED STREQUAL "true")
+	set(LIB_TYPE "SHARED")
+else()
+	set(LIB_TYPE "STATIC")
+endif()
 add_library(
-	${PROJECT_NAME} STATIC
-	$<TARGET_OBJECTS:kernel>
-	$<TARGET_OBJECTS:util>
-	$<TARGET_OBJECTS:manager>
-	$<TARGET_OBJECTS:algorithm>
-	$<TARGET_OBJECTS:protocol>
-	$<TARGET_OBJECTS:factory>
-	$<TARGET_OBJECTS:nameservice>
-	$<TARGET_OBJECTS:server>
-	$<TARGET_OBJECTS:client>
+    ${PROJECT_NAME} ${LIB_TYPE}
+    $<TARGET_OBJECTS:kernel>
+    $<TARGET_OBJECTS:util>
+    $<TARGET_OBJECTS:manager>
+    $<TARGET_OBJECTS:algorithm>
+    $<TARGET_OBJECTS:protocol>
+    $<TARGET_OBJECTS:factory>
+    $<TARGET_OBJECTS:nameservice>
+    $<TARGET_OBJECTS:server>
+    $<TARGET_OBJECTS:client>
 )
+if(${CMAKE_BUILD_TYPE} MATCHES "Release")
+	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS_RELEASE -s)
+endif()
+## liuyang modified: change depend openssl to android so ##
 
 if (KAFKA STREQUAL "y")
 	add_dependencies(client_kafka LINK_HEADERS)
@@ -57,8 +93,16 @@ install(
 	COMPONENT devel
 )
 
-if (APPLE)
+## liuyang modified: change depend openssl to android so ##
+#if (APPLE)
+#	set(LIBSO ${LIB_DIR}/libworkflow.a)
+###########################################################
+ if (CMAKE_SYSTEM_NAME STREQUAL "APPLE")
 	set(LIBSO ${LIB_DIR}/libworkflow.a)
+ elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
+	target_link_libraries(${PROJECT_NAME}
+	                      ${OPENSSL_LIBRARIES})
+## liuyang modified: change depend openssl to android so ##
 else ()
 	set(LIBSO ${LIB_DIR}/libworkflow.so)
 	add_custom_target(
@@ -66,7 +110,7 @@ else ()
 		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSO}
 	)
 	add_dependencies(SCRIPT_SHARED_LIB ${PROJECT_NAME})
-endif ()
+endif()
 
 if (KAFKA STREQUAL "y")
 	if (APPLE)

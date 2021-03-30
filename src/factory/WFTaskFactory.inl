@@ -62,8 +62,13 @@ inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 													 timer_callback_t callback)
 {
 	struct timespec value = {
-		.tv_sec		=	microseconds / 1000000,
-		.tv_nsec	=	microseconds % 1000000 * 1000
+		/** liuyang modified: narrowed from type 'unsigned int' to '__kernel_time_t' and 'unsigned int' to 'long' on armeabi-v7a **/
+		//.tv_sec		=	microseconds / 1000000,
+		//.tv_nsec	=	microseconds % 1000000 * 1000
+		/** liuyang modified: narrowed from type 'unsigned int' to '__kernel_time_t' and 'unsigned int' to 'long' on armeabi-v7a **/
+		.tv_sec		= static_cast<__kernel_time_t>(microseconds / 1000000),
+		.tv_nsec	= static_cast<long>(microseconds % 1000000 * 1000)
+		/** liuyang modified: narrowed from type 'unsigned int' to '__kernel_time_t' and 'unsigned int' to 'long' on armeabi-v7a **/
 	};
 	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
 							 std::move(callback));

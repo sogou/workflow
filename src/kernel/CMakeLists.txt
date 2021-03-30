@@ -3,6 +3,10 @@ project(kernel)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	set(IOSERVICE_FILE IOService_linux.cc)
+## liuyang add: change depend openssl to android so ##
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+	set(IOSERVICE_FILE IOService_linux.cc)
+## liuyang add: change depend openssl to android so ##
 elseif (UNIX)
 	set(IOSERVICE_FILE IOService_thread.cc)
 else ()

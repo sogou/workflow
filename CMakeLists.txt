@@ -53,6 +53,21 @@ foreach(header_file ${INCLUDE_HEADERS} ${INCLUDE_KERNEL_HEADERS})
 	makeLink(${PROJECT_SOURCE_DIR}/${header_file} ${INC_DIR}/${PROJECT_NAME}/${file_name} LINK_HEADERS)
 endforeach()
 
+## liuyang add: change depend openssl to android so ##
+if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+	set(OPENSSL_DIR "openssl")
+	add_custom_command(
+		TARGET LINK_HEADERS PRE_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${INC_DIR}/${OPENSSL_DIR}
+	)
+	foreach(header_file ${INCLUDE_OPENSSL_HEADERS})
+		string(REPLACE "/" ";" arr ${header_file})
+		list(GET arr -1 file_name)
+		makeLink(${PROJECT_SOURCE_DIR}/${OPENSSL_DIR}/${ANDROID_ABI}/${header_file} ${INC_DIR}/${OPENSSL_DIR}/${file_name} LINK_HEADERS)
+	endforeach()
+endif()
+## liuyang add: change depend openssl to android so ##
+
 message("CMAKE_C_FLAGS_DEBUG is ${CMAKE_C_FLAGS_DEBUG}")
 message("CMAKE_C_FLAGS_RELEASE is ${CMAKE_C_FLAGS_RELEASE}")
 message("CMAKE_C_FLAGS_RELWITHDEBINFO is ${CMAKE_C_FLAGS_RELWITHDEBINFO}")

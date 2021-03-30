@@ -41,6 +41,12 @@
 #define GET_CURRENT_SECOND	std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 #define MTTR_SECOND			30
 
+/** liuyang add: change depend openssl to android so **/
+#ifndef IPPROTO_SCTP
+#define IPPROTO_SCTP            132             /* SCTP */
+#endif
+/** liuyang add: change depend openssl to android so **/
+
 using RouteTargetTCP = RouteManager::RouteTarget;
 
 class RouteTargetUDP : public RouteManager::RouteTarget

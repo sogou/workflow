@@ -342,7 +342,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->broker_version = NULL;
 	conf->compress_type = Kafka_NoCompress;
 	conf->compress_level = 0;
-	conf->client_id = NULL;
+	conf->client_id = strdup("");
 	conf->check_crcs = 0;
 	conf->offset_store = KAFKA_OFFSET_AUTO;
 	conf->sasl.mechanisms = NULL;

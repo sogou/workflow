@@ -1752,7 +1752,7 @@ int KafkaMessage::encode_head()
 	append_i16(this->headbuf, this->api_type);
 	append_i16(this->headbuf, this->api_version);
 	append_i32(this->headbuf, 0);
-	append_nullable_string(this->headbuf, this->config.get_client_id());
+	append_string(this->headbuf, this->config.get_client_id());
 
 	return 0;
 }
@@ -2689,7 +2689,7 @@ int KafkaRequest::encode_offsetcommit(struct iovec vectors[], int max)
 		append_i32(this->msgbuf, toppar->get_partition());
 		append_i64(this->msgbuf, toppar->get_offset() + 1);
 
-		if (this->api_version > 6)
+		if (this->api_version >= 6)
 			append_i32(this->msgbuf, -1);
 
 		if (this->api_version == 1)

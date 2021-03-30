@@ -23,7 +23,6 @@ else ()
 endif ()
 
 set(TUTORIAL_LIST
-	test_channel
 	tutorial-01-wget
 	tutorial-02-redis_cli
 	tutorial-03-wget_to_redis

@@ -127,6 +127,7 @@ public:
 	virtual void server_list_change(const EndpointAddress *address, int state)
 	{}
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
+	static bool in_select_history(WFNSTracing *tracing, EndpointAddress *addr);
 
 public:
 	WFServiceGovernance()
@@ -144,7 +145,8 @@ public:
 	}
 
 private:
-	virtual bool select(const ParsedURI& uri, EndpointAddress **addr);
+	virtual bool select(const ParsedURI& uri, WFNSTracing *tracing,
+						EndpointAddress **addr);
 
 	virtual void recover_one_server(const EndpointAddress *addr)
 	{
@@ -167,9 +169,12 @@ private:
 	unsigned int mttr_second;
 
 protected:
-	virtual const EndpointAddress *first_strategy(const ParsedURI& uri);
-	virtual const EndpointAddress *another_strategy(const ParsedURI& uri);
+	virtual const EndpointAddress *first_strategy(const ParsedURI& uri,
+												  WFNSTracing *tracing);
+	virtual const EndpointAddress *another_strategy(const ParsedURI& uri,
+													WFNSTracing *tracing);
 	void check_breaker();
+	static void tracing_deleter(void *data);
 
 	std::vector<EndpointAddress *> servers; // current servers
 	std::vector<EndpointAddress *> addresses; // memory management

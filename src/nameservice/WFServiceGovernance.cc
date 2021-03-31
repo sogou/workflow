@@ -122,8 +122,10 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 {
 	EndpointAddress *addr;
 	WFRouterTask *task;
+	WFNSTracing *tracing =  params->tracing;
 
-	if (this->select(params->uri, &addr) && copy_host_port(params->uri, addr))
+	if (this->select(params->uri, tracing, &addr) &&
+		copy_host_port(params->uri, addr))
 	{
 		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
 		unsigned int dns_ttl_min = addr->params->dns_ttl_min;
@@ -132,12 +134,56 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 														 DNS_CACHE_LEVEL_1;
 		task = this->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 							endpoint_params, std::move(callback));
-		params->tracing->data = addr;
+
+		if (!tracing->data)
+			tracing->data = addr;
+		else
+		{
+			std::vector<EndpointAddress *> *v;
+
+			if (!tracing->deleter)
+			{
+				EndpointAddress *last_addr = (EndpointAddress *)tracing->data;
+				v = new std::vector<EndpointAddress *>;
+				v->push_back(last_addr);
+				tracing->deleter = WFServiceGovernance::tracing_deleter;
+				tracing->data = v;
+			}
+			else
+				v = (std::vector<EndpointAddress *> *)tracing->data;
+
+			v->push_back(addr);
+		}
 	}
 	else
 		task = new WFSelectorFailTask(std::move(callback));
 
 	return task;
+}
+
+void WFServiceGovernance::tracing_deleter(void *data)
+{
+	delete (std::vector<EndpointAddress *> *)data;
+}
+
+bool WFServiceGovernance::in_select_history(WFNSTracing *tracing,
+											EndpointAddress *addr)
+{
+	if (!tracing || !tracing->data)
+		return false;
+
+	if (!tracing->deleter)
+		return (EndpointAddress *)tracing->data == addr;
+
+	auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
+
+	for (auto *server : (*v))
+	{
+		if (server == addr)
+			return true;
+	}
+
+	return false;
 }
 
 inline void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
@@ -171,8 +217,17 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 								  WFNSTracing *tracing,
 								  CommTarget *target)
 {
+	EndpointAddress *server;
+	if (tracing->deleter)
+	{
+		auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
+		server = (*v)[v->size() - 1];
+	}
+	else
+		server = (EndpointAddress *)tracing->data;
+
 	this->rwlock.rlock();
-	this->recover_server_from_breaker((EndpointAddress *)tracing->data);
+	this->recover_server_from_breaker(server);
 	this->rwlock.unlock();
 
 	WFDNSResolver::success(result, tracing, target);
@@ -182,7 +237,14 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 								 WFNSTracing *tracing,
 								 CommTarget *target)
 {
-	EndpointAddress *server = (EndpointAddress *)tracing->data;
+	EndpointAddress *server;
+	if (tracing->deleter)
+	{
+		auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
+		server = (*v)[v->size() - 1];
+	}
+	else
+		server = (EndpointAddress *)tracing->data;
 
 	this->rwlock.rlock();
 	size_t fail_count = ++server->fail_count;
@@ -226,18 +288,21 @@ void WFServiceGovernance::check_breaker()
 	this->breaker_lock.unlock();
 }
 
-const EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri)
+const EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri,
+														   WFNSTracing *tracing)
 {
 	unsigned int idx = rand() % this->servers.size();
 	return this->servers[idx];
 }
 
-const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri)
+const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri,
+															 WFNSTracing *tracing)
 {
-	return this->first_strategy(uri);
+	return this->first_strategy(uri, tracing);
 }
 
-bool WFServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
+bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
+								 EndpointAddress **addr)
 {
 	this->rwlock.rlock();
 	unsigned int n = (unsigned int)this->servers.size();
@@ -256,13 +321,13 @@ bool WFServiceGovernance::select(const ParsedURI& uri, EndpointAddress **addr)
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_strategy(uri);
+	const EndpointAddress *select_addr = this->first_strategy(uri, tracing);
 
 	if (!select_addr ||
 		select_addr->fail_count >= select_addr->params->max_fails)
 	{
 		if (this->try_another)
-			select_addr = this->another_strategy(uri);
+			select_addr = this->another_strategy(uri, tracing);
 	}
 
 	this->rwlock.unlock();

@@ -137,8 +137,20 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
+		return policy->remove_server(address);
+
+	errno = ENOENT;
+	return -1;
+}
+
+int UpstreamManager::upstream_delete(const std::string& name)
+{
+	WFNameService *ns = WFGlobal::get_name_service();
+	WFNSPolicy *policy = ns->del_policy(name.c_str());
+
+	if (policy)
 	{
-		policy->remove_server(address);
+		delete policy;
 		return 0;
 	}
 

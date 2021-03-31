@@ -1505,7 +1505,8 @@ void Communicator::handle_connect_result(struct poller_result *res)
 		{
 			if (target->ssl_ctx)
 			{
-				if (__ssl_connect(target->ssl_ctx, entry) >= 0)
+				if (__ssl_connect(target->ssl_ctx, entry) >= 0 &&
+					target->init_ssl(entry->ssl) >= 0)
 				{
 					if (handle_incoming_ssl_connect(entry) == false)
 						return;
@@ -1578,7 +1579,9 @@ void Communicator::handle_accept_result(struct poller_result *res)
 				else
 					timeout = target->response_timeout;
 
-				if (!service->ssl_ctx || __ssl_accept(service->ssl_ctx, entry) >= 0)
+				if (!service->ssl_ctx ||
+					(__ssl_accept(service->ssl_ctx, entry) >= 0 &&
+					 service->init_ssl(entry->ssl) >= 0))
 				{
 					if (this->poller->put_io(&data, timeout) >= 0)
 						break;
@@ -1686,7 +1689,7 @@ SOCKET Communicator::nonblock_connect(CommTarget *target)
 
 SOCKET Communicator::nonblock_accept(CommService *service)
 {
-	SOCKET sockfd = service->create_accept_fd();
+	SOCKET sockfd = (SOCKET)service->create_accept_fd();
 
 	if (sockfd != INVALID_SOCKET)
 	{

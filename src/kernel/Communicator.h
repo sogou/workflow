@@ -67,6 +67,8 @@ private:
 		return new CommConnection;
 	}
 
+	virtual int init_ssl(SSL *ssl) { return 0; }
+
 public:
 	virtual void release() { }
 
@@ -194,6 +196,8 @@ private:
 	{
 		return new CommConnection;
 	}
+
+	virtual int init_ssl(SSL *ssl) { return 0; }
 
 private:
 	struct sockaddr *bind_addr;

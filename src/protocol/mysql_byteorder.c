@@ -55,7 +55,7 @@ int decode_length_safe(unsigned long long *res, const char **pos, const char *en
 		if (p + 8 > end)
 			return 0;
 
-		*res = uint4korr(p + 1);
+		*res = uint8korr(p + 1);
 		*pos = p + 9;
 		break;
 	}

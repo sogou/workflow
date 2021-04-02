@@ -59,6 +59,7 @@ private:
 class RouteTargetSCTP : public RouteManager::RouteTarget
 {
 private:
+#ifdef IPPROTO_SCTP
 	virtual int create_connect_fd()
 	{
 		const struct sockaddr *addr;
@@ -67,6 +68,13 @@ private:
 		this->get_addr(&addr, &addrlen);
 		return socket(addr->sa_family, SOCK_STREAM, IPPROTO_SCTP);
 	}
+#else
+	virtual int create_connect_fd()
+	{
+		errno = EPROTONOSUPPORT;
+		return -1;
+	}
+#endif
 };
 
 /* To support TLS SNI. */

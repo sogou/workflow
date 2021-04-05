@@ -3431,7 +3431,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 			KafkaToppar * toppar = new KafkaToppar;
 			if (!toppar->set_topic(topic_name.c_str()))
 			{
-				free(toppar);
+				delete toppar;
 				break;
 			}
 

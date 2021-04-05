@@ -342,7 +342,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->broker_version = NULL;
 	conf->compress_type = Kafka_NoCompress;
 	conf->compress_level = 0;
-	conf->client_id = strdup("");
+	conf->client_id = NULL;
 	conf->check_crcs = 0;
 	conf->offset_store = KAFKA_OFFSET_AUTO;
 	conf->sasl.mechanisms = NULL;
@@ -758,4 +758,28 @@ int kafka_sasl_set_mechanisms(kafka_config_t *conf)
 	}
 
 	return -1;
+}
+
+int kafka_sasl_set_username(const char *username, kafka_config_t *conf)
+{
+	char *t = strdup(username);
+
+	if (!t)
+		return -1;
+
+	free(conf->sasl.username);
+	conf->sasl.username = t;
+	return 0;
+}
+
+int kafka_sasl_set_passwd(const char *passwd, kafka_config_t *conf)
+{
+	char *t = strdup(passwd);
+
+	if (!t)
+		return -1;
+
+	free(conf->sasl.passwd);
+	conf->sasl.passwd = t;
+	return 0;
 }

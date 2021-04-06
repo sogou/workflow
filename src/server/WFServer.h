@@ -145,7 +145,7 @@ public:
 public:
 	size_t get_conn_count() const { return this->conn_count; }
 
-private:
+protected:
 	/* Override this function to implement server that supports TLS SNI.
 	 * "servername" will be NULL if client does not set a host name.
 	 * Returning NULL to indicate that servername is not supported. */

@@ -20,6 +20,7 @@
 #ifndef _WFSERVER_H_
 #define _WFSERVER_H_
 
+#include <openssl/ssl.h>
 #include <functional>
 #include <atomic>
 #include <mutex>
@@ -144,6 +145,15 @@ public:
 	size_t get_conn_count() const { return this->conn_count; }
 
 protected:
+	/* Override this function to implement server that supports TLS SNI.
+	 * "servername" will be NULL if client does not set a host name.
+	 * Returning NULL to indicate that servername is not supported. */
+	virtual SSL_CTX *get_server_ssl_ctx(const char *servername)
+	{
+		return this->get_ssl_ctx();
+	}
+
+protected:
 	WFServerParams params;
 
 protected:
@@ -152,6 +162,8 @@ protected:
 private:
 	int init(const struct sockaddr *bind_addr, socklen_t addrlen,
 			 const char *cert_file, const char *key_file);
+	int init_ssl_ctx(const char *cert_file, const char *key_file);
+	static long ssl_ctx_callback(SSL *ssl, int *al, void *arg);
 	virtual int create_listen_fd();
 	virtual void handle_unbound();
 

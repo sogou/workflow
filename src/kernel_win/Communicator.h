@@ -60,6 +60,8 @@ protected:
 		this->ssl_connect_timeout = ssl_connect_timeout;
 	}
 
+	SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
+
 private:
 	virtual int create_connect_fd()
 	{
@@ -184,6 +186,8 @@ protected:
 		this->ssl_ctx = ssl_ctx;
 		this->ssl_accept_timeout = ssl_accept_timeout;
 	}
+
+	SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
 
 private:
 	virtual CommSession *new_session(long long seq, CommConnection *conn) = 0;

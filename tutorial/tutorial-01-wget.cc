@@ -123,6 +123,10 @@ int main(int argc, char *argv[])
 		url = "http://" + url;
 	}
 
+	WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+	settings.endpoint_params.use_tls_sni = true;
+	WORKFLOW_library_init(&settings);
+
 	task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 										   wget_callback);
 	protocol::HttpRequest *req = task->get_req();

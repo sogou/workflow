@@ -60,19 +60,22 @@ public:
 		settings_ = *settings;
 	}
 
-	const char *get_default_port(const std::string& scheme) const
+	const char *get_default_port(const std::string& scheme)
 	{
 		const auto it = static_scheme_port_.find(scheme);
 
 		if (it != static_scheme_port_.end())
 			return it->second;
 
+		const char *port = NULL;
+		user_scheme_port_mutex_.lock();
 		const auto it2 = user_scheme_port_.find(scheme);
 
 		if (it2 != user_scheme_port_.end())
-			return it2->second.c_str();
+			port = it2->second.c_str();
 
-		return NULL;
+		user_scheme_port_mutex_.unlock();
+		return port;
 	}
 
 	void register_scheme_port(const std::string& scheme, unsigned short port)

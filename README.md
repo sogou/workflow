@@ -44,7 +44,7 @@ int main()
 
 #### Compiling and running environment
 
-* This project supports `Linux`, `macOS`, `Windows` and other operating systems.
+* This project supports `Linux`, `macOS`, `Windows`, `Android` and other operating systems.
   * `Windows` version is currently released as an independent branch, using `iocp` to implement asynchronous networking. All user interfaces are consistent with the `Linux` version.
 * Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors.
 * Relies on `OpenSSL`; `OpenSSL 1.1` and above is recommended. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch. But still need to link `crypto` for `md5` and `sha1`.

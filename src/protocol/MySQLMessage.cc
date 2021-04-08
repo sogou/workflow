@@ -101,7 +101,7 @@ int MySQLMessage::append(const void *buf, size_t *size)
 	{
 		seqid_ = mysql_stream_get_seq(stream_);
 		mysql_stream_get_buf(&stream_buf, &stream_len, stream_);
-		ret = decode_packet((const char *)stream_buf, stream_len);
+		ret = decode_packet((const unsigned char *)stream_buf, stream_len);
 		if (ret == -2)
 		{
 			errno = EBADMSG;
@@ -114,10 +114,10 @@ int MySQLMessage::append(const void *buf, size_t *size)
 
 int MySQLMessage::encode(struct iovec vectors[], int max)
 {
-	const char *p = buf_.c_str();
+	const unsigned char *p = (unsigned char *)buf_.c_str();
 	size_t nleft = buf_.size();
 	uint8_t seqid_start = seqid_;
-	char *head;
+	unsigned char *head;
 	uint32_t length;
 	int i = 0;
 
@@ -131,7 +131,7 @@ int MySQLMessage::encode(struct iovec vectors[], int max)
 		vectors[i].iov_base = head;
 		vectors[i].iov_len = 4;
 		i++;
-		vectors[i].iov_base = const_cast<char *>(p);
+		vectors[i].iov_base = const_cast<unsigned char *>(p);
 		vectors[i].iov_len = length;
 		i++;
 
@@ -187,10 +187,10 @@ int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 	return this->MySQLMessage::encode(vectors, max);
 }
 
-int MySQLHandshakeResponse::decode_packet(const char *buf, size_t buflen)
+int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t buflen)
 {
-	const char *end = buf + buflen;
-	const char *pos;
+	const unsigned char *end = buf + buflen;
+	const unsigned char *pos;
 
 	if (buflen == 0)
 		return -2;
@@ -200,7 +200,7 @@ int MySQLHandshakeResponse::decode_packet(const char *buf, size_t buflen)
 	{
 		if (buflen >= 4)
 		{
-			const_cast<char *>(buf)[3] = '#';
+			const_cast<unsigned char *>(buf)[3] = '#';
 			if (mysql_parser_parse(buf, buflen, parser_) == 1)
 			{
 				disallowed_ = true;
@@ -219,7 +219,7 @@ int MySQLHandshakeResponse::decode_packet(const char *buf, size_t buflen)
 	if (pos >= end || end - pos < 43)
 		return -2;
 
-	server_version_.assign(buf, pos - buf);
+	server_version_.assign((const char *)buf, pos - buf);
 	buf = pos + 1;
 	connection_id_ = uint4korr(buf);
 	buf += 4;
@@ -261,8 +261,8 @@ static inline std::string __sha1_bin(const std::string& str)
 int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 {
 	std::string native;
-	char header[32] = {0};
-	char *pos = header;
+	unsigned char header[32] = {0};
+	unsigned char *pos = header;
 
 	int4store(pos, MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
 				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
@@ -289,17 +289,17 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	}
 
 	buf_.clear();
-	buf_.append(header, 32);
+	buf_.append((char *)header, 32);
 	buf_.append(username_.c_str(), username_.size() + 1);
 	buf_.append(native);
 	buf_.append(db_.c_str(), db_.size() + 1);
 	return this->MySQLMessage::encode(vectors, max);
 }
 
-int MySQLAuthRequest::decode_packet(const char *buf, size_t buflen)
+int MySQLAuthRequest::decode_packet(const unsigned char *buf, size_t buflen)
 {
-	const char *end = buf + buflen;
-	const char *pos;
+	const unsigned char *end = buf + buflen;
+	const unsigned char *pos;
 
 	if (buflen < 32)
 		return -2;
@@ -320,7 +320,7 @@ int MySQLAuthRequest::decode_packet(const char *buf, size_t buflen)
 	if (pos >= end)
 		return -2;
 
-	username_.assign(buf, pos - buf);
+	username_.assign((const char *)buf, pos - buf);
 	buf = pos + 1;
 
 	return 1;
@@ -336,7 +336,7 @@ void MySQLResponse::set_ok_packet()
 	buf_.append((const char *)&zero16, 2);
 }
 
-int MySQLResponse::decode_packet(const char *buf, size_t buflen)
+int MySQLResponse::decode_packet(const unsigned char *buf, size_t buflen)
 {
 	return mysql_parser_parse(buf, buflen, parser_);
 }

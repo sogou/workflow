@@ -105,6 +105,10 @@ broker_version | char * | NULL | Version number for brokers, which should be man
 compress_type | int | NoCompress | Compression type for produce messages. 
 client_id | char * | NULL | Identifier of a client.  
 check_crcs | bool | false | Flag for controlling whether to check crc32 in the messages for a fetch task. 
+offset_store | int | 0 | When joining the consumer group, whether to use the last submission offset, 1 means to use the specified offset, and 0 means to use the last submission preferentially.
+sasl_mechanisms | char * | NULL | Sasl certification type, currently only supports plain, and is on the ongoing development of sasl support.
+sasl_username | char * | NULL | Username required for sasl authentication.
+sasl_password | char * | NULL | Password required for sasl authentication.
 
 
 After configuring all the parameters, you can call **start** interface to start the Kafka task.

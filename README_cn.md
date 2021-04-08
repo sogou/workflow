@@ -39,7 +39,7 @@ int main()
   * 项目内置服务治理与负载均衡等功能。
 
 #### 编译和运行环境
-* 项目支持``Linux``，``macOS``，``Windows``等操作系统。
+* 项目支持``Linux``，``macOS``，``Windows``，``Android``等操作系统。
   *  ``Windows``版以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
 * 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器。
 * 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。

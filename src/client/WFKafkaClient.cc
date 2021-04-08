@@ -1106,7 +1106,12 @@ bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
 		}
 
 		KafkaToppar new_toppar;
-		new_toppar.set_topic_partition(toppar.get_topic(), toppar.get_partition());
+		if (!new_toppar.set_topic_partition(toppar.get_topic(), toppar.get_partition()))
+		{
+			this->lock_status.get_mutex()->unlock();
+			return false;
+		}
+
 		new_toppar.set_offset(toppar.get_offset());
 		this->toppar_list.add_item(new_toppar);
 
@@ -1136,7 +1141,12 @@ bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
 		}
 
 		KafkaToppar new_toppar;
-		new_toppar.set_topic_partition(toppar.get_topic(), toppar.get_partition());
+		if (!new_toppar.set_topic_partition(toppar.get_topic(), toppar.get_partition()))
+		{
+			this->lock_status.get_mutex()->unlock();
+			return true;
+		}
+
 		new_toppar.set_offset(toppar.get_offset());
 		this->toppar_list.add_item(new_toppar);
 
@@ -1252,7 +1262,12 @@ int ComplexKafkaTask::arrange_fetch()
 						this->toppar_list_map[node_id] = (KafkaTopparList());
 
 					KafkaToppar new_toppar;
-					new_toppar.set_topic_partition(toppar->get_topic(), toppar->get_partition());
+					if (!new_toppar.set_topic_partition(toppar->get_topic(), toppar->get_partition()))
+					{
+						this->lock_status.get_mutex()->unlock();
+						return -1;
+					}
+
 					new_toppar.set_offset(toppar->get_offset());
 					new_toppar.set_low_watermark(toppar->get_low_watermark());
 					this->toppar_list_map[node_id].add_item(std::move(new_toppar));
@@ -1275,10 +1290,15 @@ int ComplexKafkaTask::arrange_fetch()
 					}
 
 					if (this->toppar_list_map.find(node_id) == this->toppar_list_map.end())
-						this->toppar_list_map[node_id] = (KafkaTopparList());
+						this->toppar_list_map[node_id] = KafkaTopparList();
 
 					KafkaToppar new_toppar;
-					new_toppar.set_topic_partition(toppar->get_topic(), toppar->get_partition());
+					if (!new_toppar.set_topic_partition(toppar->get_topic(), toppar->get_partition()))
+					{
+						this->lock_status.get_mutex()->unlock();
+						return -1;
+					}
+
 					new_toppar.set_offset(toppar->get_offset());
 					new_toppar.set_low_watermark(toppar->get_low_watermark());
 					this->toppar_list_map[node_id].add_item(std::move(new_toppar));

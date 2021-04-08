@@ -72,11 +72,12 @@ public:
 
 	KafkaList(KafkaList&& move)
 	{
-		this->t_list = new struct list_head;
-		INIT_LIST_HEAD(this->t_list);
-		list_splice_init(move.t_list, this->t_list);
+		this->t_list = move.t_list;
+		move.t_list = new struct list_head;
+		INIT_LIST_HEAD(move.t_list);
+		this->ref = move.ref;
 		this->curpos = this->t_list;
-		this->ref = new std::atomic<int>(1);
+		move.ref = new std::atomic<int>(1);
 	}
 
 	KafkaList& operator= (KafkaList&& move)
@@ -84,11 +85,12 @@ public:
 		if (this != &move)
 		{
 			this->~KafkaList();
-			this->t_list = new struct list_head;
-			INIT_LIST_HEAD(this->t_list);
-			list_splice_init(move.t_list, this->t_list);
+			this->t_list = move.t_list;
+			move.t_list = new struct list_head;
+			INIT_LIST_HEAD(move.t_list);
+			this->ref = move.ref;
 			this->curpos = this->t_list;
-			this->ref = new std::atomic<int>(1);
+			move.ref = new std::atomic<int>(1);
 		}
 
 		return *this;
@@ -203,7 +205,7 @@ public:
 
 	void set_produce_msgset_cnt(int cnt)
 	{
-		this->ptr->produce_msgset_cnt = cnt; 
+		this->ptr->produce_msgset_cnt = cnt;
 	}
 	int get_produce_msgset_cnt() const
 	{
@@ -332,6 +334,66 @@ public:
 		this->ptr->offset_store = offset_store;
 	}
 
+	const char *get_sasl_mechanisms() const
+	{
+		return this->ptr->sasl.mechanisms;
+	}
+	bool set_sasl_mechanisms(const char *mechanisms)
+	{
+		char *p = strdup(mechanisms);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->sasl.mechanisms);
+		this->ptr->sasl.mechanisms = p;
+		if (kafka_sasl_set_mechanisms(this->ptr) != 0)
+			return false;
+
+		return true;
+	}
+
+	const char *get_sasl_username() const
+	{
+		return this->ptr->sasl.username;
+	}
+	bool set_sasl_username(const char *username)
+	{
+		return kafka_sasl_set_username(username, this->ptr) == 0;
+	}
+
+	const char *get_sasl_password() const
+	{
+		return this->ptr->sasl.passwd;
+	}
+	bool set_sasl_password(const char *passwd)
+	{
+		return kafka_sasl_set_username(passwd, this->ptr) == 0;
+	}
+
+	std::string get_sasl_info() const
+	{
+		std::string info;
+		if (strcmp(this->ptr->sasl.mechanisms, "plain") == 0)
+		{
+			info = this->ptr->sasl.username;
+			info += "|";
+			info += this->ptr->sasl.passwd;
+		}
+
+		return info;
+	}
+
+	kafka_sasl_t *get_sasl()
+	{
+		return &this->ptr->sasl;
+	}
+
+	bool new_client()
+	{
+		return this->ptr->sasl.client_new(this->ptr) == 0;
+	}
+
 public:
 	KafkaConfig()
 	{
@@ -353,9 +415,10 @@ public:
 	KafkaConfig(KafkaConfig&& move)
 	{
 		this->ptr = move.ptr;
+		this->ref = move.ref;
 		move.ptr = new kafka_config_t;
 		kafka_config_init(move.ptr);
-		this->ref = new std::atomic<int>(1);
+		move.ref = new std::atomic<int>(1);
 	}
 
 	KafkaConfig& operator= (KafkaConfig&& move)
@@ -364,9 +427,10 @@ public:
 		{
 			this->~KafkaConfig();
 			this->ptr = move.ptr;
+			this->ref = move.ref;
 			move.ptr = new kafka_config_t;
 			kafka_config_init(move.ptr);
-			this->ref = new std::atomic<int>(1);
+			move.ref = new std::atomic<int>(1);
 		}
 
 		return *this;
@@ -386,6 +450,7 @@ public:
 private:
 	kafka_config_t *ptr;
 	std::atomic<int> *ref;
+	std::string sasl_buf;
 };
 
 class KafkaRecord
@@ -454,9 +519,10 @@ public:
 	KafkaRecord(KafkaRecord&& move)
 	{
 		this->ptr = move.ptr;
+		this->ref = move.ref;
 		move.ptr = new kafka_record_t;
 		kafka_record_init(move.ptr);
-		this->ref = new std::atomic<int>(1);
+		move.ref = new std::atomic<int>(1);
 	}
 
 	KafkaRecord& operator= (KafkaRecord&& move)
@@ -465,9 +531,10 @@ public:
 		{
 			this->~KafkaRecord();
 			this->ptr = move.ptr;
+			this->ref = move.ref;
 			move.ptr = new kafka_record_t;
 			kafka_record_init(move.ptr);
-			this->ref = new std::atomic<int>(1);
+			move.ref = new std::atomic<int>(1);
 		}
 
 		return *this;
@@ -556,9 +623,10 @@ public:
 	KafkaToppar(KafkaToppar&& move)
 	{
 		this->ptr = move.ptr;
+		this->ref = move.ref;
 		move.ptr = new kafka_topic_partition_t;
 		kafka_topic_partition_init(move.ptr);
-		this->ref = new std::atomic<int>(1);
+		move.ref = new std::atomic<int>(1);
 		this->curpos = &this->ptr->record_list;
 		this->startpos = this->endpos = this->curpos;
 	}
@@ -569,9 +637,10 @@ public:
 		{
 			this->~KafkaToppar();
 			this->ptr = move.ptr;
+			this->ref = move.ref;
 			move.ptr = new kafka_topic_partition_t;
 			kafka_topic_partition_init(move.ptr);
-			this->ref = new std::atomic<int>(1);
+			move.ref = new std::atomic<int>(1);
 			this->curpos = &this->ptr->record_list;
 			this->startpos = this->endpos = this->curpos;
 		}
@@ -664,7 +733,7 @@ public:
 	{
 		this->endpos = this->curpos->next;
 	}
-	
+
 	bool record_reach_end()
 	{
 		return this->endpos == &this->ptr->record_list;
@@ -716,6 +785,11 @@ public:
 		return uri;
 	}
 
+	int get_error()
+	{
+		return this->ptr->error;
+	}
+
 public:
 	KafkaBroker()
 	{
@@ -743,9 +817,10 @@ public:
 	KafkaBroker(KafkaBroker&& move)
 	{
 		this->ptr = move.ptr;
+		this->ref = move.ref;
 		move.ptr = new kafka_broker_t;
 		kafka_broker_init(move.ptr);
-		this->ref = new std::atomic<int>(1);
+		move.ref = new std::atomic<int>(1);
 	}
 
 	KafkaBroker& operator= (KafkaBroker&& move)
@@ -754,9 +829,10 @@ public:
 		{
 			this->~KafkaBroker();
 			this->ptr = move.ptr;
+			this->ref = move.ref;
 			move.ptr = new kafka_broker_t;
 			kafka_broker_init(move.ptr);
-			this->ref = new std::atomic<int>(1);
+			move.ref = new std::atomic<int>(1);
 		}
 
 		return *this;
@@ -916,9 +992,10 @@ public:
 	KafkaMeta(KafkaMeta&& move)
 	{
 		this->ptr = move.ptr;
+		this->ref = move.ref;
 		move.ptr = new kafka_meta_t;
 		kafka_meta_init(move.ptr);
-		this->ref = new std::atomic<int>(1);
+		move.ref = new std::atomic<int>(1);
 	}
 
 	KafkaMeta& operator= (KafkaMeta&& move)
@@ -927,9 +1004,10 @@ public:
 		{
 			this->~KafkaMeta();
 			this->ptr = move.ptr;
+			this->ref = move.ref;
 			move.ptr = new kafka_meta_t;
 			kafka_meta_init(move.ptr);
-			this->ref = new std::atomic<int>(1);
+			move.ref = new std::atomic<int>(1);
 		}
 
 		return *this;

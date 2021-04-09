@@ -272,6 +272,8 @@ private:
 
 	static void kafka_meta_callback(__WFKafkaTask *task);
 
+	static void kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTask *task);
+
 	void kafka_broker_api_callback(__WFKafkaTask *task);
 
 	static void kafka_broker_callback(const ParallelWork *pwork);
@@ -302,7 +304,10 @@ private:
 
 	int arrange_commit();
 
-	KafkaBroker *get_broker(int node_id);
+	inline KafkaBroker *get_broker(int node_id)
+	{
+		return this->client_broker_map.find_item(node_id);
+	}
 
 	int get_node_id(const KafkaToppar *toppar);
 
@@ -319,11 +324,6 @@ private:
 
 	friend class WFKafkaClient;
 };
-
-KafkaBroker *ComplexKafkaTask::get_broker(int node_id)
-{
-	return this->client_broker_map.find_item(node_id);
-}
 
 int ComplexKafkaTask::get_node_id(const KafkaToppar *toppar)
 {
@@ -561,6 +561,94 @@ void ComplexKafkaTask::kafka_merge_broker_list(KafkaBrokerList *dst,
 	}
 }
 
+void ComplexKafkaTask::kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTask *task)
+{
+	if (t->config.get_broker_version())
+	{
+		t->client_broker_list.rewind();
+		KafkaBroker *broker;
+		while ((broker = t->client_broker_list.get_next()) != NULL)
+		{
+			kafka_api_version_t *api;
+			size_t api_cnt;
+			const char *brk_ver = t->config.get_broker_version();
+			int ret = kafka_api_version_is_queryable(brk_ver, &api, &api_cnt);
+
+			if (ret == 0)
+			{
+				if (!broker->allocate_api_version(api_cnt))
+				{
+					t->state = WFT_STATE_TASK_ERROR;
+					t->error = errno;
+					t->lock_status.get_mutex()->unlock();
+					return;
+				}
+
+				memcpy(broker->get_api(), api,
+					   sizeof(kafka_api_version_t) * api_cnt);
+
+				t->client_broker_map.add_item(*broker);
+			}
+			else
+			{
+				t->state = WFT_STATE_TASK_ERROR;
+				t->error = WFT_ERR_KAFKA_VERSION_DISALLOWED;
+				t->lock_status.get_mutex()->unlock();
+				return;
+			}
+		}
+
+		*t->lock_status.get_status() |= KAFKA_META_DONE;
+		*t->lock_status.get_status() &= (~(KAFKA_META_INIT|KAFKA_META_DOING));
+
+		t->state = WFT_STATE_SUCCESS;
+		t->error = 0;
+	}
+	else
+	{
+		SeriesWork *series;
+		ParallelWork *parallel = Workflow::create_parallel_work(kafka_broker_callback);
+		parallel->set_context(t);
+		t->client_broker_list.rewind();
+
+		KafkaBroker *broker;
+		while ((broker = t->client_broker_list.get_next()) != NULL)
+		{
+			auto cb = std::bind(&ComplexKafkaTask::kafka_broker_api_callback, t,
+								std::placeholders::_1);
+			__WFKafkaTask *ntask;
+			if (broker->is_to_addr())
+			{
+				const struct sockaddr *addr;
+				socklen_t socklen;
+				broker->get_broker_addr(&addr, &socklen);
+
+				ntask = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
+																t->retry_max,
+																nullptr);
+			}
+			else
+			{
+				ntask = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
+																broker->get_port(),
+																t->retry_max,
+																nullptr);
+			}
+
+			ntask->get_req()->set_config(t->config);
+			ntask->get_req()->set_broker(*broker);
+			ntask->get_req()->set_api(Kafka_ApiVersions);
+			ntask->user_data = broker;
+			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(ntask);
+			*ctask->get_mutable_ctx() = cb;
+			series = Workflow::create_series_work(ntask, nullptr);
+			parallel->add_series(series);
+		}
+		series_of(task)->push_front(parallel);
+		t->lock_status.get_mutex()->unlock();
+	}
+}
+
 void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 {
 	ComplexKafkaTask *t = (ComplexKafkaTask *)task->user_data;
@@ -572,91 +660,7 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 		kafka_merge_broker_list(&t->client_broker_list,
 								task->get_resp()->get_broker_list());
 
-		if (t->config.get_broker_version())
-		{
-			t->client_broker_list.rewind();
-			KafkaBroker *broker;
-			while ((broker = t->client_broker_list.get_next()) != NULL)
-			{
-				kafka_api_version_t *api;
-				size_t api_cnt;
-				const char *brk_ver = t->config.get_broker_version();
-				int ret = kafka_api_version_is_queryable(brk_ver, &api, &api_cnt);
-
-				if (ret == 0)
-				{
-					if (!broker->allocate_api_version(api_cnt))
-					{
-						t->state = WFT_STATE_TASK_ERROR;
-						t->error = errno;
-						t->lock_status.get_mutex()->unlock();
-						return;
-					}
-
-					memcpy(broker->get_api(), api,
-						   sizeof(kafka_api_version_t) * api_cnt);
-
-					t->client_broker_map.add_item(*broker);
-				}
-				else
-				{
-					t->state = WFT_STATE_TASK_ERROR;
-					t->error = WFT_ERR_KAFKA_VERSION_DISALLOWED;
-					t->lock_status.get_mutex()->unlock();
-					return;
-				}
-			}
-
-			*t->lock_status.get_status() |= KAFKA_META_DONE;
-			*t->lock_status.get_status() &= (~(KAFKA_META_INIT|KAFKA_META_DOING));
-
-			t->state = WFT_STATE_SUCCESS;
-			t->error = 0;
-		}
-		else
-		{
-			SeriesWork *series;
-			ParallelWork *parallel = Workflow::create_parallel_work(kafka_broker_callback);
-			parallel->set_context(t);
-			t->client_broker_list.rewind();
-
-			KafkaBroker *broker;
-			while ((broker = t->client_broker_list.get_next()) != NULL)
-			{
-				auto cb = std::bind(&ComplexKafkaTask::kafka_broker_api_callback, t,
-									std::placeholders::_1);
-				__WFKafkaTask *ntask;
-				if (broker->is_to_addr())
-				{
-					const struct sockaddr *addr;
-					socklen_t socklen;
-					broker->get_broker_addr(&addr, &socklen);
-
-					ntask = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-																	t->retry_max,
-																	nullptr);
-				}
-				else
-				{
-					ntask = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
-																	broker->get_port(),
-																	t->retry_max,
-																	nullptr);
-				}
-
-				ntask->get_req()->set_config(t->config);
-				ntask->get_req()->set_broker(*broker);
-				ntask->get_req()->set_api(Kafka_ApiVersions);
-				ntask->user_data = broker;
-				KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(ntask);
-				*ctask->get_mutable_ctx() = cb;
-				series = Workflow::create_series_work(ntask, nullptr);
-				parallel->add_series(series);
-			}
-			series_of(task)->push_front(parallel);
-			t->lock_status.get_mutex()->unlock();
-			return;
-		}
+		kafka_process_broker_api(t, task);
 	}
 	else
 	{

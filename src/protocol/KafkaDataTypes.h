@@ -32,6 +32,7 @@
 #include <snappy.h>
 #include <snappy-sinksource.h>
 #include "list.h"
+#include "rbtree.h"
 #include "kafka_parser.h"
 
 
@@ -186,6 +187,118 @@ private:
 	struct list_head *t_list;
 	std::atomic<int> *ref;
 	struct list_head *curpos;
+};
+
+template<class T>
+class KafkaMap
+{
+public:
+	KafkaMap()
+	{
+		this->t_map = new struct rb_root;
+		this->t_map->rb_node = NULL;
+
+		this->ref = new std::atomic<int>(1);
+	}
+
+	~KafkaMap()
+	{
+		if (--*this->ref == 0)
+		{
+			T *t;
+			while (this->t_map->rb_node)
+			{
+				t = rb_entry(this->t_map->rb_node, T, rb);
+				rb_erase(this->t_map->rb_node, this->t_map);
+				delete t;
+			}
+
+			delete this->t_map;
+			delete this->ref;
+		}
+	}
+
+	KafkaMap(const KafkaMap& copy)
+	{
+		this->ref = copy.ref;
+		++*this->ref;
+		this->t_map = copy.t_map;
+	}
+
+	KafkaMap& operator= (const KafkaMap& copy)
+	{
+		this->~KafkaMap();
+		this->ref = copy.ref;
+		++*this->ref;
+		this->t_map = copy.t_map;
+		return *this;
+	}
+
+	T *find_item(int id)
+	{
+		rb_node **p = &this->t_map->rb_node;
+		T *t;
+
+		while (*p)
+		{
+			t = rb_entry(*p, T, rb);
+
+			if (id < t->get_id())
+				p = &(*p)->rb_left;
+			else if (id > t->get_id())
+				p = &(*p)->rb_right;
+			else
+				break;
+		}
+
+		return *p ? t : NULL;
+	}
+
+	void add_item(T& obj)
+	{
+		rb_node **p = &this->t_map->rb_node;
+		rb_node *parent = NULL;
+		T *t;
+		int id = obj.get_id();
+
+		while (*p)
+		{
+			parent = *p;
+			t = rb_entry(*p, T, rb);
+
+			if (id < t->get_id())
+				p = &(*p)->rb_left;
+			else if (id > t->get_id())
+				p = &(*p)->rb_right;
+			else
+				break;
+		}
+
+		if (*p == NULL)
+		{
+			T *nt = new T;
+
+			*nt = obj;
+			rb_link_node(nt->get_rb(), parent, p);
+			rb_insert_color(nt->get_rb(), this->t_map);
+		}
+	}
+
+	T *get_first_entry()
+	{
+		struct rb_node *p = rb_first(this->t_map);
+		return rb_entry(p, T, rb);
+	}
+
+	T *get_tail_entry()
+	{
+		struct rb_node *p = rb_last(this->t_map);
+		return rb_entry(p, T, rb);
+	}
+
+private:
+	struct rb_root *t_map;
+	std::atomic<int> *ref;
 };
 
 class KafkaConfig
@@ -570,6 +683,7 @@ class KafkaToppar;
 
 using KafkaMetaList = KafkaList<KafkaMeta>;
 using KafkaBrokerList = KafkaList<KafkaBroker>;
+using KafkaBrokerMap = KafkaMap<KafkaBroker>;
 using KafkaTopparList = KafkaList<KafkaToppar>;
 using KafkaRecordList = KafkaList<KafkaRecord>;
 
@@ -861,6 +975,8 @@ public:
 
 	struct list_head *get_list() { return &this->list; }
 
+	struct rb_node *get_rb() { return &this->rb; }
+
 	void set_feature(unsigned features) { this->ptr->features = features; }
 
 	bool is_equal(const struct sockaddr *addr, socklen_t socklen) const
@@ -913,6 +1029,8 @@ public:
 
 	int get_node_id() const { return this->ptr->node_id; }
 
+	int get_id () const { return this->ptr->node_id; }
+
 	bool allocate_api_version(size_t len)
 	{
 		void *p = malloc(len * sizeof(kafka_api_version_t));
@@ -942,10 +1060,12 @@ public:
 
 private:
 	struct list_head list;
+	struct rb_node rb;
 	kafka_broker_t *ptr;
 	std::atomic<int> *ref;
 
 	friend class KafkaList<KafkaBroker>;
+	friend class KafkaMap<KafkaBroker>;
 };
 
 class KafkaMeta

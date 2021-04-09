@@ -3035,7 +3035,6 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 
 int KafkaResponse::parse_metadata(void **buf, size_t *size)
 {
-
 	int throttle_time, controller_id;
 	std::string cluster_id;
 

@@ -678,13 +678,20 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 	WFTaskFactory::count_by_name(name, (unsigned int)-1);
 }
 
+struct __broker_status
+{
+	KafkaBroker *broker;
+	int state;
+	int error;
+};
+
 void ComplexKafkaTask::kafka_broker_api_callback(__WFKafkaTask *task)
 {
-	using KafkaTuple = std::tuple<int, int, void *>;
-	KafkaTuple * state_error_broker = new KafkaTuple{task->get_state(),
-													 task->get_error(),
-													 task->user_data};
-	series_of(task)->set_context(state_error_broker);
+	struct __broker_status *status = new struct __broker_status;
+	status->broker = (KafkaBroker *)task->user_data;
+	status->state = task->get_state();
+	status->error = task->get_error();
+	series_of(task)->set_context(status);
 }
 
 void ComplexKafkaTask::kafka_broker_callback(const ParallelWork *pwork)
@@ -694,21 +701,20 @@ void ComplexKafkaTask::kafka_broker_callback(const ParallelWork *pwork)
 	t->error = 0;
 
 	t->lock_status.get_mutex()->lock();
-	using KafkaTuple = std::tuple<int, int, KafkaBroker *>;
-	KafkaTuple *state_error_broker;
+	struct __broker_status *status;
 
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
-		state_error_broker = (KafkaTuple *)pwork->series_at(i)->get_context();
-		if (std::get<0>(*state_error_broker) != WFT_STATE_SUCCESS)
+		status = (struct __broker_status *)pwork->series_at(i)->get_context();
+		if (status->state != WFT_STATE_SUCCESS)
 		{
-			t->state = std::get<0>(*state_error_broker);
-			t->error = std::get<1>(*state_error_broker);
+			t->state = status->state;
+			t->error = status->error;
 		}
 		else
-			t->client_broker_map.add_item(*std::get<2>(*state_error_broker));
+			t->client_broker_map.add_item(*status->broker);
 
-		delete state_error_broker;
+		delete status;
 	}
 
 	if (t->state == WFT_STATE_SUCCESS)

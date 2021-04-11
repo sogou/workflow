@@ -23,9 +23,6 @@
 #include <ctype.h>
 #include "kafka_parser.h"
 
-
-#define MIN(a, b)	((x) <= (y) ? (x) : (y))
-
 static kafka_api_version_t kafka_api_version_queryable[] = {
 	{ Kafka_ApiVersions, 0, 0 }
 };
@@ -207,8 +204,8 @@ static int kafka_get_legacy_api_version(const char *broker_version,
 		{ "", kafka_api_version_queryable, 1 },
 		{ NULL, NULL, 0 }
 	};
-
 	int i;
+
 	for (i = 0 ; vermap[i].pfx ; i++)
 	{
 		if (!strncmp(vermap[i].pfx, broker_version, strlen(vermap[i].pfx)))
@@ -263,7 +260,7 @@ unsigned kafka_get_features(kafka_api_version_t *api, size_t api_cnt)
 	int i, fails, r;
 	const kafka_api_version_t *match;
 
-	for (i = 0 ; kafka_feature_map[i].feature != 0 ; i++)
+	for (i = 0; kafka_feature_map[i].feature != 0; i++)
 	{
 		fails = 0;
 		for (match = &kafka_feature_map[i].depends[0];
@@ -574,6 +571,7 @@ void kafka_block_deinit(kafka_block_t *block)
 int kafka_parser_append_message(const void *buf, size_t *size,
 								kafka_parser_t *parser)
 {
+	size_t s = *size;
 	int totaln;
 
 	if (parser->complete)
@@ -582,9 +580,7 @@ int kafka_parser_append_message(const void *buf, size_t *size,
 		return 1;
 	}
 
-	size_t s = *size;
-
-	if (parser->hsize + *size < 4)
+	if (parser->hsize + s < 4)
 	{
 		memcpy(parser->headbuf + parser->hsize, buf, s);
 		parser->hsize += s;
@@ -672,15 +668,12 @@ int kafka_record_header_set_kv(const void *key, size_t key_len,
 							   kafka_record_header_t *header)
 {
 	void *k = malloc(key_len);
-
-	if (!k)
-		return -1;
-
 	void *v = malloc(val_len);
 
-	if (!v)
+	if (!k || !v)
 	{
 		free(k);
+		free(v);
 		return -1;
 	}
 
@@ -728,11 +721,12 @@ int kafka_sasl_plain_client_new(void *p)
 	size_t ulen = strlen(conf->sasl.username);
 	size_t plen = strlen(conf->sasl.passwd);
 	size_t blen = ulen + plen + 3;
-	char *buf = malloc(blen);
+	size_t off = 0;
+	char *buf = (char *)malloc(blen);
+
 	if (!buf)
 		return -1;
 
-	size_t off = 0;
 	buf[off++] = '\0';
 
 	memcpy(buf + off, conf->sasl.username, ulen);
@@ -783,3 +777,4 @@ int kafka_sasl_set_passwd(const char *passwd, kafka_config_t *conf)
 	conf->sasl.passwd = t;
 	return 0;
 }
+

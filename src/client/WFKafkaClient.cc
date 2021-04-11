@@ -706,7 +706,7 @@ void ComplexKafkaTask::kafka_broker_callback(const ParallelWork *pwork)
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		status = (struct __broker_status *)pwork->series_at(i)->get_context();
-		if (status->error != WFT_STATE_SUCCESS)
+		if (status->state != WFT_STATE_SUCCESS)
 		{
 			t->state = status->state;
 			t->error = status->error;

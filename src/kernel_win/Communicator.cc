@@ -103,13 +103,29 @@ static int __bind_and_listen(SOCKET listen_sockfd, const struct sockaddr *addr, 
 
 static int __bind_any(SOCKET sockfd, int sa_family)
 {
-	struct sockaddr_in addr;
+	struct sockaddr_storage addr;
+	socklen_t addrlen;
 
-	memset(&addr, 0, sizeof (addr));
-	addr.sin_family = sa_family;
-	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = 0;
-	if (bind(sockfd, (const struct sockaddr *)&addr, sizeof (addr)) == SOCKET_ERROR)
+	memset(&addr, 0, sizeof (struct sockaddr_storage));
+	addr.ss_family = sa_family;
+	if (sa_family == AF_INET)
+	{
+		struct sockaddr_in *sin = (struct sockaddr_in *)&addr;
+		sin->sin_addr.s_addr = INADDR_ANY;
+		sin->sin_port = 0;
+		addrlen = sizeof (struct sockaddr_in);
+	}
+	else if (sa_family == AF_INET6)
+	{
+		struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addr;
+		sin6->sin6_addr = in6addr_any;
+		sin6->sin6_port = 0;
+		addrlen = sizeof (struct sockaddr_in6);
+	}
+	else
+		addrlen = sizeof (struct sockaddr_storage);
+
+	if (bind(sockfd, (struct sockaddr *)&addr, addrlen) == SOCKET_ERROR)
 		return -1;
 
 	return 0;

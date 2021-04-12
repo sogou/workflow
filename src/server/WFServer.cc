@@ -45,6 +45,42 @@ private:
 	std::atomic<size_t> *conn_count;
 };
 
+long WFServerBase::ssl_ctx_callback(SSL *ssl, int *al, void *arg)
+{
+	WFServerBase *server = (WFServerBase *)arg;
+	const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+	SSL_CTX *ssl_ctx = server->get_server_ssl_ctx(servername);
+
+	if (!ssl_ctx)
+		return SSL_TLSEXT_ERR_NOACK;
+
+	if (ssl_ctx != server->get_ssl_ctx())
+		SSL_set_SSL_CTX(ssl, ssl_ctx);
+
+	return SSL_TLSEXT_ERR_OK;
+}
+
+int WFServerBase::init_ssl_ctx(const char *cert_file, const char *key_file)
+{
+	SSL_CTX *ssl_ctx = WFGlobal::new_ssl_server_ctx();
+
+	if (!ssl_ctx)
+		return -1;
+
+	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
+	if (SSL_CTX_use_certificate_file(ssl_ctx, cert_file, SSL_FILETYPE_PEM) > 0 &&
+		SSL_CTX_use_PrivateKey_file(ssl_ctx, key_file, SSL_FILETYPE_PEM) > 0 &&
+		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback) > 0 &&
+		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this) > 0)
+	{
+		this->set_ssl(ssl_ctx, this->params.ssl_accept_timeout);
+		return 0;
+	}
+
+	SSL_CTX_free(ssl_ctx);
+	return -1;
+}
+
 int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 					   const char *cert_file, const char *key_file)
 {
@@ -61,17 +97,11 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 
 	if (key_file && cert_file)
 	{
-		SSL_CTX *ssl_ctx = WFGlobal::get_ssl_server_ctx();
-
-		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
-		if (SSL_CTX_use_certificate_file(ssl_ctx, cert_file, SSL_FILETYPE_PEM) <= 0 ||
-			SSL_CTX_use_PrivateKey_file(ssl_ctx, key_file, SSL_FILETYPE_PEM) <= 0)
+		if (this->init_ssl_ctx(cert_file, key_file) < 0)
 		{
 			this->deinit();
 			return -1;
 		}
-
-		this->set_ssl(ssl_ctx, params.ssl_accept_timeout);
 	}
 
 	this->scheduler = WFGlobal::get_scheduler();
@@ -127,12 +157,17 @@ void WFServerBase::handle_unbound()
 int WFServerBase::start(const struct sockaddr *bind_addr, socklen_t addrlen,
 						const char *cert_file, const char *key_file)
 {
+	SSL_CTX *ssl_ctx;
+
 	if (this->init(bind_addr, addrlen, cert_file, key_file) >= 0)
 	{
 		if (this->scheduler->bind(this) >= 0)
 			return 0;
 
+		ssl_ctx = this->get_ssl_ctx();
 		this->deinit();
+		if (ssl_ctx)
+			SSL_CTX_free(ssl_ctx);
 	}
 
 	return -1;
@@ -229,6 +264,7 @@ void WFServerBase::shutdown()
 
 void WFServerBase::wait_finish()
 {
+	SSL_CTX *ssl_ctx = this->get_ssl_ctx();
 	std::unique_lock<std::mutex> lock(this->mutex);
 
 	while (!this->unbind_finish)
@@ -237,5 +273,7 @@ void WFServerBase::wait_finish()
 	this->deinit();
 	this->unbind_finish = false;
 	lock.unlock();
+	if (ssl_ctx)
+		SSL_CTX_free(ssl_ctx);
 }
 

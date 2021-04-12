@@ -16,6 +16,9 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
+#ifndef _WFMYSQLCONNECTION_H_
+#define _WFMYSQLCONNECTION_H_
+
 #include <string>
 #include <utility>
 #include <functional>
@@ -70,4 +73,6 @@ WFMySQLConnection::create_disconnect_task(mysql_callback_t callback)
 	task->set_keep_alive(0);
 	return task;
 }
+
+#endif
 

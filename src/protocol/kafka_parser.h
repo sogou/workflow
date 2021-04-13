@@ -184,6 +184,15 @@ enum
 	KAFKA_FEATURE_MSGVER2 = 1<<6,
 	KAFKA_FEATURE_MSGVER1 = 1<<7,
 	KAFKA_FEATURE_ZSTD = 1<<8,
+	KAFKA_FEATURE_SASL_GSSAPI = 1<<9,
+	KAFKA_FEATURE_SASL_HANDSHAKE = 1<<10,
+	KAFKA_FEATURE_SASL_AUTH_REQ = 1<<11,
+};
+
+enum
+{
+	KAFKA_OFFSET_AUTO,
+	KAFKA_OFFSET_ASSIGN,
 };
 
 typedef struct __kafka_api_version
@@ -202,6 +211,17 @@ typedef struct __kafka_parser
 	char headbuf[4];
 	size_t hsize;
 } kafka_parser_t;
+
+typedef struct __kafka_sasl
+{
+	char *mechanisms;
+	char *username;
+	char *passwd;
+	char *buf;
+	size_t bsize;
+	int (*client_new)(void *);
+	int (*recv)(const char *buf, size_t len);
+} kafka_sasl_t;
 
 typedef struct __kafka_config
 {
@@ -227,6 +247,8 @@ typedef struct __kafka_config
 	int compress_level;
 	char *client_id;
 	int check_crcs;
+	int offset_store;
+	kafka_sasl_t sasl;
 } kafka_config_t;
 
 typedef struct __kafka_broker
@@ -241,6 +263,7 @@ typedef struct __kafka_broker
 	unsigned features;
 	kafka_api_version_t *api;
 	int api_elements;
+	short error;
 } kafka_broker_t;
 
 typedef struct __kafka_partition
@@ -418,6 +441,10 @@ unsigned kafka_get_features(kafka_api_version_t *api, size_t api_cnt);
 int kafka_api_version_is_queryable(const char *broker_version,
 								   kafka_api_version_t **api,
 								   size_t *api_cnt);
+
+int kafka_sasl_set_mechanisms(kafka_config_t *conf);
+int kafka_sasl_set_username(const char *username, kafka_config_t *conf);
+int kafka_sasl_set_passwd(const char *passwd, kafka_config_t *conf);
 
 #ifdef __cplusplus
 }

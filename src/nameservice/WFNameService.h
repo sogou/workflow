@@ -34,15 +34,10 @@ class WFRouterTask : public WFGenericTask
 {
 public:
 	RouteManager::RouteResult *get_result() { return &this->result; }
-	void *get_cookie() const { return this->cookie; }
 
 protected:
 	RouteManager::RouteResult result;
-	void *cookie;
 	std::function<void (WFRouterTask *)> callback;
-
-public:
-	void set_cookie(void *cookie) { this->cookie = cookie; }
 
 protected:
 	virtual SubTask *done()
@@ -60,7 +55,26 @@ public:
 	WFRouterTask(std::function<void (WFRouterTask *)>&& cb) :
 		callback(std::move(cb))
 	{
-		this->cookie = NULL;
+	}
+};
+
+class WFNSTracing
+{
+public:
+	void *data;
+	void (*deleter)(void *);
+
+public:
+	WFNSTracing()
+	{
+		this->data = NULL;
+		this->deleter = NULL;
+	}
+
+	~WFNSTracing()
+	{
+		if (this->deleter)
+			this->deleter(this->data);
 	}
 };
 
@@ -71,6 +85,7 @@ struct WFNSParams
 	const char *info;
 	bool fixed_addr;
 	int retry_times;
+	WFNSTracing *tracing;
 };
 
 using router_callback_t = std::function<void (WFRouterTask *)>;
@@ -81,13 +96,15 @@ public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
 											 router_callback_t callback) = 0;
 
-	virtual void success(RouteManager::RouteResult *result, void *cookie,
+	virtual void success(RouteManager::RouteResult *result,
+						 WFNSTracing *tracing,
 						 CommTarget *target)
 	{
 		RouteManager::notify_available(result->cookie, target);
 	}
 
-	virtual void failed(RouteManager::RouteResult *result, void *cookie,
+	virtual void failed(RouteManager::RouteResult *result,
+						WFNSTracing *tracing,
 						CommTarget *target)
 	{
 		if (target)

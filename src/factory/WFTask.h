@@ -346,6 +346,12 @@ public:
 	int get_state() const { return this->state; }
 	int get_error() const { return this->error; }
 
+public:
+	void set_callback(std::function<void (WFTimerTask *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
 protected:
 	virtual SubTask *done()
 	{

@@ -56,6 +56,8 @@ protected:
 		this->ssl_connect_timeout = ssl_connect_timeout;
 	}
 
+	SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
+
 private:
 	virtual int create_connect_fd()
 	{
@@ -66,6 +68,8 @@ private:
 	{
 		return new CommConnection;
 	}
+
+	virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
 	virtual void release() { }
@@ -180,6 +184,8 @@ protected:
 		this->ssl_accept_timeout = ssl_accept_timeout;
 	}
 
+	SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
+
 private:
 	virtual CommSession *new_session(long long seq, CommConnection *conn) = 0;
 	virtual void handle_stop(int error) { }
@@ -195,6 +201,8 @@ private:
 	{
 		return new CommConnection;
 	}
+
+	virtual int init_ssl(SSL *ssl) { return 0; }
 
 private:
 	struct sockaddr *bind_addr;

@@ -3,7 +3,7 @@
 ## Sogou C++ Workflow
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
-[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey.svg)](#%E9%A1%B9%E7%9B%AE%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%BE%E8%AE%A1%E7%89%B9%E7%82%B9)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
 [![Build Status](https://travis-ci.org/sogou/workflow.svg?branch=master)](https://travis-ci.org/sogou/workflow)
 
 搜狗公司C++服务器引擎，支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理超百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数C++后端开发需求。  
@@ -39,7 +39,7 @@ int main()
   * 项目内置服务治理与负载均衡等功能。
 
 #### 编译和运行环境
-* 项目支持``Linux``，``macOS``，``Windows``等操作系统。
+* 项目支持``Linux``，``macOS``，``Windows``，``Android``等操作系统。
   *  ``Windows``版以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
 * 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器。
 * 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。

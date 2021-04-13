@@ -228,6 +228,8 @@ private:
 	int encode_offsetcommit(struct iovec vectors[], int max);
 	int encode_offsetfetch(struct iovec vectors[], int max);
 	int encode_apiversions(struct iovec vectors[], int max);
+	int encode_saslhandshake(struct iovec vectors[], int max);
+	int encode_saslauthenticate(struct iovec vectors[], int max);
 };
 
 class KafkaResponse : public KafkaMessage
@@ -250,6 +252,8 @@ private:
 	int parse_offsetfetch(void **buf, size_t *size);
 	int parse_heartbeat(void **buf, size_t *size);
 	int parse_apiversions(void **buf, size_t *size);
+	int parse_saslhandshake(void **buf, size_t *size);
+	int parse_saslanthenticate(void **buf, size_t *size);
 };
 
 }

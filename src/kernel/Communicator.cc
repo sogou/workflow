@@ -916,9 +916,7 @@ void Communicator::handle_listen_result(struct poller_result *res)
 	CommService *service = (CommService *)res->data.context;
 	struct CommConnEntry *entry;
 	CommServiceTarget *target;
-	struct poller_data data;
 	int timeout;
-	int ret;
 
 	switch (res->state)
 	{
@@ -929,30 +927,29 @@ void Communicator::handle_listen_result(struct poller_result *res)
 		{
 			if (service->ssl_ctx)
 			{
-				ret = __create_ssl(service->ssl_ctx, entry);
-				if (ret >= 0)
+				if (__create_ssl(service->ssl_ctx, entry) >= 0 &&
+					service->init_ssl(entry->ssl) >= 0)
 				{
-					data.operation = PD_OP_SSL_ACCEPT;
+					res->data.operation = PD_OP_SSL_ACCEPT;
 					timeout = service->ssl_accept_timeout;
 				}
 			}
 			else
 			{
-				ret = 0;
-				data.operation = PD_OP_READ;
-				data.message = NULL;
+				res->data.operation = PD_OP_READ;
+				res->data.message = NULL;
 				timeout = target->response_timeout;
 			}
 
-			if (ret >= 0)
+			if (res->data.operation != PD_OP_LISTEN)
 			{
-				data.fd = entry->sockfd;
-				data.ssl = entry->ssl;
-				data.context = entry;
-				if (mpoller_add(&data, timeout, this->mpoller) >= 0)
+				res->data.fd = entry->sockfd;
+				res->data.ssl = entry->ssl;
+				res->data.context = entry;
+				if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
 				{
 					if (this->stop_flag)
-						mpoller_del(data.fd, this->mpoller);
+						mpoller_del(res->data.fd, this->mpoller);
 					break;
 				}
 			}
@@ -990,13 +987,16 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	case PR_ST_FINISHED:
 		if (target->ssl_ctx && !entry->ssl)
 		{
-			ret = __create_ssl(target->ssl_ctx, entry);
-			if (ret >= 0)
+			if (__create_ssl(target->ssl_ctx, entry) >= 0 &&
+				target->init_ssl(entry->ssl) >= 0)
 			{
+				ret = 0;
 				res->data.operation = PD_OP_SSL_CONNECT;
 				res->data.ssl = entry->ssl;
 				timeout = target->ssl_connect_timeout;
 			}
+			else
+				ret = -1;
 		}
 		else if ((session->out = session->message_out()) != NULL)
 		{

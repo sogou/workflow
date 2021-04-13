@@ -59,6 +59,7 @@ private:
 class RouteTargetSCTP : public RouteManager::RouteTarget
 {
 private:
+#ifdef IPPROTO_SCTP
 	virtual int create_connect_fd()
 	{
 		const struct sockaddr *addr;
@@ -67,12 +68,40 @@ private:
 		this->get_addr(&addr, &addrlen);
 		return socket(addr->sa_family, SOCK_STREAM, IPPROTO_SCTP);
 	}
+#else
+	virtual int create_connect_fd()
+	{
+		errno = EPROTONOSUPPORT;
+		return -1;
+	}
+#endif
+};
+
+/* To support TLS SNI. */
+class RouteTargetSNI : public RouteManager::RouteTarget
+{
+private:
+	virtual int init_ssl(SSL *ssl)
+	{
+		if (SSL_set_tlsext_host_name(ssl, this->hostname.c_str()) > 0)
+			return 0;
+		else
+			return -1;
+	}
+
+private:
+	std::string hostname;
+
+public:
+	RouteTargetSNI(const std::string& name) : hostname(name)
+	{
+	}
 };
 
 //  protocol_name\n user\n pass\n dbname\n ai_addr ai_addrlen \n....
 //
 
-struct RouterParams
+struct RouteParams
 {
 	TransportType transport_type;
 	const struct addrinfo *addrinfo;
@@ -82,9 +111,11 @@ struct RouterParams
 	int ssl_connect_timeout;
 	int response_timeout;
 	size_t max_connections;
+	bool use_tls_sni;
+	const std::string& hostname;
 };
 
-class Router
+class RouteResultEntry
 {
 public:
 	struct rb_node rb;
@@ -97,7 +128,7 @@ public:
 	int nleft;
 	int nbreak;
 
-	Router():
+	RouteResultEntry():
 		request_object(NULL),
 		group(NULL)
 	{
@@ -107,7 +138,7 @@ public:
 	}
 
 public:
-	int init(const struct RouterParams *params);
+	int init(const struct RouteParams *params);
 	void deinit();
 
 	void notify_unavailable(CommSchedTarget *target);
@@ -116,9 +147,9 @@ public:
 
 private:
 	void free_list();
-	CommSchedTarget *create_target(const struct RouterParams *params,
+	CommSchedTarget *create_target(const struct RouteParams *params,
 								   const struct addrinfo *addrinfo);
-	int add_group_targets(const struct RouterParams *params);
+	int add_group_targets(const struct RouteParams *params);
 };
 
 struct __breaker_node
@@ -128,16 +159,19 @@ struct __breaker_node
 	struct list_head breaker_list;
 };
 
-CommSchedTarget *Router::create_target(const struct RouterParams *params,
-									   const struct addrinfo *addr)
+CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *params,
+												 const struct addrinfo *addr)
 {
 	CommSchedTarget *target;
 
 	switch (params->transport_type)
 	{
-	case TT_TCP:
 	case TT_TCP_SSL:
-		target = new RouteTargetTCP();
+		if (params->use_tls_sni)
+			target = new RouteTargetSNI(params->hostname);
+		else
+	case TT_TCP:
+			target = new RouteTargetTCP();
 		break;
 	case TT_UDP:
 		target = new RouteTargetUDP();
@@ -162,7 +196,7 @@ CommSchedTarget *Router::create_target(const struct RouterParams *params,
 	return target;
 }
 
-int Router::init(const struct RouterParams *params)
+int RouteResultEntry::init(const struct RouteParams *params)
 {
 	const struct addrinfo *addr = params->addrinfo;
 	CommSchedTarget *target;
@@ -204,7 +238,7 @@ int Router::init(const struct RouterParams *params)
 	return -1;
 }
 
-int Router::add_group_targets(const struct RouterParams *params)
+int RouteResultEntry::add_group_targets(const struct RouteParams *params)
 {
 	const struct addrinfo *addr;
 	CommSchedTarget *target;
@@ -238,7 +272,7 @@ int Router::add_group_targets(const struct RouterParams *params)
 	return 0;
 }
 
-void Router::deinit()
+void RouteResultEntry::deinit()
 {
 	for (auto *target : this->targets)
 	{
@@ -266,7 +300,7 @@ void Router::deinit()
 	}
 }
 
-void Router::notify_unavailable(CommSchedTarget *target)
+void RouteResultEntry::notify_unavailable(CommSchedTarget *target)
 {
 	if (this->targets.size() <= 1)
 		return;
@@ -292,7 +326,7 @@ void Router::notify_unavailable(CommSchedTarget *target)
 	this->nleft--;
 }
 
-void Router::notify_available(CommSchedTarget *target)
+void RouteResultEntry::notify_available(CommSchedTarget *target)
 {
 	if (this->targets.size() <= 1 || this->nbreak == 0)
 		return;
@@ -306,7 +340,7 @@ void Router::notify_available(CommSchedTarget *target)
 		errno = errno_bak;
 }
 
-void Router::check_breaker()
+void RouteResultEntry::check_breaker()
 {
 	if (this->targets.size() <= 1 || this->nbreak == 0)
 		return;
@@ -352,7 +386,9 @@ static inline bool __addr_less(const struct addrinfo *x, const struct addrinfo *
 
 static uint64_t __generate_key(TransportType type,
 							   const struct addrinfo *addrinfo,
-							   const std::string& other_info)
+							   const std::string& other_info,
+							   const struct EndpointParams *endpoint_params,
+							   const std::string& hostname)
 {
 	std::string str = "TT";
 
@@ -361,6 +397,12 @@ static uint64_t __generate_key(TransportType type,
 	if (!other_info.empty())
 	{
 		str += other_info;
+		str += '\n';
+	}
+
+	if (type == TT_TCP_SSL && endpoint_params->use_tls_sni)
+	{
+		str += hostname;
 		str += '\n';
 	}
 
@@ -381,14 +423,14 @@ static uint64_t __generate_key(TransportType type,
 
 RouteManager::~RouteManager()
 {
-	Router *router;
+	RouteResultEntry *entry;
 
 	while (cache_.rb_node)
 	{
-		router = rb_entry(cache_.rb_node, Router, rb);
+		entry = rb_entry(cache_.rb_node, RouteResultEntry, rb);
 		rb_erase(cache_.rb_node, &cache_);
-		router->deinit();
-		delete router;
+		entry->deinit();
+		delete entry;
 	}
 }
 
@@ -396,6 +438,7 @@ int RouteManager::get(TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
 					  const struct EndpointParams *endpoint_params,
+					  const std::string& hostname,
 					  RouteResult& result)
 {
 	result.cookie = NULL;
@@ -406,24 +449,25 @@ int RouteManager::get(TransportType type,
 		return -1;
 	}
 
-	uint64_t md5_16 = __generate_key(type, addrinfo, other_info);
+	uint64_t md5_16 = __generate_key(type, addrinfo, other_info,
+									 endpoint_params, hostname);
 	rb_node **p = &cache_.rb_node;
 	rb_node *parent = NULL;
-	Router *router;
+	RouteResultEntry *entry;
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	while (*p)
 	{
 		parent = *p;
-		router = rb_entry(*p, Router, rb);
+		entry = rb_entry(*p, RouteResultEntry, rb);
 
-		if (md5_16 < router->md5_16)
+		if (md5_16 < entry->md5_16)
 			p = &(*p)->rb_left;
-		else if (md5_16 > router->md5_16)
+		else if (md5_16 > entry->md5_16)
 			p = &(*p)->rb_right;
 		else
 		{
-			router->check_breaker();
+			entry->check_breaker();
 			break;
 		}
 	}
@@ -441,7 +485,7 @@ int RouteManager::get(TransportType type,
 			ssl_connect_timeout = endpoint_params->ssl_connect_timeout;
 		}
 
-		struct RouterParams params = {
+		struct RouteParams params = {
 			.transport_type			=	type,
 			.addrinfo 				= 	addrinfo,
 			.md5_16					=	md5_16,
@@ -449,7 +493,9 @@ int RouteManager::get(TransportType type,
 			.connect_timeout		=	endpoint_params->connect_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,
 			.response_timeout		=	endpoint_params->response_timeout,
-			.max_connections		=	endpoint_params->max_connections
+			.max_connections		=	endpoint_params->max_connections,
+			.use_tls_sni			=	endpoint_params->use_tls_sni,
+			.hostname				=	hostname,
 		};
 
 		if (StringUtil::start_with(other_info, "?maxconn="))
@@ -462,23 +508,23 @@ int RouteManager::get(TransportType type,
 			params.max_connections = maxconn;
 		}
 
-		router = new Router();
-		if (router->init(&params) >= 0)
+		entry = new RouteResultEntry;
+		if (entry->init(&params) >= 0)
 		{
-			rb_link_node(&router->rb, parent, p);
-			rb_insert_color(&router->rb, &cache_);
+			rb_link_node(&entry->rb, parent, p);
+			rb_insert_color(&entry->rb, &cache_);
 		}
 		else
 		{
-			delete router;
-			router = NULL;
+			delete entry;
+			entry = NULL;
 		}
 	}
 
-	if (router)
+	if (entry)
 	{
-		result.cookie = router;
-		result.request_object = router->request_object;
+		result.cookie = entry;
+		result.request_object = entry->request_object;
 		return 0;
 	}
 
@@ -488,12 +534,12 @@ int RouteManager::get(TransportType type,
 void RouteManager::notify_unavailable(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((Router *)cookie)->notify_unavailable((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_unavailable((CommSchedTarget *)target);
 }
 
 void RouteManager::notify_available(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((Router *)cookie)->notify_available((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_available((CommSchedTarget *)target);
 }
 

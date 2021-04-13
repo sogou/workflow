@@ -159,7 +159,7 @@ struct EndpointParams
     int ssl_connect_timeout;
 };
 
-// In UpstreamMananger.h
+// In ServiceGovernance.h
 struct AddressParams
 {
     struct EndpointParams endpoint_params; ///< Connection config
@@ -180,7 +180,7 @@ struct AddressParams
 大多数参数的作用一眼了然。其中endpoint_params和dns相关参数，可以覆盖全局的配置。  
 例如，全局对每个目标ip最大连接数为200，但我想为10.135.35.53设置最多1000连接数，可以这么做：
 ~~~cpp
-    UpstreamManager::upstream_create_weigthed_random("10.135.35.53", false);
+    UpstreamManager::upstream_create_weighted_random("10.135.35.53", false);
     struct AddressParams params = ADDRESS_PARAMS_DEFAULT;
     params.endpoint_params.max_connections = 1000;
     UpstreamManager::upstream_add_server("10.135.35.53", "10.135.35.53", &params);

@@ -172,7 +172,7 @@ struct EndpointParams
     int ssl_connect_timeout;
 };
 
-// In UpstreamMananger.h
+// In ServiceGovernance.h
 struct AddressParams
 {
     struct EndpointParams endpoint_params; ///< Connection config
@@ -195,7 +195,7 @@ Most of the parameters are self-explanatory. Among these parameters, endpoint\_p
 For example, if the global maximum number of connections to each target IP is 200, but you want to set a maximum of 1000 connections for 10.135.35.53, please follow the instructions below:
 
 ~~~cpp
-    UpstreamManager::upstream_create_weigthed_random("10.135.35.53", false);
+    UpstreamManager::upstream_create_weighted_random("10.135.35.53", false);
     struct AddressParams params = ADDRESS_PARAMS_DEFAULT;
     params.endpoint_params.max_connections = 1000;
     UpstreamManager::upstream_add_server("10.135.35.53", "10.135.35.53", &params);

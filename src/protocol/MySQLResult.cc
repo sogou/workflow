@@ -55,6 +55,7 @@ MySQLField::MySQLField(const void *buf, mysql_field_t *field)
 	}
 
 	this->flags = field->flags;
+	this->length = field->length;
 	this->decimals = field->decimals;
 	this->charsetnr = field->charsetnr;
 	this->data_type = field->data_type;
@@ -161,18 +162,18 @@ bool MySQLResultCursor::fetch_row(std::vector<MySQLCell>& row_arr)
 		return false;
 
 	unsigned long long len;
-	const char *data;
+	const unsigned char *data;
 	int data_type;
 
-	const char *p = (const char *)this->pos;
-	const char *end = (const char *)this->end;
+	const unsigned char *p = (const unsigned char *)this->pos;
+	const unsigned char *end = (const unsigned char *)this->end;
 	
 	row_arr.clear();
 
 	for (int i = 0; i < this->field_count; i++)
 	{
 		data_type = this->fields[i]->get_data_type();
-		if (*(const unsigned char *)p == MYSQL_PACKET_HEADER_NULL)
+		if (*p == MYSQL_PACKET_HEADER_NULL)
 		{
 			data = NULL;
 			len = 0;
@@ -210,14 +211,14 @@ bool MySQLResultCursor::fetch_row_nocopy(const void **data, size_t *len, int *da
 		return false;
 
 	unsigned long long cell_len;
-	const char *cell_data;
+	const unsigned char *cell_data;
 
-	const char *p = (const char *)this->pos;
-	const char *end = (const char *)this->end;
+	const unsigned char *p = (const unsigned char *)this->pos;
+	const unsigned char *end = (const unsigned char *)this->end;
 
 	for (int i = 0; i < this->field_count; i++)
 	{	
-		if (*(const unsigned char *)p == MYSQL_PACKET_HEADER_NULL)
+		if (*p == MYSQL_PACKET_HEADER_NULL)
 		{
 			cell_data = NULL;
 			cell_len = 0;
@@ -245,11 +246,11 @@ bool MySQLResultCursor::fetch_all(std::vector<std::vector<MySQLCell>>& rows)
 		return false;
 
 	unsigned long long len;
-	const char *data;
+	const unsigned char *data;
 	int data_type;
 
-	const char *p = (const char *)this->pos;
-	const char *end = (const char *)this->end;
+	const unsigned char *p = (const unsigned char *)this->pos;
+	const unsigned char *end = (const unsigned char *)this->end;
 
 	rows.clear();
 
@@ -259,7 +260,7 @@ bool MySQLResultCursor::fetch_all(std::vector<std::vector<MySQLCell>>& rows)
 		for (int j = 0; j < this->field_count; j++)
 		{
 			data_type = this->fields[j]->get_data_type();
-			if (*(const unsigned char *)p == MYSQL_PACKET_HEADER_NULL)
+			if (*p == MYSQL_PACKET_HEADER_NULL)
 			{
 				data = NULL;
 				len = 0;

@@ -87,7 +87,10 @@ void DNSRoutine::run_local_path(const std::string& path, DNSOutput *out)
 void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 {
 	if (!in->host_.empty() && in->host_[0] == '/')
+	{
 		run_local_path(in->host_, out);
+		return;
+	}
 
 	struct addrinfo hints = {
 #ifdef AI_ADDRCONFIG

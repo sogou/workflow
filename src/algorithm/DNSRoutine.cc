@@ -16,8 +16,14 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/un.h>
+#include <netdb.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <string>
 #include "DNSRoutine.h"
 
 #define PORT_STR_MAX	5
@@ -48,27 +54,40 @@ DNSOutput& DNSOutput::operator= (DNSOutput&& move)
 	return *this;
 }
 
+void DNSRoutine::run_local_path(const std::string& path, DNSOutput *out)
+{
+	struct sockaddr_un *sun = NULL;
+
+	if (path.size() <= sizeof sun->sun_path)
+	{
+		size_t size = sizeof (struct addrinfo) + sizeof (struct sockaddr_un);
+
+		out->addrinfo_ = (struct addrinfo *)calloc(size, 1);
+		if (out->addrinfo_)
+		{
+			sun = (struct sockaddr_un *)(out->addrinfo_ + 1);
+			sun->sun_family = AF_UNIX;
+			memcpy(sun->sun_path, path.c_str(), path.size());
+
+			out->addrinfo_->ai_family = AF_UNIX;
+			out->addrinfo_->ai_socktype = SOCK_STREAM;
+			out->addrinfo_->ai_addr = (struct sockaddr *)sun;
+			size = offsetof(struct sockaddr_un, sun_path) + path.size();
+			out->addrinfo_->ai_addrlen = size;
+			out->error_ = 0;
+			return;
+		}
+	}
+	else
+		errno = EINVAL;
+
+	out->error_ = EAI_SYSTEM;
+}
+
 void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 {
 	if (!in->host_.empty() && in->host_[0] == '/')
-	{
-		out->error_ = 0;
-		out->addrinfo_ = (addrinfo*)malloc(sizeof (struct addrinfo) + sizeof (struct sockaddr_un));
-		out->addrinfo_->ai_flags = AI_ADDRCONFIG;
-		out->addrinfo_->ai_family = AF_UNIX;
-		out->addrinfo_->ai_socktype = SOCK_STREAM;
-		out->addrinfo_->ai_protocol = 0;
-		out->addrinfo_->ai_addrlen = sizeof (struct sockaddr_un);
-		out->addrinfo_->ai_addr = (struct sockaddr *)((char *)(out->addrinfo_) + sizeof (struct addrinfo));
-		out->addrinfo_->ai_canonname = NULL;
-		out->addrinfo_->ai_next = NULL;
-		struct sockaddr_un *sun = (struct sockaddr_un *)(out->addrinfo_->ai_addr);
-
-		sun->sun_family = AF_UNIX;
-		memset(sun->sun_path, 0, sizeof (sun->sun_path));
-		strcpy(sun->sun_path, in->host_.c_str());
-		return;
-	}
+		run_local_path(in->host_, out);
 
 	struct addrinfo hints = {
 #ifdef AI_ADDRCONFIG

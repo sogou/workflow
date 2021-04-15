@@ -58,7 +58,7 @@ void DNSRoutine::run_local_path(const std::string& path, DNSOutput *out)
 {
 	struct sockaddr_un *sun = NULL;
 
-	if (path.size() <= sizeof sun->sun_path)
+	if (path.size() + 1 <= sizeof sun->sun_path)
 	{
 		size_t size = sizeof (struct addrinfo) + sizeof (struct sockaddr_un);
 
@@ -72,7 +72,7 @@ void DNSRoutine::run_local_path(const std::string& path, DNSOutput *out)
 			out->addrinfo_->ai_family = AF_UNIX;
 			out->addrinfo_->ai_socktype = SOCK_STREAM;
 			out->addrinfo_->ai_addr = (struct sockaddr *)sun;
-			size = offsetof(struct sockaddr_un, sun_path) + path.size();
+			size = offsetof(struct sockaddr_un, sun_path) + path.size() + 1;
 			out->addrinfo_->ai_addrlen = size;
 			out->error_ = 0;
 			return;

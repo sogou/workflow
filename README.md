@@ -34,7 +34,7 @@ int main()
 
 * As a **multifunctional asynchronous client**, it currently supports `HTTP`, `Redis`, `MySQL` and `Kafka` protocols.
 * To implement **client/server on user-defined protocol** and build your own **RPC system**.
-  * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc and thrift protocols.
+  * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc, trpc and thrift protocols.
 * To build **asynchronous workflow**; support common **series** and **parallel** structures, and also support any **DAG** structures.
 * As a **parallel computing tool**. In addition to **networking tasks**, Sogou C++ Workflow also includes **the scheduling of computing tasks**. All types of tasks can be put into **the same** flow.
 * As a **asynchronous file IO tool** in `Linux` system, with high performance exceeding any system call. Disk file IO is also a task.

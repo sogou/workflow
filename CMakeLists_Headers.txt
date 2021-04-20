@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 
 set(COMMON_KERNEL_HEADERS
 	src/kernel/CommRequest.h
+	src/kernel/ChannelRequest.h
 	src/kernel/CommScheduler.h
 	src/kernel/Communicator.h
 	src/kernel/SleepRequest.h
@@ -82,6 +83,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFChannel.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
 	src/nameservice/WFServiceGovernance.h

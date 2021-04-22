@@ -160,21 +160,6 @@ protected:
 	virtual bool finish_once() { return true; }
 
 public:
-	void set_info(const std::string& info)
-	{
-		info_.assign(info);
-	}
-
-	void set_info(const char *info)
-	{
-		info_.assign(info);
-	}
-
-	void set_type(TransportType type)
-	{
-		type_ = type;
-	}
-
 	void init(const ParsedURI& uri)
 	{
 		uri_ = uri;
@@ -192,6 +177,13 @@ public:
 			  socklen_t addrlen,
 			  const std::string& info);
 
+	void set_transport_type(TransportType type)
+	{
+		type_ = type;
+	}
+
+	TransportType get_transport_type() const { return type_; }
+
 	const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
@@ -205,6 +197,17 @@ public:
 	{
 		redirect_ = true;
 		init(type, addr, addrlen, info);
+	}
+
+protected:
+	void set_info(const std::string& info)
+	{
+		info_.assign(info);
+	}
+
+	void set_info(const char *info)
+	{
+		info_.assign(info);
 	}
 
 protected:
@@ -224,8 +227,6 @@ protected:
 	{
 		retry_times_ = retry_max_;
 	}
-
-	TransportType get_transport_type() const { return type_; }
 
 protected:
 	TransportType type_;

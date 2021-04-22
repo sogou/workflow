@@ -464,7 +464,7 @@ bool ComplexMySQLTask::init_success()
 							 "charset:%d|rcharset:%s",
 			 username_.c_str(), password_.c_str(), db_.c_str(),
 			 character_set_, res_charset_.c_str());
-	this->WFComplexClientTask::set_type(type);
+	this->WFComplexClientTask::set_transport_type(type);
 
 	if (!transaction.empty())
 	{

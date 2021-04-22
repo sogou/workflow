@@ -167,7 +167,7 @@ bool __ComplexKafkaTask::init_success()
 		this->WFComplexClientTask::set_info(info);
 	}
 
-	this->WFComplexClientTask::set_type(type);
+	this->WFComplexClientTask::set_transport_type(type);
 	return true;
 }
 

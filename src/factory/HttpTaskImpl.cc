@@ -255,7 +255,7 @@ bool ComplexHttpTask::init_success()
 		}
 	}
 
-	this->WFComplexClientTask::set_type(is_ssl ? TT_TCP_SSL : TT_TCP);
+	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 

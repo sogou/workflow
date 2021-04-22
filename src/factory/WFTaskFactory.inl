@@ -542,7 +542,7 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 	url += buf;
 	URIParser::parse(url, uri);
 	task->init(std::move(uri));
-	task->set_type(type);
+	task->set_transport_type(type);
 	return task;
 }
 
@@ -558,7 +558,7 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 	URIParser::parse(url, uri);
 	task->init(std::move(uri));
-	task->set_type(type);
+	task->set_transport_type(type);
 	return task;
 }
 
@@ -572,7 +572,7 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 	auto *task = new WFComplexClientTask<REQ, RESP>(retry_max, std::move(callback));
 
 	task->init(uri);
-	task->set_type(type);
+	task->set_transport_type(type);
 	return task;
 }
 

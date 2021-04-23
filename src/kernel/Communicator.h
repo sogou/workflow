@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <errno.h>
 #include <time.h>
 #include <stddef.h>
 #include <pthread.h>
@@ -258,15 +259,26 @@ private:
 	friend class Communicator;
 };
 
-class CommSessionOut : public CommSession
+class TransSession : public CommSession
 {
 private:
-	virtual CommMessageOut *message_out(); /* final */
-	virtual CommMessageIn *message_in(); /* final */
-	CommMessageIn *get_message_in() { return NULL; } /* deleted */
+	virtual CommMessageOut *message_out()
+	{
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	virtual CommMessageIn *message_in()
+	{
+		errno = ENOSYS;
+		return NULL;
+	}
+
+protected:
+	CommChannel *get_channel() const { return this->channel; }
 
 private:
-	struct CommConnEntry *entry;
+	CommChannel *channel;
 	friend class Communicator;
 };
 
@@ -304,8 +316,7 @@ public:
 	void unbind(CommService *service);
 
 	int establish(CommChannel *channel, CommTarget *target);
-	int send(CommMessageOut *msg, CommSessionOut *session,
-			 CommChannel *channel);
+	int send(TransSession *session, CommChannel *channel);
 	void shutdown(CommChannel *channel);
 
 	int sleep(SleepSession *session);

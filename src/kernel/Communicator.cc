@@ -358,18 +358,6 @@ CommMessageOut *CommChannel::message_out()
 	return &empty;
 }
 
-CommMessageOut *CommSessionOut::message_out()
-{
-	errno = EPERM;
-	return NULL;
-}
-
-CommMessageIn *CommSessionOut::message_in()
-{
-	errno = EPERM;
-	return NULL;
-}
-
 inline int Communicator::first_timeout(CommSession *session)
 {
 	int timeout = session->target->response_timeout;
@@ -1366,7 +1354,7 @@ void Communicator::callback(struct poller_result *res, void *context)
 			}
 
 			free(entry);
-			entry = ((CommSessionOut *)session)->entry;
+			entry = ((TransSession *)session)->channel->entry;
 			session->handle(state, res->error);
 			session = entry->session;
 		}
@@ -1498,7 +1486,7 @@ int Communicator::create_poller(size_t poller_threads)
 
 int Communicator::init(size_t poller_threads, size_t handler_threads)
 {
-	if (poller_threads == 0 || handler_threads == 0)
+	if (poller_threads == 0)
 	{
 		errno = EINVAL;
 		return -1;
@@ -1845,21 +1833,21 @@ int Communicator::establish(CommChannel *channel, CommTarget *target)
 	return -1;
 }
 
-int Communicator::send(CommMessageOut *msg, CommSessionOut *session,
-					   CommChannel *channel)
+int Communicator::send(TransSession *session, CommChannel *channel)
 {
 	struct CommConnEntry *entry = channel->entry;
 	struct iovec vectors[ENCODE_IOV_MAX];
 	struct iovec *end;
 	int cnt;
 
-	session->target = channel->target;
-	session->entry = channel->entry;
-	session->in = NULL;
+	session->channel = channel;
 	session->seq = 0;
+	session->in = NULL;
+	session->out = session->message_out();
+	if (!session->out)
+		return -1;
 
-	session->out = msg;
-	cnt = msg->encode(vectors, ENCODE_IOV_MAX);
+	cnt = session->out->encode(vectors, ENCODE_IOV_MAX);
 	if ((unsigned int)cnt > ENCODE_IOV_MAX)
 	{
 		if (cnt > ENCODE_IOV_MAX)

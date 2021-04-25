@@ -62,8 +62,8 @@ inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 													 timer_callback_t callback)
 {
 	struct timespec value = {
-		.tv_sec		=	microseconds / 1000000,
-		.tv_nsec	=	microseconds % 1000000 * 1000
+		.tv_sec		=	(time_t)(microseconds / 1000000),
+		.tv_nsec	=	(long)(microseconds % 1000000 * 1000)
 	};
 	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
 							 std::move(callback));
@@ -303,45 +303,39 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 template<class REQ, class RESP, typename CTX>
 bool WFComplexClientTask<REQ, RESP, CTX>::set_port()
 {
-	int port = 0;
-
-	if (uri_.port && uri_.port[0])
+	if (uri_.port)
 	{
-		port = atoi(uri_.port);
-		if (port < 0 || port > 65535)
+		int port = atoi(uri_.port);
+
+		if (port <= 0 || port > 65535)
 		{
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_URI_PORT_INVALID;
 			return false;
 		}
+
+		return true;
 	}
 
-	if (port == 0 && uri_.scheme)
+	if (uri_.scheme)
 	{
 		const char *port_str = WFGlobal::get_default_port(uri_.scheme);
 
 		if (port_str)
 		{
-			size_t port_len = strlen(port_str);
-
+			uri_.port = strdup(port_str);
 			if (uri_.port)
-				free(uri_.port);
+				return true;
 
-			uri_.port = (char *)malloc(port_len + 1);
-			if (!uri_.port)
-			{
-				uri_.state = URI_STATE_ERROR;
-				uri_.error = errno;
-				this->state = WFT_STATE_SYS_ERROR;
-				this->error = errno;
-				return false;
-			}
-
-			memcpy(uri_.port, port_str, port_len + 1);
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+			return false;
 		}
 	}
 
-	return true;
+	this->state = WFT_STATE_TASK_ERROR;
+	this->error = WFT_ERR_URI_SCHEME_INVALID;
+	return false;
 }
 
 template<class REQ, class RESP, typename CTX>

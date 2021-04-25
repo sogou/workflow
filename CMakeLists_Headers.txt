@@ -22,7 +22,7 @@ if (WIN32)
 	set(INCLUDE_KERNEL_HEADERS
 		src/kernel_win/list.h
 	)
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android")
 	set(INCLUDE_KERNEL_HEADERS
 		${COMMON_KERNEL_HEADERS}
 		src/kernel/IOService_linux.h

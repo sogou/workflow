@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.6)
 
-find_package(OpenSSL REQUIRED)
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+	find_package(OpenSSL REQUIRED)
+endif ()
+
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
 add_subdirectory(kernel)

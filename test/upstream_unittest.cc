@@ -305,8 +305,8 @@ int main(int argc, char* argv[])
 		
 	EXPECT_EQ(RUN_ALL_TESTS(), 0);
 
-	EXPECT_EQ(UpstreamManager::upstream_delete("try_another"), 1);
 	EXPECT_EQ(UpstreamManager::upstream_delete("try_another"), 0);
+	EXPECT_EQ(UpstreamManager::upstream_delete("try_another"), -1);
 
 	http_server1.stop();
 	http_server2.stop();

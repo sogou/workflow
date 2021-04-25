@@ -61,19 +61,22 @@ public:
 		settings_ = *settings;
 	}
 
-	const char *get_default_port(const std::string& scheme) const
+	const char *get_default_port(const std::string& scheme)
 	{
 		const auto it = static_scheme_port_.find(scheme);
 
 		if (it != static_scheme_port_.end())
 			return it->second;
 
+		const char *port = NULL;
+		user_scheme_port_mutex_.lock();
 		const auto it2 = user_scheme_port_.find(scheme);
 
 		if (it2 != user_scheme_port_.end())
-			return it2->second.c_str();
+			port = it2->second.c_str();
 
-		return NULL;
+		user_scheme_port_mutex_.unlock();
+		return port;
 	}
 
 	void register_scheme_port(const std::string& scheme, unsigned short port)
@@ -173,7 +176,7 @@ public:
 	}
 
 	SSL_CTX *get_ssl_client_ctx() { return ssl_client_ctx_; }
-	SSL_CTX *get_ssl_server_ctx() { return ssl_server_ctx_; }
+	SSL_CTX *new_ssl_server_ctx() { return SSL_CTX_new(SSLv23_server_method()); }
 
 private:
 	__SSLManager()
@@ -189,14 +192,11 @@ private:
 
 		ssl_client_ctx_ = SSL_CTX_new(SSLv23_client_method());
 		assert(ssl_client_ctx_ != NULL);
-		ssl_server_ctx_ = SSL_CTX_new(SSLv23_server_method());
-		assert(ssl_server_ctx_ != NULL);
 	}
 
 	~__SSLManager()
 	{
 		SSL_CTX_free(ssl_client_ctx_);
-		SSL_CTX_free(ssl_server_ctx_);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		//free ssl to avoid memory leak
@@ -224,7 +224,6 @@ private:
 
 private:
 	SSL_CTX *ssl_client_ctx_;
-	SSL_CTX *ssl_server_ctx_;
 };
 
 class IOServer : public IOService
@@ -559,9 +558,9 @@ SSL_CTX *WFGlobal::get_ssl_client_ctx()
 	return __SSLManager::get_instance()->get_ssl_client_ctx();
 }
 
-SSL_CTX *WFGlobal::get_ssl_server_ctx()
+SSL_CTX *WFGlobal::new_ssl_server_ctx()
 {
-	return __SSLManager::get_instance()->get_ssl_server_ctx();
+	return __SSLManager::get_instance()->new_ssl_server_ctx();
 }
 
 ExecQueue *WFGlobal::get_exec_queue(const std::string& queue_name)

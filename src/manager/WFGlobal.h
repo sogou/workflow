@@ -111,7 +111,7 @@ public:
 	static DNSCache *get_dns_cache();
 	static RouteManager *get_route_manager();
 	static SSL_CTX *get_ssl_client_ctx();
-	static SSL_CTX *get_ssl_server_ctx();
+	static SSL_CTX *new_ssl_server_ctx();
 	static ExecQueue *get_exec_queue(const std::string& queue_name);
 	static Executor *get_compute_executor();
 	static IOService *get_io_service();

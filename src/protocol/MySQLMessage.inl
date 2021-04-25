@@ -58,7 +58,7 @@ public:
 	bool host_disallowed() const { return this->disallowed_; }
 
 private:
-	virtual int decode_packet(const char *buf, size_t buflen);
+	virtual int decode_packet(const unsigned char *buf, size_t buflen);
 
 	uint8_t protocol_version_;
 	std::string server_version_;
@@ -98,7 +98,7 @@ public:
 
 private:
 	virtual int encode(struct iovec vectors[], int max);
-	virtual int decode_packet(const char *buf, size_t buflen);
+	virtual int decode_packet(const unsigned char *buf, size_t buflen);
 
 	std::string username_;
 	std::string password_;

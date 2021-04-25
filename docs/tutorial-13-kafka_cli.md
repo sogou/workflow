@@ -98,6 +98,10 @@ broker_version | char * | NULL | 指定broker的版本号，<0.10时需要手动
 compress_type | int | NoCompress | produce消息的压缩类型
 client_id | char * | NULL | 表示client的id
 check_crcs | bool | false | fetch任务中是否校验消息的crc32
+offset_store | int | 0 | 加入消费者组时，是否使用上次提交offset，1表示使用指定的offset，0表示优先使用上次提交
+sasl_mechanisms | char * | NULL | sasl认证类型，目前只支持plain，持续开发中
+sasl_username | char * | NULL | sasl认证所需的username
+sasl_password | char * | NULL | sasl认证所需的password
 
 
 最后就可以调用start接口启动kafka任务。

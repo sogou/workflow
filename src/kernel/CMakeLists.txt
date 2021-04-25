@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 project(kernel)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android")
 	set(IOSERVICE_FILE IOService_linux.cc)
 elseif (UNIX)
 	set(IOSERVICE_FILE IOService_thread.cc)

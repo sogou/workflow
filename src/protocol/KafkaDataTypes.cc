@@ -344,9 +344,10 @@ KafkaCgroup::~KafkaCgroup()
 KafkaCgroup::KafkaCgroup(KafkaCgroup&& move)
 {
 	this->ptr = move.ptr;
+	this->ref = move.ref;
 	move.ptr = new kafka_cgroup_t;
 	kafka_cgroup_init(move.ptr);
-	this->ref = new std::atomic<int>(1);
+	move.ref = new std::atomic<int>(1);
 	this->coordinator = move.coordinator;
 	move.coordinator = NULL;
 }
@@ -357,9 +358,10 @@ KafkaCgroup& KafkaCgroup::operator= (KafkaCgroup&& move)
 	{
 		this->~KafkaCgroup();
 		this->ptr = move.ptr;
+		this->ref = move.ref;
 		move.ptr = new kafka_cgroup_t;
 		kafka_cgroup_init(move.ptr);
-		this->ref = new std::atomic<int>(1);
+		move.ref = new std::atomic<int>(1);
 		this->coordinator = move.coordinator;
 		move.coordinator = NULL;
 	}

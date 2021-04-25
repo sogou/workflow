@@ -23,9 +23,6 @@
 #include <ctype.h>
 #include "kafka_parser.h"
 
-
-#define MIN(a, b)	((x) <= (y) ? (x) : (y))
-
 static kafka_api_version_t kafka_api_version_queryable[] = {
 	{ Kafka_ApiVersions, 0, 0 }
 };
@@ -151,6 +148,28 @@ static const struct kafka_feature_map {
 		},
 	},
 	{
+		.feature = KAFKA_FEATURE_SASL_GSSAPI,
+		.depends = {
+			{ Kafka_JoinGroup, 0, 0},
+			{ Kafka_Unknown, 0, 0 },
+		},
+	},
+	{
+		.feature = KAFKA_FEATURE_SASL_HANDSHAKE,
+		.depends = {
+			{ Kafka_SaslHandshake, 0, 0},
+			{ Kafka_Unknown, 0, 0 },
+		},
+	},
+	{
+		.feature = KAFKA_FEATURE_SASL_AUTH_REQ,
+		.depends = {
+			{ Kafka_SaslHandshake, 1, 1},
+			{ Kafka_SaslAuthenticate, 0, 0},
+			{ Kafka_Unknown, 0, 0 },
+		},
+	},
+	{
 		.feature = 0,
 	},
 };
@@ -185,8 +204,8 @@ static int kafka_get_legacy_api_version(const char *broker_version,
 		{ "", kafka_api_version_queryable, 1 },
 		{ NULL, NULL, 0 }
 	};
+	int i;
 
-	int i, ret = 0;
 	for (i = 0 ; vermap[i].pfx ; i++)
 	{
 		if (!strncmp(vermap[i].pfx, broker_version, strlen(vermap[i].pfx)))
@@ -199,19 +218,14 @@ static int kafka_get_legacy_api_version(const char *broker_version,
 		}
 	}
 
-	return ret;
+	return 0;
 }
 
 int kafka_api_version_is_queryable(const char *broker_version,
 								   kafka_api_version_t **api,
 								   size_t *api_cnt)
 {
-	int ret = kafka_get_legacy_api_version(broker_version, api, api_cnt);
-
-	if (ret <= 0)
-		return ret;
-
-	return *api == kafka_api_version_queryable;
+	return kafka_get_legacy_api_version(broker_version, api, api_cnt);
 }
 
 static int kafka_api_version_key_cmp(const void *_a, const void *_b)
@@ -246,7 +260,7 @@ unsigned kafka_get_features(kafka_api_version_t *api, size_t api_cnt)
 	int i, fails, r;
 	const kafka_api_version_t *match;
 
-	for (i = 0 ; kafka_feature_map[i].feature != 0 ; i++)
+	for (i = 0; kafka_feature_map[i].feature != 0; i++)
 	{
 		fails = 0;
 		for (match = &kafka_feature_map[i].depends[0];
@@ -328,12 +342,23 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->client_id = NULL;
 	conf->check_crcs = 0;
 	conf->offset_store = KAFKA_OFFSET_AUTO;
+	conf->sasl.mechanisms = NULL;
+	conf->sasl.username = NULL;
+	conf->sasl.passwd = NULL;
+	conf->sasl.recv = NULL;
+	conf->sasl.buf = NULL;
+	conf->sasl.bsize = 0;
+	conf->sasl.client_new = NULL;
 }
 
 void kafka_config_deinit(kafka_config_t *conf)
 {
 	free(conf->broker_version);
 	free(conf->client_id);
+	free(conf->sasl.mechanisms);
+	free(conf->sasl.username);
+	free(conf->sasl.passwd);
+	free(conf->sasl.buf);
 }
 
 void kafka_partition_init(kafka_partition_t *partition)
@@ -366,6 +391,7 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->features = 0;
 	broker->api = NULL;
 	broker->api_elements = 0;
+	broker->error = 0;
 }
 
 void kafka_broker_deinit(kafka_broker_t *broker)
@@ -545,6 +571,7 @@ void kafka_block_deinit(kafka_block_t *block)
 int kafka_parser_append_message(const void *buf, size_t *size,
 								kafka_parser_t *parser)
 {
+	size_t s = *size;
 	int totaln;
 
 	if (parser->complete)
@@ -553,9 +580,7 @@ int kafka_parser_append_message(const void *buf, size_t *size,
 		return 1;
 	}
 
-	size_t s = *size;
-
-	if (parser->hsize + *size < 4)
+	if (parser->hsize + s < 4)
 	{
 		memcpy(parser->headbuf + parser->hsize, buf, s);
 		parser->hsize += s;
@@ -643,15 +668,12 @@ int kafka_record_header_set_kv(const void *key, size_t key_len,
 							   kafka_record_header_t *header)
 {
 	void *k = malloc(key_len);
-
-	if (!k)
-		return -1;
-
 	void *v = malloc(val_len);
 
-	if (!v)
+	if (!k || !v)
 	{
 		free(k);
+		free(v);
 		return -1;
 	}
 
@@ -687,3 +709,72 @@ int kafka_cgroup_set_group(const char *group, kafka_cgroup_t *cgroup)
 	cgroup->group_name = t;
 	return 0;
 }
+
+int kafka_sasl_plain_recv(const char *buf, size_t len)
+{
+	return 0;
+}
+
+int kafka_sasl_plain_client_new(void *p)
+{
+	kafka_config_t *conf = (kafka_config_t *)p;
+	size_t ulen = strlen(conf->sasl.username);
+	size_t plen = strlen(conf->sasl.passwd);
+	size_t blen = ulen + plen + 3;
+	size_t off = 0;
+	char *buf = (char *)malloc(blen);
+
+	if (!buf)
+		return -1;
+
+	buf[off++] = '\0';
+
+	memcpy(buf + off, conf->sasl.username, ulen);
+	buf[off++] = '\0';
+
+	memcpy(buf + off, conf->sasl.passwd, plen);
+
+	free(conf->sasl.buf);
+	conf->sasl.buf = buf;
+	conf->sasl.bsize = blen;
+
+	return blen;
+}
+
+int kafka_sasl_set_mechanisms(kafka_config_t *conf)
+{
+	if (strcasecmp(conf->sasl.mechanisms, "plain") == 0)
+	{
+		conf->sasl.recv = kafka_sasl_plain_recv;
+		conf->sasl.client_new = kafka_sasl_plain_client_new;
+
+		return 0;
+	}
+
+	return -1;
+}
+
+int kafka_sasl_set_username(const char *username, kafka_config_t *conf)
+{
+	char *t = strdup(username);
+
+	if (!t)
+		return -1;
+
+	free(conf->sasl.username);
+	conf->sasl.username = t;
+	return 0;
+}
+
+int kafka_sasl_set_passwd(const char *passwd, kafka_config_t *conf)
+{
+	char *t = strdup(passwd);
+
+	if (!t)
+		return -1;
+
+	free(conf->sasl.passwd);
+	conf->sasl.passwd = t;
+	return 0;
+}
+

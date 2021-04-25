@@ -294,18 +294,18 @@ bool MySQLResultCursor::fetch_row(T& row_map)
 		return false;
 
 	unsigned long long len;
-	const char *data;
+	const unsigned char *data;
 	int data_type;
 
-	const char *p = (const char *)this->pos;
-	const char *end = (const char *)this->end;
+	const unsigned char *p = (const unsigned char *)this->pos;
+	const unsigned char *end = (const unsigned char *)this->end;
 
 	row_map.clear();
 
 	for (int i = 0; i < this->field_count; i++)
 	{
 		data_type = this->fields[i]->get_data_type();
-		if (*(const unsigned char *)p == MYSQL_PACKET_HEADER_NULL)
+		if (*p == MYSQL_PACKET_HEADER_NULL)
 		{
 			data = NULL;
 			len = 0;

@@ -45,12 +45,12 @@ int get_addr_info(const char *ip, const char *port, struct addr_info *ai)
     return gai_err;
 }
 
-void process_message(ChannelInTask<protocol::HttpResponse> *task)
+void process_message(ChannelTask<protocol::HttpResponse> *task)
 {
 	fprintf(stderr, "process_message() state=%d error=%d\n",
-			task->state, task->error);
+			task->get_state(), task->get_error());
 
-	protocol::HttpResponse *resp= task->get_in_message();
+	protocol::HttpResponse *resp= task->get_message();
 	fprintf(stderr, "%s %s %s\r\n", resp->get_http_version(),
 									resp->get_status_code(),
 									resp->get_reason_phrase());
@@ -112,13 +112,13 @@ int main(int argc, const char *argv[])
 				ip, port, channel->get_state());
 		if (channel->get_state() == CHANNEL_STATE_ESTABLISHED)
 		{
-			auto *task = channel->create_out_task([&wait_group](ChannelOutTask<protocol::HttpRequest> *task){
+			auto *task = channel->create_out_task([&wait_group](ChannelTask<protocol::HttpRequest> *task){
 				fprintf(stderr, "send. state=%d error=%d\n",
-						task->state, task->error);
+						task->get_state(), task->get_error());
 				wait_group.done();
 			});
 
-			protocol::HttpRequest *req = task->get_out_message();
+			protocol::HttpRequest *req = task->get_message();
 			req->set_method(HttpMethodGet);
 			req->set_http_version("HTTP/1.1");
 			req->set_request_uri("/");
@@ -140,3 +140,4 @@ int main(int argc, const char *argv[])
 
 	return 0;
 }
+

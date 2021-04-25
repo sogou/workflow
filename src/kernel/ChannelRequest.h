@@ -16,8 +16,7 @@
 #define CHANNEL_ERROR_SENDING		3
 #define CHANNEL_ERROR_SEND			4
 
-class ChannelOutRequest;
-class ChannelInRequest;
+class ChannelRequest;
 
 class CommBaseChannel : public CommChannel
 {
@@ -64,10 +63,10 @@ public:
 
 	int get_state() { return this->state; }
 
-	int send(ChannelOutRequest *req/*, int wait_timeout*/);
+	int send(ChannelRequest *req/*, int wait_timeout*/);
 	virtual void handle(int state, int error);
 	virtual void handle_in(CommMessageIn *in);
-	virtual ChannelInRequest *new_request(CommMessageIn *in) = 0;
+	virtual ChannelRequest *new_request(CommMessageIn *in) = 0;
 
 protected:
 	Communicator *communicator;
@@ -76,6 +75,53 @@ protected:
 	int state;
 };
 
+class ChannelRequest : public SubTask, public TransSession
+{
+public:
+	ChannelRequest(CommBaseChannel *channel)
+	{
+		this->channel = channel;
+		this->passive = false;
+	}
+
+	virtual void dispatch()
+	{
+		if (this->passive) // ChannelInRequest
+		{
+			this->on_message();
+			this->subtask_done();
+		}	
+		else
+		{
+			if (!this->channel || ((CommBaseChannel *)this->channel)->send(this) < 0)
+				this->subtask_done();
+		}
+	}
+
+	// ChannelOutRequest
+	void handle(int state, int error)
+	{
+		this->state = state;
+		this->error = error;
+		this->on_send();
+	}
+
+	virtual void on_send()
+	{
+		this->subtask_done();
+	}
+
+	// ChannelInRequest
+	virtual void on_message() {}
+
+protected:
+    int state;
+    int error;
+	bool passive;
+	friend CommBaseChannel;
+};
+
+/*
 class ChannelOutRequest : public SubTask, public TransSession
 {
 public:
@@ -128,6 +174,6 @@ protected:
     int error;
 	friend CommBaseChannel;
 };
-
+*/
 #endif
 

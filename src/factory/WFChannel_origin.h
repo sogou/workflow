@@ -5,25 +5,14 @@
 #include "ChannelRequest.h"
 #include "Workflow.h"
 
-template<class MESSAGE>
-class ChannelTask : public ChannelRequest
+template<class OUT>
+class ChannelOutTask : public ChannelRequest
 {
 public:
-	ChannelTask(CommBaseChannel *channel, std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
-		ChannelRequest(channel)
+	ChannelOutTask(CommBaseChannel *channel, std::function<void (ChannelOutTask<OUT> *)>&& cb) :
+		ChannelRequest(channel),
+		send_callback(std::move(cb))
 	{
-		this->send_callback = std::move(cb);
-		this->process_message = NULL;
-		this->message = NULL;
-	}
-
-	ChannelTask(CommBaseChannel *channel, std::function<void (ChannelTask<MESSAGE> *)> *process) :
-		ChannelRequest(channel)
-	{
-		this->passive = true;
-		this->process_message = process;
-		this->send_callback = nullptr;
-		this->message = NULL;
 	}
 
 	void start()
@@ -46,26 +35,68 @@ protected:
 	virtual SubTask *done()
 	{
 		SeriesWork *series = series_of(this);
+		// set state/error
 
-		if (!this->passive && this->send_callback)
+		if (this->send_callback)
 			this->send_callback(this);
 
-		delete this->message;
 		delete this;
 		return series->pop();
 	}
 
 public:
-	void set_message(CommMessageIn *in)
+	OUT *message_out()
 	{
-		this->message = (MESSAGE *)in;
+		return &this->out;
 	}
 
-	MESSAGE *get_message()
+private:
+	OUT out;
+
+protected:
+	std::function<void (ChannelOutTask<OUT> *)> send_callback;
+};
+
+template<class IN>
+class ChannelInTask : public ChannelRequest
+{
+public:
+	ChannelInTask(std::function<void (ChannelInTask<IN> *)> *process) :
+		ChannelRequest(NULL), //
+		process_message(process)
 	{
-		if (!this->passive && !this->message)
-			this->message = new MESSAGE;
-		return this->message;
+		this->passive = true;
+	}
+
+	void start()
+	{
+`		assert(!series_of(this));
+		Workflow::start_series_work(this, nullptr);
+	}
+
+	void dismiss()
+	{
+		assert(!series_of(this));
+		delete this;
+	}
+
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+		delete this->in;
+		delete this;
+
+		return series->pop();
+	}
+
+	void set_in_message(CommMessageIn *in)
+	{
+		this->in = (IN *)in;
+	}
+
+	IN *get_in_message()
+	{
+		return this->in;
 	}
 
 	virtual void on_message()
@@ -74,18 +105,15 @@ public:
 			(*process_message)(this);
 	}
 
+	int get_state() const { return this->state; }
+	int get_error() const { return this->error; }
+//	void *user_data;
+
 private:
-	MESSAGE *message;
+	IN *in;
 
 protected:
-	virtual MESSAGE *message_out()
-	{
-		return this->message;
-	}
-
-protected:
-	std::function<void (ChannelTask<MESSAGE> *)> send_callback;
-	std::function<void (ChannelTask<MESSAGE> *)> *process_message;
+	std::function<void (ChannelInTask<IN> *)> *process_message;
 };
 
 template<class IN, class OUT>
@@ -93,15 +121,15 @@ class WFChannel : public CommBaseChannel
 {
 public:
 	WFChannel(Communicator *comm, CommTarget *target,
-			  std::function<void (ChannelTask<IN> *)>&& process_message) :
+			  std::function<void (ChannelInTask<IN> *)>&& process_message) :
 		CommBaseChannel(comm, target),
 		process_message(std::move(process_message))
 	{
 	}
 
-	ChannelTask<OUT> *create_out_task(std::function<void (ChannelTask<OUT> *)>&& cb)
+	ChannelOutTask<OUT> *create_out_task(std::function<void (ChannelOutTask<OUT> *)>&& cb)
 	{
-		return new ChannelTask<OUT>(this, std::move(cb));
+		return new ChannelOutTask<OUT>(this, std::move(cb));
 	}
 
 	int connect(std::function<void ()> on_connect)
@@ -117,11 +145,11 @@ public:
 	}
 
 public:
-	virtual ChannelTask<IN> *new_request(CommMessageIn *in)
+	virtual ChannelInTask<IN> *new_request(CommMessageIn *in)
 	{
-		ChannelTask<IN> *task = new ChannelTask<IN>(this, &this->process_message);
+		ChannelInTask<IN> *task = new ChannelInTask<IN>(&this->process_message);
 		Workflow::create_series_work(task, nullptr);
-		task->set_message(in);
+		task->set_in_message(in);
 		return task;
 	}
 
@@ -154,7 +182,7 @@ protected:
 	}
 
 public:
-	std::function<void (ChannelTask<IN> *)> process_message;
+	std::function<void (ChannelInTask<IN> *)> process_message;
 	std::function<void ()> on_connect;
 	std::function<void ()> on_close;
 };
@@ -174,7 +202,7 @@ public:
 
 	template<class IN, class OUT>
 	WFChannel<IN, OUT> *create_channel(const struct sockaddr *addr, socklen_t addrlen,
-									int connect_timeout, std::function<void (ChannelTask<IN> *)> process)
+									int connect_timeout, std::function<void (ChannelInTask<IN> *)> process)
 	{
 		// TODO: reuse target
 		CommTarget *target = new CommTarget();

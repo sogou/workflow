@@ -2,11 +2,11 @@
 
 void CommBaseChannel::handle_in(CommMessageIn *in)
 {
-	ChannelInRequest *req = this->new_request(in);
+	ChannelRequest *req = this->new_request(in);
 	req->dispatch();
 }
 
-int CommBaseChannel::send(ChannelOutRequest *req)
+int CommBaseChannel::send(ChannelRequest *req)
 {
 	if (this->state != CHANNEL_STATE_ESTABLISHED)
 	{

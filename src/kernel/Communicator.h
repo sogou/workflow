@@ -277,7 +277,7 @@ private:
 protected:
 	CommChannel *get_channel() const { return this->channel; }
 
-private:
+//private:
 	CommChannel *channel;
 	friend class Communicator;
 };

@@ -10,6 +10,7 @@
 #define CHANNEL_STATE_STOPPED		CS_STATE_STOPPED
 #define CHANNEL_STATE_SHUTDOWN		CS_STATE_SHUTDOWN
 
+#define CHANNEL_SUCCESS				0
 #define CHANNEL_ERROR_UNOPEN		CHANNEL_STATE_UNDEFINED
 #define CHANNEL_ERROR_STOPPED		CHANNEL_STATE_STOPPED
 #define CHANNEL_ERROR_SENDING		3
@@ -31,7 +32,9 @@ public:
 
 	int establish()
 	{
-		if (this->state != CHANNEL_STATE_UNDEFINED)
+		if (this->state != CHANNEL_STATE_UNDEFINED &&
+			this->state != CHANNEL_STATE_SHUTDOWN &&
+			this->state != CHANNEL_STATE_STOPPED)
 		{
 			//errno = EINVALID;
 			return -1;
@@ -73,19 +76,17 @@ protected:
 	int state;
 };
 
-class ChannelOutRequest : public SubTask, public CommSessionOut
+class ChannelOutRequest : public SubTask, public TransSession
 {
 public:
 	ChannelOutRequest(CommBaseChannel *channel)
 	{
 		this->channel = channel;
-		this->out_message = NULL;
 	}
 
 	virtual void dispatch()
 	{
-		fprintf(stderr, "ChannelOutRequest dispatch()\n");
-		if (this->channel->send(this/*, this->wait_timeout*/) < 0)
+		if (!this->channel || ((CommBaseChannel *)this->channel)->send(this) < 0)
 			this->subtask_done();
 	}
 
@@ -96,44 +97,36 @@ public:
 
 	void handle(int state, int error)
 	{
-		fprintf(stderr, "ChannelOutRequest handle()\n");
 		this->state = state;
 		this->error = error;
 		this->on_send();
 	}
 
-	virtual CommMessageOut *get_out_message() = 0;
-
+protected:
     int state;
     int error;
-	CommMessageOut *out_message;
-
-protected:
-	CommBaseChannel *channel;
+	friend CommBaseChannel;
 };
 
 class ChannelInRequest : public SubTask
 {
 public:
-	ChannelInRequest(CommBaseChannel *channel)
+	ChannelInRequest()
 	{
-		this->channel = channel;
 	}
 
 	virtual void dispatch()
 	{
-		fprintf(stderr, "ChannelInRequest dispatch()\n");
 		this->on_message();
 		this->subtask_done();
 	}
 
 	virtual void on_message() = 0;
 
+protected:
     int state;
     int error;
-
-protected:
-	CommBaseChannel *channel;
+	friend CommBaseChannel;
 };
 
 #endif

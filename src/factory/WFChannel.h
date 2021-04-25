@@ -26,6 +26,10 @@ public:
 		delete this;
 	}
 
+	int get_state() const { return this->state; }
+	int get_error() const { return this->error; }
+//	void *user_data;
+
 protected:
 	virtual SubTask *done()
 	{
@@ -40,7 +44,7 @@ protected:
 	}
 
 public:
-	OUT *get_out_message()
+	OUT *message_out()
 	{
 		return &this->out;
 	}
@@ -56,8 +60,7 @@ template<class IN>
 class ChannelInTask : public ChannelInRequest
 {
 public:
-	ChannelInTask(CommBaseChannel *channel, std::function<void (ChannelInTask<IN> *)> *process) :
-		ChannelInRequest(channel),
+	ChannelInTask(std::function<void (ChannelInTask<IN> *)> *process) :
 		process_message(process)
 	{}
 
@@ -97,6 +100,10 @@ public:
 			(*process_message)(this);
 	}
 
+	int get_state() const { return this->state; }
+	int get_error() const { return this->error; }
+//	void *user_data;
+
 private:
 	IN *in;
 
@@ -135,7 +142,7 @@ public:
 public:
 	virtual ChannelInTask<IN> *new_request(CommMessageIn *in)
 	{
-		ChannelInTask<IN> *task = new ChannelInTask<IN>(this, &this->process_message);
+		ChannelInTask<IN> *task = new ChannelInTask<IN>(&this->process_message);
 		Workflow::create_series_work(task, nullptr);
 		task->set_in_message(in);
 		return task;

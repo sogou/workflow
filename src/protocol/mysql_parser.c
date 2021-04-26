@@ -216,7 +216,7 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	}
 
 	parser->info_offset = p - (const unsigned char *)buf;
-	parser->offset += parser->info_offset + parser->info_len;
+	parser->offset = parser->info_offset + parser->info_len;
 	parser->affected_rows = (affected_rows == (unsigned long long)-1) ?
 											   0 : affected_rows;
 	parser->insert_id = (insert_id == (unsigned long long)-1) ? 0 : insert_id;

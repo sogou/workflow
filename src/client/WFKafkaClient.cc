@@ -23,7 +23,7 @@
 #include <string.h>
 #include "WFKafkaClient.h"
 
-static size_t KAFKA_HEARTBEAT_TIMEOUT = 3 * 1000;
+#define KAFKA_HEARTBEAT_INTERVAL	(3 * 1000 * 1000)
 
 #define KAFKA_META_INIT			(1<<0)
 #define KAFKA_META_DOING		(1<<1)
@@ -469,7 +469,7 @@ void ComplexKafkaTask::kafka_heartbeat_callback(__WFKafkaTask *task)
 		*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_DONE;
 		*t->get_lock_status()->get_status() &= ~KAFKA_HEARTBEAT_DOING;
 		WFTimerTask *timer_task;
-		timer_task = WFTaskFactory::create_timer_task(KAFKA_HEARTBEAT_TIMEOUT,
+		timer_task = WFTaskFactory::create_timer_task(KAFKA_HEARTBEAT_INTERVAL,
 													  kafka_timer_callback);
 		timer_task->user_data = t;
 		timer_task->start();
@@ -1658,11 +1658,6 @@ int WFKafkaClient::init(const std::string& broker, const std::string& group)
 	}
 	else
 		return -1;
-}
-
-void WFKafkaClient::set_heartbeat_interval(size_t interval_ms)
-{
-	KAFKA_HEARTBEAT_TIMEOUT = interval_ms;
 }
 
 void WFKafkaClient::deinit()

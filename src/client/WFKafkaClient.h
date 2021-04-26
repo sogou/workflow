@@ -125,8 +125,6 @@ public:
 
 	int init(const std::string& broker_url, const std::string& group);
 
-	void set_heartbeat_interval(size_t interval_ms);
-
 	void deinit();
 
 	// example: topic=xxx&topic=yyy&api=fetch

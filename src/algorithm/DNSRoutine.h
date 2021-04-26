@@ -92,6 +92,9 @@ class DNSRoutine
 {
 public:
 	static void run(const DNSInput *in, DNSOutput *out);
+
+private:
+	static void run_local_path(const std::string& path, DNSOutput *out);
 };
 
 //new WFDNSTask(queue, executor, dns_routine, callback)

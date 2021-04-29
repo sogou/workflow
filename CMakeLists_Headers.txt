@@ -54,6 +54,8 @@ set(INCLUDE_HEADERS
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
 	src/protocol/mysql_byteorder.h
+	src/protocol/WebSocketMessage.h
+	src/protocol/websocket_parser.h
 	src/server/WFServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
@@ -84,6 +86,7 @@ set(INCLUDE_HEADERS
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
 	src/factory/WFChannel.h
+	src/factory/WFChannelFactory.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
 	src/nameservice/WFServiceGovernance.h

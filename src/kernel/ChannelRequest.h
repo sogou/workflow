@@ -66,12 +66,12 @@ public:
 	int send(ChannelRequest *req/*, int wait_timeout*/);
 	virtual void handle(int state, int error);
 	virtual void handle_in(CommMessageIn *in);
-	virtual ChannelRequest *new_request(CommMessageIn *in) = 0;
 
 protected:
 	Communicator *communicator;
 	CommTarget *target;
 	pthread_mutex_t send_mutex;
+	ChannelRequest *in_session;
 	int state;
 };
 

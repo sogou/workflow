@@ -2,8 +2,7 @@
 
 void CommBaseChannel::handle_in(CommMessageIn *in)
 {
-	ChannelRequest *req = this->new_request(in);
-	req->dispatch();
+	this->in_session->dispatch();
 }
 
 int CommBaseChannel::send(ChannelRequest *req)

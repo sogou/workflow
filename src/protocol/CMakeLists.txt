@@ -7,10 +7,12 @@ set(SRC
 	mysql_stream.c
 	mysql_parser.c
 	mysql_byteorder.c
+	websocket_parser.c
 	MySQLMessage.cc
 	MySQLResult.cc
 	HttpMessage.cc
 	RedisMessage.cc
+	WebSocketMessage.cc
 	HttpUtil.cc
 )
 

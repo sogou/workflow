@@ -34,6 +34,7 @@
 #include "WFGraphTask.h"
 #include "EndpointParams.h"
 #include "WFAlgoTaskFactory.h"
+#include "WFChannelFactory.h"
 
 // Network Client/Server tasks
 

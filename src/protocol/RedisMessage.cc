@@ -31,66 +31,6 @@ typedef int64_t Rint;
 typedef std::string Rstr;
 typedef std::vector<RedisValue> Rarr;
 
-RedisValue::RedisValue(int64_t intv):
-	type_(REDIS_REPLY_TYPE_INTEGER),
-	data_(new Rint(intv))
-{
-}
-
-RedisValue::RedisValue(const char *str):
-	type_(REDIS_REPLY_TYPE_STRING),
-	data_(new Rstr(str))
-{
-}
-
-RedisValue::RedisValue(const char *str, size_t len):
-	type_(REDIS_REPLY_TYPE_STRING),
-	data_(new Rstr(str, len))
-{
-}
-
-RedisValue::RedisValue(const std::string& strv):
-	type_(REDIS_REPLY_TYPE_STRING),
-	data_(new Rstr(strv))
-{
-}
-
-RedisValue::RedisValue(const char *str, StatusTag status_tag):
-	type_(REDIS_REPLY_TYPE_STATUS),
-	data_(new Rstr(str))
-{
-}
-
-RedisValue::RedisValue(const char *str, size_t len, StatusTag status_tag):
-	type_(REDIS_REPLY_TYPE_STATUS),
-	data_(new Rstr(str, len))
-{
-}
-
-RedisValue::RedisValue(const std::string& strv, StatusTag status_tag):
-	type_(REDIS_REPLY_TYPE_STATUS),
-	data_(new Rstr(strv))
-{
-}
-
-RedisValue::RedisValue(const char *str, ErrorTag error_tag):
-	type_(REDIS_REPLY_TYPE_ERROR),
-	data_(new Rstr(str))
-{
-}
-
-RedisValue::RedisValue(const char *str, size_t len, ErrorTag error_tag):
-	type_(REDIS_REPLY_TYPE_ERROR),
-	data_(new Rstr(str, len))
-{
-}
-
-RedisValue::RedisValue(const std::string& strv, ErrorTag error_tag):
-	type_(REDIS_REPLY_TYPE_ERROR),
-	data_(new Rstr(strv))
-{
-}
-
 RedisValue& RedisValue::operator= (const RedisValue& copy)
 {
 	if (this != &copy)

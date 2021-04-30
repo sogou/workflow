@@ -1,9 +1,9 @@
 #ifndef _WEBSOCKET_PARSER_H_
 #define _WEBSOCKET_PARSER_H_
 
-#define WEBSOCKET_HEADER_LENGTH_MAX		14
-#define WEBSOCKET_HEADER_LENGTH_MIN		2
-#define WEBSOCKET_MASKING_KEY_LENGTH	4
+#define WS_HEADER_LENGTH_MAX	14
+#define WS_HEADER_LENGTH_MIN	2
+#define WS_MASKING_KEY_LENGTH	4
 
 #include <stddef.h>
 #include <stdint.h>
@@ -20,17 +20,18 @@ enum
 
 typedef struct __websocket_parser
 {
-	char fin; // TODO
+//	unsigned int fin : 1;
+	char fin;
 	char mask;
 	char opcode;
 //	unsigned int masking_key;
-	unsigned char masking_key[WEBSOCKET_MASKING_KEY_LENGTH];
+	unsigned char masking_key[WS_MASKING_KEY_LENGTH];
 	char masking_key_offset;
 	char nleft;
 	unsigned long long payload_length;
 	void *payload_data;
 	unsigned long long nreceived;
-	unsigned char header_buf[WEBSOCKET_HEADER_LENGTH_MAX];
+	unsigned char header_buf[WS_HEADER_LENGTH_MAX];
 //	unsigned char pos;
 //	char mask_flag
 } websocket_parser_t;

@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include "byteorder.h"
 #include "WebSocketMessage.h"
 
 namespace protocol
@@ -28,8 +29,8 @@ int WebSocketMessage::append(const void *buf, size_t *size)
 
 int WebSocketMessage::encode(struct iovec vectors[], int max)
 {
-	size_t header_length;
 	int cnt = 0;
+	unsigned char *p = this->parser->header_buf;
 
 	if (this->parser->opcode == WebSocketFramePing ||
 		this->parser->opcode == WebSocketFramePong ||
@@ -37,40 +38,43 @@ int WebSocketMessage::encode(struct iovec vectors[], int max)
 	{
 		this->parser->fin = 1;
 	}
+
 	// TODO: WebSocketFrameContinuation
 
-	this->parser->header_buf[0] = this->parser->fin << 7 && this->parser->opcode;
+	*p = (this->parser->fin << 7) | this->parser->opcode;
+	p++;
 
 	if (this->parser->payload_length < 126)
 	{
-		this->parser->header_buf[1] = (unsigned char)this->parser->payload_length;
-		header_length = 2;
+		*p = (unsigned char)this->parser->payload_length;
+		p++;
 	}
 	else if (this->parser->payload_length < 65536)
 	{
-		this->parser->header_buf[1] = 126;
-		uint16_t *len = (uint16_t *)(this->parser->header_buf + 2);
-		*len = this->parser->payload_length;
-		header_length = 4;
+		*p = 126;
+		p++;
+		int2store(p, this->parser->payload_length);
+		p += 4;
 	}
 	else
 	{
-		this->parser->header_buf[1] = 127;
-		uint64_t *len = (uint64_t *)(this->parser->header_buf + 2);
-		*len = this->parser->payload_length;
-		header_length = 10;
+		*p = 127;
+		p++;
+		int8store(p, this->parser->payload_length);
+		p += 8;
 	}
 
-	this->parser->header_buf[1] = this->parser->header_buf[1] & (this->parser->mask << 7);
-
 	vectors[cnt].iov_base = this->parser->header_buf;
-	vectors[cnt].iov_len = header_length;
+	vectors[cnt].iov_len = p - this->parser->header_buf;
 	cnt++;
+
+	p = this->parser->header_buf + 1;
+	*p = *p | (this->parser->mask << 7);
 
 	if (this->parser->mask)
 	{
 		vectors[cnt].iov_base = this->parser->masking_key;
-		vectors[cnt].iov_len = WEBSOCKET_MASKING_KEY_LENGTH;
+		vectors[cnt].iov_len = WS_MASKING_KEY_LENGTH;
 		cnt++;
 	}
 
@@ -86,7 +90,7 @@ int WebSocketMessage::encode(struct iovec vectors[], int max)
 
 bool WebSocketMessage::set_opcode(int opcode)
 {
-	if (opcode < WebSocketFrameContinuation || opcode >WebSocketFramePong)
+	if (opcode < WebSocketFrameContinuation || opcode > WebSocketFramePong)
 		return false;
 
 	this->parser->opcode = opcode;
@@ -101,7 +105,7 @@ int WebSocketMessage::get_opcode()
 void WebSocketMessage::set_masking_key(uint32_t masking_key)
 {
 	this->parser->mask = 1;
-	sprintf((char *)this->parser->masking_key, "%d", masking_key);
+	sprintf((char *)this->parser->masking_key, "%u", masking_key);
 }
 
 uint32_t WebSocketMessage::get_masking_key()

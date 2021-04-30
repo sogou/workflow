@@ -6,7 +6,7 @@ set(SRC
 	redis_parser.c
 	mysql_stream.c
 	mysql_parser.c
-	mysql_byteorder.c
+	byteorder.c
 	websocket_parser.c
 	MySQLMessage.cc
 	MySQLResult.cc

@@ -53,7 +53,7 @@ set(INCLUDE_HEADERS
 	src/protocol/MySQLResult.inl
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
-	src/protocol/mysql_byteorder.h
+	src/protocol/byteorder.h
 	src/protocol/WebSocketMessage.h
 	src/protocol/websocket_parser.h
 	src/server/WFServer.h

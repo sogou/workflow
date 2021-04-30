@@ -1,19 +1,29 @@
 #include "WFChannel.h"
 #include "WFChannelFactory.h"
+#include "HttpUtil.h"
+#include "HttpMessage.h"
 #include "WebSocketMessage.h"
 
 using namespace protocol;
+
+/*
+class WebSocketTask : public WFWebSocketTask
+{
+};
+*/
 
 class WebSocketChannel : public WFWebSocketChannel
 {
 public:
 	WebSocketChannel(Communicator *comm, CommTarget *target,
-					 std::function<void (ChannelTask<IN> *)>&& process_message)
+					 websocket_process_t&& process_message) :
+		WFChannel(comm, target, std::move(process_message))
 	{}
 
 	void handle_established()
 	{
-		ChannelTask<HttpRequest> *task = new ChannelTask<HttpRequest>(this, nullptr);
+		std::function<void (ChannelTask<HttpRequest> *)> tmp;
+		ChannelTask<HttpRequest> *task = new ChannelTask<HttpRequest>(this, std::move(tmp));
 		HttpRequest *req = task->get_message();
 		req->set_method(HttpMethodGet);
 		req->set_http_version("HTTP/1.1");
@@ -31,9 +41,10 @@ public:
 	virtual CommMessageIn *message_in()
 	{
 		long long seqid = this->get_seq();
-//		fprintf(stderr, "message_in(), seqid=%d\n", seqid);
+		fprintf(stderr, "WebSocketChannel::message_in() seqid=%d\n", seqid);
 
-		if (seqid == 0)
+		if (this->state == CHANNEL_STATE_UNDEFINED)
+//		if (seqid == 0)
 			return new HttpResponse;
 
 		return WFWebSocketChannel::message_in();
@@ -42,19 +53,19 @@ public:
 	void handle_in(CommMessageIn *in)
 	{
 		long long seqid = this->get_seq();
-//		fprintf(stderr, "handle_in(), seqid=%d\n", seqid);
+		fprintf(stderr, "WebSocketChannel::handle_in() seqid=%d task->state=%d\n",
+				seqid, this->state);
 
-		if (seqid == 0)
+		if (this->state == CHANNEL_STATE_UNDEFINED)
 		{
 			HttpResponse *resp = static_cast<HttpResponse *>(in);
 
-			//TODO: check 
-			if (resp->resp->get_status_code() == 101)
+			if (strcmp(resp->get_status_code(), "101") == 0)
 				this->state = CHANNEL_STATE_ESTABLISHED;
 			else
 			{
 				this->state = CHANNEL_STATE_ERROR;
-				this->error = resp->resp->get_status_code(); //TODO
+//				this->error = resp->get_status_code(); //TODO
 			}
 
 			delete resp;
@@ -66,7 +77,24 @@ public:
 			return WFWebSocketChannel::handle_in(in);
 	}
 
-	//TODO: close send a close frame	
+	virtual int close(std::function<void ()> on_close)
+	{
+		this->on_close = std::move(on_close);
+
+		auto&& cb = std::bind(&WebSocketChannel::close_callback,
+							  this,
+							  std::placeholders::_1);
+		auto *task = this->create_out_task(cb);
+		auto *msg = task->get_message();
+		msg->set_opcode(WebSocketFrameConnectionClose);
+		msg->set_masking_key(0);
+		task->start();
+	}
+
+	void close_callback(WFWebSocketTask *)
+	{
+		this->shutdown();
+	}
 };
 
 /**********Channel Factory**********/

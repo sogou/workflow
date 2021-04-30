@@ -17,7 +17,7 @@
 */
 
 #include "mysql_types.h"
-#include "mysql_byteorder.h"
+#include "byteorder.h"
 #include "mysql_parser.h"
 
 static int parse_base_packet(const void *buf, size_t len, mysql_parser_t *parser);

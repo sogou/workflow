@@ -7,6 +7,7 @@ void CommBaseChannel::handle_in(CommMessageIn *in)
 
 int CommBaseChannel::send(ChannelRequest *req)
 {
+/*
 	if (this->state != CHANNEL_STATE_ESTABLISHED)
 	{
 		req->state = CHANNEL_STATE_ERROR;
@@ -14,7 +15,7 @@ int CommBaseChannel::send(ChannelRequest *req)
 		req->on_send();
 		return -1;
 	}
-
+*/
 	pthread_mutex_lock(&this->send_mutex);
 	int ret = this->communicator->send(req, this);
 

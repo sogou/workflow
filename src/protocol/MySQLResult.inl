@@ -18,7 +18,7 @@
 
 #include <string>
 #include <utility>
-#include "mysql_byteorder.h"
+#include "byteorder.h"
 
 namespace protocol
 {

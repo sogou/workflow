@@ -64,7 +64,7 @@ public:
 	int get_state() { return this->state; }
 
 	int send(ChannelRequest *req/*, int wait_timeout*/);
-	virtual void handle(int state, int error);
+	virtual void handle(int state, int error);// TODO: wait for handle finish and we can reuse this channel
 	virtual void handle_in(CommMessageIn *in);
 
 protected:

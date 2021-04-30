@@ -13,10 +13,11 @@ using websocket_process_t = std::function<void (WFWebSocketTask *)>;
 class WFChannelFactory
 {
 public:
-	static WFWebSocketChannel *create_websocket_channel(const struct sockaddr *addr,
-														socklen_t addrlen,
-														int connect_timeout,
-														websocket_process_t process);
+	// to be static
+	WFWebSocketChannel *create_websocket_channel(const struct sockaddr *addr,
+												 socklen_t addrlen,
+												 int connect_timeout,
+												 websocket_process_t process);
 
 public:
     int init(size_t threads)

@@ -9,21 +9,6 @@ template<class MESSAGE>
 class ChannelTask : public ChannelRequest
 {
 public:
-	ChannelTask(CommBaseChannel *channel, std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
-		ChannelRequest(channel)
-	{
-		this->send_callback = std::move(cb);
-		this->process_message = NULL;
-	}
-
-	ChannelTask(CommBaseChannel *channel, std::function<void (ChannelTask<MESSAGE> *)> *process) :
-		ChannelRequest(channel)
-	{
-		this->passive = true;
-		this->process_message = process;
-		this->send_callback = nullptr;
-	}
-
 	void start()
 	{
 		assert(!series_of(this));
@@ -36,11 +21,42 @@ public:
 		delete this;
 	}
 
+	MESSAGE *get_message()
+	{
+		return &this->message;
+	}
+
 	int get_state() const { return this->state; }
 	int get_error() const { return this->error; }
-//	void *user_data;
+	void *user_data;
+
+public:
+	// OUT TASK
+	ChannelTask(CommBaseChannel *channel,
+				std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
+		ChannelRequest(channel)
+	{
+		this->send_callback = std::move(cb);
+		this->process_message = NULL;
+	}
+
+	// IN TASK
+	ChannelTask(CommBaseChannel *channel,
+				std::function<void (ChannelTask<MESSAGE> *)> *process) :
+		ChannelRequest(channel)
+	{
+		this->passive = true;
+		this->process_message = process;
+		this->send_callback = nullptr;
+	}
 
 protected:
+	virtual void on_message()
+	{
+		if (this->process_message != NULL)
+			(*process_message)(this);
+	}
+
 	virtual SubTask *done()
 	{
 		SeriesWork *series = series_of(this);
@@ -52,26 +68,13 @@ protected:
 		return series->pop();
 	}
 
-public:
-	virtual void on_message()
-	{
-		if (this->process_message != NULL)
-			(*process_message)(this);
-	}
-
-	MESSAGE *get_message()//TODO
+	virtual MESSAGE *message_out()
 	{
 		return &this->message;
 	}
 
 private:
 	MESSAGE message;
-
-protected:
-	virtual MESSAGE *message_out()
-	{
-		return &this->message;
-	}
 
 protected:
 	std::function<void (ChannelTask<MESSAGE> *)> send_callback;
@@ -94,13 +97,13 @@ public:
 		return new ChannelTask<OUT>(this, std::move(cb));
 	}
 
-	int connect(std::function<void ()> on_connect)
+	virtual int connect(std::function<void ()> on_connect)
 	{
 		this->on_connect = std::move(on_connect);
 		return this->establish();
 	}
 
-	int close(std::function<void ()> on_close)
+	virtual int close(std::function<void ()> on_close)
 	{
 		this->on_close = std::move(on_close);
 		return this->shutdown();
@@ -109,13 +112,15 @@ public:
 public:
 	virtual CommMessageIn *message_in()
 	{
+		fprintf(stderr, "WFChannel::message_in()\n");
 		ChannelTask<IN> *task = new ChannelTask<IN>(this, &this->process_message);
 		Workflow::create_series_work(task, nullptr);
 		this->in_session = task;
 		return task->get_message();
 	}	
 
-	virtual ~WFChannel() //don`t need this after ChannelFactory reuse target
+	//don`t need this after ChannelFactory reuse target
+	virtual ~WFChannel()
 	{
 		this->communicator->shutdown(this);
 		delete this->target;

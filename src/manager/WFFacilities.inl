@@ -66,7 +66,7 @@ WFFuture<WFFacilities::WFNetworkResult<RESP>> WFFacilities::async_request(Transp
 
 	URIParser::parse(url, uri);
 	task->init(std::move(uri));
-	task->set_type(type);
+	task->set_transport_type(type);
 	*task->get_req() = std::forward<REQ>(req);
 	task->start();
 	return fr;

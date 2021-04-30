@@ -23,6 +23,7 @@ else ()
 endif ()
 
 set(TUTORIAL_LIST
+	tutorial-00-helloworld
 	tutorial-01-wget
 	tutorial-02-redis_cli
 	tutorial-03-wget_to_redis

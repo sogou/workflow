@@ -38,8 +38,6 @@ int main()
 * 构建微服务系统。
   * 项目内置服务治理与负载均衡等功能。
 
-#### 
-
 #### 编译和运行环境
 * 项目支持``Linux``，``macOS``，``Windows``，``Android``等操作系统。
   *  ``Windows``版以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
@@ -48,7 +46,8 @@ int main()
   * 不喜欢SSL的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分支，代码更简洁。但仍需链接``crypto``。
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
 * 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
-* 快速开始（Linux）：
+
+#### 快速开始（Linux）：
 ~~~sh
 $ git clone https://github.com/sogou/workflow
 $ cd workflow
@@ -57,7 +56,7 @@ $ cd tutorial
 $ make
 ~~~
 
-# 试一下！
+# 示例教程
   * Client基础
     * [创建第一个任务：wget](docs/tutorial-01-wget.md)
     * [实现一次redis写入与读出：redis_cli](docs/tutorial-02-redis_cli.md)

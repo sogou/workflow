@@ -87,37 +87,42 @@ int SSLWrapper::append(const void *buf, size_t *size)
 	int ret;
 
 	ret = BIO_write(bio, buf, *size);
-	if (ret > 0)
+	if (ret <= 0)
+		return -1;
+
+	*size = ret;
+	while ((ret = SSL_read(this->ssl, rbuf, BUFSIZE)) > 0)
 	{
-		*size = ret;
-		while ((ret = SSL_read(this->ssl, rbuf, BUFSIZE)) > 0)
+		buf = rbuf;
+		nleft = ret;
+		do
 		{
-			buf = rbuf;
-			nleft = ret;
-			do
+			n = nleft;
+			ret = this->msg->append(buf, &n);
+			if (ret == 0)
 			{
-				n = nleft;
-				ret = this->msg->append(buf, &n);
-				if (ret == 0)
-				{
-					buf = (char *)buf + n;
-					nleft -= n;
-				}
-				else
-					return ret;
-	
-			} while (nleft > 0);
-		}
+				buf = (char *)buf + n;
+				nleft -= n;
+			}
+			else
+				return ret;
 
-		ret = SSL_get_error(this->ssl, ret);
-		if (ret == SSL_ERROR_WANT_READ)
-			return 0;
-
-		if (ret != SSL_ERROR_SYSCALL)
-			errno = -ret;
+		} while (nleft > 0);
 	}
 
-	return -1;
+	if (ret < 0)
+	{
+		ret = SSL_get_error(this->ssl, ret);
+		if (ret != SSL_ERROR_WANT_READ)
+		{
+			if (ret != SSL_ERROR_SYSCALL)
+				errno = -ret;
+
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 }

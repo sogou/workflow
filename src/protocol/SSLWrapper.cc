@@ -17,6 +17,7 @@
 */
 
 #include <errno.h>
+#include <stdlib.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/bio.h>

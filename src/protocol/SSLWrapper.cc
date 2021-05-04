@@ -26,15 +26,15 @@
 namespace protocol
 {
 
-int SSLWrapper::encode(struct iovec vectors[], int iovcnt)
+int SSLWrapper::encode(struct iovec vectors[], int max)
 {
 	BIO *bio = SSL_get_wbio(this->ssl);
 	struct iovec *iov;
 	void *buf;
 	int ret;
 
-	ret = this->msg->encode(vectors, iovcnt);
-	if ((unsigned int)ret > (unsigned int)iovcnt)
+	ret = this->msg->encode(vectors, max);
+	if ((unsigned int)ret > (unsigned int)max)
 		return ret;
 
 	for (iov = vectors; iov < vectors + ret; iov++)

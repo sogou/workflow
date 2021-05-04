@@ -32,18 +32,20 @@ public:
 
 public:
 	// OUT TASK
-	ChannelTask(CommBaseChannel *channel,
+	ChannelTask(CommSchedChannel *channel,
+				Communicator *comm,
 				std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
-		ChannelRequest(channel)
+		ChannelRequest(channel, comm)
 	{
 		this->send_callback = std::move(cb);
 		this->process_message = NULL;
 	}
 
 	// IN TASK
-	ChannelTask(CommBaseChannel *channel,
+	ChannelTask(CommSchedChannel *channel,
+				Communicator *comm,
 				std::function<void (ChannelTask<MESSAGE> *)> *process) :
-		ChannelRequest(channel)
+		ChannelRequest(channel, comm)
 	{
 		this->passive = true;
 		this->process_message = process;
@@ -82,19 +84,19 @@ protected:
 };
 
 template<class IN, class OUT>
-class WFChannel : public CommBaseChannel
+class WFChannel : public CommSchedChannel
 {
 public:
 	WFChannel(Communicator *comm, CommTarget *target,
 			  std::function<void (ChannelTask<IN> *)>&& process_message) :
-		CommBaseChannel(comm, target),
+		CommSchedChannel(comm, target),
 		process_message(std::move(process_message))
 	{
 	}
 
 	ChannelTask<OUT> *create_out_task(std::function<void (ChannelTask<OUT> *)>&& cb)
 	{
-		return new ChannelTask<OUT>(this, std::move(cb));
+		return new ChannelTask<OUT>(this, this->communicator, std::move(cb));
 	}
 
 	virtual int connect(std::function<void ()> on_connect)
@@ -113,11 +115,12 @@ public:
 	virtual CommMessageIn *message_in()
 	{
 		fprintf(stderr, "WFChannel::message_in()\n");
-		ChannelTask<IN> *task = new ChannelTask<IN>(this, &this->process_message);
-		Workflow::create_series_work(task, nullptr);
+		ChannelTask<IN> *task = new ChannelTask<IN>(this, this->communicator,
+													&this->process_message);
+		Workflow::create_series_work(task, nullptr); // TODO: dispatch() ?
 		this->in_session = task;
 		return task->get_message();
-	}	
+	}
 
 	//don`t need this after ChannelFactory reuse target
 	virtual ~WFChannel()
@@ -129,7 +132,7 @@ public:
 protected:	
 	virtual void handle_established()
 	{
-		CommBaseChannel::handle_established();
+		CommSchedChannel::handle_established();
 
 		if (this->on_connect)
 			this->on_connect();
@@ -137,7 +140,7 @@ protected:
 
 	virtual void handle_shutdown()
 	{
-		CommBaseChannel::handle_terminated();
+		CommSchedChannel::handle_terminated();
 
 		if (this->on_close)
 			this->on_close();

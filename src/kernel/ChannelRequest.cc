@@ -1,21 +1,30 @@
 #include "ChannelRequest.h"
 
-void CommBaseChannel::handle_in(CommMessageIn *in)
+void CommSchedChannel::handle_in(CommMessageIn *in)
 {
-	this->in_session->dispatch();
+	if (this->in_session)
+		this->in_session->dispatch();
 }
 
-int CommBaseChannel::send(ChannelRequest *req)
+void CommSchedChannel::handle(int state, int error)
 {
+//	fprintf(stderr, "CommSchedChannel handle(). state=%d error=%d\n", state, error);
+	if (!error)
+		this->state = state;
+	else
+		this->state = CHANNEL_STATE_ERROR;
+}
+
 /*
-	if (this->state != CHANNEL_STATE_ESTABLISHED)
-	{
-		req->state = CHANNEL_STATE_ERROR;
-		req->error = this->state;
-		req->on_send();
-		return -1;
-	}
-*/
+int CommSchedChannel::send(ChannelRequest *req)
+{
+//	if (this->state != CHANNEL_STATE_ESTABLISHED)
+//	{
+//		req->state = CHANNEL_STATE_ERROR;
+//		req->error = this->state;
+//		req->on_send();
+//		return -1;
+//	}
 	pthread_mutex_lock(&this->send_mutex);
 	int ret = this->communicator->send(req, this);
 
@@ -29,12 +38,5 @@ int CommBaseChannel::send(ChannelRequest *req)
 
 	return 0;
 }
+*/
 
-void CommBaseChannel::handle(int state, int error)
-{
-//	fprintf(stderr, "CommBaseChannel handle(). state=%d error=%d\n", state, error);
-	if (!error)
-		this->state = state;
-	else
-		this->state = CHANNEL_STATE_ERROR;
-}

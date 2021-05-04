@@ -18,10 +18,10 @@
 
 class ChannelRequest;
 
-class CommBaseChannel : public CommChannel
+class CommSchedChannel : public CommChannel
 {
 public:
-	CommBaseChannel(Communicator *comm, CommTarget *target) :
+	CommSchedChannel(Communicator *comm, CommTarget *target) :
 		send_mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
 		this->communicator = comm;
@@ -63,8 +63,8 @@ public:
 
 	int get_state() { return this->state; }
 
-	int send(ChannelRequest *req/*, int wait_timeout*/);
-	virtual void handle(int state, int error);// TODO: wait for handle finish and we can reuse this channel
+	// TODO: wait for handle finish and we can reuse this channel
+	virtual void handle(int state, int error);
 	virtual void handle_in(CommMessageIn *in);
 
 protected:
@@ -78,27 +78,34 @@ protected:
 class ChannelRequest : public SubTask, public TransSession
 {
 public:
-	ChannelRequest(CommBaseChannel *channel)
+	ChannelRequest(CommSchedChannel *channel, Communicator *comm)
 	{
-		this->channel = channel;
+		this->sched_channel = channel;
+		this->communicator = comm;
 		this->passive = false;
 	}
 
 	virtual void dispatch()
 	{
-		if (this->passive) // ChannelInRequest
+		fprintf(stderr, "ChannelRequest::dispatch()\n");
+		if (!this->passive) // OUT
+		{
+			int ret = this->communicator->send(this, this->sched_channel);
+
+			if (ret < 0)
+				this->handle(CHANNEL_STATE_ERROR, CHANNEL_ERROR_SEND);
+			else if (ret == 1)
+				this->handle(CS_STATE_SUCCESS, CHANNEL_SUCCESS);
+			// else 0: async send
+		}
+		else // IN
 		{
 			this->on_message();
 			this->subtask_done();
-		}	
-		else
-		{
-			if (!this->channel || ((CommBaseChannel *)this->channel)->send(this) < 0)
-				this->subtask_done();
 		}
 	}
 
-	// ChannelOutRequest
+	// OUT
 	void handle(int state, int error)
 	{
 		this->state = state;
@@ -111,28 +118,35 @@ public:
 		this->subtask_done();
 	}
 
-	// ChannelInRequest
+	// IN
 	virtual void on_message() {}
+
+	const CommSchedChannel *get_sched_channel()
+	{
+		return this->sched_channel;
+	}
 
 protected:
     int state;
     int error;
 	bool passive;
-	friend CommBaseChannel;
+	Communicator *communicator;
+	CommSchedChannel *sched_channel;
+	friend CommSchedChannel;
 };
 
 /*
 class ChannelOutRequest : public SubTask, public TransSession
 {
 public:
-	ChannelOutRequest(CommBaseChannel *channel)
+	ChannelOutRequest(CommSchedChannel *channel)
 	{
 		this->channel = channel;
 	}
 
 	virtual void dispatch()
 	{
-		if (!this->channel || ((CommBaseChannel *)this->channel)->send(this) < 0)
+		if (!this->channel || ((CommSchedChannel *)this->channel)->send(this) < 0)
 			this->subtask_done();
 	}
 
@@ -151,7 +165,7 @@ public:
 protected:
     int state;
     int error;
-	friend CommBaseChannel;
+	friend CommSchedChannel;
 };
 
 class ChannelInRequest : public SubTask
@@ -172,7 +186,7 @@ public:
 protected:
     int state;
     int error;
-	friend CommBaseChannel;
+	friend CommSchedChannel;
 };
 */
 #endif

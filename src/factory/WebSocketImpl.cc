@@ -22,8 +22,11 @@ public:
 
 	void handle_established()
 	{
+		fprintf(stderr, "WebSocketChannel::handle_established()\n");
 		std::function<void (ChannelTask<HttpRequest> *)> tmp;
-		ChannelTask<HttpRequest> *task = new ChannelTask<HttpRequest>(this, std::move(tmp));
+		ChannelTask<HttpRequest> *task = new ChannelTask<HttpRequest>(this,
+																	  this->communicator,
+																	  std::move(tmp));
 		HttpRequest *req = task->get_message();
 		req->set_method(HttpMethodGet);
 		req->set_http_version("HTTP/1.1");
@@ -40,11 +43,9 @@ public:
 public:
 	virtual CommMessageIn *message_in()
 	{
-		long long seqid = this->get_seq();
-		fprintf(stderr, "WebSocketChannel::message_in() seqid=%d\n", seqid);
+		fprintf(stderr, "WebSocketChannel::message_in() state=%d\n", this->state);
 
 		if (this->state == CHANNEL_STATE_UNDEFINED)
-//		if (seqid == 0)
 			return new HttpResponse;
 
 		return WFWebSocketChannel::message_in();
@@ -52,9 +53,7 @@ public:
 
 	void handle_in(CommMessageIn *in)
 	{
-		long long seqid = this->get_seq();
-		fprintf(stderr, "WebSocketChannel::handle_in() seqid=%d task->state=%d\n",
-				seqid, this->state);
+		fprintf(stderr, "WebSocketChannel::handle_in() state=%d\n", this->state);
 
 		if (this->state == CHANNEL_STATE_UNDEFINED)
 		{
@@ -79,6 +78,9 @@ public:
 
 	virtual int close(std::function<void ()> on_close)
 	{
+		if (this->state != CHANNEL_STATE_ESTABLISHED)
+			return -1;
+
 		this->on_close = std::move(on_close);
 
 		auto&& cb = std::bind(&WebSocketChannel::close_callback,
@@ -89,6 +91,8 @@ public:
 		msg->set_opcode(WebSocketFrameConnectionClose);
 		msg->set_masking_key(0);
 		task->start();
+
+		return 0;
 	}
 
 	void close_callback(WFWebSocketTask *)

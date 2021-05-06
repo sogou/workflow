@@ -16,8 +16,14 @@ public:
 	int get_opcode();
 	void set_masking_key(uint32_t masking_key);
 	uint32_t get_masking_key();
-	bool set_data(const char *data, size_t size);
-	bool get_data(const char **data, size_t *size);	
+
+	bool set_text_data(const char *data, size_t size, bool fin);
+	bool get_text_data(const char **data, size_t *size);
+	bool set_binary_data(const char *data, size_t size, bool fin);
+	bool get_binary_data(const char **data, size_t *size);
+
+	void set_client() { this->parser->is_server = 0; }
+	void set_server() { this->parser->is_server = 1; }
 
 private:
 	websocket_parser_t *parser;

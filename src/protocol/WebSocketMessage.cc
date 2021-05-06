@@ -24,6 +24,9 @@ int WebSocketMessage::append(const void *buf, size_t *size)
 		ret = -1;
 	}
 
+	if (ret == 1)
+		websocket_parser_unmask_data(this->parser);
+
 	return ret;
 }
 
@@ -80,6 +83,7 @@ int WebSocketMessage::encode(struct iovec vectors[], int max)
 
 	if (this->parser->payload_length)
 	{
+		websocket_parser_mask_data(this->parser);
 		vectors[cnt].iov_base = this->parser->payload_data;
 		vectors[cnt].iov_len = this->parser->payload_length;
 		cnt++;
@@ -116,9 +120,12 @@ uint32_t WebSocketMessage::get_masking_key()
 	return 0;
 }
 
-bool WebSocketMessage::set_data(const char *data, size_t size)
+bool WebSocketMessage::set_binary_data(const char *data, size_t size, bool fin)
 {
 	bool ret = true;
+
+	this->parser->opcode = WebSocketFrameBinary;
+	this->parser->fin = fin;
 
 	if (this->parser->payload_length && this->parser->payload_data)
 	{
@@ -133,10 +140,46 @@ bool WebSocketMessage::set_data(const char *data, size_t size)
 	return ret;
 }
 
-bool WebSocketMessage::get_data(const char **data, size_t *size)
+bool WebSocketMessage::set_text_data(const char *data, size_t size, bool fin)
 {
-	if (!this->parser->payload_length || !this->parser->payload_data)
+	bool ret = true;
+
+	this->parser->opcode = WebSocketFrameText;
+	this->parser->fin = fin;
+
+	if (this->parser->payload_length && this->parser->payload_data)
+	{
+		ret = false;
+		free(this->parser->payload_data);
+	}
+
+	this->parser->payload_data = (char *)malloc(size);
+	memcpy(this->parser->payload_data, data, size);
+	this->parser->payload_length = size;
+
+	return ret;
+}
+
+bool WebSocketMessage::get_binary_data(const char **data, size_t *size)
+{
+	if (!this->parser->payload_length || !this->parser->payload_data ||
+		this->parser->opcode != WebSocketFrameBinary)
+	{
 		return false;
+	}
+
+	*data = (char *)this->parser->payload_data;
+	*size = this->parser->payload_length;
+	return true;
+}
+
+bool WebSocketMessage::get_text_data(const char **data, size_t *size)
+{
+	if (!this->parser->payload_length || !this->parser->payload_data ||
+		this->parser->opcode != WebSocketFrameText)
+	{
+		return false;
+	}
 
 	*data = (char *)this->parser->payload_data;
 	*size = this->parser->payload_length;

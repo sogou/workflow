@@ -45,7 +45,7 @@ int get_addr_info(const char *ip, const char *port, struct addr_info *ai)
 void process_message(WFWebSocketTask *task)
 {
 	WebSocketMessage *msg = task->get_message();
-	fprintf(stderr, "process_message(): opcode=%d\n", msg->get_opcode());
+	fprintf(stderr, "process_message() opcode=%d\n", msg->get_opcode());
 }
 
 int main(int argc, const char *argv[])
@@ -74,10 +74,9 @@ int main(int argc, const char *argv[])
 	}
 
 	auto *channel = factory.create_websocket_channel((struct sockaddr*) &ai.ss,
-	ai.ss_len,
-	CONNECT_TIMEOUT,
-	process_message);
-
+													 ai.ss_len,
+													 CONNECT_TIMEOUT,
+													 process_message);
 	if (!channel)
 	{
 		fprintf(stderr, "failed to create channel\n");
@@ -85,38 +84,47 @@ int main(int argc, const char *argv[])
 	}
 
 	WFFacilities::WaitGroup wait_group(1);
-	channel->connect([&wait_group, &ip, &port, &channel]() {
-		fprintf(stderr, "channel connected. state=%d\n", channel->get_state());
+	channel->connect([&wait_group, &ip, &port, &channel]()
+	{
+		fprintf(stderr, "channel connected. ip=%s port=%s state=%d\n",
+				ip, port, channel->get_state());
+
 		if (channel->get_state() == CHANNEL_STATE_ESTABLISHED)
 		{
-			auto *task = channel->create_out_task([&wait_group](WFWebSocketTask *task) {	
-				fprintf(stderr, "send. state=%d error=%d\n",
+			auto *ping_task = channel->create_out_task([&wait_group, &channel]
+													   (WFWebSocketTask *task)
+			{
+				fprintf(stderr, "PING task on_send() state=%d error=%d\n",
 						task->get_state(), task->get_error());
+
+				auto *text_task = channel->create_out_task([&wait_group]
+														   (WFWebSocketTask *task)
+				{
+					fprintf(stderr, "TEXT task on_send() state=%d error=%d\n",
+							task->get_state(), task->get_error());
 					wait_group.done();
+				});
+
+				WebSocketMessage *msg = text_task->get_message();
+				msg->set_masking_key(1412);
+				msg->set_text_data("xiehan", 6, true);
+				text_task->start();
 			});
 
-			protocol::WebSocketMessage *msg = task->get_message();
+			WebSocketMessage *msg = ping_task->get_message();
 			msg->set_opcode(WebSocketFramePing);
 			msg->set_masking_key(0);
-			task->start();
+			ping_task->start();
 		}
 		else
 			wait_group.done();
 	});
 		
 	wait_group.wait();
-	auto *task = channel->create_out_task([](WFWebSocketTask *task) {
-		protocol::WebSocketMessage *msg = task->get_message();
-		msg->set_opcode(WebSocketFrameText);
-		msg->set_masking_key(0);
-		msg->set_data("1412", 4);
-		task->start();
-	});
 
 	sleep(5);
 	channel->close(nullptr);
 	sleep(2);
-
 	factory.deinit();
 
 	return 0;

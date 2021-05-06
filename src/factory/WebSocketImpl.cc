@@ -18,7 +18,9 @@ public:
 	WebSocketChannel(Communicator *comm, CommTarget *target,
 					 websocket_process_t&& process_message) :
 		WFChannel(comm, target, std::move(process_message))
-	{}
+	{
+		this->is_server = false;
+	}
 
 	void handle_established()
 	{
@@ -64,7 +66,7 @@ public:
 			else
 			{
 				this->state = CHANNEL_STATE_ERROR;
-//				this->error = resp->get_status_code(); //TODO
+//				this->error = resp->get_status_code();
 			}
 
 			delete resp;
@@ -99,6 +101,9 @@ public:
 	{
 		this->shutdown();
 	}
+
+private:
+	bool is_server;
 };
 
 /**********Channel Factory**********/

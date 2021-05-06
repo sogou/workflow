@@ -2,7 +2,8 @@
 #define _WEBSOCKET_PARSER_H_
 
 #define WS_HEADER_LENGTH_MAX	14
-#define WS_HEADER_LENGTH_MIN	2
+#define WS_SERVER_LENGTH_MIN	2
+#define WS_CLIENT_LENGTH_MIN	6
 #define WS_MASKING_KEY_LENGTH	4
 
 #include <stddef.h>
@@ -24,6 +25,7 @@ typedef struct __websocket_parser
 	char fin;
 	char mask;
 	char opcode;
+	char is_server;
 //	unsigned int masking_key;
 	unsigned char masking_key[WS_MASKING_KEY_LENGTH];
 	char masking_key_offset;

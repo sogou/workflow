@@ -94,7 +94,7 @@ public:
 	{
 	}
 
-	ChannelTask<OUT> *create_out_task(std::function<void (ChannelTask<OUT> *)>&& cb)
+	virtual ChannelTask<OUT> *create_out_task(std::function<void (ChannelTask<OUT> *)>&& cb)
 	{
 		return new ChannelTask<OUT>(this, this->communicator, std::move(cb));
 	}

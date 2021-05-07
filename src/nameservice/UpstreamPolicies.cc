@@ -207,8 +207,8 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 /*
  * flag true : guarantee addr != NULL, and please return an available one.
- *			   if no available addr, return NULL.
- *		false: addr may be NULL, means addr maybe useful but want one any way.
+ *	           if no available addr, return NULL.
+ *      false: addr may be NULL, means addr maybe useful but want one any way.
  */
 inline const EndpointAddress *UPSGroupPolicy::check_and_get(const EndpointAddress *addr,
 															bool flag,

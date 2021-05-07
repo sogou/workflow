@@ -32,8 +32,7 @@ public:
 
 public:
 	// OUT TASK
-	ChannelTask(CommSchedChannel *channel,
-				Communicator *comm,
+	ChannelTask(CommSchedChannel *channel, Communicator *comm,
 				std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
 		ChannelRequest(channel, comm)
 	{
@@ -42,14 +41,25 @@ public:
 	}
 
 	// IN TASK
-	ChannelTask(CommSchedChannel *channel,
-				Communicator *comm,
+	ChannelTask(CommSchedChannel *channel, Communicator *comm,
 				std::function<void (ChannelTask<MESSAGE> *)> *process) :
 		ChannelRequest(channel, comm)
 	{
 		this->passive = true;
 		this->process_message = process;
 		this->send_callback = nullptr;
+	}
+
+	ChannelTask(CommSchedChannel *channel, Communicator *comm,
+				std::function<void (ChannelTask<MESSAGE> *)> func,
+				bool passive) :
+		ChannelRequest(channel, comm)
+	{
+		this->passive = passive;
+		if (passive)
+			this->process_message = &func;
+		else
+			this->send_callback = std::move(func);
 	}
 
 protected:
@@ -94,18 +104,18 @@ public:
 	{
 	}
 
-	virtual ChannelTask<OUT> *create_out_task(std::function<void (ChannelTask<OUT> *)>&& cb)
+	virtual ChannelTask<OUT> *create_task(std::function<void (ChannelTask<OUT> *)>&& cb)
 	{
 		return new ChannelTask<OUT>(this, this->communicator, std::move(cb));
 	}
 
-	virtual int connect(std::function<void ()> on_connect)
+	virtual bool connect(std::function<void ()> on_connect)
 	{
 		this->on_connect = std::move(on_connect);
 		return this->establish();
 	}
 
-	virtual int close(std::function<void ()> on_close)
+	virtual bool close(std::function<void ()> on_close)
 	{
 		this->on_close = std::move(on_close);
 		return this->shutdown();
@@ -117,15 +127,16 @@ public:
 		fprintf(stderr, "WFChannel::message_in()\n");
 		ChannelTask<IN> *task = new ChannelTask<IN>(this, this->communicator,
 													&this->process_message);
-		Workflow::create_series_work(task, nullptr); // TODO: dispatch() ?
-		this->in_session = task;
+//		Workflow::create_series_work(task, nullptr); // TODO: dispatch() ?
+		this->in_session = task; // new_session
 		return task->get_message();
 	}
 
 	//don`t need this after ChannelFactory reuse target
 	virtual ~WFChannel()
 	{
-		this->communicator->shutdown(this);
+		if (this->state == CHANNEL_STATE_ESTABLISHED)
+			this->communicator->shutdown(this);
 		delete this->target;
 	}
 
@@ -149,7 +160,7 @@ protected:
 public:
 	std::function<void (ChannelTask<IN> *)> process_message;
 	std::function<void ()> on_connect;
-	std::function<void ()> on_close;	
+	std::function<void ()> on_close;
 };
 
 #endif

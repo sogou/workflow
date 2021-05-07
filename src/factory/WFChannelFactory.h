@@ -4,9 +4,10 @@
 #include "WFChannel.h"
 #include "WebSocketMessage.h"
 
-using WFWebSocketChannel = WFChannel<protocol::WebSocketMessage,
-									 protocol::WebSocketMessage>;
-using WFWebSocketTask = ChannelTask<protocol::WebSocketMessage>;
+using WFWebSocketTask = ChannelTask<protocol::WebSocketFrame>;
+using WFWebSocketChannel = WFChannel<protocol::WebSocketFrame,
+									 protocol::WebSocketFrame>;
+
 using websocket_callback_t = std::function<void (WFWebSocketTask *)>;
 using websocket_process_t = std::function<void (WFWebSocketTask *)>;
 
@@ -22,25 +23,28 @@ public:
 public:
     int init(size_t threads)
     {   
-        return this->comm.init(threads, 1/*handler_threads*/);
+        return this->communicator.init(threads, 1/*handler_threads*/);
     }   
 
     void deinit()
     {   
-        this->comm.deinit();
+        this->communicator.deinit();
     }
 
 	template<class IN, class OUT>
 	WFChannel<IN, OUT> *create_channel(const struct sockaddr *addr, socklen_t addrlen,
-									   int connect_timeout, std::function<void (ChannelTask<IN> *)> process)
+									   int connect_timeout,
+									   std::function<void (ChannelTask<IN> *)> process)
 	{
 		// TODO: reuse target
 		CommTarget *target = new CommTarget();
 		if (target)
 		{
-			if (target->init(addr, addrlen, connect_timeout, 0 /*response_timeout*/) >= 0)
+			if (target->init(addr, addrlen, connect_timeout, 0) >= 0)
 			{
-				auto *channel = new WFChannel<IN, OUT>(&this->comm, target, std::move(process));
+				auto *channel = new WFChannel<IN, OUT>(&this->communicator,
+													   target,
+													   std::move(process));
 				if (channel)
 					return channel;
 			}
@@ -51,13 +55,8 @@ public:
 	}
 
 private:
-	Communicator comm;
-//	std::map<int, CommTarget *> target_map;
+	Communicator communicator;
 };
-/*
-class WFChannelFactory
-{
-public:
-};
-*/
+
 #endif
+

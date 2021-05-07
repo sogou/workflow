@@ -8,35 +8,36 @@ void CommSchedChannel::handle_in(CommMessageIn *in)
 
 void CommSchedChannel::handle(int state, int error)
 {
-//	fprintf(stderr, "CommSchedChannel handle(). state=%d error=%d\n", state, error);
 	if (!error)
 		this->state = state;
 	else
 		this->state = CHANNEL_STATE_ERROR;
 }
-
-/*
-int CommSchedChannel::send(ChannelRequest *req)
+	
+void ChannelRequest::dispatch()
 {
-//	if (this->state != CHANNEL_STATE_ESTABLISHED)
-//	{
-//		req->state = CHANNEL_STATE_ERROR;
-//		req->error = this->state;
-//		req->on_send();
-//		return -1;
-//	}
-	pthread_mutex_lock(&this->send_mutex);
-	int ret = this->communicator->send(req, this);
+	fprintf(stderr, "ChannelRequest::dispatch()\n");
+	if (!this->passive) // OUT
+	{
+		int ret = this->communicator->send(this, this->sched_channel);
 
-	if (ret < 0)
-		req->handle(CHANNEL_STATE_ERROR, CHANNEL_ERROR_SEND);
-
-	if (ret == 1)
-		req->handle(CS_STATE_SUCCESS, CHANNEL_SUCCESS);
-
-	pthread_mutex_unlock(&this->send_mutex);
-
-	return 0;
+		if (ret < 0)
+			this->handle(CHANNEL_STATE_ERROR, CHANNEL_ERROR_SEND);
+		else if (ret == 1)
+			this->handle(CS_STATE_SUCCESS, CHANNEL_SUCCESS);
+			// else 0: async send
+	}
+	else // IN
+	{
+//		this->on_message();
+		this->subtask_done();
+	}
 }
-*/
+
+void ChannelRequest::handle(int state, int error)
+{
+	this->state = state;
+	this->error = error;
+	this->subtask_done();
+}
 

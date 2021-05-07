@@ -6,7 +6,32 @@
 namespace protocol
 {
 
-int WebSocketMessage::append(const void *buf, size_t *size)
+WebSocketFrame::WebSocketFrame(WebSocketFrame&& msg) :
+	ProtocolMessage(std::move(msg))
+{
+	this->parser = msg.parser;
+	msg.parser = NULL;
+}
+
+WebSocketFrame& WebSocketFrame::operator = (WebSocketFrame&& msg)
+{
+	if (&msg != this)
+	{
+		*(ProtocolMessage *)this = std::move(msg);
+		if (this->parser)
+		{
+			websocket_parser_deinit(this->parser);
+			delete this->parser;
+		}
+
+		this->parser = msg.parser;
+		msg.parser = NULL;
+	}
+
+	return *this;
+}
+
+int WebSocketFrame::append(const void *buf, size_t *size)
 {
 	int ret = websocket_parser_append_message(buf, size, this->parser);
 
@@ -17,6 +42,11 @@ int WebSocketMessage::append(const void *buf, size_t *size)
 			errno = EMSGSIZE;
 			ret = -1;
 		}
+
+		if (ret == 1)
+		{
+			websocket_parser_unmask_data(this->parser);
+		}
 	}
 	else if (ret == -2)
 	{
@@ -24,16 +54,13 @@ int WebSocketMessage::append(const void *buf, size_t *size)
 		ret = -1;
 	}
 
-	if (ret == 1)
-		websocket_parser_unmask_data(this->parser);
-
 	return ret;
 }
 
-int WebSocketMessage::encode(struct iovec vectors[], int max)
+int WebSocketFrame::encode(struct iovec vectors[], int max)
 {
-	int cnt = 0;
 	unsigned char *p = this->parser->header_buf;
+	int cnt = 0;
 
 	if (this->parser->opcode == WebSocketFramePing ||
 		this->parser->opcode == WebSocketFramePong ||
@@ -41,8 +68,10 @@ int WebSocketMessage::encode(struct iovec vectors[], int max)
 	{
 		this->parser->fin = 1;
 	}
-
-	// TODO: WebSocketFrameContinuation
+	else if (!this->parser->fin)
+	{
+		this->parser->opcode = WebSocketFrameContinuation;
+	}
 
 	*p = (this->parser->fin << 7) | this->parser->opcode;
 	p++;
@@ -74,7 +103,7 @@ int WebSocketMessage::encode(struct iovec vectors[], int max)
 	p = this->parser->header_buf + 1;
 	*p = *p | (this->parser->mask << 7);
 
-	if (this->parser->mask)
+	if (!this->parser->is_server)
 	{
 		vectors[cnt].iov_base = this->parser->masking_key;
 		vectors[cnt].iov_len = WS_MASKING_KEY_LENGTH;
@@ -92,7 +121,7 @@ int WebSocketMessage::encode(struct iovec vectors[], int max)
 	return cnt;
 }
 
-bool WebSocketMessage::set_opcode(int opcode)
+bool WebSocketFrame::set_opcode(int opcode)
 {
 	if (opcode < WebSocketFrameContinuation || opcode > WebSocketFramePong)
 		return false;
@@ -101,18 +130,18 @@ bool WebSocketMessage::set_opcode(int opcode)
 	return true;
 }
 
-int WebSocketMessage::get_opcode()
+int WebSocketFrame::get_opcode()
 {
 	return this->parser->opcode;
 }
 
-void WebSocketMessage::set_masking_key(uint32_t masking_key)
+void WebSocketFrame::set_masking_key(uint32_t masking_key)
 {
 	this->parser->mask = 1;
 	sprintf((char *)this->parser->masking_key, "%u", masking_key);
 }
 
-uint32_t WebSocketMessage::get_masking_key()
+uint32_t WebSocketFrame::get_masking_key()
 {
 	if (!this->parser->mask)
 		return atoi((char *)this->parser->masking_key);
@@ -120,7 +149,7 @@ uint32_t WebSocketMessage::get_masking_key()
 	return 0;
 }
 
-bool WebSocketMessage::set_binary_data(const char *data, size_t size, bool fin)
+bool WebSocketFrame::set_binary_data(const char *data, size_t size, bool fin)
 {
 	bool ret = true;
 
@@ -140,7 +169,7 @@ bool WebSocketMessage::set_binary_data(const char *data, size_t size, bool fin)
 	return ret;
 }
 
-bool WebSocketMessage::set_text_data(const char *data, size_t size, bool fin)
+bool WebSocketFrame::set_text_data(const char *data, size_t size, bool fin)
 {
 	bool ret = true;
 
@@ -160,7 +189,7 @@ bool WebSocketMessage::set_text_data(const char *data, size_t size, bool fin)
 	return ret;
 }
 
-bool WebSocketMessage::get_binary_data(const char **data, size_t *size)
+bool WebSocketFrame::get_binary_data(const char **data, size_t *size)
 {
 	if (!this->parser->payload_length || !this->parser->payload_data ||
 		this->parser->opcode != WebSocketFrameBinary)
@@ -173,7 +202,7 @@ bool WebSocketMessage::get_binary_data(const char **data, size_t *size)
 	return true;
 }
 
-bool WebSocketMessage::get_text_data(const char **data, size_t *size)
+bool WebSocketFrame::get_text_data(const char **data, size_t *size)
 {
 	if (!this->parser->payload_length || !this->parser->payload_data ||
 		this->parser->opcode != WebSocketFrameText)

@@ -9,13 +9,11 @@ void websocket_parser_init(websocket_parser_t *parser)
 	parser->fin = 0;
 	parser->mask = 0;
 	parser->opcode = -1;
-//	parser->masking_key = { 0 };
 	parser->nleft = WS_MASKING_KEY_LENGTH;
 	parser->payload_length = 0;
 	parser->payload_data = NULL;
 	parser->nreceived = 0;
 	parser->is_server = 0;
-//	parser->header_buf = { 0 };
 	memset(parser->masking_key, 0, WS_MASKING_KEY_LENGTH);
 	memset(parser->header_buf, 0, WS_HEADER_LENGTH_MAX);
 }
@@ -38,9 +36,7 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 	int header_length_min = parser->is_server ? WS_SERVER_LENGTH_MIN :
 							WS_CLIENT_LENGTH_MIN;
 
-	//receiving header
-	if (parser->payload_length == 0)
-//	if (parser->opcode == -1)
+	if (parser->payload_length == 0) // receiving header
 	{
 		memcpy(parser->header_buf + parser->nreceived, p,
 			   WS_HEADER_LENGTH_MAX - parser->nreceived);
@@ -84,7 +80,7 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 		 if (parser->opcode == WebSocketFramePing ||
 			 parser->opcode == WebSocketFramePong ||
 			 parser->opcode == WebSocketFrameConnectionClose)
-			return 1; // TODO: header_length_min
+			return parser->nreceived == header_length_min;
 
 		return 0;
 	}
@@ -156,5 +152,4 @@ void websocket_parser_unmask_data(websocket_parser_t *parser)
 
 	return;
 }
-
 

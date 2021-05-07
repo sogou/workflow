@@ -21,21 +21,17 @@ enum
 
 typedef struct __websocket_parser
 {
-//	unsigned int fin : 1;
 	char fin;
 	char mask;
-	char opcode;
-	char is_server;
-//	unsigned int masking_key;
+	int opcode;
 	unsigned char masking_key[WS_MASKING_KEY_LENGTH];
-	char masking_key_offset;
-	char nleft;
 	unsigned long long payload_length;
+	unsigned char header_buf[WS_HEADER_LENGTH_MAX];
 	void *payload_data;
 	unsigned long long nreceived;
-	unsigned char header_buf[WS_HEADER_LENGTH_MAX];
-//	unsigned char pos;
-//	char mask_flag
+	int masking_key_offset;
+	int nleft;
+	int is_server;
 } websocket_parser_t;
 
 #ifdef __cplusplus
@@ -56,26 +52,19 @@ void websocket_parser_mask_data(websocket_parser_t *parser);
 
 void websocket_parser_unmask_data(websocket_parser_t *parser);
 
-/*
-int decode_payload_length(unsigned long long *length, const unsigned char **pos,
-						  const unsigned char *end);
-
-int encode_payload_length(unsigned long long length, const unsigned char **pos,
-						  const unsigned char *end);
-*/
-
 #ifdef __cplusplus
 }
 #endif
 
-static inline void websocket_set_mask_key(websocket_parser_t *parser, unsigned int masking_key)
+static inline void websocket_set_mask_key(unsigned int masking_key,
+										  websocket_parser_t *parser)
 {
 	uint32_t *key = (uint32_t *)parser->masking_key;
 	*key = masking_key;
 	parser->mask = 1;
 }
 
-static inline void websocket_set_opcode(websocket_parser_t *parser, char opcode)
+static inline void websocket_set_opcode(int opcode, websocket_parser_t *parser)
 {
 	parser->opcode = opcode;
 }

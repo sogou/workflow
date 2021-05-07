@@ -29,17 +29,17 @@ public:
 		this->state = CHANNEL_STATE_UNDEFINED;
 	}
 
-	int establish()
+	bool establish()
 	{
 		if (this->state != CHANNEL_STATE_UNDEFINED &&
 			this->state != CHANNEL_STATE_SHUTDOWN &&
 			this->state != CHANNEL_STATE_STOPPED)
 		{
-			//errno = EINVALID;
-			return -1;
+			//errno = EINAVAIL;
+			return false;
 		}
 		
-		return this->communicator->establish(this, target);
+		return !!this->communicator->establish(this, target);
 	}
 
 	virtual void handle_established()
@@ -47,13 +47,13 @@ public:
 		this->state = CHANNEL_STATE_ESTABLISHED;
 	}
 
-	int shutdown()
+	bool shutdown()
 	{
 		if (this->state != CHANNEL_STATE_ESTABLISHED)
-			return -1;
+			return false;
 
 		this->communicator->shutdown(this);
-		return 0;
+		return true;
 	}
 
 	virtual void handle_terminated()
@@ -85,41 +85,14 @@ public:
 		this->passive = false;
 	}
 
-	virtual void dispatch()
-	{
-		fprintf(stderr, "ChannelRequest::dispatch()\n");
-		if (!this->passive) // OUT
-		{
-			int ret = this->communicator->send(this, this->sched_channel);
-
-			if (ret < 0)
-				this->handle(CHANNEL_STATE_ERROR, CHANNEL_ERROR_SEND);
-			else if (ret == 1)
-				this->handle(CS_STATE_SUCCESS, CHANNEL_SUCCESS);
-			// else 0: async send
-		}
-		else // IN
-		{
-			this->on_message();
-			this->subtask_done();
-		}
-	}
+	virtual void dispatch();
 
 	// OUT
-	void handle(int state, int error)
-	{
-		this->state = state;
-		this->error = error;
-		this->on_send();
-	}
-
-	virtual void on_send()
-	{
-		this->subtask_done();
-	}
+	void handle(int state, int error);
+//	virtual void on_send() { this->subtask_done(); }
 
 	// IN
-	virtual void on_message() {}
+//	virtual void on_message() {}
 
 	const CommSchedChannel *get_sched_channel()
 	{
@@ -135,59 +108,5 @@ protected:
 	friend CommSchedChannel;
 };
 
-/*
-class ChannelOutRequest : public SubTask, public TransSession
-{
-public:
-	ChannelOutRequest(CommSchedChannel *channel)
-	{
-		this->channel = channel;
-	}
-
-	virtual void dispatch()
-	{
-		if (!this->channel || ((CommSchedChannel *)this->channel)->send(this) < 0)
-			this->subtask_done();
-	}
-
-	virtual void on_send()
-	{
-		this->subtask_done();
-	}
-
-	void handle(int state, int error)
-	{
-		this->state = state;
-		this->error = error;
-		this->on_send();
-	}
-
-protected:
-    int state;
-    int error;
-	friend CommSchedChannel;
-};
-
-class ChannelInRequest : public SubTask
-{
-public:
-	ChannelInRequest()
-	{
-	}
-
-	virtual void dispatch()
-	{
-		this->on_message();
-		this->subtask_done();
-	}
-
-	virtual void on_message() = 0;
-
-protected:
-    int state;
-    int error;
-	friend CommSchedChannel;
-};
-*/
 #endif
 

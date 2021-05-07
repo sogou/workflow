@@ -6,39 +6,40 @@
 
 using namespace protocol;
 
-/*
-class WebSocketTask : public WFWebSocketTask
-{
-};
-*/
+#define WS_HTTP_SEC_KEY_K		"Sec-WebSocket-Key"
+#define WS_HTTP_SEC_KEY_V		"dGhlIHNhbXBsZSBub25jZQ=="
+#define WS_HTTP_SEC_PROTOCOL_K	"Sec-WebSocket-Protocol"
+#define WS_HTTP_SEC_PROTOCOL_V	"chat"
+#define WS_HTTP_SEC_VERSION_K	"Sec-WebSocket-Version"
+#define WS_HTTP_SEC_VERSION_V	"13"
 
 class WebSocketChannel : public WFWebSocketChannel
 {
 public:
-	WebSocketChannel(Communicator *comm, CommTarget *target,
+	WebSocketChannel(Communicator *comm, CommTarget *target, bool is_server,
 					 websocket_process_t&& process_message) :
 		WFChannel(comm, target, std::move(process_message))
 	{
-		this->is_server = false;
+		this->is_server = is_server;
 	}
 
 	void handle_established()
 	{
 		fprintf(stderr, "WebSocketChannel::handle_established()\n");
-		std::function<void (ChannelTask<HttpRequest> *)> tmp;
 		ChannelTask<HttpRequest> *task = new ChannelTask<HttpRequest>(this,
 																	  this->communicator,
-																	  std::move(tmp));
+																	  nullptr,
+																	  false/* passive */);
 		HttpRequest *req = task->get_message();
 		req->set_method(HttpMethodGet);
 		req->set_http_version("HTTP/1.1");
 		req->set_request_uri("/");
-		req->set_header_pair("Host", "websocket.workflow.org");
+		req->set_header_pair("Host", "workflow.org");
 		req->set_header_pair("Upgrade", "websocket");
 		req->set_header_pair("Connection", "Upgrade");
-		req->set_header_pair("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==");
-		req->set_header_pair("Sec-WebSocket-Protocol", "chat");
-		req->set_header_pair("Sec-WebSocket-Version", "13");
+		req->set_header_pair(WS_HTTP_SEC_KEY_K, WS_HTTP_SEC_KEY_V);
+		req->set_header_pair(WS_HTTP_SEC_PROTOCOL_K, WS_HTTP_SEC_PROTOCOL_V);
+		req->set_header_pair(WS_HTTP_SEC_VERSION_K, WS_HTTP_SEC_VERSION_V);
 		task->start();
 	}
 
@@ -75,26 +76,30 @@ public:
 				this->on_connect();
 		}
 		else
-			return WFWebSocketChannel::handle_in(in);
+		{
+			WFWebSocketChannel::handle_in(in);
+/*
+			if (this->parser->opcode == WebSocketFrameConnectionClose)
+			{
+				this->state = 
+			}
+*/
+		}
+		
 	}
 
-	virtual int close(std::function<void ()> on_close)
+	virtual bool close(std::function<void ()> on_close)
 	{
 		if (this->state != CHANNEL_STATE_ESTABLISHED)
-			return -1;
+			return false;
 
 		this->on_close = std::move(on_close);
-
-		auto&& cb = std::bind(&WebSocketChannel::close_callback,
-							  this,
-							  std::placeholders::_1);
-		auto *task = this->create_out_task(cb);
-		auto *msg = task->get_message();
+		WFWebSocketTask *task = this->create_task(nullptr);
+		protocol::WebSocketFrame *msg = task->get_message();
 		msg->set_opcode(WebSocketFrameConnectionClose);
-		msg->set_masking_key(0);
 		task->start();
 
-		return 0;
+		return true;
 	}
 
 	void close_callback(WFWebSocketTask *)
@@ -117,10 +122,11 @@ WFWebSocketChannel *WFChannelFactory::create_websocket_channel(const struct sock
 	CommTarget *target = new CommTarget();
 	if (target)
 	{
-		if (target->init(addr, addrlen, connect_timeout, 0 /*response_timeout*/) >= 0)
+		if (target->init(addr, addrlen, connect_timeout, 0 /* response_timeout */) >= 0)
 		{
-			WebSocketChannel *channel = new WebSocketChannel(&this->comm,
+			WebSocketChannel *channel = new WebSocketChannel(&this->communicator,
 															 target,
+															 false, /* is_server */
 															 std::move(process));
 			if (channel)
 				return channel;

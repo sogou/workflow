@@ -112,7 +112,7 @@ int main(int argc, const char *argv[])
 				ip, port, channel->get_state());
 		if (channel->get_state() == CHANNEL_STATE_ESTABLISHED)
 		{
-			auto *task = channel->create_out_task([&wait_group](ChannelTask<protocol::HttpRequest> *task){
+			auto *task = channel->create_task([&wait_group](ChannelTask<protocol::HttpRequest> *task){
 				fprintf(stderr, "send. state=%d error=%d\n",
 						task->get_state(), task->get_error());
 				wait_group.done();

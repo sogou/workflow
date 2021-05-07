@@ -124,7 +124,9 @@ private:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 	void init();
+	void init_virtual_nodes();
 	std::vector<size_t> pre_generated_vec;
+	std::vector<size_t> current_weight_vec;
 	size_t cur_idx;
 };
 

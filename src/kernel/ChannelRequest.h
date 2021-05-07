@@ -78,34 +78,29 @@ protected:
 class ChannelRequest : public SubTask, public TransSession
 {
 public:
-	ChannelRequest(CommSchedChannel *channel, Communicator *comm)
+	ChannelRequest(CommChannel *channel, CommScheduler *scheduler)
 	{
 		this->sched_channel = channel;
-		this->communicator = comm;
+		this->scheduler = scheduler;
 		this->passive = false;
+		this->wait_timeout = 0;
 	}
+
+	int get_wait_timeout() const { return this->wait_timeout; }
+	void set_wait_timeout(int timeout) { this->wait_timeout = timeout; }
+	CommChannel *get_sched_channel() const { return this->sched_channel; }
 
 	virtual void dispatch();
-
-	// OUT
-	void handle(int state, int error);
-//	virtual void on_send() { this->subtask_done(); }
-
-	// IN
-//	virtual void on_message() {}
-
-	const CommSchedChannel *get_sched_channel()
-	{
-		return this->sched_channel;
-	}
+	virtual void handle(int state, int error);
 
 protected:
     int state;
     int error;
 	bool passive;
-	Communicator *communicator;
+	int wait_timeout;
+	CommScheduler *scheduler;
 	CommSchedChannel *sched_channel;
-	friend CommSchedChannel;
+	friend CommChannel;
 };
 
 #endif

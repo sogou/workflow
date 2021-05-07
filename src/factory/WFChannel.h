@@ -94,7 +94,7 @@ protected:
 };
 
 template<class IN, class OUT>
-class WFChannel : public CommSchedChannel
+class WFChannel : public CommChannel//CommSchedChannel
 {
 public:
 	WFChannel(Communicator *comm, CommTarget *target,

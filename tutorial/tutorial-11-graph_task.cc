@@ -73,7 +73,7 @@ int main(void)
 	/* go task will print the http pages's size */
 	go_task = WFTaskFactory::create_go_task("go", go_func, &size1, &size2);
 
-	/* Greate a graph. graph is also a kind of task */
+	/* Create a graph. Graph is also a kind of task */
 	WFGraphTask *graph = WFTaskFactory::create_graph_task([](WFGraphTask *) {
 		printf("Graph task complete. Wakeup main process\n");
 		wait_group.done();

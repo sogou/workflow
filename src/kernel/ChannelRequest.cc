@@ -13,7 +13,8 @@ void CommSchedChannel::handle(int state, int error)
 	else
 		this->state = CHANNEL_STATE_ERROR;
 }
-	
+
+/*
 void ChannelRequest::dispatch()
 {
 	fprintf(stderr, "ChannelRequest::dispatch()\n");
@@ -29,7 +30,7 @@ void ChannelRequest::dispatch()
 	}
 	else // IN
 	{
-//		this->on_message();
+		this->on_message();
 		this->subtask_done();
 	}
 }
@@ -40,4 +41,5 @@ void ChannelRequest::handle(int state, int error)
 	this->error = error;
 	this->subtask_done();
 }
+*/
 

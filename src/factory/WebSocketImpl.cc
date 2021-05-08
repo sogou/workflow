@@ -6,13 +6,6 @@
 
 using namespace protocol;
 
-#define WS_HTTP_SEC_KEY_K		"Sec-WebSocket-Key"
-#define WS_HTTP_SEC_KEY_V		"dGhlIHNhbXBsZSBub25jZQ=="
-#define WS_HTTP_SEC_PROTOCOL_K	"Sec-WebSocket-Protocol"
-#define WS_HTTP_SEC_PROTOCOL_V	"chat"
-#define WS_HTTP_SEC_VERSION_K	"Sec-WebSocket-Version"
-#define WS_HTTP_SEC_VERSION_V	"13"
-
 class WebSocketChannel : public WFWebSocketChannel
 {
 public:

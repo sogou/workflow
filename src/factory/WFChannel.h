@@ -2,8 +2,44 @@
 #define _WFCHANNEL_H_
 
 #include "Communicator.h"
+#include "CommScheduler.h"
 #include "ChannelRequest.h"
 #include "Workflow.h"
+
+#define CHANNEL_STATE_UNDEFINED		-1
+#define CHANNEL_STATE_ESTABLISHED	0
+#define CHANNEL_STATE_ERROR			CS_STATE_ERROR
+#define CHANNEL_STATE_STOPPED		CS_STATE_STOPPED
+#define CHANNEL_STATE_SHUTDOWN		CS_STATE_SHUTDOWN
+
+class WFEstablishTask : public EstablishSession
+{
+public:
+	WFEstablishTask(CommChannel *channel,
+					CommScheduler *scheduler,
+					CommSchedObject *object,
+					int wait_timeout,
+					CommTarget **target,
+					std::function<void (WFEstablishTask *)> cb) :
+		EstablishSession(channel, scheduler, object, wait_timeout, target)
+	{
+		this->callback = std::move(cb);
+	}
+
+protected:
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+		if (this->callback)
+			this->callback(this);
+
+		delete this;
+		return series->pop();
+	}
+
+private:
+	std::function<void (WFEstablishTask *)> callback;
+};
 
 template<class MESSAGE>
 class ChannelTask : public ChannelRequest
@@ -32,49 +68,56 @@ public:
 
 public:
 	// OUT TASK
-	ChannelTask(CommSchedChannel *channel, Communicator *comm,
+	ChannelTask(CommChannel *channel, CommScheduler *scheduler,
 				std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
-		ChannelRequest(channel, comm)
+		ChannelRequest(channel, scheduler)
 	{
-		this->send_callback = std::move(cb);
-		this->process_message = NULL;
+		this->process = NULL;
+		this->callback = std::move(cb);
 	}
 
 	// IN TASK
-	ChannelTask(CommSchedChannel *channel, Communicator *comm,
-				std::function<void (ChannelTask<MESSAGE> *)> *process) :
-		ChannelRequest(channel, comm)
+	ChannelTask(CommSchedChannel *channel, CommScheduler *scheduler,
+				std::function<void (ChannelTask<MESSAGE> *)> *process,
+				std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
+		ChannelRequest(channel, scheduler)
 	{
 		this->passive = true;
-		this->process_message = process;
-		this->send_callback = nullptr;
+		this->process = process;
+		this->callback = std::move(cb);
 	}
 
-	ChannelTask(CommSchedChannel *channel, Communicator *comm,
-				std::function<void (ChannelTask<MESSAGE> *)> func,
-				bool passive) :
-		ChannelRequest(channel, comm)
+	void set_callback(std::function<void (ChannelTask<MESSAGE> *)> cb)
 	{
-		this->passive = passive;
-		if (passive)
-			this->process_message = &func;
-		else
-			this->send_callback = std::move(func);
+		this->callback = std::move(cb);
 	}
+
+/*
+	ChannelTask(CommChannel *channel, CommScheduler *scheduler,
+				std::function<void (ChannelTask<MESSAGE> *)>&& cb,
+				bool passive) :
+		ChannelRequest(channel, scheduler)
+	{
+		this->passive = true;
+		this->callback = std::move(cb);
+	}
+*/
 
 protected:
-	virtual void on_message()
+	virtual void process_message()
 	{
-		if (this->process_message != NULL)
-			(*process_message)(this);
+		if (this->process != NULL)
+			(*process)(this);
+
+		this->callback();
 	}
 
 	virtual SubTask *done()
 	{
 		SeriesWork *series = series_of(this);
 
-		if (!this->passive && this->send_callback)
-			this->send_callback(this);
+		if (!this->passive && this->callback)
+			this->callback(this);
 
 		delete this;
 		return series->pop();
@@ -89,78 +132,108 @@ private:
 	MESSAGE message;
 
 protected:
-	std::function<void (ChannelTask<MESSAGE> *)> send_callback;
-	std::function<void (ChannelTask<MESSAGE> *)> *process_message;
+	std::function<void (ChannelTask<MESSAGE> *)> callback;
+	std::function<void (ChannelTask<MESSAGE> *)> *process;
 };
 
 template<class IN, class OUT>
-class WFChannel : public CommChannel//CommSchedChannel
+class WFChannel : public CommChannel
 {
 public:
-	WFChannel(Communicator *comm, CommTarget *target,
-			  std::function<void (ChannelTask<IN> *)>&& process_message) :
-		CommSchedChannel(comm, target),
-		process_message(std::move(process_message))
+	WFChannel(CommScheduler *scheduler, CommSchedObject *object, int wait_timeout,
+			  std::function<void (ChannelTask<IN> *)>&& process) :
+		process(std::move(process))
 	{
+		this->scheduler = scheduler;
+		this->object = object;
+		this->wait_timeout = wait_timeout;
+		this->state = CHANNEL_STATE_UNDEFINED;
+		this->session = NULL;
+		this->establish_session = NULL;
 	}
 
 	virtual ChannelTask<OUT> *create_task(std::function<void (ChannelTask<OUT> *)>&& cb)
 	{
-		return new ChannelTask<OUT>(this, this->communicator, std::move(cb));
+		return new ChannelTask<OUT>(this, this->scheduler, std::move(cb));
 	}
 
-	virtual bool connect(std::function<void ()> on_connect)
+	virtual bool close(std::function<void ()> close_callback)
 	{
-		this->on_connect = std::move(on_connect);
-		return this->establish();
+		this->close_callback = std::move(close_callback);
+
+		if (this->state != CHANNEL_STATE_ESTABLISHED)
+			return false;
+
+		this->scheduler->shutdown(this);
+		return true;
 	}
 
-	virtual bool close(std::function<void ()> on_close)
-	{
-		this->on_close = std::move(on_close);
-		return this->shutdown();
-	}
+	CommSchedObject *get_request_object() const { return this->object; }
+	void set_request_object(CommSchedObject *object) { this->object = object; }
+	int get_wait_timeout() const { return this->wait_timeout; }
+	void set_wait_timeout(int timeout) { this->wait_timeout = timeout; }
+	int get_state() { return this->state; }
 
 public:
 	virtual CommMessageIn *message_in()
 	{
 		fprintf(stderr, "WFChannel::message_in()\n");
-		ChannelTask<IN> *task = new ChannelTask<IN>(this, this->communicator,
-													&this->process_message);
-//		Workflow::create_series_work(task, nullptr); // TODO: dispatch() ?
-		this->in_session = task; // new_session
+		ChannelTask<IN> *task = new ChannelTask<IN>(this, this->scheduler,
+													&this->process, nullptr);
+		Workflow::create_series_work(task, nullptr);
+		this->session = task; //TODO: new_session
 		return task->get_message();
 	}
 
-	//don`t need this after ChannelFactory reuse target
 	virtual ~WFChannel()
 	{
 		if (this->state == CHANNEL_STATE_ESTABLISHED)
-			this->communicator->shutdown(this);
-		delete this->target;
+			this->scheduler->shutdown(this);
 	}
 
-protected:	
+protected:
 	virtual void handle_established()
 	{
-		CommSchedChannel::handle_established();
-
-		if (this->on_connect)
-			this->on_connect();
+		this->state = CHANNEL_STATE_ESTABLISHED;
+		this->establish_session->handle(this->state, 0);
 	}
 
 	virtual void handle_shutdown()
 	{
-		CommSchedChannel::handle_terminated();
+		this->state = CHANNEL_STATE_SHUTDOWN;
 
-		if (this->on_close)
-			this->on_close();
+		if (this->close_callback)
+			this->close_callback();
+	}
+
+	virtual void handle_in(CommMessageIn *in)
+	{
+		if (this->session)
+			this->session->dispatch();
+	}
+
+	virtual void handle(int state, int error)
+	{
+		if (!error)
+			this->state = state;
+		else
+			this->state = CHANNEL_STATE_ERROR;
 	}
 
 public:
-	std::function<void (ChannelTask<IN> *)> process_message;
-	std::function<void ()> on_connect;
-	std::function<void ()> on_close;
+	std::function<void (ChannelTask<IN> *)> process;
+
+private:
+	CommShecdObject *object;
+	CommScheduler *scheduler;
+	int wait_timeout;
+	int state;
+
+protected:
+	CommTarget *target;
+//	int timeout_reason;
+	ChannelRequest *session;
+	EstablishSession *establish_session;
 };
 
 #endif

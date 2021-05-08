@@ -28,7 +28,7 @@ static WFFacilities::WaitGroup wait_group(1);
 
 void go_func(size_t *size1, size_t *size2)
 {
-	printf("page1 size1 = %zu, page2 size = %zu\n", *size1, *size2);
+	printf("page1 size = %zu, page2 size = %zu\n", *size1, *size2);
 }
 
 void http_callback(WFHttpTask *task)

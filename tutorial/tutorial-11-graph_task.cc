@@ -93,5 +93,6 @@ int main(void)
 
 	graph->start();
 	wait_group.wait();
+	return 0;
 }
 

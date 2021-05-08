@@ -79,7 +79,7 @@ int main(void)
 		wait_group.done();
 	});
 
-	/* Greate graph nodes */
+	/* Create graph nodes */
 	WFGraphNode& a = graph->create_graph_node(timer);
 	WFGraphNode& b = graph->create_graph_node(http_task1);
 	WFGraphNode& c = graph->create_graph_node(http_task2);

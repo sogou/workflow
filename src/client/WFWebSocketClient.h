@@ -11,7 +11,7 @@ using WFWebSocketChannel = WFChannel<protocol::WebSocketFrame,
 using websocket_callback_t = std::function<void (WFWebSocketTask *)>;
 using websocket_process_t = std::function<void (WFWebSocketTask *)>;
 
-class WebSocketClient : public WFWebSocketChannel
+class WebSocketClient
 {
 public:
 	WebSocketClient()
@@ -44,6 +44,7 @@ private:
 
 private:
 	ParsedURI uri;
+	WFChannel *channel; // maybe WebsocketChannel
 	WFCounterTask *counter;
 };
 

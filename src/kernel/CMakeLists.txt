@@ -18,6 +18,7 @@ set(SRC
 	thrdpool.c
 	CommRequest.cc
 	ChannelRequest.cc
+	TransRequest.cc
 	CommScheduler.cc
 	Communicator.cc
 	Executor.cc

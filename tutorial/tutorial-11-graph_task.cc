@@ -16,17 +16,13 @@
   Author: Xie Han (xiehan@sogou-inc.com;63350856@qq.com)
 */
 
-#include <stdio.h>
-#include "workflow/WFTaskFactory.h"
-#include "workflow/WFGraphTask.h"
-#include "workflow/HttpMessage.h"
 #include "workflow/WFFacilities.h"
 
 using namespace protocol;
 
 static WFFacilities::WaitGroup wait_group(1);
 
-void go_func(size_t *size1, size_t *size2)
+void go_func(const size_t *size1, const size_t *size2)
 {
 	printf("page1 size = %zu, page2 size = %zu\n", *size1, *size2);
 }
@@ -45,7 +41,7 @@ void http_callback(WFHttpTask *task)
 #define REDIRECT_MAX	3
 #define RETRY_MAX		1
 
-int main(void)
+int main()
 {
 	WFTimerTask *timer;
 	WFHttpTask *http_task1;
@@ -70,7 +66,7 @@ int main(void)
 												 http_callback);
 	http_task2->user_data = &size2;
 
-	/* go task will print the http pages's size */
+	/* go task will print the http pages' size */
 	go_task = WFTaskFactory::create_go_task("go", go_func, &size1, &size2);
 
 	/* Create a graph. Graph is also a kind of task */

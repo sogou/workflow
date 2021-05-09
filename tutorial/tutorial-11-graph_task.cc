@@ -16,6 +16,10 @@
   Author: Xie Han (xiehan@sogou-inc.com;63350856@qq.com)
 */
 
+#include <stdio.h>
+#include "workflow/WFTaskFactory.h"
+#include "workflow/WFGraphTask.h"
+#include "workflow/HttpMessage.h"
 #include "workflow/WFFacilities.h"
 
 using namespace protocol;

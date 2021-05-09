@@ -32,7 +32,7 @@ private:
 
     /* You have to implement one of the 'append' functions, and the first one
      * with arguement 'size_t *size' is recommmended. */
-    virtual int append(const void *buf, size_t *size)；
+    virtual int append(const void *buf, size_t *size);
     virtual int append(const void *buf, size_t size);
 
     ...

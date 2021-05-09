@@ -239,7 +239,7 @@ bool ComplexHttpTask::init_success()
 		}
 	}
 
-	this->WFComplexClientTask::set_type(TT_TCP);
+	this->WFComplexClientTask::set_transport_type(TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 

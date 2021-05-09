@@ -22,6 +22,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <openssl/ssl.h>
 #include <functional>
 #include <atomic>
 #include <mutex>

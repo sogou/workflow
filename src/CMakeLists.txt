@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
 
-find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
 add_subdirectory(kernel)
@@ -87,6 +86,20 @@ install(
 	COMPONENT devel
 )
 
+if (KAFKA STREQUAL "y")
+	install(
+		FILES ${LIB_DIR}/libwfkafka.a
+		DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		COMPONENT devel
+	)
+	if (NOT APPLE)
+		install(
+			FILES ${LIBSOKAFKA}
+			DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			COMPONENT devel
+		)
+	endif()
+endif ()
 
 install (
 	TARGETS ${PROJECT_NAME} EXPORT ${CMAKE_PROJECT_NAME}-targets

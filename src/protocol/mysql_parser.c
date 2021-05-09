@@ -148,8 +148,8 @@ static int parse_base_packet(const void *buf, size_t len, mysql_parser_t *parser
 // 1:0xFF|2:err_no|1:#|5:server_state|0-512:err_msg
 static int parse_error_packet(const void *buf, size_t len, mysql_parser_t *parser)
 {
-	const char *p = (const char *)buf + parser->offset;
-	const char *buf_end = (const char *)buf + len;
+	const unsigned char *p = (const unsigned char *)buf + parser->offset;
+	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	if (p + 9 > buf_end)
 		return -2;
@@ -160,11 +160,11 @@ static int parse_error_packet(const void *buf, size_t len, mysql_parser_t *parse
 	if (*p == '#')
 	{
 		p += 1;
-		parser->net_state_offset = p - (const char *)buf;
+		parser->net_state_offset = p - (const unsigned char *)buf;
 		p += MYSQL_STATE_LENGTH;
 
 		size_t msg_len = len - parser->offset - 9;
-		parser->err_msg_offset = p - (const char *)buf;
+		parser->err_msg_offset = p - (const unsigned char *)buf;
 		parser->err_msg_len = msg_len;
 	} else {
 		parser->err_msg_offset = (size_t)-1;
@@ -180,8 +180,8 @@ static int parse_error_packet(const void *buf, size_t len, mysql_parser_t *parse
 // 1:0x00|1-9:affect_row|1-9:insert_id|2:server_status|2:warning_count|0-n:server_msg
 static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 {
-	const char *p = (const char *)buf + parser->offset;
-	const char *buf_end = (const char *)buf + len;
+	const unsigned char *p = (const unsigned char *)buf + parser->offset;
+	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	unsigned long long affected_rows, insert_id, info_len;
 	int server_status;
@@ -215,9 +215,10 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 		parser->info_len = 0;
 	}
 
-	parser->info_offset = p - (const char *)buf;
-	parser->offset += parser->info_offset + parser->info_len;
-	parser->affected_rows = (affected_rows == (unsigned long long)-1) ? 0 : affected_rows;
+	parser->info_offset = p - (const unsigned char *)buf;
+	parser->offset = parser->info_offset + parser->info_len;
+	parser->affected_rows = (affected_rows == (unsigned long long)-1) ?
+											   0 : affected_rows;
 	parser->insert_id = (insert_id == (unsigned long long)-1) ? 0 : insert_id;
 	parser->server_status = server_status;
 	parser->warning_count = warning_count;
@@ -236,8 +237,8 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 // 1:0xfe|2:warnings|2:status_flag
 static int parse_eof_packet(const void *buf, size_t len, mysql_parser_t *parser)
 {
-	const char *p = (const char *)buf + parser->offset;
-	const char *buf_end = (const char *)buf + len;
+	const unsigned char *p = (const unsigned char *)buf + parser->offset;
+	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	if (p + 5 > buf_end)
 		return -2;
@@ -258,14 +259,15 @@ static int parse_eof_packet(const void *buf, size_t len, mysql_parser_t *parser)
 
 static int parse_field_eof_packet(const void *buf, size_t len, mysql_parser_t *parser)
 {
-	const char *p = (const char *)buf + parser->offset;
-	const char *buf_end = (const char *)buf + len;
+	const unsigned char *p = (const unsigned char *)buf + parser->offset;
+	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	if (p + 5 > buf_end)
 		return -2;
 
 	parser->offset += 5;
-	parser->current_result_set->rows_begin_offset = p + 5 - (const char *)buf;
+	parser->current_result_set->rows_begin_offset = p + 5 -
+													(const unsigned char *)buf;
 	parser->parse = parse_row_packet;
 	return 0;
 }
@@ -285,30 +287,31 @@ static int parse_local_inline(const void *buf, size_t len, mysql_parser_t *parse
 // NULL as 0xfb, or a length-encoded-string
 static int parse_row_packet(const void *buf, size_t len, mysql_parser_t *parser)
 {
-	const char *p = (const char *)buf + parser->offset;
-	const char *buf_end = (const char *)buf + len;
+	const unsigned char *p = (const unsigned char *)buf + parser->offset;
+	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	unsigned long long cell_len;
-	const char *cell_data;
+	const unsigned char *cell_data;
 
 	size_t i;
 
-	if (*(const unsigned char *)p == MYSQL_PACKET_HEADER_ERROR)
+	if (*p == MYSQL_PACKET_HEADER_ERROR)
 	{
 		parser->parse = parse_error_packet;
 		return 0;
 	}
 
-	if (*(const unsigned char *)p == MYSQL_PACKET_HEADER_EOF)
+	if (*p == MYSQL_PACKET_HEADER_EOF)
 	{
 		parser->parse = parse_eof_packet;
-		parser->current_result_set->rows_end_offset = p - (const char *)buf;
+		parser->current_result_set->rows_end_offset = p -
+													(const unsigned char *)buf;
 		return 0;
 	}
 
 	for (i = 0; i < parser->current_result_set->field_count; i++)
 	{
-		if (*(const unsigned char *)p == MYSQL_PACKET_HEADER_NULL)
+		if (*p == MYSQL_PACKET_HEADER_NULL)
 		{
 			p++;
 		} else {
@@ -321,14 +324,14 @@ static int parse_row_packet(const void *buf, size_t len, mysql_parser_t *parser)
 		return -2;
 
 	parser->current_result_set->row_count++;
-	parser->offset = p - (const char *)buf;
+	parser->offset = p - (const unsigned char *)buf;
 	return 0;
 }
 
 static int parse_field_count(const void *buf, size_t len, mysql_parser_t *parser)
 {
-	const char *p = (const char *)buf + parser->offset;
-	const char *buf_end = (const char *)buf + len;
+	const unsigned char *p = (const unsigned char *)buf + parser->offset;
+	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	unsigned long long field_count;
 	struct __mysql_result_set *result_set;
@@ -361,7 +364,7 @@ static int parse_field_count(const void *buf, size_t len, mysql_parser_t *parser
 		parser->result_set_count++;
 
 		parser->parse = parse_column_def_packet;
-		parser->offset = p - (const char *)buf;
+		parser->offset = p - (const unsigned char *)buf;
 	} else {
 		parser->parse = parse_ok_packet;
 	}
@@ -373,11 +376,11 @@ static int parse_field_count(const void *buf, size_t len, mysql_parser_t *parser
 // 2:charsetnr|4:length|1:type|2:flags|1:decimals|1:0x00|1:0x00|n:str(if COM_FIELD_LIST)
 static int parse_column_def_packet(const void *buf, size_t len, mysql_parser_t *parser)
 {
-	const char *p = (const char *)buf + parser->offset;
-	const char *buf_end = (const char *)buf + len;
+	const unsigned char *p = (const unsigned char *)buf + parser->offset;
+	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	int flag = 0;
-	const char *str;
+	const unsigned char *str;
 	unsigned long long str_len;
 	mysql_field_t *field = (mysql_field_t *)malloc(sizeof(mysql_field_t));
 
@@ -387,32 +390,32 @@ static int parse_column_def_packet(const void *buf, size_t len, mysql_parser_t *
 	do {
 		if (decode_string(&str, &str_len, &p, buf_end) == 0)
 			break;
-		field->catalog_offset = str - (const char *)buf;
+		field->catalog_offset = str - (const unsigned char *)buf;
 		field->catalog_length = str_len;
 
 		if (decode_string(&str, &str_len, &p, buf_end) == 0)
 			break;
-		field->db_offset = str - (const char *)buf;
+		field->db_offset = str - (const unsigned char *)buf;
 		field->db_length = str_len;
 
 		if (decode_string(&str, &str_len, &p, buf_end) == 0)
 			break;
-		field->table_offset = str - (const char *)buf;
+		field->table_offset = str - (const unsigned char *)buf;
 		field->table_length = str_len;
 
 		if (decode_string(&str, &str_len, &p, buf_end) == 0)
 			break;
-		field->org_table_offset = str - (const char *)buf;
+		field->org_table_offset = str - (const unsigned char *)buf;
 		field->org_table_length = str_len;
 
 		if (decode_string(&str, &str_len, &p, buf_end) == 0)
 			break;
-		field->name_offset = str - (const char *)buf;
+		field->name_offset = str - (const unsigned char *)buf;
 		field->name_length = str_len;
 
 		if (decode_string(&str, &str_len, &p, buf_end) == 0)
 			break;
-		field->org_name_offset = str - (const char *)buf;
+		field->org_name_offset = str - (const unsigned char *)buf;
 		field->org_name_length = str_len;
 
 		// the rest needs at least 13
@@ -422,7 +425,7 @@ static int parse_column_def_packet(const void *buf, size_t len, mysql_parser_t *
 		p++; // length of the following fields (always 0x0c)
 		field->charsetnr = uint2korr(p);
 		field->length = uint4korr(p + 2);
-		field->data_type = *((const unsigned char *)p + 6);
+		field->data_type = *(p + 6);
 		field->flags = uint2korr(p + 7);
 		field->decimals = (int)p[9];
 		p += 12;
@@ -432,7 +435,7 @@ static int parse_column_def_packet(const void *buf, size_t len, mysql_parser_t *
 		{
 			if (decode_string(&str, &str_len, &p, buf_end) == 0)
 				break;
-			field->def_offset = str - (const char *)buf;
+			field->def_offset = str - (const unsigned char *)buf;
 			field->def_length = str_len;
 		} else {
 			field->def_offset = (size_t)-1;
@@ -450,7 +453,7 @@ static int parse_column_def_packet(const void *buf, size_t len, mysql_parser_t *
 	//parser->fields.emplace_back(std::move(field));
 	parser->current_result_set->fields[parser->current_field_count] = field;
 
-	parser->offset = p - (const char *)buf;
+	parser->offset = p - (const unsigned char *)buf;
 	if (++parser->current_field_count == parser->current_result_set->field_count)
 		parser->parse = parse_field_eof_packet;
 

@@ -816,7 +816,6 @@ void Communicator::handle_listen_result(struct poller_result *res)
 	CommService *service = (CommService *)res->data.context;
 	struct CommConnEntry *entry;
 	CommServiceTarget *target;
-	struct poller_data data;
 	int timeout;
 
 	switch (res->state)
@@ -826,15 +825,15 @@ void Communicator::handle_listen_result(struct poller_result *res)
 		entry = this->accept_conn(target, service);
 		if (entry)
 		{
-			data.operation = PD_OP_READ;
-			data.fd = entry->sockfd;
-			data.context = entry;
-			data.message = NULL;
+			res->data.operation = PD_OP_READ;
+			res->data.fd = entry->sockfd;
+			res->data.context = entry;
+			res->data.message = NULL;
 			timeout = target->response_timeout;
-			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
+			if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
 			{
 				if (this->stop_flag)
-					mpoller_del(data.fd, this->mpoller);
+					mpoller_del(res->data.fd, this->mpoller);
 				break;
 			}
 

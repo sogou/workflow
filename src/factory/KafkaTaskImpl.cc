@@ -43,6 +43,7 @@ public:
 protected:
 	virtual CommMessageOut *message_out();
 	virtual CommMessageIn *message_in();
+	virtual bool init_success();
 	virtual bool finish_once();
 
 private:
@@ -57,6 +58,7 @@ private:
 
 CommMessageOut *__ComplexKafkaTask::message_out()
 {
+	long long seqid = this->get_seq();
 	KafkaBroker *broker = this->get_req()->get_broker();
 
 	if (!broker->get_api())
@@ -77,15 +79,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			const char *brk_ver = this->get_req()->get_config()->get_broker_version();
 			int ret = kafka_api_version_is_queryable(brk_ver, &api, &api_cnt);
 
-			if (ret == 1)
-			{
-				KafkaRequest *req  = new KafkaRequest;
-				req->duplicate(*this->get_req());
-				req->set_api(Kafka_ApiVersions);
-				is_user_request_ = false;
-				return req;
-			}
-			else if (ret == 0)
+			if (ret == 0)
 			{
 				broker->allocate_api_version(api_cnt);
 				memcpy(broker->get_api(), api,
@@ -98,6 +92,16 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				return NULL;
 			}
 		}
+	}
+
+	if (seqid == 0 && this->get_req()->get_config()->get_sasl_mechanisms())
+	{
+		KafkaRequest *req  = new KafkaRequest;
+
+		req->duplicate(*this->get_req());
+		req->set_api(Kafka_SaslHandshake);
+		is_user_request_ = false;
+		return req;
 	}
 
 	if (this->get_req()->get_api() == Kafka_Fetch)
@@ -113,8 +117,6 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			if (toppar->get_low_watermark() == -2)
 				toppar->set_offset_timestamp(-2);
 			else if (toppar->get_offset() == -1)
-				toppar->set_offset_timestamp(this->get_req()->get_config()->get_offset_timestamp());
-			else if (this->get_req()->get_config()->get_offset_store() == KAFKA_OFFSET_ASSIGN)
 				toppar->set_offset_timestamp(this->get_req()->get_config()->get_offset_timestamp());
 			else
 				continue;
@@ -149,6 +151,18 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	resp->duplicate(*req);
 
 	return this->WFClientTask::message_in();
+}
+
+bool __ComplexKafkaTask::init_success()
+{
+	if (this->get_req()->get_config()->get_sasl_mechanisms())
+	{
+		std::string info = this->get_req()->get_config()->get_sasl_info();
+		this->WFComplexClientTask::set_info(info);
+	}
+
+	this->WFComplexClientTask::set_transport_type(TT_TCP);
+	return true;
 }
 
 int __ComplexKafkaTask::first_timeout()
@@ -330,6 +344,18 @@ bool __ComplexKafkaTask::has_next()
 		}
 		break;
 
+	case Kafka_SaslHandshake:
+		if (msg->get_broker()->get_error())
+		{
+			this->error = msg->get_broker()->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+			ret = false;
+		}
+		else
+			this->get_req()->set_api(Kafka_SaslAuthenticate);
+
+		break;
+
 	case Kafka_Produce:
 		{
 			msg->get_toppar_list()->rewind();
@@ -344,6 +370,7 @@ bool __ComplexKafkaTask::has_next()
 			}
 		}
 
+	case Kafka_SaslAuthenticate:
 	case Kafka_Fetch:
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
@@ -395,7 +422,8 @@ bool __ComplexKafkaTask::finish_once()
 		}
 
 		if (this->get_resp()->get_api() == Kafka_Fetch ||
-			this->get_resp()->get_api() == Kafka_Produce)
+			this->get_resp()->get_api() == Kafka_Produce ||
+			this->get_resp()->get_api() == Kafka_ApiVersions)
 		{
 			if (*get_mutable_ctx())
 				(*get_mutable_ctx())(this);

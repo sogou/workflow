@@ -12,8 +12,7 @@ void WFWebSocketTask::dispatch()
 {
 	if (this->channel->get_state() == CHANNEL_STATE_UNDEFINED) //get_seq
 	{
-		WebSocketClient *client = static_cast<WebSocketClient *>(this->get_sched_channel());
-		WFRouterTask *task = client->route();
+		SubTask *task = client->open();
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(task);
 	}

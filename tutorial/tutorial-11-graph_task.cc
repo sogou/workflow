@@ -26,7 +26,7 @@ using namespace protocol;
 
 static WFFacilities::WaitGroup wait_group(1);
 
-void go_func(size_t *size1, size_t *size2)
+void go_func(const size_t *size1, const size_t *size2)
 {
 	printf("page1 size = %zu, page2 size = %zu\n", *size1, *size2);
 }
@@ -45,7 +45,7 @@ void http_callback(WFHttpTask *task)
 #define REDIRECT_MAX	3
 #define RETRY_MAX		1
 
-int main(void)
+int main()
 {
 	WFTimerTask *timer;
 	WFHttpTask *http_task1;
@@ -70,16 +70,16 @@ int main(void)
 												 http_callback);
 	http_task2->user_data = &size2;
 
-	/* go task will print the http pages's size */
+	/* go task will print the http pages size */
 	go_task = WFTaskFactory::create_go_task("go", go_func, &size1, &size2);
 
-	/* Greate a graph. graph is also a kind of task */
+	/* Create a graph. Graph is also a kind of task */
 	WFGraphTask *graph = WFTaskFactory::create_graph_task([](WFGraphTask *) {
 		printf("Graph task complete. Wakeup main process\n");
 		wait_group.done();
 	});
 
-	/* Greate graph nodes */
+	/* Create graph nodes */
 	WFGraphNode& a = graph->create_graph_node(timer);
 	WFGraphNode& b = graph->create_graph_node(http_task1);
 	WFGraphNode& c = graph->create_graph_node(http_task2);
@@ -93,5 +93,6 @@ int main(void)
 
 	graph->start();
 	wait_group.wait();
+	return 0;
 }
 

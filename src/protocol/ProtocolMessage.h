@@ -33,7 +33,7 @@ namespace protocol
 
 class ProtocolMessage : public CommMessageOut, public CommMessageIn
 {
-private:
+public:
 	virtual int encode(struct iovec vectors[], int max)
 	{
 		errno = ENOSYS;

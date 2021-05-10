@@ -12,7 +12,6 @@ set(SRC
 	HttpMessage.cc
 	RedisMessage.cc
 	HttpUtil.cc
-	SSLWrapper.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

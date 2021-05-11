@@ -7,6 +7,8 @@
 #define WS_HTTP_SEC_VERSION_K	"Sec-WebSocket-Version"
 #define WS_HTTP_SEC_VERSION_V	"13"
 
+using namespace protocol;
+
 SubTask *WebSocketChannel::done()
 {
 	if (!this->router_task && this->state == WFT_STATE_SUCCESS &&
@@ -16,9 +18,8 @@ SubTask *WebSocketChannel::done()
 		auto&& cb = std::bind(&WebSocketChannel::http_callback,
 							  this, std::placeholders::_1);
 
-		http_task = new ChannelOutTask<HttpRequest>(this, this->scheduler,
-												 	nullptr, cb);
-		HttpRequest *req = task->get_message();
+		http_task = new ChannelOutTask<HttpRequest>(this, this->scheduler, cb);
+		HttpRequest *req = http_task->get_message();
 		req->set_method(HttpMethodGet);
 		req->set_http_version("HTTP/1.1");
 		req->set_request_uri("/");
@@ -26,8 +27,8 @@ SubTask *WebSocketChannel::done()
 		req->set_header_pair("Upgrade", "websocket");
 		req->set_header_pair("Connection", "Upgrade");
 		req->set_header_pair(WS_HTTP_SEC_KEY_K, WS_HTTP_SEC_KEY_V);
-		auto *user_task = series->pop();
-		sereis_of(this)->push_front(user_task);
+		auto *user_task = series_of(this)->pop();
+		series_of(this)->push_front(user_task);
 		series_of(this)->push_front(http_task);
 
 		this->state = WFT_STATE_UNDEFINED;
@@ -41,8 +42,8 @@ void WebSocketChannel::http_callback(ChannelTask<HttpRequest> *task)
 	if (task->get_state() == WFT_STATE_SUCCESS)
 	{
 		this->counter = new WFCounterTask(1, nullptr);
-		auto *user_task = series->pop();
-		sereis_of(this)->push_front(user_task);
+		auto *user_task = series_of(task)->pop();
+		series_of(task)->push_front(user_task);
 		series_of(task)->push_front(this->counter);
 	}
 	else
@@ -67,9 +68,9 @@ void WebSocketChannel::handle_in(CommMessageIn *in)
 		HttpResponse *resp = static_cast<HttpResponse *>(in);
 
 		if (strcmp(resp->get_status_code(), "101") == 0)
-			this->state = WFT_STATE_ESTABLISHED;
+			this->state = WFT_STATE_SUCCESS;
 		else
-			this->state = WFT_STATE_ERROR;
+			this->state = WFT_STATE_TASK_ERROR;
 
 		if (this->counter)
 		{

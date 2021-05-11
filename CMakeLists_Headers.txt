@@ -53,12 +53,15 @@ set(INCLUDE_HEADERS
 	src/protocol/MySQLResult.inl
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
-	src/protocol/mysql_byteorder.h
+	src/protocol/byteorder.h
+	src/protocol/WebSocketMessage.h
+	src/protocol/websocket_parser.h
 	src/server/WFServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
 	src/client/WFMySQLConnection.h
+	src/client/WFWebSocketClient.h
 	src/manager/DNSCache.h
 	src/manager/WFGlobal.h
 	src/manager/UpstreamManager.h
@@ -83,6 +86,8 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFChannel.h
+	src/factory/ComplexChannel.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
 	src/nameservice/WFServiceGovernance.h

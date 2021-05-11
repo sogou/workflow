@@ -4,6 +4,9 @@
 #include "CommScheduler.h"
 #include "TransRequest.h"
 #include "Workflow.h"
+#include "RouteManager.h"
+#include "EndpointParams.h"
+#include "WFNameService.h"
 
 template<class MESSAGE>
 class ChannelTask : public TransRequest
@@ -55,9 +58,15 @@ protected:
 };
 
 template<class MESSAGE>
-class ChannelOutTask : public ChannelTask
+class ChannelOutTask : public ChannelTask<MESSAGE>
 {
 public:
+	ChannelOutTask(CommChannel *channel, CommScheduler *scheduler,
+				   std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
+		ChannelTask<MESSAGE>(channel, scheduler, std::move(cb))
+	{
+	}
+
 	virtual MESSAGE *message_out()
 	{
 		return &this->message;
@@ -65,13 +74,13 @@ public:
 };
 
 template<class MESSAGE>
-class ChannelInTask : public ChannelTask
+class ChannelInTask : public ChannelTask<MESSAGE>
 {
 public:
 	ChannelInTask(CommChannel *channel, CommScheduler *scheduler,
 				std::function<void (ChannelTask<MESSAGE> *)>&& cb,
 				std::function<void (ChannelTask<MESSAGE> *)>& proc) :
-		ChannelTask(channel, scheduler, std::move(cb)),
+		ChannelTask<MESSAGE>(channel, scheduler, std::move(cb)),
 		process(proc)
 	{
 	}
@@ -106,10 +115,11 @@ public:
 	virtual CommMessageIn *message_in()
 	{
 		this->session = this->new_session();
-		return task->get_message();
+		return this->session->get_message();
 	}
 
-//	virtual ~WFChannel() {}
+	int get_state() const { return this->state; }
+	int get_error() const { return this->error; }
 
 protected:
 	virtual ChannelTask<MESSAGE> *new_session()
@@ -128,7 +138,7 @@ protected:
 	}
 
 protected:
-	TransRequest *session;
+	ChannelTask<MESSAGE> *session;
 	std::function<void (ChannelTask<MESSAGE> *)> process;
 };
 

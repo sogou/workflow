@@ -33,9 +33,8 @@ set(TUTORIAL_LIST
 	tutorial-07-sort_task
 	tutorial-08-matrix_multiply
 	tutorial-09-http_file_server
-	tutorial-11-channel_cli
+	tutorial-11-graph_task
 	tutorial-12-mysql_cli
-	tutorial-14-websocket_cli
 )
 
 if (APPLE)

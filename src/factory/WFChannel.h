@@ -6,16 +6,22 @@
 #include "Workflow.h"
 
 template<class MESSAGE>
-class ChanTask : public TransRequest
+class ChannelTask : public TransRequest
 {
 public:
-/*
+	ChannelTask(CommChannel *channel, CommScheduler *scheduler,
+				std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
+		TransRequest(channel, scheduler)
+	{
+		this->callback = std::move(cb);
+	}
+
 	void start()
 	{
 		assert(!series_of(this));
 		Workflow::start_series_work(this, nullptr);
 	}
-*/
+
 	void dismiss()
 	{
 		assert(!series_of(this));
@@ -31,14 +37,6 @@ public:
 	int get_error() const { return this->error; }
 	void *user_data;
 
-public:
-	ChanTask(CommChannel *channel, CommScheduler *scheduler,
-				std::function<void (ChanTask<MESSAGE> *)>&& cb) :
-		TransRequest(channel, scheduler)
-	{
-		this->callback = std::move(cb);
-	}
-
 protected:
 	virtual SubTask *done()
 	{
@@ -50,27 +48,30 @@ protected:
 		delete this;
 		return series->pop();
 	}
-/*
+
+protected:
+	MESSAGE message;
+	std::function<void (ChannelTask<MESSAGE> *)> callback;
+};
+
+template<class MESSAGE>
+class ChannelOutTask : public ChannelTask
+{
+public:
 	virtual MESSAGE *message_out()
 	{
 		return &this->message;
 	}
-*/
-private:
-	MESSAGE message;
-
-protected:
-	std::function<void (ChanTask<MESSAGE> *)> callback;
 };
 
 template<class MESSAGE>
-class ChanPassiveTask : public ChanTask
+class ChannelInTask : public ChannelTask
 {
 public:
-	ChanPassiveTask(CommChannel *channel, CommScheduler *scheduler,
-				std::function<void (ChanTask<MESSAGE> *)>&& cb,
-				std::function<void (ChanTask<MESSAGE> *)>& proc) :
-		ChanTask(channel, scheduler, std::move(cb)),
+	ChannelInTask(CommChannel *channel, CommScheduler *scheduler,
+				std::function<void (ChannelTask<MESSAGE> *)>&& cb,
+				std::function<void (ChannelTask<MESSAGE> *)>& proc) :
+		ChannelTask(channel, scheduler, std::move(cb)),
 		process(proc)
 	{
 	}
@@ -81,32 +82,27 @@ public:
 		this->subtask_done();
 	}
 
-	void set_callback(std::function<void (ChanTask<MESSAGE> *)> cb)
+	void set_callback(std::function<void (ChannelTask<MESSAGE> *)> cb)
 	{
 		this->callback = std::move(cb);
 	}
 
 protected:
-	std::function<void (ChanTask<MESSAGE> *)>& process;
+	std::function<void (ChannelTask<MESSAGE> *)>& process;
 };
 
-template<class IN>
+template<class MESSAGE>
 class WFChannel : public ChanRequest
 {
 public:
 	WFChannel(CommSchedObject *object, CommScheduler *scheduler,
-			  std::function<void (ChanTask<IN> *)>&& process) :
+			  std::function<void (ChannelTask<MESSAGE> *)>&& process) :
 		ChanRequest(object, scheduler),
 		process(std::move(process))
 	{
 		this->session = NULL;
 	}
-/*
-	virtual ChanTask<OUT> *create_task(std::function<void (ChanTask<OUT> *)>&& cb)
-	{
-		return new ChanTask<OUT>(this, this->scheduler, std::move(cb));
-	}
-*/
+
 	virtual CommMessageIn *message_in()
 	{
 		this->session = this->new_session();
@@ -116,10 +112,12 @@ public:
 //	virtual ~WFChannel() {}
 
 protected:
-	virtual ChanTask<IN> *new_session()
+	virtual ChannelTask<MESSAGE> *new_session()
 	{
-		return new ChanPassiveTask<IN>(this, this->scheduler, nullptr, this->process);
-//		Workflow::create_series_work(task, nullptr);
+		auto *task = new ChannelInTask<MESSAGE>(this, this->scheduler, nullptr,
+												this->process);
+		Workflow::create_series_work(task, nullptr);
+		return task;
 	}
 
 	virtual void handle_in(CommMessageIn *in)
@@ -131,7 +129,7 @@ protected:
 
 protected:
 	TransRequest *session;
-	std::function<void (ChanTask<IN> *)> process;
+	std::function<void (ChannelTask<MESSAGE> *)> process;
 };
 
 #endif

@@ -2,13 +2,12 @@ cmake_minimum_required(VERSION 3.6)
 
 set(COMMON_KERNEL_HEADERS
 	src/kernel/CommRequest.h
-	src/kernel/ChannelRequest.h
-	src/kernel/TransRequest.h
 	src/kernel/CommScheduler.h
 	src/kernel/Communicator.h
 	src/kernel/SleepRequest.h
 	src/kernel/ExecRequest.h
 	src/kernel/IORequest.h
+	src/kernel/TransRequest.h
 	src/kernel/Executor.h
 	src/kernel/list.h
 	src/kernel/mpoller.h
@@ -54,9 +53,7 @@ set(INCLUDE_HEADERS
 	src/protocol/MySQLResult.inl
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
-	src/protocol/byteorder.h
-	src/protocol/WebSocketMessage.h
-	src/protocol/websocket_parser.h
+	src/protocol/mysql_byteorder.h
 	src/server/WFServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
@@ -86,8 +83,6 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
-	src/factory/WFChannel.h
-	src/factory/WFChannelFactory.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
 	src/nameservice/WFServiceGovernance.h

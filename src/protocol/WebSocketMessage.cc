@@ -138,7 +138,8 @@ int WebSocketFrame::get_opcode()
 void WebSocketFrame::set_masking_key(uint32_t masking_key)
 {
 	this->parser->mask = 1;
-	sprintf((char *)this->parser->masking_key, "%u", masking_key);
+	memcpy(this->parser->masking_key, &masking_key, WS_MASKING_KEY_LENGTH);
+//	sprintf((char *)this->parser->masking_key, "%u", masking_key);
 }
 
 uint32_t WebSocketFrame::get_masking_key()

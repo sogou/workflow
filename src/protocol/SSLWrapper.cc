@@ -17,7 +17,6 @@
 */
 
 #include <errno.h>
-#include <stdlib.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/bio.h>
@@ -30,14 +29,16 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 {
 	BIO *bio = SSL_get_wbio(this->ssl);
 	struct iovec *iov;
-	void *buf;
+	char *ptr;
+	long len;
 	int ret;
 
 	ret = this->msg->encode(vectors, max);
 	if ((unsigned int)ret > (unsigned int)max)
 		return ret;
 
-	for (iov = vectors; iov < vectors + ret; iov++)
+	max = ret;
+	for (iov = vectors; iov < vectors + max; iov++)
 	{
 		if (iov->iov_len > 0)
 		{
@@ -53,27 +54,17 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 		}
 	}
 
-	ret = BIO_pending(bio);
-	if (ret <= 0)
-		return ret;
-
-	buf = malloc(ret);
-	if (buf)
+	len = BIO_get_mem_data(bio, &ptr);
+	if (len > 0)
 	{
-		ret = BIO_read(bio, buf, ret);
-		if (ret > 0)
-		{
-			free(this->buf);
-			this->buf = buf;
-			vectors[0].iov_base = buf;
-			vectors[0].iov_len = ret;
-			return 1;
-		}
-
-		free(buf);
+		vectors[0].iov_base = ptr;
+		vectors[0].iov_len = len;
+		return 1;
 	}
-
-	return -1;
+	else if (len == 0)
+		return 0;
+	else
+		return -1;
 }
 
 #define BUFSIZE		8192

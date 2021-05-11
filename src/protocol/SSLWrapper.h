@@ -19,7 +19,6 @@
 #ifndef _SSLWRAPPER_H_
 #define _SSLWRAPPER_H_
 
-#include <stdlib.h>
 #include <openssl/ssl.h>
 #include "ProtocolMessage.h"
 
@@ -35,17 +34,13 @@ protected:
 protected:
 	ProtocolMessage *msg;
 	SSL *ssl;
-	void *buf;
 
 public:
 	SSLWrapper(ProtocolMessage *msg, SSL *ssl)
 	{
 		this->msg = msg;
 		this->ssl = ssl;
-		this->buf = NULL;
 	}
-
-	virtual ~SSLWrapper() { free(this->buf); }
 };
 
 }

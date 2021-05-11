@@ -37,7 +37,8 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 	if ((unsigned int)ret > (unsigned int)max)
 		return ret;
 
-	for (iov = vectors; iov < vectors + ret; iov++)
+	max = ret;
+	for (iov = vectors; iov < vectors + max; iov++)
 	{
 		if (iov->iov_len > 0)
 		{

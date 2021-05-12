@@ -30,12 +30,23 @@ int SSLHandshaker::encode(struct iovec vectors[], int max)
 	BIO *wbio = SSL_get_wbio(this->ssl);
 	char *ptr;
 	long len;
+	int ret;
 
 	if (BIO_reset(wbio) <= 0)
 		return -1;
 
-	if (SSL_do_handshake(this->ssl) < 0)
-		return -1;
+	ret = SSL_do_handshake(this->ssl);
+	if (ret <= 0)
+	{
+		ret = SSL_get_error(this->ssl, ret);
+		if (ret != SSL_ERROR_WANT_READ)
+		{
+			if (ret != SSL_ERROR_SYSCALL)
+				errno = -ret;
+
+			return -1;
+		}
+	}
 
 	len = BIO_get_mem_data(wbio, &ptr);
 	if (len > 0)

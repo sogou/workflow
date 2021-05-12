@@ -27,17 +27,17 @@ namespace protocol
 
 int SSLHandshaker::encode(struct iovec vectors[], int max)
 {
-	BIO *bio = SSL_get_wbio(this->ssl);
+	BIO *wbio = SSL_get_wbio(this->ssl);
 	char *ptr;
 	long len;
 
-	if (BIO_reset(bio) <= 0)
+	if (BIO_reset(wbio) <= 0)
 		return -1;
 
 	if (SSL_do_handshake(this->ssl) < 0)
 		return -1;
 
-	len = BIO_get_mem_data(bio, &ptr);
+	len = BIO_get_mem_data(wbio, &ptr);
 	if (len > 0)
 	{
 		vectors[0].iov_base = ptr;
@@ -58,44 +58,61 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 	long len;
 	int ret;
 
-	if (BIO_write(rbio, buf, *size) <= 0)
+	if (BIO_reset(wbio) <= 0)
 		return -1;
 
-	BIO_reset(wbio);
+	ret = BIO_write(rbio, buf, *size);
+	if (ret <= 0)
+		return -1;
+
+	*size = ret;
 	ret = SSL_do_handshake(this->ssl);
-	if (ret > 0)
-		return 1;
-
-	ret = SSL_get_error(this->ssl, ret);
-	if (ret != SSL_ERROR_WANT_READ)
+	if (ret <= 0)
 	{
-		if (ret != SSL_ERROR_SYSCALL)
-			errno = -ret;
+		ret = SSL_get_error(this->ssl, ret);
+		if (ret != SSL_ERROR_WANT_READ)
+		{
+			if (ret != SSL_ERROR_SYSCALL)
+				errno = -ret;
 
-		return -1;
+			return -1;
+		}
+
+		ret = 0;
 	}
 
 	len = BIO_get_mem_data(wbio, &ptr);
-	if (len < 0 || this->feedback(ptr, len) < 0)
-		return -1;
+	if (len >= 0)
+	{
+		long n = 0;
 
-	return 0;
+		if (len > 0)
+			n = this->feedback(ptr, len);
+
+		if (n == len)
+			return ret;
+
+		if (n >= 0)
+			errno = EAGAIN;
+	}
+
+	return -1;
 }
 
 int SSLWrapper::encode(struct iovec vectors[], int max)
 {
-	BIO *bio = SSL_get_wbio(this->ssl);
+	BIO *wbio = SSL_get_wbio(this->ssl);
 	struct iovec *iov;
 	char *ptr;
 	long len;
 	int ret;
 
+	if (BIO_reset(wbio) <= 0)
+		return -1;
+
 	ret = this->msg->encode(vectors, max);
 	if ((unsigned int)ret > (unsigned int)max)
 		return ret;
-
-	if (BIO_reset(bio) <= 0)
-		return -1;
 
 	max = ret;
 	for (iov = vectors; iov < vectors + max; iov++)
@@ -114,7 +131,7 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 		}
 	}
 
-	len = BIO_get_mem_data(bio, &ptr);
+	len = BIO_get_mem_data(wbio, &ptr);
 	if (len > 0)
 	{
 		vectors[0].iov_base = ptr;
@@ -131,13 +148,13 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 
 int SSLWrapper::append(const void *buf, size_t *size)
 {
-	BIO *bio = SSL_get_rbio(this->ssl);
+	BIO *rbio = SSL_get_rbio(this->ssl);
 	char rbuf[BUFSIZE];
 	size_t nleft;
 	size_t n;
 	int ret;
 
-	ret = BIO_write(bio, buf, *size);
+	ret = BIO_write(rbio, buf, *size);
 	if (ret <= 0)
 		return -1;
 

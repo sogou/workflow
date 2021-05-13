@@ -95,10 +95,7 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 	len = BIO_get_mem_data(wbio, &ptr);
 	if (len >= 0)
 	{
-		long n = 0;
-
-		if (len > 0)
-			n = this->feedback(ptr, len);
+		long n = this->feedback(ptr, len);
 
 		if (n == len)
 			return ret;

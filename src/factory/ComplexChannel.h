@@ -93,5 +93,7 @@ private:
 	bool upgrading;
 };
 
+#include "ComplexChannel.inl"
+
 #endif
 

@@ -1,5 +1,5 @@
 #include "workflow/WFFacilities.h"
-#include "workflow/WFChannelFactory.h"
+#include "workflow/WFWebSocketClient.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -16,115 +16,40 @@
 
 using namespace protocol;
 
-struct addr_info
+void process(ChannelTask<WebSocketFrame> *task)
 {
-    struct sockaddr_storage ss; 
-    unsigned int ss_len;
-};
-
-int get_addr_info(const char *ip, const char *port, struct addr_info *ai)
-{
-    struct addrinfo hints = { 0 };
-    struct addrinfo *res;
-    int gai_err;
-
-    hints.ai_socktype = SOCK_STREAM;
-    gai_err = getaddrinfo(ip, port, &hints, &res);
-
-    if (!gai_err)
-    {   
-        memset(ai, 0, sizeof(struct addr_info));
-        memcpy(&ai->ss, res->ai_addr, res->ai_addrlen);
-        ai->ss_len = res->ai_addrlen;
-        freeaddrinfo(res);
-    }   
-
-    return gai_err;
+	fprintf(stderr, "process. opcode=%d\n",
+			task->get_message()->get_opcode());
 }
 
-void channel_callback(WFWebSocketTask *task)
+int main()
 {
-	WebSocketFrame *msg = task->get_message();
-	fprintf(stderr, "channel_callback() opcode=%d\n", msg->get_opcode());
-}
-
-int main(int argc, const char *argv[])
-{
-	if (argc != 3)
-	{
-		fprintf(stderr, "[USAGE] %s IP PORT\n", argv[0]);
-		return 0;
-	}
-
-	WFChannelFactory factory;
-
-	if (factory.init(4) < 0)
-	{
-		fprintf(stderr, "failed to create factory\n");
-		return 0;
-	}
-
-	const char *ip = argv[1];
-    const char *port = argv[2];
-	struct addr_info ai;
-	if (get_addr_info(ip, port, &ai) != 0)
-	{
-		fprintf(stderr, "failed to parse remote ip:port = %s:%s\n", ip, port);
-		return 0;
-	}
-
-	auto *channel = factory.create_websocket_channel((struct sockaddr*) &ai.ss,
-													 ai.ss_len,
-													 CONNECT_TIMEOUT,
-													 channel_callback);
-	if (!channel)
-	{
-		fprintf(stderr, "failed to create channel\n");
-		return 0;
-	}
+	WebSocketClient client(process);
+	client.init("ws:://127.0.0.1:9001");
 
 	WFFacilities::WaitGroup wg(1);
-	channel->connect([&wg, &ip, &port, &channel]()
-	{
-		fprintf(stderr, "channel connected. ip=%s port=%s state=%d\n",
-				ip, port, channel->get_state());
+	auto *ping_task = client.create_websocket_task([&wg, &client](ChannelTask<WebSocketFrame> *task){
+		fprintf(stderr, "PING task on_send() state=%d error=%d\n",
+				task->get_state(), task->get_error());
 
-		if (channel->get_state() == CHANNEL_STATE_ESTABLISHED)
+		auto *text_task = client.create_websocket_task([&wg] (ChannelTask<WebSocketFrame> *task)
 		{
-			auto *ping_task = channel->create_task([&wg, &channel] (WFWebSocketTask *task)
-			{
-				fprintf(stderr, "PING task on_send() state=%d error=%d\n",
-						task->get_state(), task->get_error());
-
-				auto *text_task = channel->create_task([&wg] (WFWebSocketTask *task)
-				{
-					fprintf(stderr, "TEXT task on_send() state=%d error=%d\n",
-							task->get_state(), task->get_error());
-					wg.done();
-				});
-
-				WebSocketFrame *msg = text_task->get_message();
-				msg->set_masking_key(1412);
-				msg->set_text_data("xiehan", 6, true);
-				text_task->start();
-			});
-
-			WebSocketFrame *msg = ping_task->get_message();
-			msg->set_opcode(WebSocketFramePing);
-			msg->set_masking_key(0);
-			ping_task->start();
-		}
-		else
+			fprintf(stderr, "TEXT task on_send() state=%d error=%d\n",
+					task->get_state(), task->get_error());
 			wg.done();
+		});
+		WebSocketFrame *msg = text_task->get_message();
+		msg->set_masking_key(1412);
+		msg->set_text_data("xiehan", 6, true);
+		text_task->start();
 	});
-		
-	wg.wait();
 
-	sleep(5);
-	channel->close(nullptr);
-	sleep(2);
-	factory.deinit();
+	WebSocketFrame *msg = ping_task->get_message();
+	msg->set_opcode(WebSocketFramePing);
+	msg->set_masking_key(0); //TODO
+	ping_task->start();
+
+	wg.wait();
 
 	return 0;
 }
-

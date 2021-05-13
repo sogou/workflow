@@ -89,6 +89,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 	src/factory/WFChannel.h
 	src/factory/ComplexChannel.h
+	src/factory/ComplexChannel.inl
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
 	src/nameservice/WFServiceGovernance.h

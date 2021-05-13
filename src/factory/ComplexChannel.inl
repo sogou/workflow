@@ -11,6 +11,8 @@ void WFComplexChannel<MESSAGE>::dispatch()
 	this->router_task = this->route();		
 	series_of(this)->push_front(this);
 	series_of(this)->push_front(this->router_task);
+
+	this->subtask_done();
 }
 
 template<class MESSAGE>
@@ -89,7 +91,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 	switch (channel->get_state())
 	{
 	case WFT_STATE_UNDEFINED:
-		if (channel->is_established())
+		if (!channel->is_established())
 		{
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(channel);
@@ -137,11 +139,12 @@ template<class MESSAGE>
 SubTask *ComplexChannelOutTask<MESSAGE>::done()
 {
 	SeriesWork *series = series_of(this);
+	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
 
-	if (this->upgrading)
+	if (!channel->is_established() || this->upgrading)
 		return series->pop();
 
-	return ComplexChannelOutTask<MESSAGE>::done();
+	return ChannelOutTask<MESSAGE>::done();
 }
 
 template<class MESSAGE>

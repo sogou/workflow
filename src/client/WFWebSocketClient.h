@@ -37,7 +37,7 @@ public:
 	}
 
 private:
-	WFWebSocketChannel channel;
+	WebSocketChannel channel;
 };
 
 #endif

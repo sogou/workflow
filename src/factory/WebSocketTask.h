@@ -30,7 +30,7 @@ protected:
 class WebSocketTask : public WFWebSocketTask
 {
 public:
-	WebSocketTask(CommChannel *channel, CommScheduler *scheduler,
+	WebSocketTask(WebSocketChannel *channel, CommScheduler *scheduler,
 				  websocket_callback_t&& cb) :
 		WFWebSocketTask(channel, scheduler, std::move(cb))
 	{

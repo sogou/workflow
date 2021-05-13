@@ -120,6 +120,7 @@ public:
 
 	int get_state() const { return this->state; }
 	int get_error() const { return this->error; }
+	bool is_established() const { return this->established == 1; }
 
 protected:
 	virtual ChannelTask<MESSAGE> *new_session()

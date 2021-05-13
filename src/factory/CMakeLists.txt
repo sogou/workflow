@@ -6,6 +6,7 @@ set(SRC
 	HttpTaskImpl.cc
 	RedisTaskImpl.cc
 	MySQLTaskImpl.cc
+	WebSocketTaskImpl.cc
 	WFTaskFactory.cc
 	Workflow.cc
 )

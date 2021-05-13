@@ -16,6 +16,8 @@ SubTask *WebSocketTask::upgrade()
 //	auto&& cb = std::bind(&WebSocketTask::http_callback,
 //						  this, std::placeholders::_1);
 
+	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
+
 	http_task = new ChannelOutTask<HttpRequest>(this->channel,
 												WFGlobal::get_scheduler(),
 												nullptr);
@@ -23,7 +25,7 @@ SubTask *WebSocketTask::upgrade()
 	req->set_method(HttpMethodGet);
 	req->set_http_version("HTTP/1.1");
 	req->set_request_uri("/");
-	req->add_header_pair("Host", ""); // TODO
+	req->add_header_pair("Host", channel->get_uri()->host);
 	req->add_header_pair("Upgrade", "websocket");
 	req->add_header_pair("Connection", "Upgrade");
 	req->add_header_pair(WS_HTTP_SEC_KEY_K, WS_HTTP_SEC_KEY_V);

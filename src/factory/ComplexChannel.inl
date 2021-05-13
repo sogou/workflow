@@ -8,9 +8,12 @@ void WFComplexChannel<MESSAGE>::dispatch()
 	if (this->object)
 		return this->WFChannel<MESSAGE>::dispatch();
 
-	this->router_task = this->route();		
-	series_of(this)->push_front(this);
-	series_of(this)->push_front(this->router_task);
+	if (this->state == WFT_STATE_UNDEFINED)
+	{
+		this->router_task = this->route();
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(this->router_task);
+	}
 
 	this->subtask_done();
 }
@@ -141,8 +144,17 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 	SeriesWork *series = series_of(this);
 	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
 
-	if (!channel->is_established() || this->upgrading)
-		return series->pop();
+	if (channel->get_state() == WFT_STATE_UNDEFINED ||
+		 channel->get_state() == WFT_STATE_SUCCESS)
+	{
+		if (!channel->is_established() || this->upgrading)
+			return series->pop();
+	}
+	else
+	{
+		this->state = channel->get_state();
+		this->error = channel->get_error();
+	}
 
 	return ChannelOutTask<MESSAGE>::done();
 }

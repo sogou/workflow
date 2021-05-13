@@ -32,23 +32,25 @@ int SSLHandshaker::encode(struct iovec vectors[], int max)
 	long len;
 	int ret;
 
-	if (BIO_reset(wbio) <= 0)
-		return -1;
-
-	ret = SSL_do_handshake(this->ssl);
-	if (ret <= 0)
+	len = BIO_get_mem_data(wbio, &ptr);
+	if (len == 0)
 	{
-		ret = SSL_get_error(this->ssl, ret);
-		if (ret != SSL_ERROR_WANT_READ)
+		ret = SSL_do_handshake(this->ssl);
+		if (ret <= 0)
 		{
-			if (ret != SSL_ERROR_SYSCALL)
-				errno = -ret;
+			ret = SSL_get_error(this->ssl, ret);
+			if (ret != SSL_ERROR_WANT_READ)
+			{
+				if (ret != SSL_ERROR_SYSCALL)
+					errno = -ret;
 
-			return -1;
+				return -1;
+			}
 		}
+
+		len = BIO_get_mem_data(wbio, &ptr);
 	}
 
-	len = BIO_get_mem_data(wbio, &ptr);
 	if (len > 0)
 	{
 		vectors[0].iov_base = ptr;
@@ -78,29 +80,26 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 
 	*size = ret;
 	ret = SSL_do_handshake(this->ssl);
-	if (ret <= 0)
+	if (ret > 0)
+		return 1;
+
+	ret = SSL_get_error(this->ssl, ret);
+	if (ret != SSL_ERROR_WANT_READ)
 	{
-		ret = SSL_get_error(this->ssl, ret);
-		if (ret != SSL_ERROR_WANT_READ)
-		{
-			if (ret != SSL_ERROR_SYSCALL)
-				errno = -ret;
+		if (ret != SSL_ERROR_SYSCALL)
+			errno = -ret;
 
-			return -1;
-		}
-
-		ret = 0;
+		return -1;
 	}
 
 	len = BIO_get_mem_data(wbio, &ptr);
 	if (len >= 0)
 	{
-		long n = this->feedback(ptr, len);
+		ret = this->feedback(ptr, len);
+		if (ret == len)
+			return 0;
 
-		if (n == len)
-			return ret;
-
-		if (n >= 0)
+		if (ret >= 0)
 			errno = EAGAIN;
 	}
 

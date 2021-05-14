@@ -25,6 +25,7 @@ public:
 protected:
 	CommMessageIn *message_in();
 	void handle_in(CommMessageIn *in);
+	int first_timeout();
 };
 
 class WebSocketTask : public WFWebSocketTask

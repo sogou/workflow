@@ -18,14 +18,22 @@ using namespace protocol;
 
 void process(ChannelTask<WebSocketFrame> *task)
 {
-	fprintf(stderr, "process. opcode=%d\n",
-			task->get_message()->get_opcode());
+	fprintf(stderr, "process. state=%d error=%d opcode=%d\n",
+			task->get_state(), task->get_error(), task->get_message()->get_opcode());
+}
+
+void channel_callback(ChanRequest *channel)
+{
+	auto *ws_channel = static_cast<WebSocketChannel *>(channel);
+	fprintf(stderr, "channel callback. state=%d error=%d established=%d\n",
+			ws_channel->get_state(), ws_channel->get_error(), ws_channel->is_established());
 }
 
 int main()
 {
 	WebSocketClient client(process);
-	client.init("ws:://127.0.0.1:9001");
+	client.init("ws://127.0.0.1:9001");
+	client.set_callback(channel_callback);
 
 	WFFacilities::WaitGroup wg(1);
 	auto *ping_task = client.create_websocket_task([&wg, &client](ChannelTask<WebSocketFrame> *task){
@@ -40,16 +48,18 @@ int main()
 		});
 		WebSocketFrame *msg = text_task->get_message();
 		msg->set_masking_key(1412);
-		msg->set_text_data("xiehan", 6, true);
+		msg->set_text_data("20210514", 8, true);
 		text_task->start();
 	});
 
 	WebSocketFrame *msg = ping_task->get_message();
 	msg->set_opcode(WebSocketFramePing);
-	msg->set_masking_key(0); //TODO
 	ping_task->start();
 
 	wg.wait();
+	sleep(2);
+	client.deinit();
+	sleep(5);
 
 	return 0;
 }

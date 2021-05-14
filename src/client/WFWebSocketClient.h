@@ -36,6 +36,33 @@ public:
 								 std::move(cb));
 	}
 
+	void deinit()
+	{
+		if (this->channel.is_established())
+		{
+			WFWebSocketTask *task = this->create_websocket_task(
+				[](ChannelTask<protocol::WebSocketFrame> *task){
+
+					WebSocketChannel *channel = (WebSocketChannel *)task->user_data;
+					if (task->get_state() == WFT_STATE_SUCCESS &&
+						channel->is_established())
+					{
+						Workflow::start_series_work(channel, nullptr);
+					}
+				}
+			);
+			protocol::WebSocketFrame *msg = task->get_message();
+			msg->set_opcode(WebSocketFrameConnectionClose);
+			task->user_data = &this->channel;
+			task->start();
+		}
+	}
+
+	void set_callback(std::function<void (WFChannel<protocol::WebSocketFrame> *)>&& cb)
+	{
+		this->channel.set_callback(std::move(cb));
+	}
+
 private:
 	WebSocketChannel channel;
 };

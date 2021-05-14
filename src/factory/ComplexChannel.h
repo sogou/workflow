@@ -25,11 +25,6 @@ public:
 	void set_state(int state) { this->state = state; }
 	void set_counter(WFCounterTask *counter) { this->counter = counter; }
 
-	void set_callback(std::function<void (ChanRequest *)>&& cb)
-	{
-		this->callback = std::move(cb);
-	}
-
 protected:
 	virtual void dispatch();
 	virtual SubTask *done();
@@ -41,7 +36,6 @@ public:
 protected:
 	WFCounterTask *counter;
 	WFRouterTask *router_task;
-	std::function<void (ChanRequest *)> callback;
 };
 
 template<class MESSAGE>
@@ -86,6 +80,8 @@ protected:
 
 	void counter_callback(WFCounterTask *task)
 	{
+		auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
+		channel->set_state(WFT_STATE_SUCCESS);
 		this->upgrading = false;
 	}
 

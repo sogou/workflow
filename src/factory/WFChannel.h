@@ -121,12 +121,16 @@ public:
 	int get_state() const { return this->state; }
 	int get_error() const { return this->error; }
 	bool is_established() const { return this->established == 1; }
+	void set_callback(std::function<void (WFChannel<MESSAGE> *)>&& cb)
+	{
+		this->callback = std::move(cb);
+	}
 
 protected:
 	virtual ChannelTask<MESSAGE> *new_session()
 	{
-		auto *task = new ChannelInTask<MESSAGE>(this, this->scheduler, nullptr,
-												this->process);
+		auto *task = new ChannelInTask<MESSAGE>(this, this->scheduler,
+												nullptr, this->process);
 		Workflow::create_series_work(task, nullptr);
 		return task;
 	}
@@ -138,9 +142,20 @@ protected:
 		this->session = NULL;
 	}
 
+	virtual SubTask *done()
+	{
+		if (this->callback)
+			this->callback(this);
+
+		return series_of(this)->pop();
+	}
+
 protected:
-	ChannelTask<MESSAGE> *session;
 	std::function<void (ChannelTask<MESSAGE> *)> process;
+	std::function<void (WFChannel<MESSAGE> *)> callback;
+
+private:
+	ChannelTask<MESSAGE> *session;
 };
 
 #endif

@@ -1,3 +1,4 @@
+#include "WFTask.h"
 #include "WFGlobal.h"
 #include "WebSocketTask.h"
 
@@ -7,6 +8,8 @@
 #define WS_HTTP_SEC_PROTOCOL_V	"chat"
 #define WS_HTTP_SEC_VERSION_K	"Sec-WebSocket-Version"
 #define WS_HTTP_SEC_VERSION_V	"13"
+
+#define WS_HANDSHAKE_TIMEOUT	10 * 1000
 
 using namespace protocol;
 
@@ -25,7 +28,7 @@ SubTask *WebSocketTask::upgrade()
 	req->set_method(HttpMethodGet);
 	req->set_http_version("HTTP/1.1");
 	req->set_request_uri("/");
-	req->add_header_pair("Host", "workflow");//channel->get_uri()->host);
+	req->add_header_pair("Host", channel->get_uri()->host);
 	req->add_header_pair("Upgrade", "websocket");
 	req->add_header_pair("Connection", "Upgrade");
 	req->add_header_pair(WS_HTTP_SEC_KEY_K, WS_HTTP_SEC_KEY_V);
@@ -45,7 +48,11 @@ CommMessageIn *WebSocketChannel::message_in()
 
 void WebSocketChannel::handle_in(CommMessageIn *in)
 {
+	int parse_websocket = false;
+	WFCounterTask *counter = NULL;
+
 	pthread_mutex_lock(&this->mutex);
+
 	if (this->state == WFT_STATE_UNDEFINED)
 	{
 		HttpResponse *resp = static_cast<HttpResponse *>(in);
@@ -57,18 +64,29 @@ void WebSocketChannel::handle_in(CommMessageIn *in)
 
 		if (this->counter)
 		{
-			this->counter->count();
+			counter = this->counter;
 			this->counter = NULL;
 		}
-
 		delete resp;
 	}
-	else
-	{
-		WFWebSocketChannel::handle_in(in);
-		//if (this->parser->opcode == WebSocketFrameConnectionClose)
-	}
+	else if (this->state == WFT_STATE_SUCCESS)
+		parse_websocket = true;
+
 	pthread_mutex_unlock(&this->mutex);
+
+	if (counter)
+		counter->count();
+
+	if (!parse_websocket)
+		return;
+
+	WFWebSocketChannel::handle_in(in);
+	//if (this->parser->opcode == WebSocketFrameConnectionClose)
+}
+
+int WebSocketChannel::first_timeout()
+{
+	return WS_HANDSHAKE_TIMEOUT;
 }
 
 /*

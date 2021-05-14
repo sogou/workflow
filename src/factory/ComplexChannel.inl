@@ -32,6 +32,9 @@ SubTask *WFComplexChannel<MESSAGE>::done()
 	if (this->callback)
 		this->callback(this);
 
+	if (this->state == WFT_STATE_SUCCESS)
+		this->state = WFT_STATE_UNDEFINED;
+
 	return series->pop();
 }
 
@@ -104,6 +107,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 			SubTask *upgrade_task = this->upgrade();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(upgrade_task);
+			this->upgrading = true;
 		}
 		else
 		{
@@ -132,7 +136,6 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 template<class MESSAGE>
 SubTask *ComplexChannelOutTask<MESSAGE>::upgrade()
 {
-	this->upgrading = true;
 	auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::upgrade_callback,
 						  this, std::placeholders::_1);
 	return new WFCounterTask(0, cb);

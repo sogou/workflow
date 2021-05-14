@@ -16,8 +16,8 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#ifndef _BYTEORDER_H_
-#define _BYTEORDER_H_
+#ifndef _MYSQL_BYTEORDER_H_
+#define _MYSQL_BYTEORDER_H_
 
 #include <stdlib.h>
 #include <string.h>

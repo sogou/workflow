@@ -1,10 +1,48 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include "byteorder.h"
 #include "WebSocketMessage.h"
 
 namespace protocol
 {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+
+static inline void int2store(unsigned char *T, uint16_t A)
+{
+	memcpy(T, &A, sizeof(A));
+}
+
+static inline void int8store(unsigned char *T, uint64_t A)
+{
+	memcpy(T, &A, sizeof(A));
+}
+
+#elif __BYTE_ORDER == __BIG_ENDIAN
+
+static inline void int2store(unsigned char *T, uint16_t A)
+{
+	uint def_temp = A;
+	*(T) = (unsigned char)(def_temp);
+	*(T + 1) = (unsigned char)(def_temp >> 8);
+}
+
+static inline void int4store(unsigned char *T, uint32_t A)
+{
+	*(T) = (unsigned char)(A);
+	*(T + 1) = (unsigned char)(A >> 8);
+	*(T + 2) = (unsigned char)(A >> 16);
+	*(T + 3) = (unsigned char)(A >> 24);
+}
+
+static inline void int8store(unsigned char *T, uint64_t A)
+{
+	uint def_temp = (uint)A, def_temp2 = (uint)(A >> 32);
+	int4store(T, def_temp);
+	int4store(T + 4, def_temp2);
+}
+
+#else
+# error "unknown byte order"
+#endif
 
 WebSocketFrame::WebSocketFrame(WebSocketFrame&& msg) :
 	ProtocolMessage(std::move(msg))

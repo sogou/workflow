@@ -22,17 +22,16 @@ void process(ChannelTask<WebSocketFrame> *task)
 			task->get_state(), task->get_error(), task->get_message()->get_opcode());
 }
 
-void channel_callback(ChanRequest *channel)
+void channel_callback(WFChannel<protocol::WebSocketFrame> *channel)
 {
-	auto *ws_channel = static_cast<WebSocketChannel *>(channel);
 	fprintf(stderr, "channel callback. state=%d error=%d established=%d\n",
-			ws_channel->get_state(), ws_channel->get_error(), ws_channel->is_established());
+			channel->get_state(), channel->get_error(), channel->is_established());
 }
 
 int main()
 {
 	WebSocketClient client(process);
-	client.init("ws://127.0.0.1:9001");
+	client.init("ws://10.129.42.77:9001");
 	client.set_callback(channel_callback);
 
 	WFFacilities::WaitGroup wg(1);
@@ -57,9 +56,9 @@ int main()
 	ping_task->start();
 
 	wg.wait();
-	sleep(2);
-	client.deinit();
 	sleep(5);
+	client.deinit();
+	sleep(2);
 
 	return 0;
 }

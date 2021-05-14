@@ -17,7 +17,7 @@
 */
 
 #include "mysql_types.h"
-#include "byteorder.h"
+#include "mysql_byteorder.h"
 #include "MySQLResult.h"
 
 namespace protocol

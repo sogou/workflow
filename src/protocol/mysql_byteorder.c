@@ -16,7 +16,7 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#include "byteorder.h"
+#include "mysql_byteorder.h"
 
 int decode_length_safe(unsigned long long *res, const unsigned char **pos,
 					   const unsigned char *end)

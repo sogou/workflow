@@ -33,8 +33,8 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 	const unsigned char *p = (const unsigned char *)buf;	
 	const unsigned char *buf_end = (const unsigned char *)buf + *n;
 
-	int header_length_min = parser->is_server ? WS_SERVER_LENGTH_MIN :
-							WS_CLIENT_LENGTH_MIN;
+	int header_length_min = parser->is_server ? WS_CLIENT_LENGTH_MIN :
+							WS_SERVER_LENGTH_MIN;
 
 	if (parser->payload_length == 0) // receiving header
 	{

@@ -2,7 +2,7 @@
 
 # Sample code
 
-[tutorial-12-mysql\_cli.cc](../tutorial/tutorial-12-mysql_cli.cc)
+[tutorial-12-mysql\_cli.cc](../../tutorial/tutorial-12-mysql_cli.cc)
 
 # About mysql\_cli
 

@@ -154,31 +154,25 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 
 #define BUFSIZE		8192
 
-int SSLWrapper::append(const void *buf, size_t *size)
+int SSLWrapper::append_message()
 {
-	BIO *rbio = SSL_get_rbio(this->ssl);
-	char rbuf[BUFSIZE];
-	size_t nleft;
-	size_t n;
+	char buf[BUFSIZE];
 	int ret;
 
-	ret = BIO_write(rbio, buf, *size);
-	if (ret <= 0)
-		return -1;
-
-	*size = ret;
-	while ((ret = SSL_read(this->ssl, rbuf, BUFSIZE)) > 0)
+	while ((ret = SSL_read(this->ssl, buf, BUFSIZE)) > 0)
 	{
-		buf = rbuf;
-		nleft = ret;
+		size_t nleft = ret;
+		char *p = buf;
+		size_t n;
+
 		do
 		{
 			n = nleft;
-			ret = this->msg->append(buf, &n);
+			ret = this->msg->append(p, &n);
 			if (ret == 0)
 			{
-				buf = (char *)buf + n;
 				nleft -= n;
+				p += n;
 			}
 			else
 				return ret;
@@ -199,6 +193,29 @@ int SSLWrapper::append(const void *buf, size_t *size)
 	}
 
 	return 0;
+}
+
+int SSLWrapper::append(const void *buf, size_t *size)
+{
+	BIO *rbio = SSL_get_rbio(this->ssl);
+	int ret;
+
+	ret = BIO_write(rbio, buf, *size);
+	if (ret <= 0)
+		return -1;
+
+	*size = ret;
+	return this->append_message();
+}
+
+int ServerSSLWrapper::append(const void *buf, size_t *size)
+{
+	int ret = this->handshaker.append(buf, size);
+
+	if (ret > 0)
+		ret = this->append_message();
+
+	return ret;
 }
 
 }

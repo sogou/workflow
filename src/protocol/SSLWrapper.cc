@@ -208,7 +208,7 @@ int SSLWrapper::append(const void *buf, size_t *size)
 	return this->append_message();
 }
 
-int ServerSSLWrapper::append(const void *buf, size_t *size)
+int ServiceSSLWrapper::append(const void *buf, size_t *size)
 {
 	int ret = this->handshaker.append(buf, size);
 

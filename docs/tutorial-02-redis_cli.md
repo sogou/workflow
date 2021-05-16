@@ -1,7 +1,7 @@
 # 实现一次redis写入与读出：redis_cli
 # 示例代码
 
-[tutorial-02-redis_cli.cc](../tutorial/tutorial-02-redis_cli.cc)
+[tutorial-02-redis_cli.cc](/tutorial/tutorial-02-redis_cli.cc)
 
 # 关于redis_cli
 

@@ -1,7 +1,7 @@
 # 使用内置算法工厂：sort_task
 # 示例代码
 
-[tutorial-07-sort_task.cc](../tutorial/tutorial-07-sort_task.cc)
+[tutorial-07-sort_task.cc](/tutorial/tutorial-07-sort_task.cc)
 
 # 关于sort_task
 

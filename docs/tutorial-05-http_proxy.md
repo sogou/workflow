@@ -1,7 +1,7 @@
 # 异步server的示例：http_proxy
 # 示例代码
 
-[tutorial-05-http_proxy.cc](../tutorial/tutorial-05-http_proxy.cc)
+[tutorial-05-http_proxy.cc](/tutorial/tutorial-05-http_proxy.cc)
 
 # 关于http_proxy
 

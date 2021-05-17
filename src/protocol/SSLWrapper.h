@@ -27,7 +27,7 @@ namespace protocol
 
 class SSLHandshaker : public ProtocolMessage
 {
-protected:
+public:
 	virtual int encode(struct iovec vectors[], int max);
 	virtual int append(const void *buf, size_t *size);
 
@@ -45,6 +45,9 @@ protected:
 	virtual int append(const void *buf, size_t *size);
 
 protected:
+	int append_message();
+
+protected:
 	ProtocolMessage *msg;
 	SSL *ssl;
 
@@ -53,6 +56,22 @@ public:
 	{
 		this->msg = msg;
 		this->ssl = ssl;
+	}
+};
+
+class ServiceSSLWrapper : public SSLWrapper
+{
+protected:
+	virtual int append(const void *buf, size_t *size);
+
+protected:
+	SSLHandshaker handshaker;
+
+public:
+	ServiceSSLWrapper(ProtocolMessage *msg, SSL *ssl) :
+		SSLWrapper(msg, ssl),
+		handshaker(ssl)
+	{
 	}
 };
 

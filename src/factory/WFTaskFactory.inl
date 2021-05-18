@@ -184,7 +184,7 @@ public:
 
 	TransportType get_transport_type() const { return type_; }
 
-	const ParsedURI *get_current_uri() const { return &uri_; }
+	virtual const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
 	{
@@ -596,15 +596,6 @@ public:
 					std::function<void (WFMySQLTask *)>& process);
 };
 
-/**********Template Network Factory Sepcial**********/
-/*
-template<>
-inline WFHttpTask *
-WFNetworkTaskFactory<HttpRequest, HttpResponse>::create_server_task(std::function<void (WFHttpTask *)>& process)
-{
-	return WFServerTaskFactory::create_http_task(process);
-}
-*/
 /**********Template Thread Task Factory**********/
 
 template<class INPUT, class OUTPUT>

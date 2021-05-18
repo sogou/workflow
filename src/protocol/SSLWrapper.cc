@@ -109,7 +109,11 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 	if (ret < 0)
 		return -1;
 
-	n = this->feedback(ptr, len);
+	if (len > 0)
+		n = this->feedback(ptr, len);
+	else
+		n = 0;
+
 	if (n == len)
 		return ret;
 
@@ -228,8 +232,12 @@ int ServiceSSLWrapper::append(const void *buf, size_t *size)
 
 	if (__ssl_handshake(buf, size, this->ssl, &ptr, &len) < 0)
 		return -1;
-	
-	n = this->feedback(ptr, len);
+
+	if (len > 0)
+		n = this->feedback(ptr, len);
+	else
+		n = 0;
+
 	if (n == len)
 		return this->append_message();
 

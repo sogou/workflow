@@ -25,6 +25,7 @@
 #include <utility>
 #include "MySQLMessage.h"
 #include "mysql_types.h"
+#include "MySQLResult.h"
 
 namespace protocol
 {
@@ -340,6 +341,68 @@ void MySQLResponse::set_ok_packet()
 int MySQLResponse::decode_packet(const unsigned char *buf, size_t buflen)
 {
 	return mysql_parser_parse(buf, buflen, parser_);
+}
+
+unsigned long long MySQLResponse::get_affected_rows() const
+{
+	unsigned long long affected_rows = 0;
+	MySQLResultCursor cursor(this);
+
+	do {
+		affected_rows += cursor.get_affected_rows();
+	} while(cursor.next_result_set());
+
+	return affected_rows;
+}
+
+// return array api
+unsigned long long MySQLResponse::get_last_insert_id() const
+{
+	MySQLResultCursor cursor(this);
+
+	return cursor.get_insert_id();
+}
+
+int MySQLResponse::get_warnings() const
+{
+	int warning_count = 0;
+	MySQLResultCursor cursor(this);
+
+	do {
+		warning_count += cursor.get_warnings();
+	} while(cursor.next_result_set());
+
+	return warning_count;
+}
+
+// return array api
+int MySQLResponse::get_status_flags() const
+{
+	MySQLResultCursor cursor(this);
+
+	return cursor.get_server_status();
+}
+
+std::string MySQLResponse::get_info() const
+{
+	std::string info;
+	MySQLResultCursor cursor(this);
+
+	do {
+		info += cursor.get_info();
+	} while(cursor.next_result_set());
+
+	return info;
+}
+
+bool MySQLResponse::is_ok_packet() const
+{
+	return parser_->packet_type == MYSQL_PACKET_OK;
+}
+
+bool MySQLResponse::is_error_packet() const
+{
+	return parser_->packet_type == MYSQL_PACKET_ERROR;
 }
 
 }

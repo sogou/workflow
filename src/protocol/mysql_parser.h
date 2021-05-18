@@ -61,11 +61,20 @@ typedef struct __mysql_field
 struct __mysql_result_set
 {
 	struct list_head list;
+	int type;
+	int server_status;
+
 	int field_count;
 	int row_count;
 	size_t rows_begin_offset;
 	size_t rows_end_offset;
 	mysql_field_t **fields;
+
+	unsigned long long affected_rows;
+	unsigned long long insert_id;
+	int warning_count;
+	size_t info_offset;				//as mysql->info
+	int info_len;
 };
 
 typedef struct __mysql_result_set_cursor 
@@ -78,9 +87,9 @@ typedef struct __mysql_parser
 {
 	size_t offset;
 	int cmd;
-	int packet_type;
+	int packet_type;//
 	int (*parse)(const void *, size_t, struct __mysql_parser *);
-
+/*
 	unsigned long long affected_rows;
 	unsigned long long insert_id;
 
@@ -88,12 +97,13 @@ typedef struct __mysql_parser
 	int warning_count;
 	size_t info_offset;				//as mysql->info
 	int info_len;
+*/
 	size_t net_state_offset;		// err packet server_state
 	size_t err_msg_offset; 			// -1 for default
 	int err_msg_len;				// -1 for default
+
 	size_t local_inline_offset; 	// local inline file name
 	int local_inline_length;
-
 	const void *buf;
 	int error;
 

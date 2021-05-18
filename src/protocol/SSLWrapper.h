@@ -72,13 +72,8 @@ class ServiceSSLWrapper : public SSLWrapper
 protected:
 	virtual int append(const void *buf, size_t *size);
 
-protected:
-	SSLHandshaker handshaker;
-
 public:
-	ServiceSSLWrapper(ProtocolMessage *msg, SSL *ssl) :
-		SSLWrapper(msg, ssl),
-		handshaker(ssl)
+	ServiceSSLWrapper(ProtocolMessage *msg, SSL *ssl) : SSLWrapper(msg, ssl)
 	{
 	}
 

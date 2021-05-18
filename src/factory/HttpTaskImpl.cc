@@ -66,7 +66,7 @@ static int __encode_auth(const char *p, std::string& auth)
 	return -1;
 }
 
-static SSL *__create_ssl(const char *host, SSL_CTX *ssl_ctx)
+static SSL *__create_ssl(SSL_CTX *ssl_ctx)
 {
 	BIO *wbio;
 	BIO *rbio;
@@ -81,7 +81,6 @@ static SSL *__create_ssl(const char *host, SSL_CTX *ssl_ctx)
 			ssl = SSL_new(ssl_ctx);
 			if (ssl)
 			{
-				SSL_set_tlsext_host_name(ssl, host);
 				SSL_set_bio(ssl, wbio, rbio);
 				return ssl;
 			}
@@ -481,8 +480,7 @@ SSL *ComplexHttpProxyTask::get_ssl() const
 
 int ComplexHttpProxyTask::set_ssl()
 {
-	SSL_CTX *ssl_ctx = WFGlobal::get_ssl_client_ctx();
-	SSL *ssl = __create_ssl(user_uri_.host, ssl_ctx);
+	SSL *ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
 	WFConnection *conn;
 
 	if (!ssl)
@@ -491,6 +489,8 @@ int ComplexHttpProxyTask::set_ssl()
 	conn = this->WFComplexClientTask::get_connection();
 	Context *ctx = new Context;
 	ctx->ssl = ssl;
+
+	SSL_set_tlsext_host_name(ssl, user_uri_.host);
 	SSL_set_connect_state(ssl);
 
 	auto&& deleter = [] (void *c)

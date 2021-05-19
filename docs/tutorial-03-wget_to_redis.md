@@ -1,7 +1,7 @@
 # 任务序列的更多功能：wget_to_redis
 # 示例代码
 
-[tutorial-03-wget_to_redis.cc](../tutorial/tutorial-03-wget_to_redis.cc)
+[tutorial-03-wget_to_redis.cc](/tutorial/tutorial-03-wget_to_redis.cc)
 
 # 关于wget_to_redis
 

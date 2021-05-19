@@ -184,7 +184,7 @@ public:
 
 	TransportType get_transport_type() const { return type_; }
 
-	const ParsedURI *get_current_uri() const { return &uri_; }
+	virtual const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
 	{

@@ -1,7 +1,7 @@
 # 一个简单的并行抓取：parallel_wget
 # 示例代码
 
-[tutorial-06-parallel_wget.cc](../tutorial/tutorial-06-parallel_wget.cc)
+[tutorial-06-parallel_wget.cc](/tutorial/tutorial-06-parallel_wget.cc)
 
 # 关于parallel_wget
 

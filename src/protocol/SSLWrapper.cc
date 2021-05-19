@@ -25,6 +25,17 @@
 namespace protocol
 {
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+static inline BIO *__get_wbio(SSL *ssl)
+{
+	BIO *wbio = SSL_get_wbio(ssl);
+	BIO *next = BIO_next(wbio);
+	return next ? next : wbio;
+}
+
+# define SSL_get_wbio(ssl)	__get_wbio(ssl)
+#endif
+
 int SSLHandshaker::encode(struct iovec vectors[], int max)
 {
 	BIO *wbio = SSL_get_wbio(this->ssl);

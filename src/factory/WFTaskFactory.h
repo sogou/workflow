@@ -111,13 +111,13 @@ public:
 										http_callback_t callback);
 
 	static WFHttpTask *create_http_task(const std::string& url,
-										const std::string& proxy,
+										const std::string& proxy_url,
 										int redirect_max,
 										int retry_max,
 										http_callback_t callback);
 
 	static WFHttpTask *create_http_task(const ParsedURI& uri,
-										const ParsedURI& proxy,
+										const ParsedURI& proxy_uri,
 										int redirect_max,
 										int retry_max,
 										http_callback_t callback);

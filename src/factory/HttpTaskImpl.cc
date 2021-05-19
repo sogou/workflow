@@ -442,7 +442,7 @@ protected:
 	virtual bool finish_once();
 
 private:
-	struct Context : public WFConnection
+	struct ConnContext : public WFConnection
 	{
 		SSL *ssl;
 	};
@@ -463,7 +463,7 @@ WFConnection *ComplexHttpProxyTask::get_connection() const
 	WFConnection *conn = this->WFComplexClientTask::get_connection();
 
 	if (conn && is_ssl_)
-		return (Context *)conn->get_context();
+		return (ConnContext *)conn->get_context();
 
 	return conn;
 }
@@ -473,7 +473,7 @@ SSL *ComplexHttpProxyTask::get_ssl() const
 	WFConnection *conn = this->WFComplexClientTask::get_connection();
 
 	if (conn && is_ssl_)
-		return ((Context *)conn->get_context())->ssl;
+		return ((ConnContext *)conn->get_context())->ssl;
 
 	return NULL;
 }
@@ -486,16 +486,16 @@ int ComplexHttpProxyTask::set_ssl()
 	if (!ssl)
 		return -1;
 
-	conn = this->WFComplexClientTask::get_connection();
-	Context *ctx = new Context;
-	ctx->ssl = ssl;
-
 	SSL_set_tlsext_host_name(ssl, user_uri_.host);
 	SSL_set_connect_state(ssl);
 
+	conn = this->WFComplexClientTask::get_connection();
+	ConnContext *ctx = new ConnContext;
+	ctx->ssl = ssl;
+
 	auto&& deleter = [] (void *c)
 	{
-		Context *ctx = (Context *)c;
+		ConnContext *ctx = (ConnContext *)c;
 		SSL_free(ctx->ssl);
 		delete ctx;
 	};
@@ -533,8 +533,8 @@ CommMessageOut *ComplexHttpProxyTask::message_out()
 	else if (seqid == 1 && is_ssl_) // HANDSHAKE
 		return new SSLHandshaker(this->get_ssl());
 
-	ProtocolMessage *msg = (ProtocolMessage *)this->ComplexHttpTask::message_out();
-	if(is_ssl_)
+	auto *msg = (ProtocolMessage *)this->ComplexHttpTask::message_out();
+	if (is_ssl_)
 		return new SSLWrapper(msg, this->get_ssl());
 
 	is_user_request_ = true;
@@ -547,14 +547,14 @@ CommMessageIn *ComplexHttpProxyTask::message_in()
 
 	if (seqid == 0)
 	{
-		auto *conn_resp = new HttpResponse;
+		HttpResponse *conn_resp = new HttpResponse;
 		conn_resp->parse_zero_body();
 		return conn_resp;
 	}
 	else if (seqid == 1 && is_ssl_)
 		return new SSLHandshaker(this->get_ssl());
 
-	ProtocolMessage *msg = (ProtocolMessage *)this->ComplexHttpTask::message_in();
+	auto *msg = (ProtocolMessage *)this->ComplexHttpTask::message_in();
 	if (is_ssl_)
 		return new SSLWrapper(msg, this->get_ssl());
 
@@ -642,7 +642,6 @@ bool ComplexHttpProxyTask::init_success()
 	if (user_uri_.port)
 	{
 		user_port = atoi(user_uri_.port);
-
 		if (user_port <= 0 || user_port > 65535)
 		{
 			this->state = WFT_STATE_TASK_ERROR;
@@ -702,6 +701,7 @@ bool ComplexHttpProxyTask::init_success()
 
 	state_ = WFT_STATE_SUCCESS;
 	error_ = 0;
+	is_user_request_ = true;
 
 	HttpRequest *client_req = this->get_req();
 	client_req->set_request_uri(request_uri.c_str());
@@ -784,7 +784,7 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 }
 
 WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
-											const std::string& proxy,
+											const std::string& proxy_url,
 											int redirect_max,
 											int retry_max,
 											http_callback_t callback)
@@ -795,7 +795,7 @@ WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
 
 	ParsedURI uri, user_uri;
 	URIParser::parse(url, user_uri);
-	URIParser::parse(proxy, uri);
+	URIParser::parse(proxy_url, uri);
 
 	task->set_user_uri(std::move(user_uri));
 	task->set_keep_alive(HTTP_KEEPALIVE_DEFAULT);
@@ -804,7 +804,7 @@ WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
 }
 
 WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
-											const ParsedURI& proxy,
+											const ParsedURI& proxy_uri,
 											int redirect_max,
 											int retry_max,
 											http_callback_t callback)
@@ -815,7 +815,7 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 
 	task->set_user_uri(uri);
 	task->set_keep_alive(HTTP_KEEPALIVE_DEFAULT);
-	task->init(proxy);
+	task->init(proxy_uri);
 	return task;
 }
 

@@ -23,9 +23,9 @@
 #include <string>
 #include <openssl/sha.h>
 #include <utility>
-#include "MySQLMessage.h"
 #include "mysql_types.h"
 #include "MySQLResult.h"
+#include "MySQLMessage.h"
 
 namespace protocol
 {
@@ -350,7 +350,7 @@ unsigned long long MySQLResponse::get_affected_rows() const
 
 	do {
 		affected_rows += cursor.get_affected_rows();
-	} while(cursor.next_result_set());
+	} while (cursor.next_result_set());
 
 	return affected_rows;
 }
@@ -370,7 +370,7 @@ int MySQLResponse::get_warnings() const
 
 	do {
 		warning_count += cursor.get_warnings();
-	} while(cursor.next_result_set());
+	} while (cursor.next_result_set());
 
 	return warning_count;
 }
@@ -389,8 +389,10 @@ std::string MySQLResponse::get_info() const
 	MySQLResultCursor cursor(this);
 
 	do {
+		if (info.length() > 0)
+			info += " ";
 		info += cursor.get_info();
-	} while(cursor.next_result_set());
+	} while (cursor.next_result_set());
 
 	return info;
 }

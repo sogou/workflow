@@ -84,15 +84,6 @@ int mysql_parser_parse(const void *buf, size_t len, mysql_parser_t *parser)
 	return ret;
 }
 
-/*
-void mysql_parser_get_info(const char **info_str,
-							size_t *info_len,
-							mysql_parser_t *parser)
-{
-	*info_str = (const char *)parser->buf + parser->info_offset;
-	*info_len = parser->info_len;
-}
-*/
 void mysql_parser_get_net_state(const char **net_state_str,
 								size_t *net_state_len,
 								mysql_parser_t *parser)

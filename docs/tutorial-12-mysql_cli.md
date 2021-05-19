@@ -165,25 +165,25 @@ void task_callback(WFMySQLTask *task)
     bool test_rewind_flag = false;
 
     // step-2. 判断回复包其他状态
-	if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
-	{
-	    fprintf(stderr, "ERROR. error_code=%d %s\n",
-		        task->get_resp()->get_error_code(),
-				task->get_resp()->get_error_msg().c_str());
-	}
+    if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
+    {
+        fprintf(stderr, "ERROR. error_code=%d %s\n",
+                task->get_resp()->get_error_code(),
+                task->get_resp()->get_error_msg().c_str());
+    }
 
 begin:
     // step-3. 遍历结果集
     do {
         // step-4. 判断结果集状态
-		if (cursor.get_cursor_status() == MYSQL_STATUS_OK)
-		{
-		    // step-5. MYSQL_STATUS_OK结果集的基本内容
-		    fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
-			        cursor.get_affected_rows(), cursor.get_warnings(), cursor.get_insert_id());
-		}
-        eles if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
-	    {
+        if (cursor.get_cursor_status() == MYSQL_STATUS_OK)
+        {
+            // step-5. MYSQL_STATUS_OK结果集的基本内容
+            fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
+                    cursor.get_affected_rows(), cursor.get_warnings(), cursor.get_insert_id());
+        }
+        else if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
+        {
             fprintf(stderr, "field_count=%u rows_count=%u ",
                     cursor.get_field_count(), cursor.get_rows_count());
 
@@ -212,29 +212,31 @@ begin:
                     {
                         std::string res = rows[j][i].as_string();
                         fprintf(stderr, "[%s]\n", res.c_str());
-                    } else if (rows[j][i].is_int()) {
+                    }
+                    else if (rows[j][i].is_int())
+                    {
                         fprintf(stderr, "[%d]\n", rows[j][i].as_int());
                     } // else if ...
                 }
             }
-        // step-10. 拿下一个结果集
-        } while (cursor.next_result_set());
-
-        if (test_first_result_set_flag == false)
-        {
-            test_first_result_set_flag = true;
-            // step-11. 返回第一个结果集
-            cursor.first_result_set();
-            goto begin;
         }
+    // step-10. 拿下一个结果集
+    } while (cursor.next_result_set());
 
-        if (test_rewind_flag == false)
-        {
-            test_rewind_flag = true;
-            // step-9. 返回当前结果集头部
-            cursor.rewind();
-            goto begin;
-        }
+    if (test_first_result_set_flag == false)
+    {
+        test_first_result_set_flag = true;
+        // step-11. 返回第一个结果集
+        cursor.first_result_set();
+        goto begin;
+    }
+
+    if (test_rewind_flag == false)
+    {
+        test_rewind_flag = true;
+        // step-9. 返回当前结果集头部
+        cursor.rewind();
+        goto begin;
     }
 
     return;

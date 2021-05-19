@@ -23,6 +23,7 @@ else ()
 endif ()
 
 set(TUTORIAL_LIST
+	tutorial-00-helloworld
 	tutorial-01-wget
 	tutorial-02-redis_cli
 	tutorial-03-wget_to_redis
@@ -32,6 +33,7 @@ set(TUTORIAL_LIST
 	tutorial-07-sort_task
 	tutorial-08-matrix_multiply
 	tutorial-09-http_file_server
+	tutorial-11-graph_task
 	tutorial-12-mysql_cli
 )
 

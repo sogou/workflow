@@ -61,7 +61,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	long long seqid = this->get_seq();
 	KafkaBroker *broker = this->get_req()->get_broker();
 
-	if (seqid == 0 || !broker->get_api())
+	if (!broker->get_api())
 	{
 		if (!this->get_req()->get_config()->get_broker_version())
 		{
@@ -92,16 +92,16 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				return NULL;
 			}
 		}
+	}
 
-		if (this->get_req()->get_config()->get_sasl_mechanisms())
-		{
-			KafkaRequest *req  = new KafkaRequest;
+	if (seqid == 0 && this->get_req()->get_config()->get_sasl_mechanisms())
+	{
+		KafkaRequest *req  = new KafkaRequest;
 
-			req->duplicate(*this->get_req());
-			req->set_api(Kafka_SaslHandshake);
-			is_user_request_ = false;
-			return req;
-		}
+		req->duplicate(*this->get_req());
+		req->set_api(Kafka_SaslHandshake);
+		is_user_request_ = false;
+		return req;
 	}
 
 	if (this->get_req()->get_api() == Kafka_Fetch)
@@ -156,6 +156,10 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 bool __ComplexKafkaTask::init_success()
 {
 	TransportType type = TT_TCP;
+	if (uri_.scheme && strcasecmp(uri_.scheme, "kafka") == 0)
+		type = TT_TCP;
+	//else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
+	//	type = TT_TCP_SSL;
 
 	if (this->get_req()->get_config()->get_sasl_mechanisms())
 	{
@@ -163,7 +167,7 @@ bool __ComplexKafkaTask::init_success()
 		this->WFComplexClientTask::set_info(info);
 	}
 
-	this->WFComplexClientTask::set_type(type);
+	this->WFComplexClientTask::set_transport_type(type);
 	return true;
 }
 
@@ -424,7 +428,8 @@ bool __ComplexKafkaTask::finish_once()
 		}
 
 		if (this->get_resp()->get_api() == Kafka_Fetch ||
-			this->get_resp()->get_api() == Kafka_Produce)
+			this->get_resp()->get_api() == Kafka_Produce ||
+			this->get_resp()->get_api() == Kafka_ApiVersions)
 		{
 			if (*get_mutable_ctx())
 				(*get_mutable_ctx())(this);

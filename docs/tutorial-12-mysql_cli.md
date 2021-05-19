@@ -1,7 +1,7 @@
 # 异步MySQL客户端：mysql_cli
 # 示例代码
 
-[tutorial-12-mysql_cli.cc](../tutorial/tutorial-12-mysql_cli.cc)
+[tutorial-12-mysql_cli.cc](/tutorial/tutorial-12-mysql_cli.cc)
 
 # 关于mysql_cli
 

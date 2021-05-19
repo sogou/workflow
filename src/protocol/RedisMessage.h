@@ -107,24 +107,6 @@ public:
 	// format data to text
 	std::string debug_string() const;
 
-public:
-	struct StatusTag {};
-	struct ErrorTag {};
-	// integer
-	RedisValue(int64_t intv);
-	// string
-	RedisValue(const char *str);
-	RedisValue(const char *str, size_t len);
-	RedisValue(const std::string& strv);
-	// status
-	RedisValue(const char *str, StatusTag status_tag);
-	RedisValue(const char *str, size_t len, StatusTag status_tag);
-	RedisValue(const std::string& strv, StatusTag status_tag);
-	// error
-	RedisValue(const char *str, ErrorTag error_tag);
-	RedisValue(const char *str, size_t len, ErrorTag error_tag);
-	RedisValue(const std::string& strv, ErrorTag error_tag);
-
 private:
 	void free_data();
 	void only_set_string_data(const std::string& strv);

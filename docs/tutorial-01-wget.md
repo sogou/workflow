@@ -1,7 +1,7 @@
 # 创建第一个任务：wget
 # 示例代码
 
-[tutorial-01-wget.cc](../tutorial/tutorial-01-wget.cc)
+[tutorial-01-wget.cc](/tutorial/tutorial-01-wget.cc)
 
 # 关于wget
 程序从stdin读取http/https URL，抓取网页并把内容打印到stdout，并将请求和响应的http header打印在stderr。  

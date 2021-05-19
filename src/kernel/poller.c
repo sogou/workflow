@@ -383,6 +383,9 @@ static int __poller_handle_ssl_error(struct __poller_node *node, int ret,
 		return -1;
 	}
 
+	if (event == node->event)
+		return 0;
+
 	pthread_mutex_lock(&poller->mutex);
 	if (!node->removed)
 	{

@@ -76,7 +76,7 @@ void MySQLResultCursor::init()
 	this->status = MYSQL_STATUS_NOT_INIT;
 }
 
-MySQLResultCursor::MySQLResultCursor(MySQLResponse *resp)
+MySQLResultCursor::MySQLResultCursor(const MySQLResponse *resp)
 {
 	this->init(resp);
 }
@@ -90,19 +90,41 @@ void MySQLResultCursor::reset(MySQLResponse *resp)
 void MySQLResultCursor::fetch_result_set(const struct __mysql_result_set *result_set)
 {
 	const char *buf = (const char *)this->parser->buf;
+	this->server_status = result_set->server_status;
 
-	this->field_count = result_set->field_count;
-	this->start = buf + result_set->rows_begin_offset;
-	this->pos = this->start;
-	this->end = buf + result_set->rows_end_offset;
-	this->row_count = result_set->row_count;
+	switch (result_set->type)
+	{
+	case MYSQL_PACKET_GET_RESULT:
+		this->status = MYSQL_STATUS_GET_RESULT;
+		this->field_count = result_set->field_count;
+		this->start = buf + result_set->rows_begin_offset;
+		this->pos = this->start;
+		this->end = buf + result_set->rows_end_offset;
+		this->row_count = result_set->row_count;
 
-	this->fields = new MySQLField *[this->field_count];
-	for (int i = 0; i < this->field_count; i++)
-		this->fields[i] = new MySQLField(this->parser->buf, result_set->fields[i]);
+		this->fields = new MySQLField *[this->field_count];
+		for (int i = 0; i < this->field_count; i++)
+			this->fields[i] = new MySQLField(this->parser->buf, result_set->fields[i]);
+		break;
+
+	case MYSQL_PACKET_OK:
+		this->status = MYSQL_STATUS_OK;
+		this->affected_rows = result_set->affected_rows;
+		this->insert_id = result_set->insert_id;
+		this->warning_count = result_set->warning_count;
+		this->start = buf + result_set->info_offset;
+		this->info_len = result_set->info_len;
+		this->field_count = 0;
+		this->fields = NULL;
+		break;
+
+	default:
+		this->status = MYSQL_STATUS_ERROR;
+		break;
+	}
 }
 
-void MySQLResultCursor::init(MySQLResponse *resp)
+void MySQLResultCursor::init(const MySQLResponse *resp)
 {
 	this->current_field = 0;
 	this->current_row = 0;
@@ -118,21 +140,16 @@ void MySQLResultCursor::init(MySQLResponse *resp)
 		mysql_result_set_cursor_next(&result_set, &this->cursor);
 
 		this->fetch_result_set(result_set);
-		this->status = MYSQL_STATUS_GET_RESULT;
 	}
-	else if (this->parser->packet_type == MYSQL_PACKET_ERROR)
-		this->status = MYSQL_STATUS_ERROR;
-	else if (this->parser->packet_type == MYSQL_PACKET_OK)
-		this->status = MYSQL_STATUS_OK;
-	else
-		this->status = MYSQL_STATUS_NOT_INIT;
 }
 
 bool MySQLResultCursor::next_result_set()
 {
-	if (this->status != MYSQL_STATUS_GET_RESULT &&
-			this->status != MYSQL_STATUS_END)
+	if (this->status == MYSQL_STATUS_NOT_INIT ||
+		this->status == MYSQL_STATUS_ERROR)
+	{
 		return false;
+	}
 
 	struct __mysql_result_set *result_set;
 	if (mysql_result_set_cursor_next(&result_set, &this->cursor) == 0)
@@ -146,7 +163,6 @@ bool MySQLResultCursor::next_result_set()
 		this->current_row = 0;
 
 		this->fetch_result_set(result_set);
-		this->status = MYSQL_STATUS_GET_RESULT;
 		return true;
 	}
 	else
@@ -223,10 +239,13 @@ bool MySQLResultCursor::fetch_row_nocopy(const void **data, size_t *len, int *da
 			cell_data = NULL;
 			cell_len = 0;
 			p++;
-		} else if (decode_string(&cell_data, &cell_len, &p, end) == false) {
+		}
+		else if (decode_string(&cell_data, &cell_len, &p, end) == false)
+		{
 			this->status = MYSQL_STATUS_ERROR;
 			return false;
 		}
+
 		data[i] = cell_data;
 		len[i] = cell_len;
 		data_type[i] = this->fields[i]->get_data_type();
@@ -266,7 +285,9 @@ bool MySQLResultCursor::fetch_all(std::vector<std::vector<MySQLCell>>& rows)
 				len = 0;
 				p++;
 				data_type = MYSQL_TYPE_NULL;
-			} else if (decode_string(&data, &len, &p, end) == false) {
+			}
+			else if (decode_string(&data, &len, &p, end) == false)
+			{
 				this->status = MYSQL_STATUS_ERROR;
 				return false;
 			}
@@ -285,12 +306,15 @@ bool MySQLResultCursor::fetch_all(std::vector<std::vector<MySQLCell>>& rows)
 
 void MySQLResultCursor::first_result_set()
 {
-	if (this->status != MYSQL_STATUS_GET_RESULT &&
-			this->status != MYSQL_STATUS_END)
+	if (this->status == MYSQL_STATUS_NOT_INIT ||
+		this->status == MYSQL_STATUS_ERROR)
+	{
 		return;
+	}
 
 	mysql_result_set_cursor_rewind(&this->cursor);
 	struct __mysql_result_set *result_set;
+
 	if (mysql_result_set_cursor_next(&result_set, &this->cursor) == 0)
 	{
 		for (int i = 0; i < this->field_count; i++)
@@ -302,20 +326,20 @@ void MySQLResultCursor::first_result_set()
 		this->current_row = 0;
 
 		this->fetch_result_set(result_set);
-		this->status = MYSQL_STATUS_GET_RESULT;
 	}
 }
 
 void MySQLResultCursor::rewind()
 {
 	if (this->status != MYSQL_STATUS_GET_RESULT &&
-			this->status != MYSQL_STATUS_END)
+		this->status != MYSQL_STATUS_END)
+	{
 		return;
+	}
 
 	this->current_field = 0;
 	this->current_row = 0;
 	this->pos = this->start;
-	this->status = MYSQL_STATUS_GET_RESULT;
 }
 
 }

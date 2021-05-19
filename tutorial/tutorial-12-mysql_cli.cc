@@ -87,13 +87,21 @@ void mysql_callback(WFMySQLTask *task)
 		return;
 	}
 
-	if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
-	{
-		fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u\n",	
-			cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
+	do {
+		if (cursor.get_cursor_status() != MYSQL_STATUS_GET_RESULT &&
+			cursor.get_cursor_status() != MYSQL_STATUS_OK)
+		{
+			break;
+		}
 
-		do {
-			fprintf(stderr, "-------- RESULT SET --------\n");
+		fprintf(stderr, "---------------- RESULT SET ----------------\n");
+
+		if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
+		{
+			fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u\n",
+					cursor.get_cursor_status(), cursor.get_field_count(),
+					cursor.get_rows_count());
+
 			//nocopy api
 			fields = cursor.fetch_fields();
 			for (int i = 0; i < cursor.get_field_count(); i++)
@@ -102,20 +110,20 @@ void mysql_callback(WFMySQLTask *task)
 				{
 					fprintf(stderr, "db=%s table=%s\n",
 						fields[i]->get_db().c_str(), fields[i]->get_table().c_str());
-					fprintf(stderr, "-------- COLUMNS --------\n");
+					fprintf(stderr, "  ---------- COLUMNS ----------\n");
 				}
-				fprintf(stderr, "name[%s] type[%s]\n",
+				fprintf(stderr, "  name[%s] type[%s]\n",
 						fields[i]->get_name().c_str(),
 						datatype2str(fields[i]->get_data_type()));
 			}
-			fprintf(stderr, "------- COLUMNS END ------\n");
+			fprintf(stderr, "  _________ COLUMNS END _________\n\n");
 
 			while (cursor.fetch_row(arr))
 			{
-				fprintf(stderr, "---------- ROW ----------\n");
+				fprintf(stderr, "  ------------ ROW ------------\n");
 				for (size_t i = 0; i < arr.size(); i++)
 				{
-					fprintf(stderr, "[%s][%s]", fields[i]->get_name().c_str(),
+					fprintf(stderr, "  [%s][%s]", fields[i]->get_name().c_str(),
 							datatype2str(arr[i].get_data_type()));
 					if (arr[i].is_string())
 					{
@@ -172,13 +180,32 @@ void mysql_callback(WFMySQLTask *task)
 							fprintf(stderr, "[%s]\n", res.c_str());
 					}
 				}
-				fprintf(stderr, "-------- ROW END --------\n");
+				fprintf(stderr, "  __________ ROW END __________\n");
 			}
-			fprintf(stderr, "-------- RESULT SET END --------\n");
-		} while (cursor.next_result_set());
+		}
+		else if (cursor.get_cursor_status() == MYSQL_STATUS_OK)
+		{
+			fprintf(stderr, "  OK. %llu ", cursor.get_affected_rows());
+			if (cursor.get_affected_rows() == 1)
+				fprintf(stderr, "row ");
+			else
+				fprintf(stderr, "rows ");
+			fprintf(stderr, "affected. %d warnings. insert_id=%llu. %s\n",
+					cursor.get_warnings(), cursor.get_insert_id(),
+					cursor.get_info().c_str());
+		}
 
+		fprintf(stderr, "________________ RESULT SET END ________________\n\n");
+	} while (cursor.next_result_set());
+
+
+	if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
+	{
+		fprintf(stderr, "ERROR. error_code=%d %s\n",
+				task->get_resp()->get_error_code(),
+				task->get_resp()->get_error_msg().c_str());
 	}
-	else if (resp->get_packet_type() == MYSQL_PACKET_OK)
+	else if (resp->get_packet_type() == MYSQL_PACKET_OK) // just check origin APIs
 	{
 		fprintf(stderr, "OK. %llu ", task->get_resp()->get_affected_rows());
 		if (task->get_resp()->get_affected_rows() == 1)
@@ -189,20 +216,6 @@ void mysql_callback(WFMySQLTask *task)
 				task->get_resp()->get_warnings(),
 				task->get_resp()->get_last_insert_id(),
 				task->get_resp()->get_info().c_str());
-	}
-	else if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
-	{
-		fprintf(stderr, "ERROR. error_code=%d %s\n",
-				task->get_resp()->get_error_code(),
-				task->get_resp()->get_error_msg().c_str());
-	}
-	else if (resp->get_packet_type() == MYSQL_PACKET_EOF)
-	{
-		fprintf(stderr, "EOF packet without any ResultSets\n");
-	}
-	else
-	{
-		fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
 	}
 
 	get_next_cmd(task);

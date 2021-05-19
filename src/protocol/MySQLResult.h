@@ -119,7 +119,7 @@ private:
 class MySQLResultCursor
 {
 public:
-	MySQLResultCursor(MySQLResponse *resp);
+	MySQLResultCursor(const MySQLResponse *resp);
 
 	MySQLResultCursor(MySQLResultCursor&& move);
 	MySQLResultCursor& operator=(MySQLResultCursor&& move);
@@ -139,9 +139,16 @@ public:
 	bool fetch_row_nocopy(const void **data, size_t *len, int *data_type);
 	bool fetch_all(std::vector<std::vector<MySQLCell>>& rows);
 
+	int get_cursor_status() const;
+	int get_server_status() const;
+
 	int get_field_count() const;
 	int get_rows_count() const;
-	int get_cursor_status() const;
+	unsigned long long get_affected_rows() const;
+	unsigned long long get_insert_id() const;
+	int get_warnings() const;
+	std::string get_info() const;
+
 	void rewind();
 
 public:
@@ -149,7 +156,7 @@ public:
 	void reset(MySQLResponse *resp);
 
 private:
-	void init(MySQLResponse *resp);
+	void init(const MySQLResponse *resp);
 	void init();
 	void clear();
 
@@ -158,16 +165,23 @@ private:
 	template<class T>
 	bool fetch_row(T& row_map); 
 
+	int status;
+	int server_status;
 	const void *start;
 	const void *end;
 	const void *pos;
-	int status;
+
 	const void **row_data;
 	MySQLField **fields;
 	int row_count;
 	int field_count;
 	int current_row;
 	int current_field;
+
+	unsigned long long affected_rows;
+	unsigned long long insert_id;
+	int warning_count;
+	int info_len;
 
 	mysql_result_set_cursor_t cursor;
 	mysql_parser_t *parser;

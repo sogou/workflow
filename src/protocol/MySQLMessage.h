@@ -96,7 +96,6 @@ public:
 	unsigned long long get_affected_rows() const;
 	unsigned long long get_last_insert_id() const;
 	int get_warnings() const;
-	int get_status_flags() const;
 	int get_error_code() const;
 	std::string get_error_msg() const;
 	std::string get_sql_state() const;

@@ -311,7 +311,9 @@ bool MySQLResultCursor::fetch_row(T& row_map)
 			len = 0;
 			p++;
 			data_type = MYSQL_TYPE_NULL;
-		} else if (decode_string(&data, &len, &p, end) == false) {
+		}
+		else if (decode_string(&data, &len, &p, end) == false)
+		{
 			this->status = MYSQL_STATUS_ERROR;
 			return false;
 		}
@@ -330,7 +332,9 @@ inline const MySQLField *MySQLResultCursor::fetch_field()
 {
 	if (this->status != MYSQL_STATUS_GET_RESULT &&
 		this->status != MYSQL_STATUS_END)
+	{
 		return NULL;
+	}
 
 	if (this->current_field >= this->field_count)
 		return NULL;
@@ -342,7 +346,9 @@ inline const MySQLField *const *MySQLResultCursor::fetch_fields() const
 {
 	if (this->status != MYSQL_STATUS_GET_RESULT &&
 		this->status != MYSQL_STATUS_END)
+	{
 		return NULL;
+	}
 
 	return this->fields;
 }
@@ -352,21 +358,70 @@ inline int MySQLResultCursor::get_cursor_status() const
 	return this->status;
 }
 
+inline int MySQLResultCursor::get_server_status() const
+{
+	if (this->status != MYSQL_STATUS_GET_RESULT &&
+		this->status != MYSQL_STATUS_END &&
+		this->status != MYSQL_STATUS_OK)
+	{
+		return 0;
+	}
+
+	return this->server_status;
+}
+
 inline int MySQLResultCursor::get_field_count() const
 {
 	if (this->status != MYSQL_STATUS_GET_RESULT &&
 		this->status != MYSQL_STATUS_END)
+	{
 		return 0;
+	}
 
 	return this->field_count;
 }
 
 inline int MySQLResultCursor::get_rows_count() const
 {
-	if (this->status != MYSQL_STATUS_GET_RESULT && this->status != MYSQL_STATUS_END)
+	if (this->status != MYSQL_STATUS_GET_RESULT &&
+		this->status != MYSQL_STATUS_END)
+	{
 		return 0;
+	}
 
 	return this->row_count;
+}
+
+inline unsigned long long MySQLResultCursor::get_affected_rows() const
+{
+	if (this->status != MYSQL_PACKET_OK)
+		return 0;
+
+	return this->affected_rows;
+}
+
+inline int MySQLResultCursor::get_warnings() const
+{
+	if (this->status != MYSQL_PACKET_OK)
+		return 0;
+
+	return this->warning_count;
+}
+
+inline unsigned long long MySQLResultCursor::get_insert_id() const
+{
+	if (this->status != MYSQL_PACKET_OK)
+		return 0;
+
+	return this->insert_id;
+}
+
+inline std::string MySQLResultCursor::get_info() const
+{
+	if (this->status != MYSQL_PACKET_OK)
+		return "";
+
+	return std::string((char *)this->start, this->info_len);
 }
 
 inline void MySQLResultCursor::clear()
@@ -394,6 +449,10 @@ inline MySQLResultCursor::MySQLResultCursor(MySQLResultCursor&& move)
 	this->field_count = move.field_count;
 	this->current_row = move.current_row;
 	this->current_field = move.current_field;
+	this->affected_rows = move.affected_rows;
+	this->insert_id = move.insert_id;
+	this->warning_count = move.warning_count;
+	this->info_len = move.info_len;
 	this->cursor = move.cursor;
 	this->parser = move.parser;
 
@@ -416,6 +475,10 @@ inline MySQLResultCursor& MySQLResultCursor::operator=(MySQLResultCursor&& move)
 		this->field_count = move.field_count;
 		this->current_row = move.current_row;
 		this->current_field = move.current_field;
+		this->affected_rows = move.affected_rows;
+		this->insert_id = move.insert_id;
+		this->warning_count = move.warning_count;
+		this->info_len = move.info_len;
 		this->cursor = move.cursor;
 		this->parser = move.parser;
 

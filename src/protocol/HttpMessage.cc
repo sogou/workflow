@@ -342,11 +342,14 @@ int HttpResponse::append(const void *buf, size_t *size)
 {
 	int ret = HttpMessage::append(buf, size);
 
-	if (ret > 0 && *http_parser_get_code(this->parser) == '1')
+	if (ret > 0)
 	{
-		http_parser_deinit(this->parser);
-		http_parser_init(1, this->parser);
-		ret = 0;
+		if (strcmp(http_parser_get_code(this->parser), "100") == 0)
+		{
+			http_parser_deinit(this->parser);
+			http_parser_init(1, this->parser);
+			ret = 0;
+		}
 	}
 
 	return ret;

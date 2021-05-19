@@ -176,10 +176,10 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	unsigned long long affected_rows, insert_id, info_len;
-	int server_status;
-	unsigned int warning_count;
-	int ret;
 	struct __mysql_result_set *result_set;
+	unsigned int warning_count;
+	int server_status;
+	int ret;
 
 	p += 1;// 0x00
 	if (decode_length_safe(&affected_rows, &p, buf_end) == 0)

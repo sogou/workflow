@@ -63,25 +63,18 @@ struct __mysql_result_set
 	struct list_head list;
 	int type;
 	int server_status;
-	union
-	{
-		struct
-		{
-			int field_count;
-			int row_count;
-			size_t rows_begin_offset;
-			size_t rows_end_offset;
-			mysql_field_t **fields;
-		};
-		struct
-		{
-			unsigned long long affected_rows;
-			unsigned long long insert_id;
-			int warning_count;
-			size_t info_offset;
-			int info_len;
-		};
-	};
+
+	int field_count;
+	int row_count;
+	size_t rows_begin_offset;
+	size_t rows_end_offset;
+	mysql_field_t **fields;
+
+	unsigned long long affected_rows;
+	unsigned long long insert_id;
+	int warning_count;
+	size_t info_offset;
+	int info_len;
 };
 
 typedef struct __mysql_result_set_cursor 

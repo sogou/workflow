@@ -182,10 +182,10 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	int ret;
 
 	p += 1;// 0x00
-	if (decode_length_safe(&affected_rows, &p, buf_end) == 0)
+	if (decode_length_safe(&affected_rows, &p, buf_end) <= 0)
 		return -2;
 
-	if (decode_length_safe(&insert_id, &p, buf_end) == 0)
+	if (decode_length_safe(&insert_id, &p, buf_end) <= 0)
 		return -2;
 
 	if (p + 4 > buf_end)
@@ -199,10 +199,20 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	if (p < buf_end)
 	{
 		ret = decode_length_safe(&info_len, &p, buf_end);
-		info_len = (info_len == (unsigned long long)-1) ? 0 : info_len;
-		if (ret == 0 || p + info_len > buf_end)
+		if (ret > 0)
+		{
+			if (info_len == ~0ULL)
+				info_len = 0;
+			if (p + info_len > buf_end)
+				return -2;
+		}
+		else if (ret < 0)
+			info_len = 0;
+		else
 			return -2;
+
 	} else {
+		ret = 1;
 		info_len = 0;
 	}
 
@@ -212,9 +222,8 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 
 	result_set->info_offset = p - (const unsigned char *)buf;
 	result_set->info_len = info_len;
-	result_set->affected_rows = (affected_rows == (unsigned long long)-1) ?
-											   0 : affected_rows;
-	result_set->insert_id = (insert_id == (unsigned long long)-1) ? 0 : insert_id;
+	result_set->affected_rows = (affected_rows == ~0ULL) ? 0 : affected_rows;
+	result_set->insert_id = (insert_id == ~0ULL) ? 0 : insert_id;
 	result_set->server_status = server_status;
 	result_set->warning_count = warning_count;
 	result_set->type = MYSQL_PACKET_OK;
@@ -227,6 +236,12 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 
 	parser->buf = buf;
 	parser->offset = result_set->info_offset + result_set->info_len;
+
+	if (ret < 0)
+	{
+		parser->parse = parse_error_packet;
+		return 0;
+	}
 
 	if (server_status & MYSQL_SERVER_MORE_RESULTS_EXIST)
 	{
@@ -337,13 +352,11 @@ static int parse_field_count(const void *buf, size_t len, mysql_parser_t *parser
 
 	unsigned long long field_count;
 	struct __mysql_result_set *result_set;
-	int ret;
 
-	ret = decode_length_safe(&field_count, &p, buf_end);
-	if (ret == 0)
+	if (decode_length_safe(&field_count, &p, buf_end) <= 0)
 		return -2;
 
-	field_count = (field_count == (unsigned long long)-1) ? 0 : field_count;
+	field_count = (field_count == ~0ULL) ? 0 : field_count;
 
 	if (field_count)
 	{

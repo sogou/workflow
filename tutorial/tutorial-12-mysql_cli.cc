@@ -183,7 +183,7 @@ void mysql_callback(WFMySQLTask *task)
 				fprintf(stderr, "  __________ ROW END __________\n");
 			}
 		}
-		else if (cursor.get_cursor_status() == MYSQL_PACKET_OK)
+		else if (cursor.get_cursor_status() == MYSQL_STATUS_OK)
 		{
 			fprintf(stderr, "  OK. %llu ", cursor.get_affected_rows());
 			if (cursor.get_affected_rows() == 1)

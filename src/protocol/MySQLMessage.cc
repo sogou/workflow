@@ -358,9 +358,15 @@ unsigned long long MySQLResponse::get_affected_rows() const
 // return array api
 unsigned long long MySQLResponse::get_last_insert_id() const
 {
+	unsigned long long insert_id = 0;
 	MySQLResultCursor cursor(this);
 
-	return cursor.get_insert_id();
+	do {
+		if (cursor.get_insert_id())
+			insert_id = cursor.get_insert_id();
+	} while (cursor.next_result_set());
+
+	return insert_id;
 }
 
 int MySQLResponse::get_warnings() const
@@ -373,14 +379,6 @@ int MySQLResponse::get_warnings() const
 	} while (cursor.next_result_set());
 
 	return warning_count;
-}
-
-// return array api
-int MySQLResponse::get_status_flags() const
-{
-	MySQLResultCursor cursor(this);
-
-	return cursor.get_server_status();
 }
 
 std::string MySQLResponse::get_info() const

@@ -34,69 +34,6 @@ using namespace protocol;
 #define HTTP_KEEPALIVE_DEFAULT	(60 * 1000)
 #define HTTP_KEEPALIVE_MAX		(300 * 1000)
 
-static int __encode_auth(const char *p, std::string& auth)
-{
-	static SSL_CTX *init_ssl = WFGlobal::get_ssl_client_ctx();
-	(void)init_ssl;
-	BUF_MEM *bptr;
-	BIO *bmem;
-	BIO *b64;
-
-	b64 = BIO_new(BIO_f_base64());
-	if (b64)
-	{
-		bmem = BIO_new(BIO_s_mem());
-		if (bmem)
-		{
-			BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-			b64 = BIO_push(b64, bmem);
-			BIO_write(b64, p, strlen(p));
-			BIO_flush(b64);
-			BIO_get_mem_ptr(b64, &bptr);
-
-			if(bptr->length > 0)
-			{
-				auth.append("Basic ");
-				auth.append(bptr->data, bptr->length);
-			}
-
-			BIO_free_all(b64);
-			return 0;
-		}
-		BIO_free_all(b64);
-	}
-
-	return -1;
-}
-
-static SSL *__create_ssl(SSL_CTX *ssl_ctx)
-{
-	BIO *wbio;
-	BIO *rbio;
-	SSL *ssl;
-
-	rbio = BIO_new(BIO_s_mem());
-	if (rbio)
-	{
-		wbio = BIO_new(BIO_s_mem());
-		if (wbio)
-		{
-			ssl = SSL_new(ssl_ctx);
-			if (ssl)
-			{
-				SSL_set_bio(ssl, rbio, wbio);
-				return ssl;
-			}
-
-			BIO_free(wbio);
-		}
-
-		BIO_free(rbio);
-	}
-
-	return NULL;
-}
-
 /**********Client**********/
 
 class ComplexHttpTask : public WFComplexClientTask<HttpRequest, HttpResponse>
@@ -123,6 +60,7 @@ protected:
 	virtual void init_failed();
 	virtual bool finish_once();
 
+protected:
 	bool need_redirect(ParsedURI& uri);
 	bool redirect_url(HttpResponse *client_resp, ParsedURI& uri);
 	void set_empty_request();
@@ -423,6 +361,72 @@ bool ComplexHttpTask::finish_once()
 	return true;
 }
 
+/*******Proxy Client*******/
+
+static int __encode_auth(const char *p, std::string& auth)
+{
+	static SSL_CTX *init_ssl = WFGlobal::get_ssl_client_ctx();
+	(void)init_ssl;
+	BUF_MEM *bptr;
+	BIO *bmem;
+	BIO *b64;
+
+	b64 = BIO_new(BIO_f_base64());
+	if (b64)
+	{
+		bmem = BIO_new(BIO_s_mem());
+		if (bmem)
+		{
+			BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+			b64 = BIO_push(b64, bmem);
+			BIO_write(b64, p, strlen(p));
+			BIO_flush(b64);
+			BIO_get_mem_ptr(b64, &bptr);
+
+			if (bptr->length > 0)
+			{
+				auth.append("Basic ");
+				auth.append(bptr->data, bptr->length);
+			}
+
+			BIO_free_all(b64);
+
+			return 0;
+		}
+		BIO_free_all(b64);
+	}
+
+	return -1;
+}
+
+static SSL *__create_ssl(SSL_CTX *ssl_ctx)
+{
+	BIO *wbio;
+	BIO *rbio;
+	SSL *ssl;
+
+	rbio = BIO_new(BIO_s_mem());
+	if (rbio)
+	{
+		wbio = BIO_new(BIO_s_mem());
+		if (wbio)
+		{
+			ssl = SSL_new(ssl_ctx);
+			if (ssl)
+			{
+				SSL_set_bio(ssl, rbio, wbio);
+				return ssl;
+			}
+
+			BIO_free(wbio);
+		}
+
+		BIO_free(rbio);
+	}
+
+	return NULL;
+}
+
 class ComplexHttpProxyTask : public ComplexHttpTask
 {
 public:
@@ -518,7 +522,7 @@ CommMessageOut *ComplexHttpProxyTask::message_out()
 		std::string request_uri(user_uri_.host);
 
 		request_uri += ":";
-		if(user_uri_.port)
+		if (user_uri_.port)
 			request_uri += user_uri_.port;
 		else
 			request_uri += is_ssl_ ? "443" : "80";
@@ -629,9 +633,9 @@ bool ComplexHttpProxyTask::init_success()
 		return false;
 	}
 
-	if(user_uri_.scheme && strcasecmp(user_uri_.scheme, "http") == 0)
+	if (user_uri_.scheme && strcasecmp(user_uri_.scheme, "http") == 0)
 		is_ssl_ = false;
-	else if(user_uri_.scheme && strcasecmp(user_uri_.scheme, "https") == 0)
+	else if (user_uri_.scheme && strcasecmp(user_uri_.scheme, "https") == 0)
 		is_ssl_ = true;
 	else
 	{

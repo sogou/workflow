@@ -380,7 +380,7 @@ static int __encode_auth(const char *p, std::string& auth)
 			BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 			b64 = BIO_push(b64, bmem);
 			BIO_write(b64, p, strlen(p));
-			BIO_flush(b64);
+			(void)BIO_flush(b64);
 			BIO_get_mem_ptr(b64, &bptr);
 
 			if (bptr->length > 0)

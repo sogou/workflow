@@ -36,6 +36,10 @@ protected:
 
 public:
 	SSLHandshaker(SSL *ssl) { this->ssl = ssl; }
+
+public:
+	SSLHandshaker(SSLHandshaker&& handshaker) = default;
+	SSLHandshaker& operator = (SSLHandshaker&& handshaker) = default;
 };
 
 class SSLWrapper : public ProtocolMessage
@@ -57,6 +61,10 @@ public:
 		this->msg = msg;
 		this->ssl = ssl;
 	}
+
+public:
+	SSLWrapper(SSLWrapper&& wrapper) = default;
+	SSLWrapper& operator = (SSLWrapper&& wrapper) = default;
 };
 
 class ServiceSSLWrapper : public SSLWrapper
@@ -64,15 +72,14 @@ class ServiceSSLWrapper : public SSLWrapper
 protected:
 	virtual int append(const void *buf, size_t *size);
 
-protected:
-	SSLHandshaker handshaker;
-
 public:
-	ServiceSSLWrapper(ProtocolMessage *msg, SSL *ssl) :
-		SSLWrapper(msg, ssl),
-		handshaker(ssl)
+	ServiceSSLWrapper(ProtocolMessage *msg, SSL *ssl) : SSLWrapper(msg, ssl)
 	{
 	}
+
+public:
+	ServiceSSLWrapper(ServiceSSLWrapper&& wrapper) = default;
+	ServiceSSLWrapper& operator = (ServiceSSLWrapper&& wrapper) = default;
 };
 
 }

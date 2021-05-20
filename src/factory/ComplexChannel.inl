@@ -97,30 +97,39 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 	switch (channel->get_state())
 	{
 	case WFT_STATE_UNDEFINED:
-		if (!channel->is_established())
+		if (channel->get_sending() == false)
 		{
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(channel);
+			channel->set_sending(true);
+			this->upgrade_state = CHANNEL_TASK_UPGRADING; //
 		}
-		else if (!this->upgrading)
+		else
 		{
 			SubTask *upgrade_task = this->upgrade();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(upgrade_task);
-			this->upgrading = true;
+			//this->upgrade_state = CHANNEL_TASK_UPGRADING;
+		}
+		break;
+
+	case WFT_STATE_SUCCESS:
+		if (channel->get_sending() == false)
+		{
+			channel->set_sending(true);
+			ret = true;
 		}
 		else
 		{
 			auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::counter_callback,
 								  this, std::placeholders::_1);
-			WFCounterTask *counter = new WFCounterTask(1, cb); //
+			WFCounterTask *counter = WFTaskFactory::create_counter_task(channel->get_name(), 1, cb);
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(counter);
-			channel->set_counter(counter);
+			this->upgrade_state = CHANNEL_TASK_WAITING;
 		}
 		break;
-	case WFT_STATE_SUCCESS:
-		ret = true;
+
 	default:
 		break;
 	}
@@ -148,9 +157,9 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
 
 	if (channel->get_state() == WFT_STATE_UNDEFINED ||
-		 channel->get_state() == WFT_STATE_SUCCESS)
+		channel->get_state() == WFT_STATE_SUCCESS)
 	{
-		if (!channel->is_established() || this->upgrading)
+		if (this->upgrade_state != CHANNEL_TASK_INIT)
 			return series->pop();
 	}
 	else
@@ -159,6 +168,8 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 		this->error = channel->get_error();
 	}
 
+	channel->count();
+	//TODO: done or count should execute first?
 	return ChannelOutTask<MESSAGE>::done();
 }
 
@@ -166,7 +177,13 @@ template<class MESSAGE>
 void ComplexChannelOutTask<MESSAGE>::upgrade_callback(WFCounterTask *task)
 {
 	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
+
+	pthread_mutex_lock(&channel->mutex);
 	channel->set_state(WFT_STATE_SUCCESS);
-	this->upgrading = false;
+	this->upgrade_state = CHANNEL_TASK_INIT;
+	channel->set_sending(false);
+	pthread_mutex_unlock(&channel->mutex);
+
+	channel->count();
 }
 

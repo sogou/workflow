@@ -37,7 +37,8 @@ public:
 	{
 	}
 
-//	bool is_upgrading() const { return this->upgrading; }
+private:
+	void http_callback(ChannelTask<protocol::HttpRequest> *task);
 
 protected:
 	virtual SubTask *upgrade();

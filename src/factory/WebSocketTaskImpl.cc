@@ -16,14 +16,14 @@ using namespace protocol;
 SubTask *WebSocketTask::upgrade()
 {
 	ChannelOutTask<HttpRequest> *http_task;
-//	auto&& cb = std::bind(&WebSocketTask::http_callback,
-//						  this, std::placeholders::_1);
+	auto&& cb = std::bind(&WebSocketTask::http_callback,
+						  this, std::placeholders::_1);
 
 	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
 
 	http_task = new ChannelOutTask<HttpRequest>(this->channel,
 												WFGlobal::get_scheduler(),
-												nullptr);
+												cb);
 	HttpRequest *req = http_task->get_message();
 	req->set_method(HttpMethodGet);
 	req->set_http_version("HTTP/1.1");
@@ -38,6 +38,18 @@ SubTask *WebSocketTask::upgrade()
 	return http_task;
 }
 
+void WebSocketTask::http_callback(ChannelTask<HttpRequest> *task)
+{
+	// websocket will keep channel->sending==true here
+	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
+
+	pthread_mutex_lock(&channel->mutex);
+	//channel already handle_in()
+	if (channel->get_sending() == false)
+		this->upgrade_state = CHANNEL_TASK_INIT;
+	pthread_mutex_unlock(&channel->mutex);
+}
+
 CommMessageIn *WebSocketChannel::message_in()
 {
 	if (this->state == WFT_STATE_UNDEFINED)
@@ -48,8 +60,7 @@ CommMessageIn *WebSocketChannel::message_in()
 
 void WebSocketChannel::handle_in(CommMessageIn *in)
 {
-	int parse_websocket = false;
-	WFCounterTask *counter = NULL;
+	bool parse_websocket = false;
 
 	pthread_mutex_lock(&this->mutex);
 
@@ -62,23 +73,21 @@ void WebSocketChannel::handle_in(CommMessageIn *in)
 		else
 			this->state = WFT_STATE_TASK_ERROR;
 
-		if (this->counter)
-		{
-			counter = this->counter;
-			this->counter = NULL;
-		}
 		delete resp;
+
+		this->sending = false;
 	}
 	else if (this->state == WFT_STATE_SUCCESS)
 		parse_websocket = true;
 
 	pthread_mutex_unlock(&this->mutex);
 
-	if (counter)
-		counter->count();
-
-	if (!parse_websocket)
+	if (!parse_websocket) // so this is equal to should_count
+	{
+		WebSocketChannel *channel = static_cast<WebSocketChannel *>(this);
+		channel->count();
 		return;
+	}
 
 	WFWebSocketChannel::handle_in(in);
 	//if (this->parser->opcode == WebSocketFrameConnectionClose)
@@ -89,15 +98,4 @@ int WebSocketChannel::first_timeout()
 	return WS_HANDSHAKE_TIMEOUT;
 }
 
-/*
-	void disconnect()
-	{
-		if (this->established == 1)
-		{
-			WFWebSocketTask *task = this->create_task(nullptr);
-			WebSocketFrame *msg = task->get_message();
-			msg->set_opcode(WebSocketFrameConnectionClose);
-			task->start();
-		}
-	}
-*/
+

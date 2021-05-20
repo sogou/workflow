@@ -440,6 +440,7 @@ public:
 	void set_user_uri(const ParsedURI& uri) { user_uri_ = uri; }
 
 	virtual WFConnection *get_connection() const;
+	virtual const ParsedURI *get_current_uri() const { return &user_uri_; }
 
 protected:
 	virtual CommMessageOut *message_out();

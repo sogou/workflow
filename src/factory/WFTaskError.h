@@ -38,6 +38,7 @@ enum
 
 	//HTTP
 	WFT_ERR_HTTP_BAD_REDIRECT_HEADER = 2001,    ///< Http, 301/302/303/307/308 Location header value is NULL
+	WFT_ERR_HTTP_PROXY_CONNECT_FAILED = 2002,   ///< Http, proxy CONNECT return non 200
 
 	//REDIS
 	WFT_ERR_REDIS_ACCESS_DENIED = 3001,         ///< Redis, invalid password

@@ -15,6 +15,7 @@
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <assert.h>
@@ -35,6 +36,8 @@ using namespace protocol;
 
 static int __encode_auth(const char *p, std::string& auth)
 {
+	static SSL_CTX *init_ssl = WFGlobal::get_ssl_client_ctx();
+	(void)init_ssl;
 	BUF_MEM *bptr;
 	BIO *bmem;
 	BIO *b64;

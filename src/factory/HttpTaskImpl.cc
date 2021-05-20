@@ -390,9 +390,9 @@ static int __encode_auth(const char *p, std::string& auth)
 			}
 
 			BIO_free_all(b64);
-
 			return 0;
 		}
+
 		BIO_free_all(b64);
 	}
 

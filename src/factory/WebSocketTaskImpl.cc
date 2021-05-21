@@ -42,10 +42,11 @@ void WebSocketTask::http_callback(ChannelTask<HttpRequest> *task)
 {
 	// websocket will keep channel->sending==true here
 	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
+//	channel->set_sending(false);
 
 	pthread_mutex_lock(&channel->mutex);
 	//channel already handle_in()
-	if (channel->get_sending() == false)
+//	if (channel->get_sending() == false)
 		this->upgrade_state = CHANNEL_TASK_INIT;
 	pthread_mutex_unlock(&channel->mutex);
 }

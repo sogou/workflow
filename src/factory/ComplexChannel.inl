@@ -104,12 +104,21 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 			channel->set_sending(true);
 			this->upgrade_state = CHANNEL_TASK_UPGRADING; //
 		}
-		else
+		else if (this->upgrade_state == CHANNEL_TASK_UPGRADING)
 		{
 			SubTask *upgrade_task = this->upgrade();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(upgrade_task);
 			//this->upgrade_state = CHANNEL_TASK_UPGRADING;
+		}
+		else
+		{
+			auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::counter_callback,
+								  this, std::placeholders::_1);
+			WFCounterTask *counter = WFTaskFactory::create_counter_task(channel->get_name(), 1, cb);
+			series_of(this)->push_front(this);
+			series_of(this)->push_front(counter);
+			this->upgrade_state = CHANNEL_TASK_WAITING;
 		}
 		break;
 
@@ -168,9 +177,17 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 		this->error = channel->get_error();
 	}
 
+	//TODO: done or count which should execute first?
+	channel->set_sending(false);
+
+	if (this->callback)
+		this->callback(this);
+
 	channel->count();
-	//TODO: done or count should execute first?
-	return ChannelOutTask<MESSAGE>::done();
+
+	delete this;
+	return series->pop();
+//	return ChannelOutTask<MESSAGE>::done();
 }
 
 template<class MESSAGE>

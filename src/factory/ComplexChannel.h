@@ -77,7 +77,7 @@ public:
 						  std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
 		ChannelOutTask<MESSAGE>(channel, scheduler, std::move(cb))
 	{
-		this->upgrade_state = CHANNEL_TASK_INIT;
+		this->ready = true;
 	}
 
 protected:
@@ -90,17 +90,11 @@ protected:
 	{
 		auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
 		channel->set_state(WFT_STATE_SUCCESS);
-		this->upgrade_state = CHANNEL_TASK_INIT;
+		this->ready = true;
 	}
 
 protected:
-	int upgrade_state; // 0: not init; 1: upgrading; 2: counter;
-	enum
-	{
-		CHANNEL_TASK_INIT = 0,
-		CHANNEL_TASK_UPGRADING,
-		CHANNEL_TASK_WAITING,
-	};
+	bool ready;
 };
 
 #include "ComplexChannel.inl"

@@ -47,7 +47,7 @@ void WebSocketTask::http_callback(ChannelTask<HttpRequest> *task)
 	pthread_mutex_lock(&channel->mutex);
 	//channel already handle_in()
 //	if (channel->get_sending() == false)
-		this->upgrade_state = CHANNEL_TASK_INIT;
+		this->ready = true;
 	pthread_mutex_unlock(&channel->mutex);
 }
 

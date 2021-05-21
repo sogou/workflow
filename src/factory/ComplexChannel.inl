@@ -102,14 +102,14 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(channel);
 			channel->set_sending(true);
-			this->upgrade_state = CHANNEL_TASK_UPGRADING; //
+			this->ready = false;
 		}
-		else if (this->upgrade_state == CHANNEL_TASK_UPGRADING)
+		else if (this->ready == false)
 		{
 			SubTask *upgrade_task = this->upgrade();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(upgrade_task);
-			//this->upgrade_state = CHANNEL_TASK_UPGRADING;
+			//this->upgrade_state = CHANNEL_TASK_WAITING;
 		}
 		else
 		{
@@ -118,7 +118,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 			WFCounterTask *counter = WFTaskFactory::create_counter_task(channel->get_name(), 1, cb);
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(counter);
-			this->upgrade_state = CHANNEL_TASK_WAITING;
+			this->ready = false;
 		}
 		break;
 
@@ -135,7 +135,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 			WFCounterTask *counter = WFTaskFactory::create_counter_task(channel->get_name(), 1, cb);
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(counter);
-			this->upgrade_state = CHANNEL_TASK_WAITING;
+			this->ready = false;
 		}
 		break;
 
@@ -168,7 +168,7 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 	if (channel->get_state() == WFT_STATE_UNDEFINED ||
 		channel->get_state() == WFT_STATE_SUCCESS)
 	{
-		if (this->upgrade_state != CHANNEL_TASK_INIT)
+		if (this->ready != true)
 			return series->pop();
 	}
 	else
@@ -197,7 +197,7 @@ void ComplexChannelOutTask<MESSAGE>::upgrade_callback(WFCounterTask *task)
 
 	pthread_mutex_lock(&channel->mutex);
 	channel->set_state(WFT_STATE_SUCCESS);
-	this->upgrade_state = CHANNEL_TASK_INIT;
+	this->ready = true;
 	channel->set_sending(false);
 	pthread_mutex_unlock(&channel->mutex);
 

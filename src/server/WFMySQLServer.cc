@@ -22,9 +22,9 @@
 #include <io.h>
 #endif
 
-CommConnection *WFMySQLServer::new_connection(int accept_fd)
+WFConnection *WFMySQLServer::new_connection(int accept_fd)
 {
-	CommConnection *conn = this->WFServer::new_connection(accept_fd);
+	WFConnection *conn = this->WFServer::new_connection(accept_fd);
 
 	if (conn)
 	{
@@ -48,7 +48,7 @@ CommConnection *WFMySQLServer::new_connection(int accept_fd)
 #endif
 		}
 
-		delete conn;
+		this->delete_connection(conn);
 	}
 
 	return NULL;

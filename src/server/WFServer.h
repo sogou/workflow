@@ -158,7 +158,8 @@ protected:
 	WFServerParams params;
 
 protected:
-	virtual CommConnection *new_connection(int accept_fd);
+	virtual WFConnection *new_connection(int accept_fd);
+	void delete_connection(WFConnection *conn);
 
 private:
 	int init(const struct sockaddr *bind_addr, socklen_t addrlen,

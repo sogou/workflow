@@ -589,15 +589,6 @@ public:
 					std::function<void (WFMySQLTask *)>& process);
 };
 
-/**********Template Network Factory Sepcial**********/
-/*
-template<>
-inline WFHttpTask *
-WFNetworkTaskFactory<HttpRequest, HttpResponse>::create_server_task(std::function<void (WFHttpTask *)>& process)
-{
-	return WFServerTaskFactory::create_http_task(process);
-}
-*/
 /**********Template Thread Task Factory**********/
 
 template<class INPUT, class OUTPUT>

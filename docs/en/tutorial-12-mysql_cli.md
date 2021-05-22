@@ -71,9 +71,9 @@ Currently the supported command is **COM\_QUERY**, which can cover the basic req
 
 Because the program doesn't support the selection of databases (**USE** command) in our interactive commands, if there are **cross-database** operations in SQL statements, you can specify the database and table with **db\_name.table\_name**.
 
-**Multiple commands** can be joined together and then passed to WFMySQLTask with `set_query()`. Generally speaking, multiple statements can get all the results back at one time. However, as the packet return method in the MySQL protocol is not compatible with question and answer communication under some provisions, please read the following cautions before you add the SQL statements in `set_query()`:
-
 Any other command can be **spliced together** and then passed to WFMySQLTask with `set_query()`. (including INSERT/UPDATE/SELECT/PREPARE/CALL)
+
+The spliced commands will be executed sequentially until an error occurs, and the previous commands will be executed successfully.
 
 For example:
 
@@ -83,60 +83,77 @@ req->set_query("SELECT * FROM table1; CALL procedure1(); INSERT INTO table3 (id)
 
 # Parsing results
 
-Similar to other tasks in workflow, you can use **task->get\_resp()** to get **MySQLResponse**, and you can use **MySQLResultCursor** to traverse the result set, the infomation of each column of the result set (**MySQLField**), each row and each **MySQLCell**. For details on the interfaces, please see [MySQLResult.h](/src/protocol/MySQLResult.h).
+Similar to other tasks in workflow, you can use **task->get\_resp()** to get **MySQLResponse**. For details on the interfaces, please see [MySQLResult.h](/src/protocol/MySQLResult.h).
 
 One request will get one response, which is a 3-dimensional structure.
 - one response consists of one or more result sets;
-- one result set consists of one ore more rows;
+- the type of each result set may be **MYSQL_STATUS_GET_RESULT** or **MYSQL_STATUS_OK**;
+- one result set of type **MYSQL_STATUS_GET_RESULT** consists of one ore more rows;
 - one row consists of one or more fields, or data cells;
+
+The two types of result sets can be judged by ``cursor->get_cursor_status()``.
+
+|      |MYSQL_STATUS_GET_RESULT|MYSQL_STATUS_OK|
+|------|-----------------------|---------------|
+|SQL command|SELECT(including each SELECT in PROCEDURE)|INSERT / UPDATE / DELETE / ...|
+|Semantics|Read. One result set consists of a 2-dimensional structure </br>reprecenting the response of one read operation.|Write. One result set reprecents the results of </br>one write operation.|
+|main APIs|fetch_fields();</br>fetch_row(&row_arr);</br>...|get_insert_id();</br>get_affected_rows();</br>...|
+
+When errors occur in spliced commands, you may first get the multiple result sets through **MySQLResultCursor**, the commands which have been executed successfully. Then determine whether ``resp->get_packet_type()`` equals to **MYSQL_PACKET_ERROR** and get the specific error information through ``resp->get_error_code()`` and ``resp->get_error_msg()``.
+
+A **PROCEDURE** command containing N **SELECT** statements will return N result sets of **MYSQL_STATUS_GET_RESULT** and 1 result set of **MYSQL_STATUS_OK**. The user ignores this **MYSQL_STATUS_OK** result set is fine.
 
 To get all the data, the specific steps should be:
 
-1. checking the task state (state at communication): you can check whether the task is successfully executed by checking whether **task->get\_state()** is equal to WFT\_STATE\_SUCCESS;
+1. checking the task state (state at communication): you can check whether the task is successfully executed by checking whether ``task->get_state()`` is equal to **WFT_STATE_SUCCESS**;
 
-2. determining the type of the reply packet (state at parsing the return packet): call **resp->get\_packet\_type()** to check the type of the last SQL query return packet. The common types include:
+2. determining the type of the response packet (state at parsing the return packet): call ``resp->get_packet_type()`` to check the type of the last SQL query return packet. The common types include:
 
-- MYSQL\_PACKET\_OK: non-result-set requests: parsed successfully;
-- MYSQL\_PACKET\_EOF: result-set requests: parsed successfully;
-- MYSQL\_PACKET\_ERROR: requests: failed;
+- MYSQL\_PACKET\_OK: parsed successfully, should use cursor to get all the result sets.
+- MYSQL\_PACKET\_EOF: parsed successfully, should use cursor to get all the result sets.
+- MYSQL\_PACKET\_ERROR: requests: failed or partial failed, may use cursor to get the result sets of those successful commands.
 
-3. checking the result set state (state at reading the result sets): you can use MySQLResultCursor to read the content in the result set. Because the data returned by a MySQL server contains multiple result sets, the cursor will **automatically point to the reading position of the first result set** at first. **cursor->get\_cursor\_status()** returns the following states:
+3. traverse the result sets: you can use **MySQLResultCursor** to read the content in the result set. Because the data returned by a MySQL server contains multiple result sets, the cursor will **automatically point to the reading position of the first result set** at first.
 
-- MYSQL\_STATUS\_GET\_RESULT: the data are available to read;
-- MYSQL\_STATUS\_END: the last record of the current result set has been read;
-- MYSQL\_STATUS\_EOF: all result-sets are fetched;
-- MYSQL\_STATUS\_OK: the reply packet is a non-result-set packet, so you do not need to read data through the result set interface;
+4. checking the result set state (state at reading the result sets):   **cursor->get_cursor_status()** returns the following states:
+
+- MYSQL\_STATUS\_GET\_RESULT: current result set is a READ result set;
+- MYSQL\_STATUS\_END: the last record of the current READ result set has been read;
+- MYSQL\_STATUS\_OK: current result set is a WRITE result set;
 - MYSQL\_STATUS\_ERROR: parsing error;
 
-4. reading each field of the columns:
-
-- `int get_field_count() const;`
-- `const MySQLField *fetch_field();`
+5. reading the basic content of **MYSQL_STATUS_OK** result set:
+  - ``unsigned long long get_affected_rows() const;``
+  - ``unsigned long long get_insert_id() const;``
+  - ``int get_warnings() const;``
+  - ``std::string get_info() const;``
+  
+6. reading each field and each columns of **MYSQL_STATUS_GET_RESULT** result set:
+  - `int get_field_count() const;`
+  - `const MySQLField *fetch_field();`
   - `const MySQLField *const *fetch_fields() const;`
 
-5. reading each line: you can use **cursor->fetch\_row()** to read by row until the return value is false, in which the offset within the cursor that points to the row in the current result set will be moved:
-
+7. reading each line of **MYSQL_STATUS_GET_RESULT** result set: you can use ``cursor->fetch_row()`` to read by row until the return value is false, in which the offset within the cursor that points to the row in the current result set will be moved:
 - `int get_rows_count() const;`
 - `bool fetch_row(std::vector<MySQLCell>& row_arr);`
 - `bool fetch_row(std::map<std::string, MySQLCell>& row_map);`
 - `bool fetch_row(std::unordered_map<std::string, MySQLCell>& row_map);`
 - `bool fetch_row_nocopy(const void **data, size_t *len, int *data_type);`
 
-6. taking out all the rows in the current result set directly: you can use **cursor->fetch\_all()** to read all rows, and the cursor that is used to record the rows internally will be moved directly to the end; The cursor state changes to MYSQL\_STATUS\_END:
-
+8. taking out all the rows in the current **MYSQL_STATUS_GET_RESULT** result set directly: you can use ``cursor->fetch_all()`` to read all rows, and the cursor that is used to record the rows internally will be moved directly to the end; The cursor state changes to **MYSQL_STATUS_END**:
 - `bool fetch_all(std::vector<std::vector<MySQLCell>>& rows);`
 
-7. returning to the head of the current result set: if it is necessary to read this result set again, you can use **cursor->rewind()** to return to the head of the current result set, and then read it via the operations in Step 5 or Step 6;
+9. returning to the head of the current **MYSQL_STATUS_GET_RESULT** result set: if it is necessary to read this result set again, you can use ``cursor->rewind()`` to return to the head of the current result set, and then read it via the operations in Step 7 or Step 8;
 
-8. getting the next result set: because the data packet returned by MySQL server may contains multiple result sets (for example, each select statement gets a result set; or the multiple result sets returned by calling a procedure). Therefore, you can use **cursor->next\_result\_set()** to jump to the next result set. If the return value is false, it means that all result sets have been taken.
+10. getting the next result set: because the data packet returned by MySQL server may contains multiple result sets (for example, each SELECT/INSERT/... statement gets one result set; or the multiple result sets returned by calling a PROCEDURE). Therefore, you can use ``cursor->next_result_set()`` to jump to the next result set. If the return value is false, it means that all result sets have been taken.
 
-9. returning to the first result set: use **cursor->first\_result\_set()** to return to the heads of all result sets, and then you can repeat the operations from Step 3.
+11. returning to the first result set: use **cursor->first\_result\_set()** to return to the heads of all result sets, and then you can repeat the operations from Step 4.
 
-10. getting the data of each column (MySQLCell): the row read in Step 5 is composed of multiple columns, and the result of each column is one MySQLCell. It mainly uses the following interfaces:
+12. getting the data of each column (MySQLCell): the row read in Step 5 is composed of multiple columns, and the result of each column is one MySQLCell. It mainly uses the following interfaces:
 
-- `int get_data_type();` returns MYSQL\_TYPE\_LONG, MYSQL\_TYPE\_STRING, and etc. For the details, please see [mysql\_types.h](../src/protocol/mysql_types.h).
-- `bool is_TYPE() const;` . The TYPE is int, string or ulonglong. It is used to check the data type.
-- `TYPE as_TYPE() const;` Same as the above. It reads the data from MySQLCell in a certain type.
+- `int get_data_type();` returns MYSQL\_TYPE\_LONG, MYSQL\_TYPE\_STRING, and etc. For the details, please see [mysql\_types.h](/src/protocol/mysql_types.h).
+- `bool is_TYPE() const;` the TYPE is int, string or ulonglong. It is used to check the data type.
+- `TYPE as_TYPE() const;` same as the above. It reads the data from MySQLCell in a certain type.
 - `void get_cell_nocopy(const void **data, size_t *len, int *data_type) const;` nocopy interface.
 
 The whole example is shown below:
@@ -155,15 +172,30 @@ void task_callback(WFMySQLTask *task)
     bool test_first_result_set_flag = false;
     bool test_rewind_flag = false;
 
-begin:
-    // step-3. Check the status of the result set
-    if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
+    // step-2. Check other status of repsponse packet
+    if (resp->get_packet_type() == MYSQL_PACKET_ERROR)
     {
-        do {
-            fprintf(stderr, "cursor_status=%d field_count=%u rows_count=%u ",
-                    cursor.get_cursor_status(), cursor.get_field_count(), cursor.get_rows_count());
+        fprintf(stderr, "ERROR. error_code=%d %s\n",
+                task->get_resp()->get_error_code(),
+                task->get_resp()->get_error_msg().c_str());
+    }
 
-            // step-4. Read each fields. This is a nocopy api
+begin:
+    // step-3. Traverse the result sets
+    do {
+        // step-4. Check the status of the result set
+        if (cursor.get_cursor_status() == MYSQL_STATUS_OK)
+        {
+            // step-5. Read the basic content of MYSQL_STATUS_OK result set
+            fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
+                    cursor.get_affected_rows(), cursor.get_warnings(), cursor.get_insert_id());
+        }
+        else if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
+        {
+            fprintf(stderr, "field_count=%u rows_count=%u ",
+                    cursor.get_field_count(), cursor.get_rows_count());
+
+            // step-6. Read each fields. This is a nocopy api
             const MySQLField *const *fields = cursor.fetch_fields();
             for (int i = 0; i < cursor.get_field_count(); i++)
             {
@@ -172,56 +204,48 @@ begin:
                         fields[i]->get_name().c_str(), datatype2str(fields[i]->get_data_type()));
             }
 
-            // step-6. Read all the rows. You may use while (cursor.fetch_row(map/vector)) to get each rows accoding to step-5.
+            // step-8. Read all the rows. You may use while (cursor.fetch_row(map/vector)) to get each rows accoding to step-7
             std::vector<std::vector<MySQLCell>> rows;
 
             cursor.fetch_all(rows);
             for (unsigned int j = 0; j < rows.size(); j++)
             {
-                // step-10. Read each cell
+                // step-12. Read each cell
                 for (unsigned int i = 0; i < rows[j].size(); i++)
                 {
                     fprintf(stderr, "[%s][%s]", fields[i]->get_name().c_str(),
                             datatype2str(rows[j][i].get_data_type()));
-                    // step-10. Check the type wih is_string()and transform the type with as_string()
+                    // step-12. Check the type wih is_string()and transform the type with as_string()
                     if (rows[j][i].is_string())
                     {
                         std::string res = rows[j][i].as_string();
                         fprintf(stderr, "[%s]\n", res.c_str());
-                    } else if (rows[j][i].is_int()) {
+                    }
+                    else if (rows[j][i].is_int())
+                    {
                         fprintf(stderr, "[%d]\n", rows[j][i].as_int());
                     } // else if ...
                 }
             }
-        // step-8. Get the next result set
-        } while (cursor.next_result_set());
-
-        if (test_first_result_set_flag == false)
-        {
-            test_first_result_set_flag = true;
-            // step-9. Go back to the first result set
-            cursor.first_result_set();
-            goto begin;
         }
+    // step-10. Get the next result set
+    } while (cursor.next_result_set());
 
-        if (test_rewind_flag == false)
-        {
-            test_rewind_flag = true;
-            // step-7. Go back to the first of the current result set
-            cursor.rewind();
-            goto begin;
-        }
-    }
-    // step-2. Check other status of reply packet
-    else if (resp->get_packet_type() == MYSQL_PACKET_OK)
+    if (test_first_result_set_flag == false)
     {
-        fprintf(stderr, "OK. %llu rows affected. %d warnings. insert_id=%llu.\n",
-                task->get_resp()->get_affected_rows(),
-                task->get_resp()->get_warnings(),
-                task->get_resp()->get_last_insert_id());
+        test_first_result_set_flag = true;
+        // step-11.  Go back to the first result set
+        cursor.first_result_set();
+        goto begin;
     }
-    else
-        fprintf(stderr, "Abnormal packet_type=%d\n", resp->get_packet_type());
+
+    if (test_rewind_flag == false)
+    {
+        test_rewind_flag = true;
+        // step-9. Go back to the first position of the current result set
+        cursor.rewind();
+        goto begin;
+    }
 
     return;
 }

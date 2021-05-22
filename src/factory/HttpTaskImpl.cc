@@ -15,10 +15,13 @@
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <assert.h>
 #include <string>
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"
@@ -56,11 +59,12 @@ protected:
 	virtual void init_failed();
 	virtual bool finish_once();
 
-private:
+protected:
 	bool need_redirect(ParsedURI& uri);
 	bool redirect_url(HttpResponse *client_resp, ParsedURI& uri);
 	void set_empty_request();
 
+private:
 	int redirect_max_;
 	int redirect_count_;
 };
@@ -265,7 +269,7 @@ bool ComplexHttpTask::redirect_url(HttpResponse *client_resp, ParsedURI& uri)
 		{
 			if (url[1] != '/')
 			{
-				if (uri_.port)
+				if (uri.port)
 					url = ':' + (uri.port + url);
 
 				url = "//" + (uri.host + url);

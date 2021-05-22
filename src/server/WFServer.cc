@@ -87,7 +87,7 @@ int WFServerBase::create_listen_fd()
 	return listen_fd;
 }
 
-CommConnection *WFServerBase::new_connection(int accept_fd)
+WFConnection *WFServerBase::new_connection(int accept_fd)
 {
 	if (++this->conn_count <= this->params.max_connections ||
 		this->drain(1) == 1)
@@ -101,6 +101,11 @@ CommConnection *WFServerBase::new_connection(int accept_fd)
 	this->conn_count--;
 	errno = EMFILE;
 	return NULL;
+}
+
+void WFServerBase::delete_connection(WFConnection *conn)
+{
+	delete (WFServerConnection *)conn;
 }
 
 void WFServerBase::handle_unbound()

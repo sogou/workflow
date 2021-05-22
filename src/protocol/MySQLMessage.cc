@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <sys/uio.h>
@@ -21,6 +22,7 @@
 #include <string.h>
 #include <errno.h>
 #include <string>
+#include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <utility>
 #include "mysql_types.h"

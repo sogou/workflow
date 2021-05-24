@@ -452,10 +452,17 @@ protected:
 private:
 	struct ConnContext : public WFConnection
 	{
-		SSL *ssl;
+		SSL *ssl_;
+		SSLHandshaker handshaker_;
+		SSLWrapper wrapper_;
+		ConnContext(SSL *ssl) : handshaker_(ssl), wrapper_(NULL, ssl)
+		{
+			ssl_ = ssl;
+		}
 	};
 
-	SSL *get_ssl() const;
+	SSLHandshaker *get_ssl_handshaker();
+	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg);
 	int set_ssl();
 
 	std::string proxy_auth_;
@@ -476,12 +483,29 @@ WFConnection *ComplexHttpProxyTask::get_connection() const
 	return conn;
 }
 
-SSL *ComplexHttpProxyTask::get_ssl() const
+SSLHandshaker *ComplexHttpProxyTask::get_ssl_handshaker()
 {
 	WFConnection *conn = this->WFComplexClientTask::get_connection();
 
 	if (conn && is_ssl_)
-		return ((ConnContext *)conn->get_context())->ssl;
+		return &((ConnContext *)conn->get_context())->handshaker_;
+
+	return NULL;
+}
+
+SSLWrapper *ComplexHttpProxyTask::get_ssl_wrapper(ProtocolMessage *msg)
+{
+	WFConnection *conn = this->WFComplexClientTask::get_connection();
+	ConnContext *context;
+	SSLWrapper *wrapper;
+
+	if (conn && is_ssl_)
+	{
+		context = (ConnContext *)conn->get_context();
+		wrapper = &context->wrapper_;
+		*wrapper = SSLWrapper(msg, context->ssl_);
+		return wrapper;
+	}
 
 	return NULL;
 }
@@ -498,13 +522,12 @@ int ComplexHttpProxyTask::set_ssl()
 	SSL_set_connect_state(ssl);
 
 	conn = this->WFComplexClientTask::get_connection();
-	ConnContext *ctx = new ConnContext;
-	ctx->ssl = ssl;
+	ConnContext *ctx = new ConnContext(ssl);
 
 	auto&& deleter = [] (void *c)
 	{
 		ConnContext *ctx = (ConnContext *)c;
-		SSL_free(ctx->ssl);
+		SSL_free(ctx->ssl_);
 		delete ctx;
 	};
 	conn->set_context(ctx, std::move(deleter));
@@ -539,11 +562,11 @@ CommMessageOut *ComplexHttpProxyTask::message_out()
 		return conn_req;
 	}
 	else if (seqid == 1 && is_ssl_) // HANDSHAKE
-		return new SSLHandshaker(this->get_ssl());
+		return get_ssl_handshaker();
 
 	auto *msg = (ProtocolMessage *)this->ComplexHttpTask::message_out();
 	if (is_ssl_)
-		return new SSLWrapper(msg, this->get_ssl());
+		return get_ssl_wrapper(msg);
 
 	is_user_request_ = true;
 	return msg;
@@ -560,11 +583,11 @@ CommMessageIn *ComplexHttpProxyTask::message_in()
 		return conn_resp;
 	}
 	else if (seqid == 1 && is_ssl_)
-		return new SSLHandshaker(this->get_ssl());
+		return get_ssl_handshaker();
 
 	auto *msg = (ProtocolMessage *)this->ComplexHttpTask::message_in();
 	if (is_ssl_)
-		return new SSLWrapper(msg, this->get_ssl());
+		return get_ssl_wrapper(msg);
 
 	return msg;
 }
@@ -725,16 +748,20 @@ bool ComplexHttpProxyTask::finish_once()
 	{
 		long long seqid = this->get_seq();
 
-		delete this->get_message_in();
-		delete this->get_message_out();
-
 		if (this->state == WFT_STATE_SUCCESS && state_ != WFT_STATE_SUCCESS)
 		{
 			this->state = state_;
 			this->error = error_;
 		}
 
-		if (seqid == 0 || (seqid == 1 && is_ssl_))
+		if (seqid == 0)
+		{
+			delete this->get_message_in();
+			delete this->get_message_out();
+			return false;
+		}
+
+		if (seqid == 1 && is_ssl_)
 			return false;
 	}
 

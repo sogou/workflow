@@ -503,6 +503,7 @@ void ComplexKafkaTask::kafka_timer_callback(WFTimerTask *task)
 														 kafka_heartbeat_callback);
 
 	kafka_task->user_data = t;
+	kafka_task->get_req()->set_config(*t->get_config());
 	kafka_task->get_req()->set_api(Kafka_Heartbeat);
 	kafka_task->get_req()->set_cgroup(*t->get_cgroup());
 	kafka_task->get_req()->set_broker(*coordinator);
@@ -772,6 +773,7 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 																 t->retry_max,
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = hb;
+			kafka_task->get_req()->set_config(t->config);
 			kafka_task->get_req()->set_api(Kafka_Heartbeat);
 			kafka_task->get_req()->set_cgroup(t->cgroup);
 			kafka_task->get_req()->set_broker(*coordinator);
@@ -1166,6 +1168,7 @@ void ComplexKafkaTask::dispatch()
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 											   0, kafka_leavegroup_callback);
 				task->user_data = this;
+				task->get_req()->set_config(this->config);
 				task->get_req()->set_api(Kafka_LeaveGroup);
 				task->get_req()->set_broker(*coordinator);
 				task->get_req()->set_cgroup(this->cgroup);

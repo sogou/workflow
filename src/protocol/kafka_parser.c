@@ -374,7 +374,7 @@ void kafka_partition_init(kafka_partition_t *partition)
 
 void kafka_partition_deinit(kafka_partition_t *partition)
 {
-    kafka_broker_deinit(&partition->leader);
+	kafka_broker_deinit(&partition->leader);
 	free(partition->replica_nodes);
 	free(partition->isr_nodes);
 }
@@ -392,6 +392,7 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->api = NULL;
 	broker->api_elements = 0;
 	broker->error = 0;
+	broker->query_api_version = 0;
 }
 
 void kafka_broker_deinit(kafka_broker_t *broker)
@@ -720,7 +721,7 @@ int kafka_sasl_plain_client_new(void *p)
 	kafka_config_t *conf = (kafka_config_t *)p;
 	size_t ulen = strlen(conf->sasl.username);
 	size_t plen = strlen(conf->sasl.passwd);
-	size_t blen = ulen + plen + 3;
+	size_t blen = ulen + plen + 2;
 	size_t off = 0;
 	char *buf = (char *)malloc(blen);
 
@@ -730,6 +731,7 @@ int kafka_sasl_plain_client_new(void *p)
 	buf[off++] = '\0';
 
 	memcpy(buf + off, conf->sasl.username, ulen);
+	off += ulen;
 	buf[off++] = '\0';
 
 	memcpy(buf + off, conf->sasl.passwd, plen);
@@ -738,7 +740,7 @@ int kafka_sasl_plain_client_new(void *p)
 	conf->sasl.buf = buf;
 	conf->sasl.bsize = blen;
 
-	return blen;
+	return 0;
 }
 
 int kafka_sasl_set_mechanisms(kafka_config_t *conf)
@@ -766,7 +768,7 @@ int kafka_sasl_set_username(const char *username, kafka_config_t *conf)
 	return 0;
 }
 
-int kafka_sasl_set_passwd(const char *passwd, kafka_config_t *conf)
+int kafka_sasl_set_password(const char *passwd, kafka_config_t *conf)
 {
 	char *t = strdup(passwd);
 
@@ -777,4 +779,3 @@ int kafka_sasl_set_passwd(const char *passwd, kafka_config_t *conf)
 	conf->sasl.passwd = t;
 	return 0;
 }
-

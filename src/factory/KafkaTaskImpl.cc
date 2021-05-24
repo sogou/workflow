@@ -94,14 +94,28 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	if (seqid == 0 && this->get_req()->get_config()->get_sasl_mechanisms())
+	if (this->get_req()->get_config()->get_sasl_mechanisms() && seqid <= 2)
 	{
-		KafkaRequest *req  = new KafkaRequest;
+		if ((broker->get_raw_ptr()->query_api_version == 1 && seqid == 1) ||
+			(broker->get_raw_ptr()->query_api_version == 0 && seqid == 0))
+		{
+			KafkaRequest *req  = new KafkaRequest;
 
-		req->duplicate(*this->get_req());
-		req->set_api(Kafka_SaslHandshake);
-		is_user_request_ = false;
-		return req;
+			req->duplicate(*this->get_req());
+			req->set_api(Kafka_SaslHandshake);
+			is_user_request_ = false;
+			return req;
+		}
+		else if ((broker->get_raw_ptr()->query_api_version == 1 && seqid == 2) ||
+				(broker->get_raw_ptr()->query_api_version == 0 && seqid == 1))
+		{
+			KafkaRequest *req  = new KafkaRequest;
+
+			req->duplicate(*this->get_req());
+			req->set_api(Kafka_SaslAuthenticate);
+			is_user_request_ = false;
+			return req;
+		}
 	}
 
 	if (this->get_req()->get_api() == Kafka_Fetch)
@@ -357,8 +371,6 @@ bool __ComplexKafkaTask::has_next()
 			this->state = WFT_STATE_TASK_ERROR;
 			ret = false;
 		}
-		else
-			this->get_req()->set_api(Kafka_SaslAuthenticate);
 
 		break;
 
@@ -377,6 +389,15 @@ bool __ComplexKafkaTask::has_next()
 		}
 
 	case Kafka_SaslAuthenticate:
+		if (msg->get_broker()->get_error())
+		{
+			this->error = msg->get_broker()->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+		}
+
+		ret = false;
+		break;
+
 	case Kafka_Fetch:
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
@@ -406,8 +427,15 @@ bool __ComplexKafkaTask::finish_once()
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED;
 		}
-		else if (has_next() && is_user_request_)
+		else if (has_next())
 		{
+			if (!is_user_request_)
+			{
+				delete this->get_message_out();
+				this->get_resp()->clear_buf();
+				return false;
+			}
+
 			this->get_req()->clear_buf();
 			if (is_redirect_)
 			{

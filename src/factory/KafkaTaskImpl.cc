@@ -94,8 +94,8 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-    if (broker->get_raw_ptr()->query_api_version == 1 && seqid == 0)
-        broker->get_raw_ptr()->query_api_version = 0;
+	if (broker->get_raw_ptr()->query_api_version == 1 && seqid == 0)
+		broker->get_raw_ptr()->query_api_version = 0;
 
 	if (this->get_req()->get_config()->get_sasl_mechanisms() && seqid <= 2)
 	{

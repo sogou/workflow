@@ -439,7 +439,6 @@ public:
 	void set_user_uri(ParsedURI&& uri) { user_uri_ = std::move(uri); }
 	void set_user_uri(const ParsedURI& uri) { user_uri_ = uri; }
 
-	virtual WFConnection *get_connection() const;
 	virtual const ParsedURI *get_current_uri() const { return &user_uri_; }
 
 protected:
@@ -448,6 +447,17 @@ protected:
 	virtual int keep_alive_timeout();
 	virtual bool init_success();
 	virtual bool finish_once();
+
+protected:
+	virtual WFConnection *get_connection() const
+	{
+		WFConnection *conn = this->ComplexHttpTask::get_connection();
+
+		if (conn && is_ssl_)
+			return (SSLConnection *)conn->get_context();
+
+		return conn;
+	}
 
 private:
 	struct SSLConnection : public WFConnection
@@ -461,8 +471,18 @@ private:
 		}
 	};
 
-	SSLHandshaker *get_ssl_handshaker();
-	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg);
+	SSLHandshaker *get_ssl_handshaker() const
+	{
+		return &((SSLConnection *)this->get_connection())->handshaker_;
+	}
+
+	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
+	{
+		SSLConnection *conn = (SSLConnection *)this->get_connection();
+		conn->wrapper_ = SSLWrapper(msg, conn->ssl_);
+		return &conn->wrapper_;
+	}
+
 	int init_ssl_connection();
 
 	std::string proxy_auth_;
@@ -472,28 +492,6 @@ private:
 	int state_;
 	int error_;
 };
-
-WFConnection *ComplexHttpProxyTask::get_connection() const
-{
-	WFConnection *conn = this->WFComplexClientTask::get_connection();
-
-	if (conn && is_ssl_)
-		return (SSLConnection *)conn->get_context();
-
-	return conn;
-}
-
-inline SSLHandshaker *ComplexHttpProxyTask::get_ssl_handshaker()
-{
-	return &((SSLConnection *)this->get_connection())->handshaker_;
-}
-
-inline SSLWrapper *ComplexHttpProxyTask::get_ssl_wrapper(ProtocolMessage *msg)
-{
-	SSLConnection *conn = (SSLConnection *)this->get_connection();
-	conn->wrapper_ = SSLWrapper(msg, conn->ssl_);
-	return &conn->wrapper_;
-}
 
 int ComplexHttpProxyTask::init_ssl_connection()
 {
@@ -506,7 +504,7 @@ int ComplexHttpProxyTask::init_ssl_connection()
 	SSL_set_tlsext_host_name(ssl, user_uri_.host);
 	SSL_set_connect_state(ssl);
 
-	conn = this->WFComplexClientTask::get_connection();
+	conn = this->ComplexHttpTask::get_connection();
 	SSLConnection *ssl_conn = new SSLConnection(ssl);
 
 	auto&& deleter = [] (void *ctx)

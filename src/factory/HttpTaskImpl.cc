@@ -439,7 +439,6 @@ public:
 	void set_user_uri(ParsedURI&& uri) { user_uri_ = std::move(uri); }
 	void set_user_uri(const ParsedURI& uri) { user_uri_ = uri; }
 
-	virtual WFConnection *get_connection() const;
 	virtual const ParsedURI *get_current_uri() const { return &user_uri_; }
 
 protected:
@@ -449,21 +448,42 @@ protected:
 	virtual bool init_success();
 	virtual bool finish_once();
 
+protected:
+	virtual WFConnection *get_connection() const
+	{
+		WFConnection *conn = this->ComplexHttpTask::get_connection();
+
+		if (conn && is_ssl_)
+			return (SSLConnection *)conn->get_context();
+
+		return conn;
+	}
+
 private:
-	struct ConnContext : public WFConnection
+	struct SSLConnection : public WFConnection
 	{
 		SSL *ssl_;
 		SSLHandshaker handshaker_;
 		SSLWrapper wrapper_;
-		ConnContext(SSL *ssl) : handshaker_(ssl), wrapper_(NULL, ssl)
+		SSLConnection(SSL *ssl) : handshaker_(ssl), wrapper_(NULL, ssl)
 		{
 			ssl_ = ssl;
 		}
 	};
 
-	SSLHandshaker *get_ssl_handshaker();
-	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg);
-	int set_ssl();
+	SSLHandshaker *get_ssl_handshaker() const
+	{
+		return &((SSLConnection *)this->get_connection())->handshaker_;
+	}
+
+	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
+	{
+		SSLConnection *conn = (SSLConnection *)this->get_connection();
+		conn->wrapper_ = SSLWrapper(msg, conn->ssl_);
+		return &conn->wrapper_;
+	}
+
+	int init_ssl_connection();
 
 	std::string proxy_auth_;
 	ParsedURI user_uri_;
@@ -473,44 +493,7 @@ private:
 	int error_;
 };
 
-WFConnection *ComplexHttpProxyTask::get_connection() const
-{
-	WFConnection *conn = this->WFComplexClientTask::get_connection();
-
-	if (conn && is_ssl_)
-		return (ConnContext *)conn->get_context();
-
-	return conn;
-}
-
-SSLHandshaker *ComplexHttpProxyTask::get_ssl_handshaker()
-{
-	WFConnection *conn = this->WFComplexClientTask::get_connection();
-
-	if (conn && is_ssl_)
-		return &((ConnContext *)conn->get_context())->handshaker_;
-
-	return NULL;
-}
-
-SSLWrapper *ComplexHttpProxyTask::get_ssl_wrapper(ProtocolMessage *msg)
-{
-	WFConnection *conn = this->WFComplexClientTask::get_connection();
-	ConnContext *context;
-	SSLWrapper *wrapper;
-
-	if (conn && is_ssl_)
-	{
-		context = (ConnContext *)conn->get_context();
-		wrapper = &context->wrapper_;
-		*wrapper = SSLWrapper(msg, context->ssl_);
-		return wrapper;
-	}
-
-	return NULL;
-}
-
-int ComplexHttpProxyTask::set_ssl()
+int ComplexHttpProxyTask::init_ssl_connection()
 {
 	SSL *ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
 	WFConnection *conn;
@@ -521,16 +504,16 @@ int ComplexHttpProxyTask::set_ssl()
 	SSL_set_tlsext_host_name(ssl, user_uri_.host);
 	SSL_set_connect_state(ssl);
 
-	conn = this->WFComplexClientTask::get_connection();
-	ConnContext *ctx = new ConnContext(ssl);
+	conn = this->ComplexHttpTask::get_connection();
+	SSLConnection *ssl_conn = new SSLConnection(ssl);
 
-	auto&& deleter = [] (void *c)
+	auto&& deleter = [] (void *ctx)
 	{
-		ConnContext *ctx = (ConnContext *)c;
-		SSL_free(ctx->ssl_);
-		delete ctx;
+		SSLConnection *ssl_conn = (SSLConnection *)ctx;
+		SSL_free(ssl_conn->ssl_);
+		delete ssl_conn;
 	};
-	conn->set_context(ctx, std::move(deleter));
+	conn->set_context(ssl_conn, std::move(deleter));
 	return 0;
 }
 
@@ -620,7 +603,7 @@ int ComplexHttpProxyTask::keep_alive_timeout()
 
 		this->clear_resp();
 
-		if (is_ssl_ && set_ssl() < 0)
+		if (is_ssl_ && init_ssl_connection() < 0)
 		{
 			state_ = WFT_STATE_SYS_ERROR;
 			error_ = errno;

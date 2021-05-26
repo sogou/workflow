@@ -14,6 +14,7 @@ set(SRC
 	RedisMessage.cc
 	WebSocketMessage.cc
 	HttpUtil.cc
+	SSLWrapper.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

@@ -1,7 +1,7 @@
 # 异步Kafka客户端：kafka_cli
 # 示例代码
 
-[tutorial-13-kafka_cli.cc](../tutorial/tutorial-13-kafka_cli.cc)
+[tutorial-13-kafka_cli.cc](/tutorial/tutorial-13-kafka_cli.cc)
 
 # 关于编译选项
 

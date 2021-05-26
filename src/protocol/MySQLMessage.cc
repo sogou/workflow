@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <sys/uio.h>
@@ -21,10 +22,13 @@
 #include <string.h>
 #include <errno.h>
 #include <string>
+#include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <utility>
-#include "MySQLMessage.h"
+#include "SSLWrapper.h"
 #include "mysql_types.h"
+#include "MySQLResult.h"
+#include "MySQLMessage.h"
 
 namespace protocol
 {
@@ -251,6 +255,7 @@ static inline std::string __sha1_bin(const std::string& str)
 	return std::string((const char *)md, 20);
 }
 
+#define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
 #define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
 #define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
 #define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
@@ -258,6 +263,44 @@ static inline std::string __sha1_bin(const std::string& str)
 #define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
 #define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
 #define MYSQL_CAPFLAG_CLIENT_LOCAL_FILES		0x00000080
+
+int MySQLSSLRequest::encode(struct iovec vectors[], int max)
+{
+	unsigned char header[32] = {0};
+	unsigned char *pos = header;
+	int ret;
+
+	int4store(pos, MYSQL_CAPFLAG_CLIENT_SSL |
+				   MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
+				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
+				   MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB |
+				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
+				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
+				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
+				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS);
+	pos += 4;
+	int4store(pos, 0);
+	pos += 4;
+	*pos = (uint8_t)character_set_;
+
+	buf_.clear();
+	buf_.append((char *)header, 32);
+	ret = this->MySQLMessage::encode(vectors, max);
+	if (ret >= 0)
+	{
+		max -= ret;
+		if (max >= 8) /* Indeed SSL handshaker needs only 1 vector. */
+		{
+			max = ssl_handshaker_.encode(vectors + ret, max);
+			if (max >= 0)
+				return max + ret;
+		}
+		else
+			errno = EOVERFLOW;
+	}
+
+	return -1;
+}
 
 int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 {
@@ -340,6 +383,68 @@ void MySQLResponse::set_ok_packet()
 int MySQLResponse::decode_packet(const unsigned char *buf, size_t buflen)
 {
 	return mysql_parser_parse(buf, buflen, parser_);
+}
+
+unsigned long long MySQLResponse::get_affected_rows() const
+{
+	unsigned long long affected_rows = 0;
+	MySQLResultCursor cursor(this);
+
+	do {
+		affected_rows += cursor.get_affected_rows();
+	} while (cursor.next_result_set());
+
+	return affected_rows;
+}
+
+// return array api
+unsigned long long MySQLResponse::get_last_insert_id() const
+{
+	unsigned long long insert_id = 0;
+	MySQLResultCursor cursor(this);
+
+	do {
+		if (cursor.get_insert_id())
+			insert_id = cursor.get_insert_id();
+	} while (cursor.next_result_set());
+
+	return insert_id;
+}
+
+int MySQLResponse::get_warnings() const
+{
+	int warning_count = 0;
+	MySQLResultCursor cursor(this);
+
+	do {
+		warning_count += cursor.get_warnings();
+	} while (cursor.next_result_set());
+
+	return warning_count;
+}
+
+std::string MySQLResponse::get_info() const
+{
+	std::string info;
+	MySQLResultCursor cursor(this);
+
+	do {
+		if (info.length() > 0)
+			info += " ";
+		info += cursor.get_info();
+	} while (cursor.next_result_set());
+
+	return info;
+}
+
+bool MySQLResponse::is_ok_packet() const
+{
+	return parser_->packet_type == MYSQL_PACKET_OK;
+}
+
+bool MySQLResponse::is_error_packet() const
+{
+	return parser_->packet_type == MYSQL_PACKET_ERROR;
 }
 
 }

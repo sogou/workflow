@@ -1,7 +1,7 @@
 # 第一个server：http_echo_server
 # 示例代码
 
-[tutorial-04-http_echo_server.cc](../tutorial/tutorial-04-http_echo_server.cc)
+[tutorial-04-http_echo_server.cc](/tutorial/tutorial-04-http_echo_server.cc)
 
 # 关于http_echo_server
 

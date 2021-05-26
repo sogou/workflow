@@ -58,6 +58,9 @@ int decode_length_safe(unsigned long long *res, const unsigned char **pos,
 		*res = uint8korr(p + 1);
 		*pos = p + 9;
 		break;
+
+	case 255:
+		return -1;
 	}
 
 	return 1;
@@ -68,7 +71,7 @@ int decode_string(const unsigned char **str, unsigned long long *len,
 {
 	unsigned long long length;
 
-	if (decode_length_safe(&length, pos, end) == 0)
+	if (decode_length_safe(&length, pos, end) <= 0)
 		return 0;
 
 	if (length == 0 || length == (~0ULL))

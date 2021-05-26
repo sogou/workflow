@@ -1841,6 +1841,7 @@ int Communicator::send(TransSession *session, CommChannel *channel)
 	int cnt;
 
 	session->channel = channel;
+	session->target = channel->target;
 	session->seq = 0;
 	session->in = NULL;
 	session->out = session->message_out();

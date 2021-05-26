@@ -1,10 +1,9 @@
 #ifndef _WFCONDITION_H_
 #define _WFCONDITION_H_
 
-#include <pthread>
+#include <pthread.h>
 #include "list.h"
 #include "WFTask.h"
-#include "WFTaskFactory.h"
 
 class WFCondition
 {

@@ -56,6 +56,7 @@ private:
 	pthread_mutex_t *mutex;
 	WFWaitTask *wait_task;
 };
+
 SubTask *WFWaitTask::done()
 {
 	SeriesWork *series = series_of(this);

@@ -35,8 +35,8 @@ SubTask *WFComplexChannel<MESSAGE>::done()
 	if (this->state == WFT_STATE_SUCCESS)
 		this->state = WFT_STATE_UNDEFINED;
 
-	if (this->ref == 0)
-		delete this;
+//	if (this->ref == 0)
+//		return;
 
 	return series->pop();
 }
@@ -44,21 +44,15 @@ SubTask *WFComplexChannel<MESSAGE>::done()
 template<class MESSAGE>
 WFComplexChannel<MESSAGE>::~WFComplexChannel()
 {
-//	fprintf(stderr, "WFComplexChannel deconstructed!\n");
-//    if (this->established == 1)// && this->sending == false)
-//        this->WFChannel<MESSAGE>::dispatch();
+    if (this->established == 1)// && this->sending == false)
+        this->WFChannel<MESSAGE>::dispatch();
 }
 
 template<class MESSAGE>
 void WFComplexChannel<MESSAGE>::decref()
 {
 	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
-	{
-		if (this->established == 1)// && this->sending == false)
-			this->WFChannel<MESSAGE>::dispatch();
-		else
-			delete this;
-	}
+		delete this;
 }
 
 template<class MESSAGE>

@@ -35,7 +35,30 @@ SubTask *WFComplexChannel<MESSAGE>::done()
 	if (this->state == WFT_STATE_SUCCESS)
 		this->state = WFT_STATE_UNDEFINED;
 
+	if (this->ref == 0)
+		delete this;
+
 	return series->pop();
+}
+
+template<class MESSAGE>
+WFComplexChannel<MESSAGE>::~WFComplexChannel()
+{
+//	fprintf(stderr, "WFComplexChannel deconstructed!\n");
+//    if (this->established == 1)// && this->sending == false)
+//        this->WFChannel<MESSAGE>::dispatch();
+}
+
+template<class MESSAGE>
+void WFComplexChannel<MESSAGE>::decref()
+{
+	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
+	{
+		if (this->established == 1)// && this->sending == false)
+			this->WFChannel<MESSAGE>::dispatch();
+		else
+			delete this;
+	}
 }
 
 template<class MESSAGE>
@@ -115,7 +138,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 		{
 			auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::counter_callback,
 								  this, std::placeholders::_1);
-			WFCounterTask *counter = WFTaskFactory::create_counter_task(channel->get_name(), 1, cb);
+			WFCounterTask *counter = channel->condition.create_wait_task(cb);
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(counter);
 			this->ready = false;
@@ -132,7 +155,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 		{
 			auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::counter_callback,
 								  this, std::placeholders::_1);
-			WFCounterTask *counter = WFTaskFactory::create_counter_task(channel->get_name(), 1, cb);
+			WFCounterTask *counter = channel->condition.create_wait_task(cb);
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(counter);
 			this->ready = false;
@@ -178,12 +201,13 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 	}
 
 	//TODO: done or count which should execute first?
+	pthread_mutex_lock(&channel->mutex);
 	channel->set_sending(false);
+	channel->condition.signal();
+	pthread_mutex_unlock(&channel->mutex);
 
 	if (this->callback)
 		this->callback(this);
-
-	channel->count();
 
 	delete this;
 	return series->pop();
@@ -199,8 +223,7 @@ void ComplexChannelOutTask<MESSAGE>::upgrade_callback(WFCounterTask *task)
 	channel->set_state(WFT_STATE_SUCCESS);
 	this->ready = true;
 	channel->set_sending(false);
+	channel->condition.signal();
 	pthread_mutex_unlock(&channel->mutex);
-
-	channel->count();
 }
 

@@ -31,7 +31,7 @@ void channel_callback(WFChannel<protocol::WebSocketFrame> *channel)
 int main()
 {
 	WebSocketClient client(process);
-	client.init("ws://10.129.42.77:9001");
+	client.init("ws://10.129.43.67:9001");
 	client.set_callback(channel_callback);
 
 	WFFacilities::WaitGroup wg(1);
@@ -47,7 +47,7 @@ int main()
 		});
 		WebSocketFrame *msg = text_task->get_message();
 		msg->set_masking_key(1412);
-		msg->set_text_data("20210514", 8, true);
+		msg->set_text_data("20210521", 8, true);
 		text_task->start();
 	});
 
@@ -56,7 +56,7 @@ int main()
 	ping_task->start();
 
 	wg.wait();
-	sleep(5);
+	sleep(3);
 	client.deinit();
 	sleep(2);
 

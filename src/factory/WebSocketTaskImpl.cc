@@ -41,14 +41,12 @@ SubTask *WebSocketTask::upgrade()
 void WebSocketTask::http_callback(ChannelTask<HttpRequest> *task)
 {
 	// websocket will keep channel->sending==true here
-	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
-//	channel->set_sending(false);
+//	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
 
-	pthread_mutex_lock(&channel->mutex);
-	//channel already handle_in()
-//	if (channel->get_sending() == false)
-		this->ready = true;
-	pthread_mutex_unlock(&channel->mutex);
+//	pthread_mutex_lock(&channel->mutex);
+//	if (channel->get_sending() == false) // channel already handle_in()
+	this->ready = true;
+//	pthread_mutex_unlock(&channel->mutex);
 }
 
 CommMessageIn *WebSocketChannel::message_in()
@@ -86,7 +84,9 @@ void WebSocketChannel::handle_in(CommMessageIn *in)
 	if (!parse_websocket) // so this is equal to should_count
 	{
 		WebSocketChannel *channel = static_cast<WebSocketChannel *>(this);
-		channel->count();
+		pthread_mutex_lock(&channel->mutex);
+		channel->condition.signal();
+		pthread_mutex_unlock(&channel->mutex);
 		return;
 	}
 

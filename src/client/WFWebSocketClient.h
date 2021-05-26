@@ -11,9 +11,15 @@
 class WebSocketClient
 {
 public:
-	WebSocketClient(websocket_process_t&& process) :
-		channel(NULL, WFGlobal::get_scheduler(), std::move(process))
+	WebSocketClient(websocket_process_t&& process)
 	{
+		this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
+											 std::move(process));
+	}
+
+	~WebSocketClient()
+	{
+		this->channel->decref();
 	}
 
 	int init(const std::string& url)
@@ -26,19 +32,19 @@ public:
 		if (URIParser::parse(tmp, uri) != 0)
 			return -1;
 
-		this->channel.set_uri(uri);
+		this->channel->set_uri(uri);
 		return 0;
 	}
 
-	WFWebSocketTask *create_websocket_task(websocket_callback_t&& cb)
+	WFWebSocketTask *create_websocket_task(websocket_callback_t cb)
 	{
-		return new WebSocketTask(&this->channel, WFGlobal::get_scheduler(),
+		return new WebSocketTask(this->channel, WFGlobal::get_scheduler(),
 								 std::move(cb));
 	}
 
 	void deinit()
 	{
-		if (this->channel.is_established())
+		if (this->channel->is_established())
 		{
 			WFWebSocketTask *task = this->create_websocket_task(
 				[](ChannelTask<protocol::WebSocketFrame> *task){
@@ -53,18 +59,18 @@ public:
 			);
 			protocol::WebSocketFrame *msg = task->get_message();
 			msg->set_opcode(WebSocketFrameConnectionClose);
-			task->user_data = &this->channel;
+			task->user_data = this->channel;
 			task->start();
 		}
 	}
 
-	void set_callback(std::function<void (WFChannel<protocol::WebSocketFrame> *)>&& cb)
+	void set_callback(std::function<void (WFChannel<protocol::WebSocketFrame> *)> cb)
 	{
-		this->channel.set_callback(std::move(cb));
+		this->channel->set_callback(std::move(cb));
 	}
 
 private:
-	WebSocketChannel channel;
+	WebSocketChannel *channel;
 };
 
 #endif

@@ -2,9 +2,10 @@
 #define _COMPLEXCHANNEL_H_
 
 #include "TransRequest.h"
-#include "WFChannel.h"
 #include "WFTaskFactory.h"
+#include "WFChannel.h"
 #include "WFGlobal.h"
+#include "WFCondition.h"
 
 template<class MESSAGE>
 class WFComplexChannel : public WFChannel<MESSAGE>
@@ -17,9 +18,10 @@ public:
 	{
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
-		this->name = "";//TODO
 		this->sending = false;
+		this->ref = 1;
 	}
+	~WFComplexChannel();
 
 	int get_error() const { return this->error; }
 
@@ -29,8 +31,9 @@ public:
 	void set_sending(bool sending) { this->sending = sending; }
 	bool get_sending() const { return this->sending; }
 
-	void count() { WFTaskFactory::count_by_name(this->name, 1); }
-	std::string get_name() { return this->name; }
+	void incref() { __sync_add_and_fetch(&this->ref, 1); }
+	void decref();
+
 protected:
 	virtual void dispatch();
 	virtual SubTask *done();
@@ -38,10 +41,10 @@ protected:
 
 public:
 	pthread_mutex_t mutex;
+	WFCondition condition;
 
 protected:
-//	WFCounterTask *counter;
-	std::string name;
+	int ref;
 	bool sending;
 	WFRouterTask *router_task;
 };
@@ -78,6 +81,14 @@ public:
 		ChannelOutTask<MESSAGE>(channel, scheduler, std::move(cb))
 	{
 		this->ready = true;
+		ComplexChannel<MESSAGE> *complex_channel = static_cast<ComplexChannel<MESSAGE> *>(channel);
+		complex_channel->incref();
+	}
+
+	~ComplexChannelOutTask()
+	{
+		ComplexChannel<MESSAGE> *complex_channel = static_cast<ComplexChannel<MESSAGE> *>(this->channel);
+		complex_channel->decref();
 	}
 
 protected:

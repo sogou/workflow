@@ -34,7 +34,7 @@ int main()
 
 * As a **multifunctional asynchronous client**, it currently supports `HTTP`, `Redis`, `MySQL` and `Kafka` protocols.
 * To implement **client/server on user-defined protocol** and build your own **RPC system**.
-  * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc and thrift protocols.
+  * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc, trpc and thrift protocols.
 * To build **asynchronous workflow**; support common **series** and **parallel** structures, and also support any **DAG** structures.
 * As a **parallel computing tool**. In addition to **networking tasks**, Sogou C++ Workflow also includes **the scheduling of computing tasks**. All types of tasks can be put into **the same** flow.
 * As a **asynchronous file IO tool** in `Linux` system, with high performance exceeding any system call. Disk file IO is also a task.
@@ -51,7 +51,15 @@ int main()
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
-# Try it!
+### Get started (Linux, macOS):
+~~~sh
+$ git clone https://github.com/sogou/workflow
+$ make
+$ cd tutorial
+$ make
+~~~~
+
+# Tutorials
 
 * Client
   * [Creating your first task：wget](docs/en/tutorial-01-wget.md)

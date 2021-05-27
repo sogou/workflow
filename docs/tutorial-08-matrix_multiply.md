@@ -1,7 +1,7 @@
 # 自定义计算任务：matrix_multiply
 # 示例代码
 
-[tutorial-08-matrix_multiply.cc](../tutorial/tutorial-08-matrix_multiply.cc)
+[tutorial-08-matrix_multiply.cc](/tutorial/tutorial-08-matrix_multiply.cc)
 
 # 关于matrix_multiply
 

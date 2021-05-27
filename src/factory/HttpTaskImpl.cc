@@ -149,7 +149,7 @@ CommMessageOut *ComplexHttpTask::message_out()
 				std::string val = StringUtil::strip(arr[1]);
 				if (strcasecmp(key.c_str(), "timeout") == 0)
 				{
-					this->keep_alive_timeo = atoi(val.c_str());
+					this->keep_alive_timeo = 1000 * atoi(val.c_str());
 					break;
 				}
 			}
@@ -255,7 +255,7 @@ bool ComplexHttpTask::init_success()
 		}
 	}
 
-	this->WFComplexClientTask::set_type(is_ssl ? TT_TCP_SSL : TT_TCP);
+	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 
@@ -517,7 +517,8 @@ CommMessageOut *WFHttpServerTask::message_out()
 				if (!(flag & 1) && strcasecmp(key.c_str(), "timeout") == 0)
 				{
 					flag |= 1;
-					this->keep_alive_timeo = atoi(val.c_str());
+					// keep_alive_timeo = 5000ms when Keep-Alive: timeout=5
+					this->keep_alive_timeo = 1000 * atoi(val.c_str());
 					if (flag == 3)
 						break;
 				}

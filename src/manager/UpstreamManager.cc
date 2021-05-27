@@ -70,6 +70,7 @@ int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 		return 0;
 	}
 
+	delete policy;
 	return -1;
 }
 
@@ -85,6 +86,7 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 		return 0;
 	}
 
+	delete policy;
 	return -1;
 }
 
@@ -103,6 +105,7 @@ int UpstreamManager::upstream_create_manual(const std::string& name,
 		return 0;
 	}
 
+	delete policy;
 	return -1;
 }
 

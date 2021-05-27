@@ -19,7 +19,8 @@ using namespace protocol;
 void process(ChannelTask<WebSocketFrame> *task)
 {
 	fprintf(stderr, "process. state=%d error=%d opcode=%d\n",
-			task->get_state(), task->get_error(), task->get_message()->get_opcode());
+			task->get_state(), task->get_error(),
+			task->get_message()->get_opcode());
 }
 
 void channel_callback(WFChannel<protocol::WebSocketFrame> *channel)
@@ -32,7 +33,6 @@ int main()
 {
 	WebSocketClient client(process);
 	client.init("ws://10.129.43.67:9001");
-	client.set_callback(channel_callback);
 
 	WFFacilities::WaitGroup wg(1);
 	auto *ping_task = client.create_websocket_task([&wg, &client](ChannelTask<WebSocketFrame> *task){
@@ -47,7 +47,7 @@ int main()
 		});
 		WebSocketFrame *msg = text_task->get_message();
 		msg->set_masking_key(1412);
-		msg->set_text_data("20210521", 8, true);
+		msg->set_text_data("20210526", 8, true);
 		text_task->start();
 	});
 
@@ -57,8 +57,9 @@ int main()
 
 	wg.wait();
 	sleep(3);
+	fprintf(stderr, "client deinit()\n");
 	client.deinit();
-	sleep(2);
+//	sleep(2);
 
 	return 0;
 }

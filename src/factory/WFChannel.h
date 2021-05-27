@@ -87,6 +87,8 @@ public:
 
 	virtual void dispatch()
 	{
+		this->state = WFT_STATE_SUCCESS;
+		this->error = 0;
 		this->process(this);
 		this->subtask_done();
 	}

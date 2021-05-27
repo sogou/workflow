@@ -35,24 +35,20 @@ SubTask *WFComplexChannel<MESSAGE>::done()
 	if (this->state == WFT_STATE_SUCCESS)
 		this->state = WFT_STATE_UNDEFINED;
 
-//	if (this->ref == 0)
-//		return;
+	if (this->ref == 0)
+		delete this;
 
 	return series->pop();
-}
-
-template<class MESSAGE>
-WFComplexChannel<MESSAGE>::~WFComplexChannel()
-{
-    if (this->established == 1)// && this->sending == false)
-        this->WFChannel<MESSAGE>::dispatch();
 }
 
 template<class MESSAGE>
 void WFComplexChannel<MESSAGE>::decref()
 {
 	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
-		delete this;
+	{
+		if (this->established == 1 && this->sending == false)
+			this->WFChannel<MESSAGE>::dispatch();
+	}
 }
 
 template<class MESSAGE>
@@ -179,14 +175,13 @@ SubTask *ComplexChannelOutTask<MESSAGE>::upgrade()
 template<class MESSAGE>
 SubTask *ComplexChannelOutTask<MESSAGE>::done()
 {
-	SeriesWork *series = series_of(this);
 	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
 
 	if (channel->get_state() == WFT_STATE_UNDEFINED ||
 		channel->get_state() == WFT_STATE_SUCCESS)
 	{
 		if (this->ready != true)
-			return series->pop();
+			return series_of(this)->pop();
 	}
 	else
 	{
@@ -194,18 +189,12 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 		this->error = channel->get_error();
 	}
 
-	//TODO: done or count which should execute first?
 	pthread_mutex_lock(&channel->mutex);
 	channel->set_sending(false);
 	channel->condition.signal();
 	pthread_mutex_unlock(&channel->mutex);
 
-	if (this->callback)
-		this->callback(this);
-
-	delete this;
-	return series->pop();
-//	return ChannelOutTask<MESSAGE>::done();
+	return ChannelOutTask<MESSAGE>::done();
 }
 
 template<class MESSAGE>

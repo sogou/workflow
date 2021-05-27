@@ -8,8 +8,7 @@
 class WFCondition
 {
 public:
-	WFCondition() :
-		mutex(PTHREAD_MUTEX_INITIALIZER)
+	WFCondition() : mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
 		INIT_LIST_HEAD(&this->waiter_list);
 	}

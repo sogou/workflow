@@ -54,19 +54,17 @@ public:
 						channel->is_established())
 					{
 						Workflow::start_series_work(channel, nullptr);
+						channel->set_sending(true);
 					}
+					channel->decref();
 				}
 			);
 			protocol::WebSocketFrame *msg = task->get_message();
 			msg->set_opcode(WebSocketFrameConnectionClose);
 			task->user_data = this->channel;
+			channel->incref();
 			task->start();
 		}
-	}
-
-	void set_callback(std::function<void (WFChannel<protocol::WebSocketFrame> *)> cb)
-	{
-		this->channel->set_callback(std::move(cb));
 	}
 
 private:

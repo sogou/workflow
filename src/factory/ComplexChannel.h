@@ -21,7 +21,6 @@ public:
 		this->sending = false;
 		this->ref = 1;
 	}
-	~WFComplexChannel();
 
 	int get_error() const { return this->error; }
 

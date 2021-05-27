@@ -226,7 +226,7 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 	else
 		server = (EndpointAddress *)tracing->data;
 
-	this->rwlock.rlock();
+	this->rwlock.wlock();
 	this->recover_server_from_breaker(server);
 	this->rwlock.unlock();
 
@@ -246,7 +246,7 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 	else
 		server = (EndpointAddress *)tracing->data;
 
-	this->rwlock.rlock();
+	this->rwlock.wlock();
 	size_t fail_count = ++server->fail_count;
 	if (fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
@@ -428,7 +428,7 @@ int WFServiceGovernance::replace_server(const std::string& address,
 
 void WFServiceGovernance::enable_server(const std::string& address)
 {
-	this->rwlock.rlock();
+	this->rwlock.wlock();
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
 	{
@@ -440,7 +440,7 @@ void WFServiceGovernance::enable_server(const std::string& address)
 
 void WFServiceGovernance::disable_server(const std::string& address)
 {
-	this->rwlock.rlock();
+	this->rwlock.wlock();
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
 	{

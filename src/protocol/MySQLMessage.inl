@@ -14,11 +14,14 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <stdint.h>
 #include <string.h>
 #include <string>
+#include <openssl/ssl.h>
+#include "SSLWrapper.h"
 #include "mysql_byteorder.h"
 
 namespace protocol
@@ -75,6 +78,31 @@ public:
 	MySQLHandshakeResponse(MySQLHandshakeResponse&& move) = default;
 	//move operator
 	MySQLHandshakeResponse& operator= (MySQLHandshakeResponse&& move) = default;
+};
+
+class MySQLSSLRequest : public MySQLRequest
+{
+private:
+	virtual int encode(struct iovec vectors[], int max);
+
+	/* Do not support server side with SSL currently. */
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		return -2;
+	}
+
+private:
+	int character_set_;
+	SSLHandshaker ssl_handshaker_;
+
+public:
+	MySQLSSLRequest(int character_set, SSL *ssl) : ssl_handshaker_(ssl)
+	{
+		character_set_ = character_set;
+	}
+
+	MySQLSSLRequest(MySQLSSLRequest&& move) = default;
+	MySQLSSLRequest& operator= (MySQLSSLRequest&& move) = default;
 };
 
 class MySQLAuthRequest : public MySQLRequest
@@ -168,39 +196,9 @@ inline void MySQLRequest::set_query(const std::string& query)
 	set_query(query.c_str(), query.size());
 }
 
-inline bool MySQLResponse::is_ok_packet() const
-{
-	return parser_->packet_type == 1; //MYSQL_PACKET_OK
-}
-
-inline bool MySQLResponse::is_error_packet() const
-{
-	return parser_->packet_type == 4; //MYSQL_PACKET_ERROR
-}
-
 inline int MySQLResponse::get_packet_type() const
 {
 	return parser_->packet_type;
-}
-
-inline unsigned long long MySQLResponse::get_affected_rows() const
-{
-	return is_ok_packet() ? parser_->affected_rows : 0;
-}
-
-inline unsigned long long MySQLResponse::get_last_insert_id() const
-{
-	return is_ok_packet() ? parser_->insert_id : 0;
-}
-
-inline int MySQLResponse::get_warnings() const
-{
-	return is_ok_packet() ? parser_->warning_count : 0;
-}
-
-inline int MySQLResponse::get_status_flags() const
-{
-	return is_ok_packet() ? parser_->server_status : 0;
 }
 
 inline int MySQLResponse::get_error_code() const
@@ -231,21 +229,6 @@ inline std::string MySQLResponse::get_sql_state() const
 		size_t slen;
 
 		mysql_parser_get_net_state(&s, &slen, parser_);
-		if (slen > 0)
-			return std::string(s, slen);
-	}
-
-	return std::string();
-}
-
-inline std::string MySQLResponse::get_info() const
-{
-	if (is_ok_packet())
-	{
-		const char *s;
-		size_t slen;
-
-		mysql_parser_get_info(&s, &slen, parser_);
 		if (slen > 0)
 			return std::string(s, slen);
 	}

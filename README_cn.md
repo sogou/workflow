@@ -47,7 +47,16 @@ int main()
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
 * 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
 
-# 试一下！
+#### 快速开始（Linux, maxOS）：
+~~~sh
+$ git clone https://github.com/sogou/workflow
+$ cd workflow
+$ make
+$ cd tutorial
+$ make
+~~~
+
+# 示例教程
   * Client基础
     * [创建第一个任务：wget](docs/tutorial-01-wget.md)
     * [实现一次redis写入与读出：redis_cli](docs/tutorial-02-redis_cli.md)

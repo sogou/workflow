@@ -48,7 +48,7 @@ public:
 	}
 
 protected:
-	virtual CommConnection *new_connection(int accept_fd);
+	virtual WFConnection *new_connection(int accept_fd);
 	virtual CommSession *new_session(long long seq, CommConnection *conn);
 };
 

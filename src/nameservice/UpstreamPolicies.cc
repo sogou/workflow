@@ -206,15 +206,16 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 }
 
 /*
- * flag true : guarantee addr != NULL, and please return an available one.
- *	           if no available addr, return NULL.
- *      false: addr may be NULL, means addr maybe useful but want one any way.
+ * flag true : return an available one. If not exists, return NULL.
+ *      false: means addr maybe group-alive.
+ *      	   If addr is not available, get one from addr->group.
  */
 inline const EndpointAddress *UPSGroupPolicy::check_and_get(const EndpointAddress *addr,
 															bool flag,
 															WFNSTracing *tracing)
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+
 	if (flag == true) // && addr->fail_count >= addr->params->max_fails
 	{
 		if (params->group_id == -1)
@@ -439,6 +440,9 @@ const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int h
 			}
 		}
 	}
+
+	if (!addr)
+		return NULL;
 
 	return this->check_and_get(addr, false, NULL);
 }

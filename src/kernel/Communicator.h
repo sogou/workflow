@@ -31,8 +31,9 @@
 
 class CommConnection
 {
-public:
+protected:
 	virtual ~CommConnection() { }
+	friend class Communicator;
 };
 
 class CommTarget

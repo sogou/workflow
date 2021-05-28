@@ -51,7 +51,15 @@ int main()
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
-# Try it!
+### Get started (Linux, macOS):
+~~~sh
+$ git clone https://github.com/sogou/workflow
+$ make
+$ cd tutorial
+$ make
+~~~~
+
+# Tutorials
 
 * Client
   * [Creating your first task：wget](docs/en/tutorial-01-wget.md)
@@ -75,7 +83,7 @@ int main()
 * Asynchronous File IO tasks
   * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
 * User-defined protocol
-  * [A simple user-defined portocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
+  * [A simple user-defined protocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
 * Timing tasks and counting tasks
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)

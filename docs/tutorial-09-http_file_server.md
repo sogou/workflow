@@ -1,7 +1,7 @@
 # 异步IO的http server：http_file_server
 # 示例代码
 
-[tutorial-09-http_file_server.cc](../tutorial/tutorial-09-http_file_server.cc)
+[tutorial-09-http_file_server.cc](/tutorial/tutorial-09-http_file_server.cc)
 
 # 关于http_file_server
 

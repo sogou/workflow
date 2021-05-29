@@ -83,10 +83,12 @@ int WebSocketFrame::append(const void *buf, size_t *size)
 
 		if (ret == 1)
 		{
-			websocket_parser_unmask_data(this->parser);
+			if (websocket_parser_check(this->parser) < 0)
+				ret = -2;
 		}
 	}
-	else if (ret == -2)
+
+	if (ret == -2)
 	{
 		errno = EBADMSG;
 		ret = -1;

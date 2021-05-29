@@ -17,11 +17,6 @@ public:
 											 std::move(process));
 	}
 
-	~WebSocketClient()
-	{
-		this->channel->decref();
-	}
-
 	int init(const std::string& url)
 	{
 		std::string tmp = url;
@@ -56,13 +51,11 @@ public:
 						Workflow::start_series_work(channel, nullptr);
 						channel->set_sending(true);
 					}
-					channel->decref();
 				}
 			);
 			protocol::WebSocketFrame *msg = task->get_message();
 			msg->set_opcode(WebSocketFrameConnectionClose);
 			task->user_data = this->channel;
-			channel->incref();
 			task->start();
 		}
 	}

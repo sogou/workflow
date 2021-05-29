@@ -52,6 +52,10 @@ void websocket_parser_mask_data(websocket_parser_t *parser);
 
 void websocket_parser_unmask_data(websocket_parser_t *parser);
 
+int websocket_parser_check(websocket_parser_t *parser);
+
+unsigned char *utf8_check(unsigned char *s);
+
 #ifdef __cplusplus
 }
 #endif

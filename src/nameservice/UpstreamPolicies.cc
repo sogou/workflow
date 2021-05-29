@@ -582,7 +582,7 @@ void UPSWeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 }
 
 const EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
-															   WFNSTracing *tracing)
+													   WFNSTracing *tracing)
 {
 	int idx = this->cur_idx;
 	for (int i = 0; i < this->total_weight; i++)

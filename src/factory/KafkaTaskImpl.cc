@@ -47,6 +47,12 @@ protected:
 	virtual bool finish_once();
 
 private:
+	struct WFKafkaConnection : public WFConnection
+	{
+		int sasl_stage;
+		WFKafkaConnection() { this->sasl_stage = 0; }
+	};
+
 	virtual int first_timeout();
 	bool has_next();
 	bool check_redirect();
@@ -94,14 +100,20 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	if (broker->get_raw_ptr()->query_api_version == 1 && seqid == 0)
-		broker->get_raw_ptr()->query_api_version = 0;
-
 	if (this->get_req()->get_config()->get_sasl_mechanisms() && seqid <= 2)
 	{
-		if ((broker->get_raw_ptr()->query_api_version == 1 && seqid == 1) ||
-			(broker->get_raw_ptr()->query_api_version == 0 && seqid == 0))
+		WFConnection *conn = this->get_connection();
+		WFKafkaConnection *kafka_conn = (WFKafkaConnection *)conn->get_context();
+		if (!kafka_conn)
 		{
+        	kafka_conn = new WFKafkaConnection;
+	        auto&& deleter = [] (void *ctx)
+	        {
+	        	WFKafkaConnection *kafka_conn = (WFKafkaConnection *)ctx;
+	        	delete kafka_conn;
+	        };
+	    	this->get_connection()->set_context(kafka_conn, std::move(deleter));
+
 			KafkaRequest *req  = new KafkaRequest;
 
 			req->duplicate(*this->get_req());
@@ -109,9 +121,10 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			is_user_request_ = false;
 			return req;
 		}
-		else if ((broker->get_raw_ptr()->query_api_version == 1 && seqid == 2) ||
-				(broker->get_raw_ptr()->query_api_version == 0 && seqid == 1))
+		else if (kafka_conn->sasl_stage == 0)
 		{
+			kafka_conn->sasl_stage = 1;
+
 			KafkaRequest *req  = new KafkaRequest;
 
 			req->duplicate(*this->get_req());

@@ -392,7 +392,6 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->api = NULL;
 	broker->api_elements = 0;
 	broker->error = 0;
-	broker->query_api_version = 0;
 }
 
 void kafka_broker_deinit(kafka_broker_t *broker)

@@ -111,8 +111,7 @@ private:
 class UPSVNSWRRPolicy : public UPSWeightedRandomPolicy
 {
 public:
-	UPSVNSWRRPolicy(bool try_another) :
-		UPSWeightedRandomPolicy(try_another)
+	UPSVNSWRRPolicy() : UPSWeightedRandomPolicy(false)
 	{
 		this->cur_idx = 0;
 		this->try_another = false;

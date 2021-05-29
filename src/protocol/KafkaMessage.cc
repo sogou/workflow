@@ -3712,7 +3712,6 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 
 	std::sort(ptr->api, ptr->api + api_cnt, kafka_api_version_cmp);
 	this->broker.set_feature(kafka_get_features(ptr->api, ptr->api_elements));
-	ptr->query_api_version = 1;
 	return 0;
 }
 

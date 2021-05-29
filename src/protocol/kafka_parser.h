@@ -264,7 +264,6 @@ typedef struct __kafka_broker
 	kafka_api_version_t *api;
 	int api_elements;
 	short error;
-	int query_api_version;
 } kafka_broker_t;
 
 typedef struct __kafka_partition

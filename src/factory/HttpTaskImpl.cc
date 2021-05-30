@@ -433,7 +433,8 @@ public:
 	ComplexHttpProxyTask(int redirect_max,
 						 int retry_max,
 						 http_callback_t&& callback):
-		ComplexHttpTask(redirect_max, retry_max, std::move(callback))
+		ComplexHttpTask(redirect_max, retry_max, std::move(callback)),
+		is_user_request_(true)
 	{ }
 
 	void set_user_uri(ParsedURI&& uri) { user_uri_ = std::move(uri); }
@@ -580,6 +581,8 @@ int ComplexHttpProxyTask::keep_alive_timeout()
 {
 	long long seqid = this->get_seq();
 
+	state_ = WFT_STATE_SUCCESS;
+	error_ = 0;
 	if (seqid == 0)
 	{
 		HttpResponse *resp = this->get_resp();
@@ -714,15 +717,10 @@ bool ComplexHttpProxyTask::init_success()
 		header_host += uri_.port;
 	}
 
-	state_ = WFT_STATE_SUCCESS;
-	error_ = 0;
-	is_user_request_ = true;
-
 	HttpRequest *client_req = this->get_req();
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 	this->WFComplexClientTask::set_transport_type(TT_TCP);
-
 	return true;
 }
 
@@ -742,6 +740,7 @@ bool ComplexHttpProxyTask::finish_once()
 			delete this->get_message_out();
 		}
 
+		is_user_request_ = true;
 		return false;
 	}
 

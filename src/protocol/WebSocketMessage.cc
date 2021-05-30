@@ -83,7 +83,7 @@ int WebSocketFrame::append(const void *buf, size_t *size)
 
 		if (ret == 1)
 		{
-			if (websocket_parser_check(this->parser) < 0)
+			if (websocket_parser_parse(this->parser) < 0)
 				ret = -2;
 		}
 	}
@@ -91,7 +91,7 @@ int WebSocketFrame::append(const void *buf, size_t *size)
 	if (ret == -2)
 	{
 		errno = EBADMSG;
-		ret = -1;
+		ret = -1; //TODO: ret = 1; and set error flag to send CloseFrame
 	}
 
 	return ret;

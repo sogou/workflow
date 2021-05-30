@@ -19,6 +19,35 @@ enum
 	WebSocketFramePong				= 10,
 };
 
+enum
+{
+	WSStatusCodeUndefined			= 0,
+
+	WSStatusCodeNormal				= 1000,
+	WSStatusCodeGoingAway			= 1001,
+	WSStatusCodeProtocolError		= 1002,
+	WSStatusCodeUnsupported			= 1003,
+	WSStatusCodeReserved			= 1004, // reserved
+	WSStatusCodeNoStatus			= 1005, // reserved
+	WSStatusCodeAbnomal				= 1006, // reserved
+	WSStatusCodeUnsupportedData		= 1007,
+	WSStatusCodePolicyViolation		= 1008,
+	WSStatusCodeTooLarge			= 1009,
+	WSStatusCodeMissExtention		= 1010,
+	WSStatusCodeInternalError		= 1011,
+//	WSStatusCodeServiceRestart		= 1012,
+//	WSStatusCodeTryAgainLater		= 1013,
+	WSStatusCodeTLSHandshake		= 1015, // reserved
+
+	WSStatusCodeProtocolMax			= 2999,
+
+	WSStatusCodeIANAMin				= 3000,
+	WSStatusCodeIANAMax				= 3999,
+
+	WSStatusCodeUserMin				= 4000,
+	WSStatusCodeUserMax				= 4999,
+};
+
 typedef struct __websocket_parser
 {
 	char fin;
@@ -32,6 +61,7 @@ typedef struct __websocket_parser
 	int masking_key_offset;
 	int nleft;
 	int is_server;
+	int status_code;
 } websocket_parser_t;
 
 #ifdef __cplusplus
@@ -48,11 +78,9 @@ int websocket_parser_decode_payload_length(websocket_parser_t *parser);
 
 void websocket_parser_encode_payload_length(websocket_parser_t *parser);
 
+int websocket_parser_parse(websocket_parser_t *parser);
+
 void websocket_parser_mask_data(websocket_parser_t *parser);
-
-void websocket_parser_unmask_data(websocket_parser_t *parser);
-
-int websocket_parser_check(websocket_parser_t *parser);
 
 unsigned char *utf8_check(unsigned char *s);
 

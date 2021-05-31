@@ -149,7 +149,8 @@ int websocket_parser_parse(websocket_parser_t *parser)
 
 	websocket_parser_mask_data(parser);
 
-	if (parser->opcode == WebSocketFrameText && !utf8_check(p))
+	if (parser->opcode == WebSocketFrameText &&
+		!utf8_check(p, parser->payload_length))
 	{
 		parser->status_code = WSStatusCodeUnsupportedData;
 		return -1;
@@ -173,9 +174,10 @@ void websocket_parser_mask_data(websocket_parser_t *parser)
 }
 
 //https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
-unsigned char *utf8_check(unsigned char *s)
+unsigned char *utf8_check(unsigned char *s, size_t len)
 {
-  while (*s) {
+  unsigned char *end = s + len;
+  while (*s && s != end) {
     if (*s < 0x80)
       /* 0xxxxxxx */
       s++;
@@ -210,6 +212,9 @@ unsigned char *utf8_check(unsigned char *s)
     } else
       return s;
   }
+
+  if (s == end)
+    return s;
 
   return NULL;
 }

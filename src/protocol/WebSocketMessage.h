@@ -28,6 +28,9 @@ public:
 	void set_client() { this->parser->is_server = 0; }
 	void set_server() { this->parser->is_server = 1; }
 
+	bool set_data(const websocket_parser_t *parser);
+	const websocket_parser_t *get_parser() { return this->parser; }
+
 private:
 	websocket_parser_t *parser;
 

@@ -13,6 +13,75 @@
 
 using namespace protocol;
 
+class WebSocketInTask : public ChannelInTask<WebSocketFrame>
+{
+public:
+	WebSocketInTask(CommChannel *channel, CommScheduler *scheduler,
+					std::function<void (ChannelTask<WebSocketFrame> *)>&& cb,
+					std::function<void (ChannelTask<WebSocketFrame> *)>& proc) :
+	ChannelInTask<WebSocketFrame>(channel, scheduler, std::move(cb), proc)
+	{}
+
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+};
+
+void WebSocketInTask::dispatch()
+{
+	const websocket_parser_t *parser = this->get_message()->get_parser();
+	
+	if (parser->opcode != WebSocketFrameConnectionClose &&
+		parser->status_code != WSStatusCodeUndefined)
+	{
+		this->state = WFT_STATE_SYS_ERROR;
+		this->error = parser->status_code;
+	}
+	else
+	{
+		this->state = WFT_STATE_SUCCESS;
+		this->error = 0;
+	}
+
+	this->process(this);
+	this->subtask_done();
+}
+
+SubTask *WebSocketInTask::done()
+{
+	SeriesWork *series = series_of(this);
+	const websocket_parser_t *parser = this->get_message()->get_parser();
+	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
+
+	if ((parser->opcode == WebSocketFrameConnectionClose && !channel->is_established()) ||
+		parser->status_code != WSStatusCodeUndefined)
+	{
+		WebSocketTask *close_task = new WebSocketTask(channel,
+													  WFGlobal::get_scheduler(),
+													  nullptr);
+		WebSocketFrame *msg = close_task->get_message();
+		msg->set_opcode(WebSocketFrameConnectionClose);
+		msg->set_data(parser);
+		series->push_front(close_task);
+	}
+	else if (parser->opcode == WebSocketFramePing)
+	{
+		WebSocketTask *pong_task = new WebSocketTask(channel,
+													 WFGlobal::get_scheduler(),
+													 nullptr);
+		WebSocketFrame *msg = pong_task->get_message();
+		msg->set_opcode(WebSocketFramePong);
+		msg->set_data(parser);
+		series->push_front(pong_task);
+	}
+
+	if (this->callback)
+		this->callback(this);
+
+	delete this;
+	return series->pop();
+}
+
 SubTask *WebSocketTask::upgrade()
 {
 	ChannelOutTask<HttpRequest> *http_task;
@@ -40,13 +109,7 @@ SubTask *WebSocketTask::upgrade()
 
 void WebSocketTask::http_callback(ChannelTask<HttpRequest> *task)
 {
-	// websocket will keep channel->sending==true here
-//	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
-
-//	pthread_mutex_lock(&channel->mutex);
-//	if (channel->get_sending() == false) // channel already handle_in()
 	this->ready = true;
-//	pthread_mutex_unlock(&channel->mutex);
 }
 
 CommMessageIn *WebSocketChannel::message_in()
@@ -99,4 +162,11 @@ int WebSocketChannel::first_timeout()
 	return WS_HANDSHAKE_TIMEOUT;
 }
 
+ChannelTask<protocol::WebSocketFrame> *WebSocketChannel::new_session()
+{
+	auto *task = new WebSocketInTask(this, this->scheduler,
+									 nullptr, this->process);
+	Workflow::create_series_work(task, nullptr);
+	return task;
+}
 

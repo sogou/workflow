@@ -18,9 +18,21 @@ using namespace protocol;
 
 void process(ChannelTask<WebSocketFrame> *task)
 {
-	fprintf(stderr, "process. state=%d error=%d opcode=%d\n",
+	fprintf(stderr, "process. state=%d error=%d opcode=%d ",
 			task->get_state(), task->get_error(),
 			task->get_message()->get_opcode());
+
+	if (task->get_message()->get_opcode() == WebSocketFrameText)
+	{
+		const char *data;
+		size_t size;
+		task->get_message()->get_text_data(&data, &size);
+		fprintf(stderr, "get message: len=%zu [%.*s]\n", size, (int)size, data);
+	}
+	else
+	{
+		fprintf(stderr, "\n");
+	}
 }
 
 void channel_callback(WFChannel<protocol::WebSocketFrame> *channel)
@@ -47,7 +59,7 @@ int main()
 		});
 		WebSocketFrame *msg = text_task->get_message();
 		msg->set_masking_key(1412);
-		msg->set_text_data("20210526", 8, true);
+		msg->set_text_data("20210531", 8, true);
 		text_task->start();
 	});
 
@@ -59,7 +71,6 @@ int main()
 	sleep(3);
 	fprintf(stderr, "client deinit()\n");
 	client.deinit();
-//	sleep(2);
 
 	return 0;
 }

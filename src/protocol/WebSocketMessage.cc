@@ -73,26 +73,14 @@ int WebSocketFrame::append(const void *buf, size_t *size)
 {
 	int ret = websocket_parser_append_message(buf, size, this->parser);
 
-	if (ret >= 0)
+	if (this->parser->payload_length > this->size_limit)
 	{
-		if (this->parser->payload_length > this->size_limit)
-		{
-			errno = EMSGSIZE;
-			ret = -1;
-		}
-
-		if (ret == 1)
-		{
-			if (websocket_parser_parse(this->parser) < 0)
-				ret = -2;
-		}
+		this->parser->status_code = WSStatusCodeTooLarge;
+		return 1; // don`t need websocket_parser_parse()
 	}
 
-	if (ret == -2)
-	{
-		errno = EBADMSG;
-		ret = -1; //TODO: ret = 1; and set error flag to send CloseFrame
-	}
+	if (ret == 1)
+		websocket_parser_parse(this->parser);
 
 	return ret;
 }
@@ -126,7 +114,7 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 		*p = 126;
 		p++;
 		int2store(p, this->parser->payload_length);
-		p += 4;
+		p += 2;
 	}
 	else
 	{
@@ -226,6 +214,41 @@ bool WebSocketFrame::set_text_data(const char *data, size_t size, bool fin)
 	this->parser->payload_data = (char *)malloc(size);
 	memcpy(this->parser->payload_data, data, size);
 	this->parser->payload_length = size;
+
+	return ret;
+}
+
+bool WebSocketFrame::set_data(const websocket_parser_t *parser)
+{
+	bool ret = true;
+	unsigned char *p;
+
+	if  (this->parser->payload_length && this->parser->payload_data)
+	{
+		ret = false;
+		free(this->parser->payload_data);
+	}
+
+//	this->parser->status_code = parser->status_code;
+	this->parser->payload_length = parser->payload_length;
+
+	if (this->parser->opcode == WebSocketFrameConnectionClose &&
+		parser->status_code != WSStatusCodeUndefined)
+	{
+		this->parser->payload_length += 2;
+	}
+
+	this->parser->payload_data = malloc(this->parser->payload_length);
+	p = (unsigned char *)this->parser->payload_data;
+
+	if (this->parser->opcode == WebSocketFrameConnectionClose &&
+		parser->status_code != WSStatusCodeUndefined)
+	{
+		int2store(p, parser->status_code);
+		p += 2;
+	}
+
+	memcpy(p, parser->payload_data, parser->payload_length);
 
 	return ret;
 }

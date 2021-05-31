@@ -26,6 +26,7 @@ protected:
 	CommMessageIn *message_in();
 	void handle_in(CommMessageIn *in);
 	int first_timeout();
+	virtual ChannelTask<protocol::WebSocketFrame> *new_session();
 };
 
 class WebSocketTask : public WFWebSocketTask

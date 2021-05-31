@@ -433,7 +433,8 @@ public:
 	ComplexHttpProxyTask(int redirect_max,
 						 int retry_max,
 						 http_callback_t&& callback):
-		ComplexHttpTask(redirect_max, retry_max, std::move(callback))
+		ComplexHttpTask(redirect_max, retry_max, std::move(callback)),
+		is_user_request_(true)
 	{ }
 
 	void set_user_uri(ParsedURI&& uri) { user_uri_ = std::move(uri); }
@@ -489,7 +490,7 @@ private:
 	ParsedURI user_uri_;
 	bool is_ssl_;
 	bool is_user_request_;
-	int state_;
+	short state_;
 	int error_;
 };
 
@@ -521,8 +522,6 @@ CommMessageOut *ComplexHttpProxyTask::message_out()
 {
 	long long seqid = this->get_seq();
 
-	is_user_request_ = false;
-
 	if (seqid == 0) // CONNECT
 	{
 		HttpRequest *conn_req = new HttpRequest;
@@ -542,16 +541,19 @@ CommMessageOut *ComplexHttpProxyTask::message_out()
 		if (!proxy_auth_.empty())
 			conn_req->add_header_pair("Proxy-Authorization", proxy_auth_);
 
+		is_user_request_ = false;
 		return conn_req;
 	}
 	else if (seqid == 1 && is_ssl_) // HANDSHAKE
+	{
+		is_user_request_ = false;
 		return get_ssl_handshaker();
+	}
 
 	auto *msg = (ProtocolMessage *)this->ComplexHttpTask::message_out();
 	if (is_ssl_)
 		return get_ssl_wrapper(msg);
 
-	is_user_request_ = true;
 	return msg;
 }
 
@@ -579,6 +581,8 @@ int ComplexHttpProxyTask::keep_alive_timeout()
 {
 	long long seqid = this->get_seq();
 
+	state_ = WFT_STATE_SUCCESS;
+	error_ = 0;
 	if (seqid == 0)
 	{
 		HttpResponse *resp = this->get_resp();
@@ -713,15 +717,10 @@ bool ComplexHttpProxyTask::init_success()
 		header_host += uri_.port;
 	}
 
-	state_ = WFT_STATE_SUCCESS;
-	error_ = 0;
-	is_user_request_ = true;
-
 	HttpRequest *client_req = this->get_req();
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 	this->WFComplexClientTask::set_transport_type(TT_TCP);
-
 	return true;
 }
 
@@ -729,23 +728,20 @@ bool ComplexHttpProxyTask::finish_once()
 {
 	if (!is_user_request_)
 	{
-		long long seqid = this->get_seq();
-
 		if (this->state == WFT_STATE_SUCCESS && state_ != WFT_STATE_SUCCESS)
 		{
 			this->state = state_;
 			this->error = error_;
 		}
 
-		if (seqid == 0)
+		if (this->get_seq() == 0)
 		{
 			delete this->get_message_in();
 			delete this->get_message_out();
-			return false;
 		}
 
-		if (seqid == 1 && is_ssl_)
-			return false;
+		is_user_request_ = true;
+		return false;
 	}
 
 	if (this->state == WFT_STATE_SUCCESS)

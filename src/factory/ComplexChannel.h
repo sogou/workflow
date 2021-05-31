@@ -7,13 +7,13 @@
 #include "WFGlobal.h"
 #include "WFCondition.h"
 
-template<class MESSAGE>
-class WFComplexChannel : public WFChannel<MESSAGE>
+template<class MSG>
+class WFComplexChannel : public WFChannel<MSG>
 {
 public://private: and friend to Factory
 	WFComplexChannel(CommSchedObject *object, CommScheduler *scheduler,
-					 std::function<void (ChannelTask<MESSAGE> *)>&& process) :
-		WFChannel<MESSAGE>(object, scheduler, std::move(process)),
+					 std::function<void (WFChannelTask<MSG> *)>&& process) :
+		WFChannel<MSG>(object, scheduler, std::move(process)),
 		mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
 		this->state = WFT_STATE_UNDEFINED;
@@ -44,13 +44,13 @@ protected:
 	WFRouterTask *router_task;
 };
 
-template<class MESSAGE>
-class ComplexChannel : public WFComplexChannel<MESSAGE>
+template<class MSG>
+class ComplexChannel : public WFComplexChannel<MSG>
 {
 public:
 	ComplexChannel(CommSchedObject *object, CommScheduler *scheduler,
-				   std::function<void (ChannelTask<MESSAGE> *)>&& process) :
-		WFComplexChannel<MESSAGE>(object, scheduler, std::move(process))
+				   std::function<void (WFChannelTask<MSG> *)>&& process) :
+		WFComplexChannel<MSG>(object, scheduler, std::move(process))
 	{}
 
 	void set_uri(const ParsedURI& uri) { this->uri = uri; }
@@ -67,13 +67,13 @@ protected:
 	RouteManager::RouteResult route_result;
 };
 
-template<class MESSAGE>
-class ComplexChannelOutTask : public ChannelOutTask<MESSAGE>
+template<class MSG>
+class ComplexChannelOutTask : public WFChannelOutTask<MSG>
 {
 public:
 	ComplexChannelOutTask(CommChannel *channel, CommScheduler *scheduler,
-						  std::function<void (ChannelTask<MESSAGE> *)>&& cb) :
-		ChannelOutTask<MESSAGE>(channel, scheduler, std::move(cb))
+						  std::function<void (WFChannelTask<MSG> *)>&& cb) :
+		WFChannelOutTask<MSG>(channel, scheduler, std::move(cb))
 	{
 		this->ready = true;
 	}
@@ -89,7 +89,7 @@ protected:
 
 	void counter_callback(WFCounterTask *task)
 	{
-		auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
+		auto *channel = static_cast<ComplexChannel<MSG> *>(this->get_request_channel());
 		channel->set_state(WFT_STATE_SUCCESS);
 		this->ready = true;
 	}

@@ -8,13 +8,38 @@
 #include "WebSocketTask.h"
 #include "WebSocketMessage.h"
 
+struct WFWebSocketParams
+{
+	int idle_timeout;
+	int ping_interval;
+	bool random_masking_key;
+};
+
+static constexpr struct WFWebSocketParams WEBSOCKET_PARAMS_DEFAULT =
+{
+	.idle_timeout = WS_HANDSHAKE_TIMEOUT,
+	.ping_interval = -1,
+	.random_masking_key = false,
+};
+
 class WebSocketClient
 {
 public:
-	WebSocketClient(websocket_process_t&& process)
+	WebSocketClient(const struct WFWebSocketParams *params,
+					websocket_process_t process)
 	{
+		this->params = *params;
 		this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
 											 std::move(process));
+		this->channel->set_idle_timeout(this->params.idle_timeout);
+	}
+
+	WebSocketClient(websocket_process_t process)
+	{
+		this->params = WEBSOCKET_PARAMS_DEFAULT;
+		this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
+											 std::move(process));
+		this->channel->set_idle_timeout(this->params.idle_timeout);
 	}
 
 	int init(const std::string& url)
@@ -42,7 +67,7 @@ public:
 		if (this->channel->is_established())
 		{
 			WFWebSocketTask *task = this->create_websocket_task(
-				[](ChannelTask<protocol::WebSocketFrame> *task){
+				[](WFWebSocketTask *task){
 
 					WebSocketChannel *channel = (WebSocketChannel *)task->user_data;
 					if (task->get_state() == WFT_STATE_SUCCESS &&
@@ -53,7 +78,7 @@ public:
 					}
 				}
 			);
-			protocol::WebSocketFrame *msg = task->get_message();
+			protocol::WebSocketFrame *msg = task->get_msg();
 			msg->set_opcode(WebSocketFrameConnectionClose);
 			task->user_data = this->channel;
 			task->start();
@@ -62,6 +87,7 @@ public:
 
 private:
 	WebSocketChannel *channel;
+	struct WFWebSocketParams params;
 };
 
 #endif

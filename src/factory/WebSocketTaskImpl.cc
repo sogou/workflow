@@ -9,17 +9,14 @@
 #define WS_HTTP_SEC_VERSION_K	"Sec-WebSocket-Version"
 #define WS_HTTP_SEC_VERSION_V	"13"
 
-#define WS_HANDSHAKE_TIMEOUT	10 * 1000
-
 using namespace protocol;
 
-class WebSocketInTask : public ChannelInTask<WebSocketFrame>
+class WebSocketInTask : public WFChannelInTask<WebSocketFrame>
 {
 public:
 	WebSocketInTask(CommChannel *channel, CommScheduler *scheduler,
-					std::function<void (ChannelTask<WebSocketFrame> *)>&& cb,
-					std::function<void (ChannelTask<WebSocketFrame> *)>& proc) :
-	ChannelInTask<WebSocketFrame>(channel, scheduler, std::move(cb), proc)
+					websocket_process_t& proc) :
+	WFChannelInTask<WebSocketFrame>(channel, scheduler, proc)
 	{}
 
 protected:
@@ -29,7 +26,7 @@ protected:
 
 void WebSocketInTask::dispatch()
 {
-	const websocket_parser_t *parser = this->get_message()->get_parser();
+	const websocket_parser_t *parser = this->get_msg()->get_parser();
 	
 	if (parser->opcode != WebSocketFrameConnectionClose &&
 		parser->status_code != WSStatusCodeUndefined)
@@ -50,7 +47,7 @@ void WebSocketInTask::dispatch()
 SubTask *WebSocketInTask::done()
 {
 	SeriesWork *series = series_of(this);
-	const websocket_parser_t *parser = this->get_message()->get_parser();
+	const websocket_parser_t *parser = this->get_msg()->get_parser();
 	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
 
 	if ((parser->opcode == WebSocketFrameConnectionClose && !channel->is_established()) ||
@@ -59,7 +56,7 @@ SubTask *WebSocketInTask::done()
 		WebSocketTask *close_task = new WebSocketTask(channel,
 													  WFGlobal::get_scheduler(),
 													  nullptr);
-		WebSocketFrame *msg = close_task->get_message();
+		WebSocketFrame *msg = close_task->get_msg();
 		msg->set_opcode(WebSocketFrameConnectionClose);
 		msg->set_data(parser);
 		series->push_front(close_task);
@@ -69,7 +66,7 @@ SubTask *WebSocketInTask::done()
 		WebSocketTask *pong_task = new WebSocketTask(channel,
 													 WFGlobal::get_scheduler(),
 													 nullptr);
-		WebSocketFrame *msg = pong_task->get_message();
+		WebSocketFrame *msg = pong_task->get_msg();
 		msg->set_opcode(WebSocketFramePong);
 		msg->set_data(parser);
 		series->push_front(pong_task);
@@ -84,16 +81,16 @@ SubTask *WebSocketInTask::done()
 
 SubTask *WebSocketTask::upgrade()
 {
-	ChannelOutTask<HttpRequest> *http_task;
+	WFChannelOutTask<HttpRequest> *http_task;
 	auto&& cb = std::bind(&WebSocketTask::http_callback,
 						  this, std::placeholders::_1);
 
 	WebSocketChannel *channel = static_cast<WebSocketChannel *>(this->get_request_channel());
 
-	http_task = new ChannelOutTask<HttpRequest>(this->channel,
+	http_task = new WFChannelOutTask<HttpRequest>(this->channel,
 												WFGlobal::get_scheduler(),
 												cb);
-	HttpRequest *req = http_task->get_message();
+	HttpRequest *req = http_task->get_msg();
 	req->set_method(HttpMethodGet);
 	req->set_http_version("HTTP/1.1");
 	req->set_request_uri("/");
@@ -107,7 +104,7 @@ SubTask *WebSocketTask::upgrade()
 	return http_task;
 }
 
-void WebSocketTask::http_callback(ChannelTask<HttpRequest> *task)
+void WebSocketTask::http_callback(WFChannelTask<HttpRequest> *task)
 {
 	this->ready = true;
 }
@@ -154,18 +151,17 @@ void WebSocketChannel::handle_in(CommMessageIn *in)
 	}
 
 	WFWebSocketChannel::handle_in(in);
-	//if (this->parser->opcode == WebSocketFrameConnectionClose)
 }
 
 int WebSocketChannel::first_timeout()
 {
-	return WS_HANDSHAKE_TIMEOUT;
+	return this->idle_timeout;
 }
 
-ChannelTask<protocol::WebSocketFrame> *WebSocketChannel::new_session()
+WFWebSocketTask *WebSocketChannel::new_session()
 {
 	auto *task = new WebSocketInTask(this, this->scheduler,
-									 nullptr, this->process);
+									 this->process);
 	Workflow::create_series_work(task, nullptr);
 	return task;
 }

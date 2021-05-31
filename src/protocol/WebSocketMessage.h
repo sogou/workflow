@@ -10,6 +10,8 @@
 namespace protocol
 {
 
+#define WS_HANDSHAKE_TIMEOUT    10 * 1000
+
 class WebSocketFrame : public ProtocolMessage
 {
 public:

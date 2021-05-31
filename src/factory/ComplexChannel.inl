@@ -2,11 +2,11 @@
 #include "WFChannel.h"
 #include "ComplexChannel.h"
 
-template<class MESSAGE>
-void WFComplexChannel<MESSAGE>::dispatch()
+template<class MSG>
+void WFComplexChannel<MSG>::dispatch()
 {
 	if (this->object)
-		return this->WFChannel<MESSAGE>::dispatch();
+		return this->WFChannel<MSG>::dispatch();
 
 	if (this->state == WFT_STATE_UNDEFINED)
 	{
@@ -18,8 +18,8 @@ void WFComplexChannel<MESSAGE>::dispatch()
 	this->subtask_done();
 }
 
-template<class MESSAGE>
-SubTask *WFComplexChannel<MESSAGE>::done()
+template<class MSG>
+SubTask *WFComplexChannel<MSG>::done()
 {
 	SeriesWork *series = series_of(this);
 
@@ -41,8 +41,8 @@ SubTask *WFComplexChannel<MESSAGE>::done()
 	return series->pop();
 }
 
-template<class MESSAGE>
-SubTask *ComplexChannel<MESSAGE>::done()
+template<class MSG>
+SubTask *ComplexChannel<MSG>::done()
 {
 	if (this->established == 1)
 	{
@@ -52,13 +52,13 @@ SubTask *ComplexChannel<MESSAGE>::done()
 			this->ns_policy->success(&this->route_result, NULL, this->target);
 	}
 
-	return WFComplexChannel<MESSAGE>::done();
+	return WFComplexChannel<MSG>::done();
 }
 
-template<class MESSAGE>
-WFRouterTask *ComplexChannel<MESSAGE>::route()
+template<class MSG>
+WFRouterTask *ComplexChannel<MSG>::route()
 {
-	auto&& cb = std::bind(&ComplexChannel<MESSAGE>::router_callback,
+	auto&& cb = std::bind(&ComplexChannel<MSG>::router_callback,
 						  this, std::placeholders::_1);
 	struct WFNSParams params = {
 		.type			=	TT_TCP,
@@ -74,8 +74,8 @@ WFRouterTask *ComplexChannel<MESSAGE>::route()
 	return this->ns_policy->create_router_task(&params, cb);
 }
 
-template<class MESSAGE>
-void ComplexChannel<MESSAGE>::router_callback(WFRouterTask *task)
+template<class MSG>
+void ComplexChannel<MSG>::router_callback(WFRouterTask *task)
 {
 	if (task->get_state() == WFT_STATE_SUCCESS)
 	{
@@ -89,11 +89,11 @@ void ComplexChannel<MESSAGE>::router_callback(WFRouterTask *task)
 	}
 }
 
-template<class MESSAGE>
-void ComplexChannelOutTask<MESSAGE>::dispatch()
+template<class MSG>
+void ComplexChannelOutTask<MSG>::dispatch()
 {
 	int ret = false;
-	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
+	auto *channel = static_cast<ComplexChannel<MSG> *>(this->get_request_channel());
 
 	pthread_mutex_lock(&channel->mutex);
 
@@ -116,7 +116,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 		}
 		else
 		{
-			auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::counter_callback,
+			auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::counter_callback,
 								  this, std::placeholders::_1);
 			WFCounterTask *counter = channel->condition.create_wait_task(cb);
 			series_of(this)->push_front(this);
@@ -133,7 +133,7 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 		}
 		else
 		{
-			auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::counter_callback,
+			auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::counter_callback,
 								  this, std::placeholders::_1);
 			WFCounterTask *counter = channel->condition.create_wait_task(cb);
 			series_of(this)->push_front(this);
@@ -149,23 +149,23 @@ void ComplexChannelOutTask<MESSAGE>::dispatch()
 	pthread_mutex_unlock(&channel->mutex);
 
 	if (ret == true)
-		return this->ChannelOutTask<MESSAGE>::dispatch();
+		return this->WFChannelOutTask<MSG>::dispatch();
 
 	return this->subtask_done();
 }
 
-template<class MESSAGE>
-SubTask *ComplexChannelOutTask<MESSAGE>::upgrade()
+template<class MSG>
+SubTask *ComplexChannelOutTask<MSG>::upgrade()
 {
-	auto&& cb = std::bind(&ComplexChannelOutTask<MESSAGE>::upgrade_callback,
+	auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::upgrade_callback,
 						  this, std::placeholders::_1);
 	return new WFCounterTask(0, cb);
 }
 
-template<class MESSAGE>
-SubTask *ComplexChannelOutTask<MESSAGE>::done()
+template<class MSG>
+SubTask *ComplexChannelOutTask<MSG>::done()
 {
-	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
+	auto *channel = static_cast<ComplexChannel<MSG> *>(this->get_request_channel());
 
 	if (channel->get_state() == WFT_STATE_UNDEFINED ||
 		channel->get_state() == WFT_STATE_SUCCESS)
@@ -184,13 +184,13 @@ SubTask *ComplexChannelOutTask<MESSAGE>::done()
 	channel->condition.signal();
 	pthread_mutex_unlock(&channel->mutex);
 
-	return ChannelOutTask<MESSAGE>::done();
+	return WFChannelOutTask<MSG>::done();
 }
 
-template<class MESSAGE>
-void ComplexChannelOutTask<MESSAGE>::upgrade_callback(WFCounterTask *task)
+template<class MSG>
+void ComplexChannelOutTask<MSG>::upgrade_callback(WFCounterTask *task)
 {
-	auto *channel = static_cast<ComplexChannel<MESSAGE> *>(this->get_request_channel());
+	auto *channel = static_cast<ComplexChannel<MSG> *>(this->get_request_channel());
 
 	pthread_mutex_lock(&channel->mutex);
 	channel->set_state(WFT_STATE_SUCCESS);

@@ -1,6 +1,26 @@
+/*
+  Copyright (c) 2021 Sogou, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  Author: Li Yingxin (liyingxin@sogou-inc.com)
+*/
+
 #ifndef _WFWEBSOCKETCLIENT_H_
 #define _WFWEBSOCKETCLIENT_H_
 
+#include <string>
+#include <functional>
 #include "WFGlobal.h"
 #include "HttpUtil.h"
 #include "HttpMessage.h"
@@ -25,70 +45,81 @@ static constexpr struct WFWebSocketParams WEBSOCKET_PARAMS_DEFAULT =
 class WebSocketClient
 {
 public:
-	WebSocketClient(const struct WFWebSocketParams *params,
-					websocket_process_t process)
-	{
-		this->params = *params;
-		this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
-											 std::move(process));
-		this->channel->set_idle_timeout(this->params.idle_timeout);
-	}
-
-	WebSocketClient(websocket_process_t process)
-	{
-		this->params = WEBSOCKET_PARAMS_DEFAULT;
-		this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
-											 std::move(process));
-		this->channel->set_idle_timeout(this->params.idle_timeout);
-	}
-
-	int init(const std::string& url)
-	{
-		std::string tmp = url;
-		if (tmp.find("ws://") != 0)
-			tmp = "ws://" + tmp;
-
-		ParsedURI uri;
-		if (URIParser::parse(tmp, uri) != 0)
-			return -1;
-
-		this->channel->set_uri(uri);
-		return 0;
-	}
-
-	WFWebSocketTask *create_websocket_task(websocket_callback_t cb)
-	{
-		return new WebSocketTask(this->channel, WFGlobal::get_scheduler(),
-								 std::move(cb));
-	}
-
-	void deinit()
-	{
-		if (this->channel->is_established())
-		{
-			WFWebSocketTask *task = this->create_websocket_task(
-				[](WFWebSocketTask *task){
-
-					WebSocketChannel *channel = (WebSocketChannel *)task->user_data;
-					if (task->get_state() == WFT_STATE_SUCCESS &&
-						channel->is_established())
-					{
-						Workflow::start_series_work(channel, nullptr);
-						channel->set_sending(true);
-					}
-				}
-			);
-			protocol::WebSocketFrame *msg = task->get_msg();
-			msg->set_opcode(WebSocketFrameConnectionClose);
-			task->user_data = this->channel;
-			task->start();
-		}
-	}
+	int init(const std::string& url);
+	WFWebSocketTask *create_websocket_task(websocket_callback_t cb);
+	void deinit();
 
 private:
 	WebSocketChannel *channel;
 	struct WFWebSocketParams params;
+
+public:
+	WebSocketClient(const struct WFWebSocketParams *params,
+					websocket_process_t process);
+	WebSocketClient(websocket_process_t process);
 };
+
+inline WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
+{
+	return new WebSocketTask(this->channel, WFGlobal::get_scheduler(),
+							 std::move(cb));
+}
+
+inline int WebSocketClient::init(const std::string& url)
+{
+	ParsedURI uri;
+	if (URIParser::parse(url, uri) != 0)
+		return -1;
+
+	this->channel->set_uri(uri);
+	return 0;
+}
+
+void WebSocketClient::deinit()
+{
+	WFWebSocketTask *task = NULL;
+
+	pthread_mutex_lock(&this->channel->mutex);
+	if (this->channel->is_established())
+	{
+			task = this->create_websocket_task(
+			[](WFWebSocketTask *task){
+
+				WebSocketChannel *channel = (WebSocketChannel *)task->user_data;
+				if (task->get_state() == WFT_STATE_SUCCESS &&
+					channel->is_established())
+				{
+					Workflow::start_series_work(channel, nullptr);
+					channel->set_sending(true);
+				}
+			}
+		);
+		protocol::WebSocketFrame *msg = task->get_msg();
+		msg->set_opcode(WebSocketFrameConnectionClose);
+		task->user_data = this->channel;
+	}
+	pthread_mutex_unlock(&this->channel->mutex);
+
+	if (task)
+		task->start();
+}
+
+WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
+								 websocket_process_t process)
+{
+	this->params = *params;
+	this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
+										 std::move(process));
+	this->channel->set_idle_timeout(this->params.idle_timeout);
+}
+
+WebSocketClient::WebSocketClient(websocket_process_t process)
+{
+	this->params = WEBSOCKET_PARAMS_DEFAULT;
+	this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
+										 std::move(process));
+	this->channel->set_idle_timeout(this->params.idle_timeout);
+}
 
 #endif
 

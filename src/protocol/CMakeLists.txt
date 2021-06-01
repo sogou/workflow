@@ -25,5 +25,6 @@ if (KAFKA STREQUAL "y")
 		KafkaResult.cc
 	)
 	add_library("protocol_kafka" OBJECT ${SRC})
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 endif ()
 

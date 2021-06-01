@@ -141,7 +141,9 @@ Memory reclamation mechanism
   * When a series is a branch of a parallel, it will be recycled after the callback of the parallel that it belongs to.
 * This project doesn’t use `std::shared_ptr` to manage memory.
 
-#### More design documents
+#### Any other questions?
 
-To be continued...
+You may check the [FAQ](docs/en/FAQ.md) and [issues](https://github.com/sogou/workflow/issues) list first to see if you can find the answer.
+
+You are very welcome to send the problems you encounter in use to [issues](https://github.com/sogou/workflow/issues), and we will answer them as soon as possible. At the same time, more issues will also help new users.
 

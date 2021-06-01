@@ -29,7 +29,7 @@ In addition, you can use ``make DEBUG=y`` to compile the debug version.
 ### Advantages over other network engines or RPC projects
 
 * Simple and easy to use, with no dependences
-* Excellent performance and stability [benchmark](https://github.com/sogou/workflow/tree/master/benchmark)
+* Excellent performance and stability benchmark
 * General protocols implemented
 * Integrating communication and computing
 * Tasks flow management
@@ -181,7 +181,7 @@ In most cases, you cannot specify specific connections for the client tasks gene
   * If the number of concurrent connections has reached the maximum value, the task will get a system error **EAGAIN**.
 * Not all connections on the same destination address and port meet the multiplexing conditions. For example, the database connections created with different user names or passwords cannot be reused.
 
-Although our framework does not support to specify the connection to be used by a task, it support to specify connection context. This function is very important for implementing a stateful server. Please refer to [About connection context](https://github.com/sogou/workflow/blob/master/docs/about-connection-context.md) for details.
+Although our framework does not support to specify the connection to be used by a task, it support to specify connection context. This function is very important for implementing a stateful server. 
 
 ### Is there load balancing if there are multiple IP addresses under the same domain name?
 

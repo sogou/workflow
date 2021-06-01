@@ -2,7 +2,7 @@
 
 ### Project background and issues solved
 
-C++ Workflow,  originating from the communication engine in the distributed storage project of Sogou, gradually become the standard C++ project in Sogou. It is used to support most C++ back-end services in Sogou. The project incorporates both communication and computing harmoniously, and supports to build high-performance services with complex relations between communication and computing. It can also be used as a simple asynchronous network engine or parallel computing framework.
+C++ Workflow,  originating from the communication engine in the distributed storage project of Sogou, gradually become the C++ programming standard in Sogou. It is used to support most C++ back-end services in Sogou. The project incorporates both communication and computing harmoniously, and supports to build high-performance services with complex relations between communication and computing. It can also be used as a simple asynchronous network engine or parallel computing framework.
 
 ### Get started with C++ Workflow
 
@@ -24,42 +24,43 @@ $ cd tutorial
 $ make KAFKA=y
 ~~~
 
-In addition, you can use make DEBUG=y to compile the debug version.
+In addition, you can use ``make DEBUG=y`` to compile the debug version.
 
 ### Advantages over other network engines or RPC projects
 
 * Simple and easy to use, with no dependences
-* Excellent performance and stability ([[benchmark](https://github.com/sogou/workflow/tree/master/benchmark))](https://github.com/sogou/workflow/tree/master/benchmark)
-* General protocols already implemented
+* Excellent performance and stability [benchmark](https://github.com/sogou/workflow/tree/master/benchmark)
+* General protocols implemented
 * Integrating communication and computing
-* Workflow management
+* Tasks flow management
 
 ### Advantages over other parallel computing frameworks
 
 * Simple to use
-* Network support
+* Network supported
 
 ### Features currently not supported
 
 * Pipeline server
-* streaming communication (supported in the foundation module; high-level interfaces to be designed)
+* streaming communication (supported in the foundation module; high-level interfaces design is required)
 * UDP server (UDP clients supported)
-* WebSocket
+* WebSocket (coming soon...)
 
 ### What protocols are natively supported?
 
-Currently we have implemented HTTP, Redis, MySQL and Kafka protocols. For Kafka, only clients are supported currently; for other protocols, client+server are supported. In other words, you can use the project to build proxy servers for Redis or MySQL protocols. Kafka module is a plug-in and is not compiled by default.
+Currently we have implemented ``HTTP``, ``Redis``, ``MySQL`` and ``Kafka`` protocols. For Kafka, only clients are supported currently; for other protocols, client+server are supported. In other words, you can use the project to build Redis or MySQL proxy servers. Kafka module is a plug-in and is not compiled by default.
 
 ### Why do we use callback?
 
 We encapsulate user behaviors with the **callback** and **process** in C++11 **std::function**. You should know that you are writing asynchronous programs. We believe that **callback** is more efficient than **future** or user-mode coroutines in the program and better at combining communication with calculation. Due to the convenience brought by the task encapsulation and **std::function**, the **callback** in our framework is not too cumbersome, but very simple and clear.
 
-### What threads do we use callback in?
+### In what thread is the callback called?
 
-In the project, the threads are managed by the framework. Except for some special cases, the thread that calls the **callback** must be one of the handler threads that handle the results of the network transmission and file IO (20 threads by default) or one of the computing threads (the total number of CPU cores by default). However, it is not recommended to wait for or run particularly complex calculations in the **callback**, no matter which type of threads are used. The waiting should be implemented with a **counter** task, which waits without occupying a thread. The complex calculation should be encapsulated in the calculation task. 
+In the project, the threads are managed by the framework. Except for some special cases, the thread that calls the **callback** must be one of the handler threads that handle the results of the network transmission and file IO (20 threads by default) or one of the computing threads (the total number of CPU cores by default). However, it is not recommended to wait for or run particularly complex calculations in the **callback**, no matter in which type of threads mentioned above. The waiting should be implemented with a **counter task**, which waits without occupying a thread. The complex calculation should be encapsulated in the **thread task**. 
+
 It should be noted that all resources in the framework are allocated at runtime. If you do not use network communication, all communication-related threads will not be created.
 
-### Why is there no response after I start the task?
+### Why is there no response after I started the task?
 
 ~~~cpp
 int main(void)
@@ -92,7 +93,7 @@ int main(void)
 
 ### What is the life cycle of a task object?
 
-Each task in the framework (as well as **SeriesWork**) is given to you in the form of a bare pointer. The life cycle of each task object starts from the creation of the object and ends in the completion of the callback of that object. In other words, the task pointer is invalid after the callback, and the data in that task are also destroyed. If you want to keep that data, you can use **std::move()** to move the data. For example, the code below keeps **resp** in the HTTP task:
+Each task in the framework (as well as **SeriesWork**) is given to you in the form of a bare pointer. The life cycle of each task object starts from the creation of the object and ends in the completion of the callback of that object. In other words, the task pointer is invalid after the callback, and all the data in that task are also destroyed. If you want to keep the data, you can use **std::move()** to move them. For example, the code below keeps **resp** in the HTTP task:
 
 ~~~cpp
 void http_callback(WFHttpTask *task)
@@ -109,25 +110,25 @@ void http_callback(WFHttpTask *task)
 In some cases, if you create the task and then do not want to start it, you can call **task->dismiss()** to destroy the task directly. 
 It should be emphasized that the **process** function in the server is not a callback. The callback of a server task runs after the reply is completed, and it is **nullptr** by default.
 
-### Why isn't SeriesWork a task?
+### Why SeriesWork is not a task?
 
 We define **SeriesWork** and **ParallelWork** as follows:
 
 * **SeriesWork** consists of tasks
-* **ParallelWork** consists of several **SeriesWorks**.
-* **ParallelWork** is one type of tasks.
+* **ParallelWork** consists of **SeriesWorks**
+* **ParallelWork** is one type of tasks
 
-Obviously, we can recursively derive any complex **SeriesWork-ParallelWork** structure based on the above three definitions. If the **SeriesWork** is also defined as a task, then the **SeriesWork** may consists of several sub-series, and it is easy to get confused. Similarly, **ParallelWork** can only be the union of several **SeriesWorks**, which also avoids confusion. In fact, you will find that the **SeriesWork** is essentially the coroutine.
+Obviously, we can recursively derive any complex **SeriesWork-ParallelWork** structure based on the above three definitions. If the **SeriesWork** were also defined as a task, then the **SeriesWork** might consists of several sub-series, and it is easy to get confused. Similarly, **ParallelWork** can only be the union of several **SeriesWorks**, which also avoids confusion. In fact, you will find that the **SeriesWork** is essentially the **coroutine**.
 
 ### What should I do if I want a more general DAG?
 
-You can use **WFGraphTask**, or build your own DAG with  the **WFCounterTask**.
+You can use **WFGraphTask**, or build your own DAG with the **WFCounterTask**.
 
-### Does a server reply to the request after the process function ends?
+### Does a server reply after the process function ends?
 
-No. The server replies to a request if the **series** of that server task contains no other tasks. If you don't add any tasks to this **series**, the server will reply after the process ends. Please note that you should not wait for the completion of a task in the **process**. Add this task to the **series** instead.
+No. The server replies to a request if the **series** of that server task contains no other tasks. If you don't add any tasks to this **series**, the server will reply after the **process** ends. Please note that you should not wait for the completion of any task in the **process**. Add this task to the **series** instead.
 
-### How do I wait for a short time before the server replies to a received request?
+### How to implement the server reply after waiting for a short time?
 
 It is incorrect to sleep directly in the **process**. The correct way is to add a **timer** task to the series of the server task. Take the HTTP server as an example:
 
@@ -144,17 +145,17 @@ The above code implements an HTTP server with 100ms delay. Everything is execute
 
 ### How do I know if the reply is successful?
 
-First of all, a successful reply means to successfully write data into the TCP buffer. If the reply packet is small and the client does not close the connection after timeout or due to other reasons, you can almost consider that the reply is successful. To view the reply results, you can set a callback for the server task. The status code and error code in the callback are the same as those of the client task, but the server task will not have DNS errors.
+First of all, a successful reply means successfully written data into the TCP buffer. If the reply packet is small and the client does not close the connection after timeout or due to other reasons, you can almost consider that the reply is successful. To view the reply results, you can set a callback for the server task. The status code and error code in the callback are the same as those of the client task, but the server task will not have DNS errors.
 
-### Can I omit the reply?
+### Can I cancel the reply?
 
 Yes. You can call the **noreply()** method of a server task at any time, and then the connection will be closed directly at the original reply time.
 
 ### What are the scheduling rules for computing tasks?
 
-For all computing tasks, including **WFGoTask**, you should specify a computing queue name when you create such tasks. The computing queue name is used to guide our internal scheduling strategy. First, as long as there are idle computing threads available, the task will be started in real time, and the computing queue name will not be used. When there are not enough computing threads for calling every task in real time, the tasks under the same queue name will be called in FIFO order, and the queues are treated equally. For example, if you start n tasks with queue name A consecutively, and then start n tasks with queue name B consecutively, then no matter how much CPU time each task takes, and no matter how many computing threads are required, the execution of these two queues tends to complete at the same time. This rule can be extended to any number of queues and any startup orders of these these queues.
+For all computing tasks, including **WFGoTask**, you should specify a computing queue name when you create such tasks. The computing queue name is used to guide our internal scheduling strategy. First, as long as there are idle computing threads available, the task will be started in real time, and the computing queue name will not be used. When there are not enough computing threads for calling every task in real time, the tasks under the same queue name will be called in FIFO order, and the queues are treated equally. For example, if you start n tasks with queue name A consecutively, and then start n tasks with queue name B consecutively, then no matter how much CPU time each task takes, and no matter how many computing threads are required, the execution of these two queues tends to complete at the same time. This rule can be extended to any number of queues and any startup orders of these queues.
 
-### Why is it not necessary to establish a connection before using Redis client?
+### Why there is not necessary to establish a connection before using Redis client?
 
 Let's take a look at the interface for creating a Redis client task first:
 
@@ -166,9 +167,10 @@ public:
 }
 ~~~
 
-The format of the url is redis://:password@host:port/dbnum. The default port is 6379 and the default dbnum is 0. 
-An important feature of the **Workflow** is that the connection is managed by the framework, so that the user interface can be extremely simplified and the connection can be reused most effectively. The framework finds a reusable connection by the username, password and dbnum of the task. If the framework cannot find a connection, it will initiate a new connection and perform user login, database selection and other operations. If it is a new host, DNS resolution will be carried out. If an error occurs in the request, a retry may be needed. Each step is asynchronous and transparent. You only need to populate your request and start the task, and then you can get the requested results in callback. The only thing to note is that every task should be created with a password, because it may be necessary to log in at any time. 
-We can create MYSQL tasks in the same way. However, for the MYSQL tasks with transaction requirements, it is necessary to create tasks through the **WFMySQLConnection**. Otherwise, we cannot guarantee that the whole transaction is executed on the same connection. With **WFMySQLConnection**, the connection and authentication process can also be done asynchronously.
+The format of the url is **redis://:password@host:port/dbnum**. The default port is **6379** and the default dbnum is **0**. 
+An important feature of the **Workflow** is that the connection is managed by the framework, so that the user interface can be extremely simplified and the connection can be reused most effectively. The framework finds a reusable connection by the username, password and dbnum of the task. If the framework cannot find a connection, it will initiate a new connection and perform user login, database selection and other operations. If it is a new host, DNS resolution will be carried out. If an error occurs in the request, a retry may be needed. Each step is asynchronous and transparent. You only need to populate your request and start the task, and then you can get the results in callback. The only thing to note is that every task should be created with a password, because it may be necessary to login at any time. 
+
+We can create MySQL tasks in the same way. However, for the MySQL tasks with transaction requirements, it is necessary to create tasks through the **WFMySQLConnection**. Otherwise, we cannot guarantee that the whole transaction is executed on the same connection. With **WFMySQLConnection**, the connection and authentication process can also be done asynchronously.
 
 ### What are the connection multiplexing rules?
 
@@ -183,11 +185,11 @@ Although our framework does not support to specify the connection to be used by 
 
 ### Is there load balancing if there are multiple IP addresses under the same domain name?
 
-Yes. In the framework, we think that all target IPs under the same domain name are equal and have the same service capabilities. Therefore, the framework will find a target with the lightest local load to handle the request, and it also has built-in fuse and recovery strategy. For load balancing under the same domain name, all targets must serve on the same port, and you cannot configure different weights. The priority of load balance is higher than connection multiplexing. In other words, the communication address will be selected first,  and then the connection reuse will be considered.
+Yes. In the framework, we think that all target IPs under the same domain name are equal and have the same service capabilities. Therefore, the framework will find a target with the lightest local load to handle the request, and it also has built-in fuse and recovery strategy. For load balancing under the same domain name, all targets must serve on the same port, and you cannot configure different weights. The priority of load balance is higher than connection multiplexing. In other words, the communication address will be selected first, and then the connection reuse will be considered.
 
-### How to realize load balancing on weighted or different ports
+### How to realize load balancing or weighted selecting on different ports
 
-Please read **upstream** documentation. **upstream** can be used to meet many complex service management requirements.
+Please read **Upstream** documentation. **Upstream** can be used to meet many complex service management requirements.
 
 ### How to access chunked HTTP body most efficiently
 
@@ -218,26 +220,26 @@ We don't recommend such practice, because you can add any task into the **Series
 
 ### How to transfer data between tasks?
 
-Ordinarily the tasks in the same series share the series context. You can read and modify it with **get\_context()** and **set\_context()** for the series. For parallel work,  you can access one speficic series with **series\_at()** in the callback of that parallel work(even if the callbacks of these series have been called, they will not be destroyed until the callback of the parallel work is completed), and then get its context. The parallel work is also one type of task. Therefore, you can pass the summarized results continuously through its series context. In a word, a series is a coroutine, and the series context is a local variable of that coroutine. Parallel work is the parallel execution of the coroutines, which can summarize the execution results of all coroutines.
+Ordinarily the tasks in the same series share the series context. You can read and modify it with **get\_context()** and **set\_context()** for the series. For ParallelWork, you can access one speficic series with **series\_at()** in the callback of that ParallelWork(even if the callbacks of these series have been called, they will not be destroyed until the callback of the ParallelWork is completed), and then get its context. The ParallelWork is also one type of task. Therefore, you can pass the summarized results continuously through its series context. In a word, a series is a coroutine, and the series context is a local variable of that coroutine. ParallelWork is the parallel execution of the coroutines, which can summarize the execution results of all coroutines.
 
 ### What’s the relationship between the Workflow and RPC?
 
-In our architecture, RPC is an application on the Workflow. In other words, RPC is a set of protocol implementations on the Workflow. If you have interface description and want to use remote interface calls, you should try **srpc**. **srpc** is an RPC system that leverages all the functions of the Workflow and perfectly integrates with the Workflow. It is compatible with **brpc** and **thrift** protocols, and it is faster and easier to use. **srpc** can meet any RPC requirements. Please visit [https://github.com/sogou/srpc](https://github.com/sogou/srpc) for details.
+In our architecture, RPC is an application on Workflow. In other words, RPC is a set of protocol implementations on Workflow. If you have interface description and want to use remote interface calls, you should try **srpc**. **srpc** is an RPC system that leverages all the functions of Workflow and perfectly integrates with Workflow. It is compatible with **brpc** and **thrift** protocols, and it is faster and easier to use. **srpc** can meet any RPC requirements. Please visit [https://github.com/sogou/srpc](https://github.com/sogou/srpc) for details.
 
-### When do I perform stop() operation of a Server?
+### When do I perform stop() operation of a server?
 
 The **stop()** operation of a server performs a graceful shutdown, and all servers must be shut down before the program ends. **stop()** consists of **shutdown()** and **wait\_finish()**. **wait\_finish()** will wait for the completion of the series that has running server tasks. In other words, you can continue to add tasks to the series in the callback where that server task report its completion. **stop()** operation will wait for the end of these tasks. In addition, if you run multiple servers at the same time, the best way to stop them is:
 
 ~~~cpp
 int main()
 {
-    // 一个server对象不能start多次，所以多端口服务需要定义多个server对象 A server cannot be started multiple times. You must define multiple servers if you want to provide the same services on multiple ports
+    // A server cannot be started multiple times. You must define multiple servers if you want to provide the same services on multiple ports
     WFRedisServer server1(process);
     WFRedisServer server2(process);
     server1.start(8080);
     server2.start(8888);
-    getchar(); // 输入回车结束 Press Enter to continue
-    // 先全部关闭，再等待。 Shut down all and then wait
+    getchar(); // Press Enter to continue
+    // Shutdown all and then wait
     server1.shutdown();
     server2.shutdown();
     server1.wait_finish();
@@ -283,7 +285,7 @@ The above code implements an HTTP server, which ends the program when receiving 
 
 ### What should I do if I want to call asynchronous operation of the non-Workflow framework in the server?
 
-You can also use **counter**. In the callbacks of other asynchronous frameworks, count the number in the **counter**.
+You can also use **counter**. In the callbacks of other asynchronous frameworks, count the **counter**.
 
 ~~~cpp
 void other_callback(server_task, counter, ...)
@@ -295,7 +297,7 @@ void other_callback(server_task, counter, ...)
 void process(WFHttpTask *server_task)
 {
     WFCounterTask *counter = WFTaskFactory::create_counter_task(1, nullptr);
-    OtherAsyncTask *other_task = create_other_task(other_callback, server_task, counter);//非workflow框架的任务 for tasks in non-workflow frameworks
+    OtherAsyncTask *other_task = create_other_task(other_callback, server_task, counter);//tasks in non-workflow frameworks
     other_task->run();
     series_of(server_task)->push_back(counter);
 }
@@ -305,7 +307,7 @@ Note that in the above code the call of **counter->count()** may be started befo
 
 ### Why do I fail to crawl some individual https sites?
 
-If you can access the site with a browser and you fail to crawl it with the Workflow, it is very likely that the site uses SNI, a TLS extension. You can enable the client SNI in the Workflow in the global configuration:
+If you can access the site with a browser and you fail to crawl it with Workflow, it is very likely that the site uses SNI, a TLS extension. You can enable the client SNI in the Workflow in the global configuration:
 
 ~~~cpp
     struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
@@ -332,7 +334,7 @@ The above code sets www.sogou.com as the **upstream** name, adds a server with t
 
 ### How to access HTTP resources through a proxy server
 
-Method 1 (only applicable to HTTP tasks and unable to redirect): you can create HTTP tasks with the address of the proxy server and set up the **request\_uri** and **Host **headers. For example, if you want to visit http://www.sogou.com/ through the proxy server www.proxy.com:8080. The method is described as follows:
+Method 1 (only applicable to HTTP tasks and unable to redirect): you can create HTTP tasks with the address of the proxy server and set up the **request\_uri** and **Host** headers. For example, if you want to visit http://www.sogou.com/ through the proxy server www.proxy.com:8080 the method is described as follows:
 
 ~~~cpp
 task = WFTaskFactory::create_http_task("http://www.proxy.com:8080", 0, 0, callback);

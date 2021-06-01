@@ -116,9 +116,9 @@ We define **SeriesWork** and **ParallelWork** as follows:
 
 * **SeriesWork** consists of tasks
 * **ParallelWork** consists of **SeriesWorks**
-* **ParallelWork** is one type of tasks
+* **ParallelWork** is one kind of task
 
-Obviously, we can recursively derive any complex **SeriesWork-ParallelWork** structure based on the above three definitions. If the **SeriesWork** were also defined as a task, then the **SeriesWork** might consists of several sub-series, and it is easy to get confused. Similarly, **ParallelWork** can only be the union of several **SeriesWorks**, which also avoids confusion. In fact, you will find that the **SeriesWork** is essentially the **coroutine**.
+Obviously, we can recursively derive any complex **series-parallel** structure based on the above three definitions. If the **SeriesWork** were also defined as a task, then the **SeriesWork** might consists of several sub-series, and it is easy to get confused. Similarly, **ParallelWork** can only be the union of several **SeriesWorks**, which also avoids confusion. In fact, you will find that the **SeriesWork** is essentially the **coroutine**.
 
 ### What should I do if I want a more general DAG?
 
@@ -126,7 +126,7 @@ You can use **WFGraphTask**, or build your own DAG with the **WFCounterTask**.
 
 ### Does a server reply after the process function ends?
 
-No. The server replies to a request if the **series** of that server task contains no other tasks. If you don't add any tasks to this **series**, the server will reply after the **process** ends. Please note that you should not wait for the completion of any task in the **process**. Add this task to the **series** instead.
+No. The server replies to a request if the **series** of that server task contains no other tasks. If you don't add any tasks to this **series**, it equals to replying after the **process** ends. Please note that you should not wait for the completion of any task in the **process**. Add this task to the **series** instead.
 
 ### How to implement the server reply after waiting for a short time?
 
@@ -153,7 +153,7 @@ Yes. You can call the **noreply()** method of a server task at any time, and the
 
 ### What are the scheduling rules for computing tasks?
 
-For all computing tasks, including **WFGoTask**, you should specify a computing queue name when you create such tasks. The computing queue name is used to guide our internal scheduling strategy. First, as long as there are idle computing threads available, the task will be started in real time, and the computing queue name will not be used. When there are not enough computing threads for calling every task in real time, the tasks under the same queue name will be called in FIFO order, and the queues are treated equally. For example, if you start n tasks with queue name A consecutively, and then start n tasks with queue name B consecutively, then no matter how much CPU time each task takes, and no matter how many computing threads are required, the execution of these two queues tends to complete at the same time. This rule can be extended to any number of queues and any startup orders of these queues.
+For all computing tasks, including **WFGoTask**, you should specify a computing queue name when you create such tasks. The computing queue name is used to guide our internal scheduling strategy. First, as long as there are idle computing threads available, the task will be started in real time, and the computing queue name will take no effect. When there are not enough computing threads for calling every task in real time, the tasks under the same queue name will be called in FIFO order, and the queues are treated equally. For example, if you start n tasks with queue name A consecutively, and then start n tasks with queue name B consecutively, then no matter how much CPU time each task takes, and no matter how many computing threads are required, the execution of these two queues tends to complete at the same time. This rule can be extended to any number of queues and any startup orders of these queues.
 
 ### Why there is not necessary to establish a connection before using Redis client?
 
@@ -176,7 +176,7 @@ We can create MySQL tasks in the same way. However, for the MySQL tasks with tra
 
 In most cases, you cannot specify specific connections for the client tasks generated in the framework. The framework defines the following multiplexing strategies for such connections:
 * If the idle connections on the same port meet the requirements, select the last released one. In other words, FILO is used for reusing idle connections.
-* If the idle connections on the same port cannot meet the requirements:
+* If no idle connection on the same port that meets the requirements:
   * If the current number of concurrent connections is less than the maximum value (200 by default), start a new connection immediately.
   * If the number of concurrent connections has reached the maximum value, the task will get a system error **EAGAIN**.
 * Not all connections on the same destination address and port meet the multiplexing conditions. For example, the database connections created with different user names or passwords cannot be reused.
@@ -228,7 +228,7 @@ In our architecture, RPC is an application on Workflow. In other words, RPC is a
 
 ### When does server's stop() operation finish?
 
-The **stop()** operation of a server performs a graceful shutdown, and all servers must be shut down before the program ends. **stop()** consists of **shutdown()** and **wait\_finish()**. **wait\_finish()** will wait for the completion of the series that has running server tasks. In other words, you can continue to add tasks to the series in the callback where that server task report its completion. **stop()** operation will wait for the end of these tasks. In addition, if you run multiple servers at the same time, the best way to stop them is:
+The **stop()** operation of a server performs a graceful shutdown, and all servers must be shut down before the program ends. **stop()** consists of **shutdown()** and **wait\_finish()**. **wait\_finish()** will wait for the completion of the series that has running server tasks. In other words, you can continue to add tasks to the series in the server task's callback, where that server task reports its completion. **stop()** operation will wait for the end of these tasks. In addition, if you run multiple servers at the same time, the best way to stop them is:
 
 ~~~cpp
 int main()

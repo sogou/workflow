@@ -3719,11 +3719,20 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 {
 	kafka_broker_t *ptr = this->broker.get_raw_ptr();
 	std::string mechanism;
+	int cnt, i;
 
 	CHECK_RET(parse_i16(buf, size, &ptr->error));
-	CHECK_RET(parse_string(buf, size, mechanism));
+	CHECK_RET(parse_i32(buf, size, &cnt));
 
-	if (mechanism != this->config.get_sasl_mechanisms())
+	for (i = 0; i < cnt; i++)
+	{
+		CHECK_RET(parse_string(buf, size, mechanism));
+
+		if (strcasecmp(mechanism.c_str(), this->config.get_sasl_mechanisms()) == 0)
+			break;
+	}
+
+	if (i >= cnt)
 	{
 		errno = EBADMSG;
 		return -1;
@@ -3747,7 +3756,7 @@ int KafkaResponse::parse_saslanthenticate(void **buf, size_t *size)
 	CHECK_RET(parse_string(buf, size, error_message));
 
 	std::string auth_bytes;
-	CHECK_RET(parse_string(buf, size, auth_bytes));
+	CHECK_RET(parse_bytes(buf, size, auth_bytes));
 	if (this->config.get_sasl()->recv(auth_bytes.c_str(), auth_bytes.size()) != 0)
 	{
 		errno = EBADMSG;

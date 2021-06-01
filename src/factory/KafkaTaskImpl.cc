@@ -47,6 +47,12 @@ protected:
 	virtual bool finish_once();
 
 private:
+	struct __KafkaConnectionInfo
+	{
+		int sasl_stage;
+		__KafkaConnectionInfo() { this->sasl_stage = 0; }
+	};
+
 	virtual int first_timeout();
 	bool has_next();
 	bool check_redirect();
@@ -94,14 +100,38 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	if (seqid == 0 && this->get_req()->get_config()->get_sasl_mechanisms())
+	if (this->get_req()->get_config()->get_sasl_mechanisms() && seqid <= 2)
 	{
-		KafkaRequest *req  = new KafkaRequest;
+		WFConnection *conn = this->get_connection();
+		__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)conn->get_context();
+		if (!conn_info)
+		{
+			conn_info = new __KafkaConnectionInfo;
+			auto&& deleter = [] (void *ctx)
+			{
+				__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)ctx;
+				delete conn_info;
+			};
+			conn->set_context(conn_info, std::move(deleter));
 
-		req->duplicate(*this->get_req());
-		req->set_api(Kafka_SaslHandshake);
-		is_user_request_ = false;
-		return req;
+			KafkaRequest *req  = new KafkaRequest;
+
+			req->duplicate(*this->get_req());
+			req->set_api(Kafka_SaslHandshake);
+			is_user_request_ = false;
+			return req;
+		}
+		else if (conn_info->sasl_stage == 0)
+		{
+			conn_info->sasl_stage = 1;
+
+			KafkaRequest *req  = new KafkaRequest;
+
+			req->duplicate(*this->get_req());
+			req->set_api(Kafka_SaslAuthenticate);
+			is_user_request_ = false;
+			return req;
+		}
 	}
 
 	if (this->get_req()->get_api() == Kafka_Fetch)
@@ -357,8 +387,6 @@ bool __ComplexKafkaTask::has_next()
 			this->state = WFT_STATE_TASK_ERROR;
 			ret = false;
 		}
-		else
-			this->get_req()->set_api(Kafka_SaslAuthenticate);
 
 		break;
 
@@ -377,6 +405,15 @@ bool __ComplexKafkaTask::has_next()
 		}
 
 	case Kafka_SaslAuthenticate:
+		if (msg->get_broker()->get_error())
+		{
+			this->error = msg->get_broker()->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+		}
+
+		ret = false;
+		break;
+
 	case Kafka_Fetch:
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
@@ -406,8 +443,15 @@ bool __ComplexKafkaTask::finish_once()
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED;
 		}
-		else if (has_next() && is_user_request_)
+		else if (has_next())
 		{
+			if (!is_user_request_)
+			{
+				delete this->get_message_out();
+				this->get_resp()->clear_buf();
+				return false;
+			}
+
 			this->get_req()->clear_buf();
 			if (is_redirect_)
 			{

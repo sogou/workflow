@@ -47,10 +47,10 @@ protected:
 	virtual bool finish_once();
 
 private:
-	struct WFKafkaConnection : public WFConnection
+	struct __KafkaConnectionInfo
 	{
 		int sasl_stage;
-		WFKafkaConnection() { this->sasl_stage = 0; }
+		__KafkaConnectionInfo() { this->sasl_stage = 0; }
 	};
 
 	virtual int first_timeout();
@@ -103,16 +103,16 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	if (this->get_req()->get_config()->get_sasl_mechanisms() && seqid <= 2)
 	{
 		WFConnection *conn = this->get_connection();
-		WFKafkaConnection *kafka_conn = (WFKafkaConnection *)conn->get_context();
-		if (!kafka_conn)
+		__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)conn->get_context();
+		if (!conn_info)
 		{
-        	kafka_conn = new WFKafkaConnection;
-	        auto&& deleter = [] (void *ctx)
-	        {
-	        	WFKafkaConnection *kafka_conn = (WFKafkaConnection *)ctx;
-	        	delete kafka_conn;
-	        };
-	    	this->get_connection()->set_context(kafka_conn, std::move(deleter));
+			conn_info = new __KafkaConnectionInfo;
+			auto&& deleter = [] (void *ctx)
+			{
+				__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)ctx;
+				delete conn_info;
+			};
+			conn->set_context(conn_info, std::move(deleter));
 
 			KafkaRequest *req  = new KafkaRequest;
 
@@ -121,9 +121,9 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			is_user_request_ = false;
 			return req;
 		}
-		else if (kafka_conn->sasl_stage == 0)
+		else if (conn_info->sasl_stage == 0)
 		{
-			kafka_conn->sasl_stage = 1;
+			conn_info->sasl_stage = 1;
 
 			KafkaRequest *req  = new KafkaRequest;
 

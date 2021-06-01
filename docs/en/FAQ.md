@@ -56,7 +56,7 @@ We encapsulate user behaviors with the **callback** and **process** in C++11 **s
 
 ### In what thread is the callback called?
 
-In the project, the threads are managed by the framework. Except for some special cases, the thread that calls the **callback** must be one of the handler threads that handle the results of the network transmission and file IO (20 threads by default) or one of the computing threads (the total number of CPU cores by default). However, it is not recommended to wait for or run particularly complex calculations in the **callback**, no matter in which type of threads mentioned above. The waiting should be implemented with a **counter task**, which waits without occupying a thread. The complex calculation should be encapsulated in the **thread task**. 
+In the project, the threads are managed by the framework. Except for some special cases, the thread that calls the **callback** must be one of the handler threads that handle the results of the network transmission and file IO (20 threads by default) or one of the computing threads (the total number of CPU cores by default). However, it is not recommended to **wait** or run particularly complex calculations in the **callback**, no matter in which type of threads mentioned above. Any waiting should be implemented with a **counter task**, which waits without occupying a thread. The complex calculation should be encapsulated in the **thread task**. 
 
 It should be noted that all resources in the framework are allocated at runtime. If you do not use network communication, all communication-related threads will not be created.
 

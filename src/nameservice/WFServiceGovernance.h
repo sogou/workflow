@@ -26,7 +26,7 @@
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFDNSResolver.h"
+#include "WFDnsResolver.h"
 #include "WFGlobal.h"
 #include "WFTaskError.h"
 
@@ -102,7 +102,7 @@ public:
 	virtual ~EndpointAddress() { delete this->params; }
 };
 
-class WFServiceGovernance : public WFDNSResolver
+class WFServiceGovernance : public WFDnsResolver
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,

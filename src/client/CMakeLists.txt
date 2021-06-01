@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 project(client)
 
 set(SRC
+	WFDnsClient.cc
 	WFMySQLConnection.cc
 )
 

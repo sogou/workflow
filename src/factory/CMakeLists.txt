@@ -3,6 +3,7 @@ project(factory)
 
 set(SRC
 	WFGraphTask.cc
+	DnsTaskImpl.cc
 	HttpTaskImpl.cc
 	RedisTaskImpl.cc
 	MySQLTaskImpl.cc

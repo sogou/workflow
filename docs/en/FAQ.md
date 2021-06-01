@@ -93,7 +93,7 @@ int main(void)
 
 ### What is the life cycle of a task object?
 
-Each task in the framework (as well as **SeriesWork**) is given to you in the form of a bare pointer. The life cycle of each task object starts from the creation of the object and ends in the completion of the callback of that object. In other words, the task pointer is invalid after the callback, and all the data in that task are also destroyed. If you want to keep the data, you can use **std::move()** to move them. For example, the code below keeps **resp** in the HTTP task:
+Each task in the framework (as well as **SeriesWork**) is given to you in the form of a raw pointer. The life cycle of each task object starts from the creation of the object and ends in the completion of the callback of that object. In other words, the task pointer is invalid after the callback, and all the data in that task are also destroyed. If you want to keep the data, you can use **std::move()** to move them. For example, the code below keeps **resp** in the HTTP task:
 
 ~~~cpp
 void http_callback(WFHttpTask *task)

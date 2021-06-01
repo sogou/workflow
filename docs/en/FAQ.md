@@ -226,7 +226,7 @@ Ordinarily the tasks in the same series share the series context. You can read a
 
 In our architecture, RPC is an application on Workflow. In other words, RPC is a set of protocol implementations on Workflow. If you have interface description and want to use remote interface calls, you should try **srpc**. **srpc** is an RPC system that leverages all the functions of Workflow and perfectly integrates with Workflow. It is compatible with **brpc** and **thrift** protocols, and it is faster and easier to use. **srpc** can meet any RPC requirements. Please visit [https://github.com/sogou/srpc](https://github.com/sogou/srpc) for details.
 
-### When do I perform stop() operation of a server?
+### When does server's stop() operation finish?
 
 The **stop()** operation of a server performs a graceful shutdown, and all servers must be shut down before the program ends. **stop()** consists of **shutdown()** and **wait\_finish()**. **wait\_finish()** will wait for the completion of the series that has running server tasks. In other words, you can continue to add tasks to the series in the callback where that server task report its completion. **stop()** operation will wait for the end of these tasks. In addition, if you run multiple servers at the same time, the best way to stop them is:
 

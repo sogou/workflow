@@ -25,6 +25,8 @@ if (KAFKA STREQUAL "y")
 		KafkaResult.cc
 	)
 	add_library("protocol_kafka" OBJECT ${SRC})
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+	set_property(SOURCE KafkaMessage.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	set_property(SOURCE KafkaDataTypes.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	set_property(SOURCE KafkaResult.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
 

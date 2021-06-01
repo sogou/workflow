@@ -17,6 +17,6 @@ if (KAFKA STREQUAL "y")
 		KafkaTaskImpl.cc
 	)
 	add_library("factory_kafka" OBJECT ${SRC})
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+	set_property(SOURCE KafkaTaskImpl.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
 

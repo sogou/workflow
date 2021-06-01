@@ -12,5 +12,5 @@ if (KAFKA STREQUAL "y")
 		WFKafkaClient.cc
 	)
 	add_library("client_kafka" OBJECT ${SRC})
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+	set_property(SOURCE WFKafkaClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()

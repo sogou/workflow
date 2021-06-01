@@ -147,7 +147,7 @@ The above code implements an HTTP server with 100ms delay. Everything is execute
 
 First of all, a successful reply means successfully written data into the TCP buffer. If the reply packet is small and the client does not close the connection after timeout or due to other reasons, you can almost consider that the reply is successful. To view the reply results, you can set a callback for the server task. The status code and error code in the callback are the same as those of the client task, but the server task will not have DNS errors.
 
-### Can I cancel the reply?
+### Can I refuse to reply?
 
 Yes. You can call the **noreply()** method of a server task at any time, and then the connection will be closed directly at the original reply time.
 

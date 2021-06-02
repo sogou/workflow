@@ -283,7 +283,7 @@ protected:
 
 	void counter_callback(WFCounterTask *task)
 	{
-		auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+		auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 		channel->set_state(WFT_STATE_SUCCESS);
 		this->ready = true;
 	}
@@ -292,7 +292,7 @@ protected:
 	bool ready;
 
 public:
-	ComplexChannelOutTask(CommChannel *channel, CommScheduler *scheduler,
+	ComplexChannelOutTask(WFComplexChannel<MSG> *channel, CommScheduler *scheduler,
 						  std::function<void (WFChannelTask<MSG> *)>&& cb) :
 		WFChannelOutTask<MSG>(channel, scheduler, std::move(cb))
 	{
@@ -307,7 +307,7 @@ template<class MSG>
 void ComplexChannelOutTask<MSG>::dispatch()
 {
 	int ret = false;
-	auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+	auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 
 	if (this->state == WFT_STATE_SYS_ERROR)
 		return this->subtask_done();
@@ -360,6 +360,8 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		break;
 
 	default:
+		this->state = channel->get_state();
+		this->error = channel->get_error();
 		break;
 	}
 
@@ -374,7 +376,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 template<class MSG>
 SubTask *ComplexChannelOutTask<MSG>::done()
 {
-	auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+	auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 
 	if (channel->get_state() == WFT_STATE_UNDEFINED ||
 		channel->get_state() == WFT_STATE_SUCCESS)
@@ -408,7 +410,7 @@ SubTask *ComplexChannelOutTask<MSG>::upgrade()
 template<class MSG>
 void ComplexChannelOutTask<MSG>::upgrade_callback(WFCounterTask *task)
 {
-	auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+	auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 
 	pthread_mutex_lock(&channel->mutex);
 	channel->set_state(WFT_STATE_SUCCESS);

@@ -91,7 +91,6 @@ using WFWebSocketTask = WFChannelTask<protocol::WebSocketFrame>;
 using websocket_callback_t = std::function<void (WFWebSocketTask *)>;
 using websocket_process_t = std::function<void (WFWebSocketTask *)>;
 
-
 #include "WFChannel.inl"
 
 #endif

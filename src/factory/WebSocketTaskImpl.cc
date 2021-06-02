@@ -36,7 +36,8 @@ protected:
 	virtual SubTask *done();
 
 public:
-	ComplexWebSocketInTask(CommChannel *channel, CommScheduler *scheduler,
+	ComplexWebSocketInTask(ComplexWebSocketChannel *channel,
+						   CommScheduler *scheduler,
 						   websocket_process_t& proc) :
 	WFChannelInTask<WebSocketFrame>(channel, scheduler, proc)
 	{
@@ -67,7 +68,7 @@ SubTask *ComplexWebSocketInTask::done()
 {
 	SeriesWork *series = series_of(this);
 	const websocket_parser_t *parser = this->get_msg()->get_parser();
-	auto *channel = static_cast<ComplexWebSocketChannel *>(this->get_request_channel());
+	auto *channel = (ComplexWebSocketChannel *)this->get_request_channel();
 
 	if ((parser->opcode == WebSocketFrameConnectionClose &&
 		!channel->is_established()) ||
@@ -105,7 +106,7 @@ SubTask *ComplexWebSocketOutTask::upgrade()
 	auto&& cb = std::bind(&ComplexWebSocketOutTask::http_callback,
 						  this, std::placeholders::_1);
 
-	auto *channel = static_cast<ComplexWebSocketChannel *>(this->get_request_channel());
+	auto *channel = (ComplexWebSocketChannel *)this->get_request_channel();
 
 	http_task = new WFChannelOutTask<HttpRequest>(this->channel,
 												  WFGlobal::get_scheduler(),
@@ -169,10 +170,9 @@ void ComplexWebSocketChannel::handle_in(CommMessageIn *in)
 
 	if (!parse_websocket) // so this is equal to should_count
 	{
-		auto *channel = static_cast<ComplexWebSocketChannel *>(this);
-		pthread_mutex_lock(&channel->mutex);
-		channel->condition.signal();
-		pthread_mutex_unlock(&channel->mutex);
+		pthread_mutex_lock(&this->mutex);
+		this->condition.signal();
+		pthread_mutex_unlock(&this->mutex);
 		return;
 	}
 

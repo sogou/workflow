@@ -621,7 +621,7 @@ bool ComplexMySQLTask::finish_once()
 		delete this->get_message_out();
 		delete this->get_message_in();
 
-		if (this->state != WFT_STATE_SUCCESS && state_ != WFT_STATE_SUCCESS)
+		if (this->state == WFT_STATE_SUCCESS && state_ != WFT_STATE_SUCCESS)
 		{
 			this->state = state_;
 			this->error = error_;

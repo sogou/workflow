@@ -15,6 +15,8 @@
 
 mysql://username:password@host:port/dbname?character_set=charset&character_set_results=charset
 
+- 如果以SSL连接访问MySQL，则scheme为**mysqls://**；
+
 - username和password按需填写；
 
 - port默认为3306；

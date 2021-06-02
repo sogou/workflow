@@ -50,6 +50,7 @@ enum
 	WFT_ERR_MYSQL_INVALID_CHARACTER_SET = 4003, ///< MySQL, invalid charset, not found in MySQL-Documentation
 	WFT_ERR_MYSQL_COMMAND_DISALLOWED = 4004,    ///< MySQL, sql command disabled, cannot be "USE"/"SET NAMES"/"SET CHARSET"/"SET CHARACTER SET"
 	WFT_ERR_MYSQL_QUERY_NOT_SET = 4005,         ///< MySQL, query not set sql, maybe forget please check
+	WFT_ERR_MYSQL_SSL_NOT_SUPPORTED = 4006,		///< MySQL, SSL not supported by the server
 
 	//KAFKA
 	WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED = 5001, ///< Kafka parse response failed

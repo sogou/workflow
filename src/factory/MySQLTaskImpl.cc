@@ -40,7 +40,6 @@ using namespace protocol;
 class ComplexMySQLTask : public WFComplexClientTask<MySQLRequest, MySQLResponse>
 {
 protected:
-	virtual WFConnection *get_connection() const;
 	virtual bool check_request();
 	virtual CommMessageOut *message_out();
 	virtual CommMessageIn *message_in();
@@ -49,7 +48,7 @@ protected:
 	virtual bool finish_once();
 
 protected:
-	virtual WFConnection *get_connection()
+	virtual WFConnection *get_connection() const
 	{
 		WFConnection *conn = this->WFComplexClientTask::get_connection();
 
@@ -138,16 +137,6 @@ static inline bool is_trans_end(const std::string& cmd)
 static inline bool is_prepare(const std::string& cmd)
 {
 	return strncasecmp(cmd.c_str(), "PREPARE", 7) == 0;
-}
-
-WFConnection *ComplexMySQLTask::get_connection() const
-{
-	WFConnection *conn = this->WFComplexClientTask::get_connection();
-
-	if (conn && is_ssl_)
-		return (SSLConnection *)conn->get_context();
-
-	return conn;
 }
 
 bool ComplexMySQLTask::check_request()

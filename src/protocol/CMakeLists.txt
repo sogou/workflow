@@ -9,6 +9,7 @@ set(SRC
 	mysql_parser.c
 	mysql_byteorder.c
 	DnsMessage.cc
+	DnsUtil.cc
 	MySQLMessage.cc
 	MySQLResult.cc
 	HttpMessage.cc

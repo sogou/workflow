@@ -56,6 +56,7 @@ set(INCLUDE_HEADERS
 	src/protocol/SSLWrapper.h
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
+	src/protocol/DnsUtil.h
 	src/server/WFServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
@@ -75,7 +76,6 @@ set(INCLUDE_HEADERS
 	src/util/StringUtil.h
 	src/util/URIParser.h
 	src/util/MD5Util.h
-	src/util/DnsUtil.h
 	src/factory/WFConnection.h
 	src/factory/WFTask.h
 	src/factory/WFTask.inl

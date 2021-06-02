@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.6)
 project(util)
 
 set(SRC
-	DnsUtil.cc
 	EncodeStream.cc
 	StringUtil.cc
 	URIParser.cc

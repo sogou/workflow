@@ -535,7 +535,7 @@ static int __dns_parser_parse_others(struct __dns_record_entry **r,
  *  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *
  */
-int __dns_parser_parse_record(int idx, dns_parser_t *parser)
+static int __dns_parser_parse_record(int idx, dns_parser_t *parser)
 {
 	uint16_t i;
 	uint16_t type;
@@ -654,7 +654,7 @@ int __dns_parser_parse_record(int idx, dns_parser_t *parser)
  * label.  The list is terminated by a label of length zero (which can
  * be thought of as the root domain).
  */
-int __dns_parser_parse_question(dns_parser_t *parser)
+static int __dns_parser_parse_question(dns_parser_t *parser)
 {
 	uint16_t qtype;
 	uint16_t qclass;

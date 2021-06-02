@@ -33,7 +33,7 @@ WFConnection *WFMySQLServer::new_connection(int accept_fd)
 		int count;
 
 		resp.server_set(0x0a, "5.5", 1, (const uint8_t *)"12345678",
-						33, 0, (const uint8_t *)"123456789abc");
+						0, 33, 0, (const uint8_t *)"123456789abc");
 		count = resp.encode(vec, 8);
 		if (count >= 0)
 		{

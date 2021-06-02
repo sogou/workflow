@@ -737,6 +737,9 @@ static inline const char *__get_task_error_string(int error)
 	case WFT_ERR_MYSQL_COMMAND_DISALLOWED:
 		return "MySQL Command Disallowed";
 
+	case WFT_ERR_MYSQL_SSL_NOT_SUPPORTED:
+		return "MySQL SSL Not Supported";
+
 	default:
 		break;
 	}

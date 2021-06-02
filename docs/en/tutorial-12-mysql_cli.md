@@ -16,6 +16,8 @@ After startup, you can directly enter MySQL command in the terminal to interact 
 
 mysql://username:password@host:port/dbname?character\_set=charset&character\_set\_results=charset
 
+- set scheme to **mysqls://** for accessing MySQL with SSL connnection (MySQL server 5.7 or above is required).
+
 - fill in the username and the password for the MySQL database;
 
 - the default port number is 3306;

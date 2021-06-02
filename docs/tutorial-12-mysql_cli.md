@@ -35,6 +35,8 @@ mysql://root:password@127.0.0.1
 
 mysql://@test.mysql.com:3306/db1?character_set=utf8&character_set_results=utf8
 
+mysqls://localhost/db1?character\_set=big5
+
 # 创建并启动MySQL任务
 
 用户可以使用WFTaskFactory创建MySQL任务，创建接口与回调函数的用法都与workflow其他任务类似:

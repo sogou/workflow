@@ -238,6 +238,16 @@ static int __readaddrinfo(const char *filename,
 	return ret < 0 ? EAI_SYSTEM : EAI_NONAME;
 }
 
+// Add AI_PASSIVE to point that this addrinfo is alloced by getaddrinfo
+static void __add_passive_flags(struct addrinfo *ai)
+{
+	while (ai)
+	{
+		ai->ai_flags |= AI_PASSIVE;
+		ai = ai->ai_next;
+	}
+}
+
 static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 											   unsigned short port,
 											   thread_dns_callback_t callback)
@@ -277,7 +287,7 @@ public:
 private:
 	virtual void dispatch();
 	virtual SubTask *done();
-	void dns_callback(ThreadDnsTask *dns_task);
+	void thread_dns_callback(ThreadDnsTask *dns_task);
 	void dns_single_callback(WFDnsTask *dns_task);
 	void dns_parallel_callback(const ParallelWork *pwork);
 	void dns_callback_internal(DnsOutput *dns_task,
@@ -373,6 +383,7 @@ void WFResolverTask::dispatch()
 
 			dns_in.reset(host_, port_);
 			DnsRoutine::run(&dns_in, &dns_out);
+			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
 			insert_dns_ = false;
 		}
@@ -391,6 +402,7 @@ void WFResolverTask::dispatch()
 		{
 			DnsOutput out;
 			DnsRoutine::create(&out, ret, ai);
+			__add_passive_flags((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
 			insert_dns_ = false;
 		}
@@ -398,7 +410,7 @@ void WFResolverTask::dispatch()
 
 	if (insert_dns_ && !client)
 	{
-		auto&& cb = std::bind(&WFResolverTask::dns_callback,
+		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
 							  this,
 							  std::placeholders::_1);
 		ThreadDnsTask *dns_task = __create_thread_dns_task(host_, port_,
@@ -595,10 +607,14 @@ void WFResolverTask::dns_parallel_callback(const ParallelWork *pwork)
 	delete this;
 }
 
-void WFResolverTask::dns_callback(ThreadDnsTask *dns_task)
+void WFResolverTask::thread_dns_callback(ThreadDnsTask *dns_task)
 {
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
-		dns_callback_internal(dns_task->get_output(), dns_ttl_default_, dns_ttl_min_);
+	{
+		DnsOutput *out = dns_task->get_output();
+		__add_passive_flags((struct addrinfo *)out->get_addrinfo());
+		dns_callback_internal(out, dns_ttl_default_, dns_ttl_min_);
+	}
 	else
 	{
 		this->state = dns_task->get_state();

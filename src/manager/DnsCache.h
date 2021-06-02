@@ -27,6 +27,7 @@
 #include <mutex>
 #include <utility>
 #include "LRUCache.h"
+#include "DnsUtil.h"
 
 #define GET_TYPE_TTL		0
 #define GET_TYPE_CONFIDENT	1
@@ -38,15 +39,6 @@ struct DnsCacheValue
 	int64_t expire_time;
 };
 
-class ValueDeleter
-{
-public:
-	void operator() (const DnsCacheValue& value) const
-	{
-		freeaddrinfo(value.addrinfo);
-	}
-};
-
 // RAII: NO. Release handle by user
 // Thread safety: YES
 // MUST call release when handle no longer used
@@ -55,6 +47,20 @@ class DnsCache
 public:
 	using HostPort = std::pair<std::string, unsigned short>;
 	using DnsHandle = LRUHandle<HostPort, DnsCacheValue>;
+
+	class ValueDeleter
+	{
+	public:
+		void operator() (const DnsCacheValue& value) const
+		{
+			struct addrinfo *ai = value.addrinfo;
+
+			if (ai && (ai->ai_flags | AI_PASSIVE))
+				freeaddrinfo(ai);
+			else
+				DnsUtil::freeaddrinfo(ai);
+		}
+	};
 
 public:
 	// release handle by get/put

@@ -627,7 +627,8 @@ static inline const char *__try_options(const char *p, const char *q,
 	return NULL;
 }
 
-static void __set_options(const char *p, int& ndots, int& attempt, bool& rotate)
+static void __set_options(const char *p,
+						  int *ndots, int *attempts, bool *rotate)
 {
 	const char *start;
 	const char *opt;
@@ -648,17 +649,17 @@ static void __set_options(const char *p, int& ndots, int& attempt, bool& rotate)
 			break;
 
 		if ((opt = __try_options(start, p, "ndots:")) != NULL)
-			ndots = atoi(opt);
+			*ndots = atoi(opt);
 		else if ((opt = __try_options(start, p, "attempts:")) != NULL)
-			attempt = atoi(opt);
+			*attempts = atoi(opt);
 		else if ((opt = __try_options(start, p, "rotate")) != NULL)
-			rotate = true;
+			*rotate = true;
 	}
 }
 
 static int __parse_resolv_conf(const char *filename,
 							   std::string& url, std::string& search_list,
-							   int& ndots, int& attempts, bool& rotate)
+							   int *ndots, int *attempts, bool *rotate)
 {
 	size_t bufsize = 0;
 	void *line = NULL;
@@ -713,8 +714,8 @@ private:
 			std::string search;
 
 			client = new WFDnsClient;
-			if (__parse_resolv_conf(path, url, search, ndots, attempts,
-									rotate) >= 0)
+			if (__parse_resolv_conf(path, url, search, &ndots, &attempts,
+									&rotate) >= 0)
 			{
 				if (client->init(url, search, ndots, attempts, rotate) >= 0)
 					return;

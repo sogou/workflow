@@ -32,6 +32,7 @@ public:
 	static int getaddrinfo(const protocol::DnsResponse *resp,
 						   unsigned short port,
 						   struct addrinfo **res);
+	static void freeaddrinfo(struct addrinfo *ai);
 };
 
 class DnsResultCursor

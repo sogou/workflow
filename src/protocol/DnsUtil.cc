@@ -124,3 +124,16 @@ int DnsUtil::getaddrinfo(const protocol::DnsResponse *resp,
 
 	return 0;
 }
+
+void DnsUtil::freeaddrinfo(struct addrinfo *ai)
+{
+	struct addrinfo *p;
+
+	while (ai != NULL)
+	{
+		p = ai;
+		ai = ai->ai_next;
+		free(p->ai_canonname);
+		free(p);
+	}
+}

@@ -100,7 +100,7 @@ struct DnsStatus
 	size_t next_server;			// next server to try
 	size_t last_server;			// last server to try
 	size_t next_domain;			// next search domain to try
-	int attempt_left;
+	int attempts_left;
 	int try_origin_state;
 };
 
@@ -163,8 +163,8 @@ static void __callback_internal(WFDnsTask *task, const DnsParams& params,
 	if (try_next_server)
 	{
 		if (s.last_server == s.next_server)
-			s.attempt_left--;
-		if (s.attempt_left <= 0)
+			s.attempts_left--;
+		if (s.attempts_left <= 0)
 			return;
 
 		s.next_server = (s.next_server + 1) % p->uris.size();
@@ -247,7 +247,7 @@ WFDnsTask *WFDnsClient::create_dns_task(const std::string& name,
 
 	status.origin_name = name;
 	status.next_domain = 0;
-	status.attempt_left = p->attempts;
+	status.attempts_left = p->attempts;
 	status.try_origin_state = DNS_STATUS_TRY_ORIGIN_FIRST;
 
 	if (!name.empty() && name.back() == '.')

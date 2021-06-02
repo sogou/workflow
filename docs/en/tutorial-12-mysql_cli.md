@@ -36,6 +36,8 @@ mysql://root:password@127.0.0.1
 
 mysql://@test.mysql.com:3306/db1?character\_set=utf8&character_set_results=utf8
 
+mysqls://localhost/db1?character\_set=big5
+
 # Creating and starting a MySQL task
 
 You can use WFTaskFactory to create a MySQL task. The usage of creating interface and callback functions are similar to other tasks in workflow:

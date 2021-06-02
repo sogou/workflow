@@ -17,6 +17,19 @@
           Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <functional>
+#include "TransRequest.h"
+#include "WFTask.h"
+#include "WFTaskFactory.h"
+#include "WFCondition.h"
+#include "WFNameService.h"
+#include "RouteManager.h"
+#include "WFGlobal.h"
+#include "EndpointParams.h"
+#include "HttpUtil.h"
+#include "HttpMessage.h"
+#include "WFChannel.h"
+
 template<class MSG>
 class WFChannelOutTask : public WFChannelTask<MSG>
 {
@@ -125,5 +138,326 @@ public:
 
 protected:
 	virtual ~WFChannel() { }
+};
+
+/**********WFComplexChannel for sequentially establish and send**********/
+
+template<class MSG>
+class WFComplexChannel : public WFChannel<MSG>
+{
+public:
+	void set_uri(const ParsedURI& uri) { this->uri = uri; }
+	const ParsedURI *get_uri() const { return &this->uri; }
+
+	int get_error() const { return this->error; }
+
+	void set_state(int state) { this->state = state; }
+	int get_state() const { return this->state; }
+
+	void set_sending(bool sending) { this->sending = sending; }
+	bool get_sending() const { return this->sending; }
+
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+	virtual WFRouterTask *route();
+	virtual void router_callback(WFRouterTask *task);
+
+public:
+	pthread_mutex_t mutex;
+	WFCondition condition;
+
+protected:
+	bool sending;
+	WFRouterTask *router_task;
+	ParsedURI uri;
+	WFNSPolicy *ns_policy;
+	RouteManager::RouteResult route_result;
+
+public:
+	WFComplexChannel(CommSchedObject *object, CommScheduler *scheduler,
+					 std::function<void (WFChannelTask<MSG> *)>&& process) :
+		WFChannel<MSG>(object, scheduler, std::move(process)),
+		mutex(PTHREAD_MUTEX_INITIALIZER)
+	{
+		this->state = WFT_STATE_UNDEFINED;
+		this->error = 0;
+		this->sending = false;
+	}
+
+protected:
+	virtual ~WFComplexChannel() { }
+};
+
+template<class MSG>
+void WFComplexChannel<MSG>::dispatch()
+{
+	if (this->object)
+		return this->WFChannel<MSG>::dispatch();
+
+	if (this->state == WFT_STATE_UNDEFINED)
+	{
+		this->router_task = this->route();
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(this->router_task);
+	}
+
+	this->subtask_done();
+}
+
+template<class MSG>
+SubTask *WFComplexChannel<MSG>::done()
+{
+	SeriesWork *series = series_of(this);
+
+	if (this->established == 1)
+	{
+		if (this->state == WFT_STATE_SYS_ERROR)
+			this->ns_policy->failed(&this->route_result, NULL, this->target);
+		else
+			this->ns_policy->success(&this->route_result, NULL, this->target);
+	}
+
+	if (this->router_task)
+	{
+		this->router_task = NULL;
+		return series->pop();
+	}
+
+	if (this->callback)
+		this->callback(this);
+
+	if (this->state == WFT_STATE_SUCCESS)
+		this->state = WFT_STATE_UNDEFINED;
+
+	if (this->established == 0 && this->state == WFT_STATE_SUCCESS)
+		delete this;
+
+	return series->pop();
+}
+
+template<class MSG>
+WFRouterTask *WFComplexChannel<MSG>::route()
+{
+	auto&& cb = std::bind(&WFComplexChannel<MSG>::router_callback,
+						  this, std::placeholders::_1);
+	struct WFNSParams params = {
+		.type			=	TT_TCP,
+		.uri			=	this->uri,
+		.info			=	"",
+		.fixed_addr		=	true,
+		.retry_times	=	0,
+		.tracing		=	NULL,
+	};
+
+	WFNameService *ns = WFGlobal::get_name_service();
+	this->ns_policy = ns->get_policy(this->uri.host ? this->uri.host : "");
+	return this->ns_policy->create_router_task(&params, cb);
+}
+
+template<class MSG>
+void WFComplexChannel<MSG>::router_callback(WFRouterTask *task)
+{
+	if (task->get_state() == WFT_STATE_SUCCESS)
+	{
+		this->route_result = std::move(*task->get_result());
+		this->set_request_object(this->route_result.request_object);
+	}
+	else
+	{
+		this->state = task->get_state();
+		this->error = task->get_error();
+	}
+}
+
+/**********ComplexChannelOutTask for complex channel and upgrade()**********/
+
+template<class MSG>
+class ComplexChannelOutTask : public WFChannelOutTask<MSG>
+{
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+	virtual SubTask *upgrade();
+	void upgrade_callback(WFCounterTask *task);
+
+	void counter_callback(WFCounterTask *task)
+	{
+		auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+		channel->set_state(WFT_STATE_SUCCESS);
+		this->ready = true;
+	}
+
+protected:
+	bool ready;
+
+public:
+	ComplexChannelOutTask(CommChannel *channel, CommScheduler *scheduler,
+						  std::function<void (WFChannelTask<MSG> *)>&& cb) :
+		WFChannelOutTask<MSG>(channel, scheduler, std::move(cb))
+	{
+		this->ready = true;
+	}
+
+protected:
+	virtual ~ComplexChannelOutTask() { }
+};
+
+template<class MSG>
+void ComplexChannelOutTask<MSG>::dispatch()
+{
+	int ret = false;
+	auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+
+	if (this->state == WFT_STATE_SYS_ERROR)
+		return this->subtask_done();
+
+	pthread_mutex_lock(&channel->mutex);
+
+	switch (channel->get_state())
+	{
+	case WFT_STATE_UNDEFINED:
+		if (channel->get_sending() == false)
+		{
+			series_of(this)->push_front(this);
+			series_of(this)->push_front(channel);
+			channel->set_sending(true);
+			this->ready = false;
+		}
+		else if (this->ready == false)
+		{
+			SubTask *upgrade_task = this->upgrade();
+			series_of(this)->push_front(this);
+			series_of(this)->push_front(upgrade_task);
+			//this->upgrade_state = CHANNEL_TASK_WAITING;
+		}
+		else
+		{
+			auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::counter_callback,
+								  this, std::placeholders::_1);
+			WFCounterTask *counter = channel->condition.create_wait_task(cb);
+			series_of(this)->push_front(this);
+			series_of(this)->push_front(counter);
+			this->ready = false;
+		}
+		break;
+
+	case WFT_STATE_SUCCESS:
+		if (channel->get_sending() == false)
+		{
+			channel->set_sending(true);
+			ret = true;
+		}
+		else
+		{
+			auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::counter_callback,
+								  this, std::placeholders::_1);
+			WFCounterTask *counter = channel->condition.create_wait_task(cb);
+			series_of(this)->push_front(this);
+			series_of(this)->push_front(counter);
+			this->ready = false;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	pthread_mutex_unlock(&channel->mutex);
+
+	if (ret == true)
+		return this->WFChannelOutTask<MSG>::dispatch();
+
+	return this->subtask_done();
+}
+
+template<class MSG>
+SubTask *ComplexChannelOutTask<MSG>::done()
+{
+	auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+
+	if (channel->get_state() == WFT_STATE_UNDEFINED ||
+		channel->get_state() == WFT_STATE_SUCCESS)
+	{
+		if (this->ready != true)
+			return series_of(this)->pop();
+	}
+	else
+	{
+		this->state = channel->get_state();
+		this->error = channel->get_error();
+	}
+
+	pthread_mutex_lock(&channel->mutex);
+	channel->set_sending(false);
+	channel->condition.signal();
+	pthread_mutex_unlock(&channel->mutex);
+
+	return WFChannelOutTask<MSG>::done();
+}
+
+template<class MSG>
+SubTask *ComplexChannelOutTask<MSG>::upgrade()
+{
+	auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::upgrade_callback,
+						  this, std::placeholders::_1);
+
+	return new WFCounterTask(0, cb);
+}
+
+template<class MSG>
+void ComplexChannelOutTask<MSG>::upgrade_callback(WFCounterTask *task)
+{
+	auto *channel = static_cast<WFComplexChannel<MSG> *>(this->get_request_channel());
+
+	pthread_mutex_lock(&channel->mutex);
+	channel->set_state(WFT_STATE_SUCCESS);
+	this->ready = true;
+	channel->set_sending(false);
+	channel->condition.signal();
+	pthread_mutex_unlock(&channel->mutex);
+}
+
+/**********WebSocket task impl**********/
+
+class ComplexWebSocketChannel : public WFComplexChannel<protocol::WebSocketFrame>
+{
+public:
+	void set_idle_timeout(int timeout) { this->idle_timeout = timeout; }
+
+protected:
+	CommMessageIn *message_in();
+	void handle_in(CommMessageIn *in);
+	int first_timeout();
+	virtual WFWebSocketTask *new_session();
+
+private:
+	int idle_timeout;
+
+public:
+	ComplexWebSocketChannel(CommSchedObject *object, CommScheduler *scheduler,
+							websocket_process_t&& process) :
+		WFComplexChannel<protocol::WebSocketFrame>(object, scheduler,
+												   std::move(process))
+	{
+	}
+};
+
+class ComplexWebSocketOutTask : public ComplexChannelOutTask<protocol::WebSocketFrame>
+{
+protected:
+	virtual SubTask *upgrade();
+
+private:
+	void http_callback(WFChannelTask<protocol::HttpRequest> *task);
+
+public:
+	ComplexWebSocketOutTask(ComplexWebSocketChannel *channel, CommScheduler *scheduler,
+							websocket_callback_t&& cb) :
+		ComplexChannelOutTask<protocol::WebSocketFrame>(channel,
+														scheduler,
+														std::move(cb))
+	{
+	}
 };
 

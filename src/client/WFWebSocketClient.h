@@ -24,8 +24,7 @@
 #include "WFGlobal.h"
 #include "HttpUtil.h"
 #include "HttpMessage.h"
-#include "ComplexChannel.h"
-#include "WebSocketTask.h"
+#include "WFChannel.h"
 #include "WebSocketMessage.h"
 
 struct WFWebSocketParams
@@ -50,7 +49,7 @@ public:
 	void deinit();
 
 private:
-	WebSocketChannel *channel;
+	ComplexWebSocketChannel *channel;
 	struct WFWebSocketParams params;
 
 public:
@@ -61,8 +60,8 @@ public:
 
 inline WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 {
-	return new WebSocketTask(this->channel, WFGlobal::get_scheduler(),
-							 std::move(cb));
+	return new ComplexWebSocketOutTask(this->channel, WFGlobal::get_scheduler(),
+									   std::move(cb));
 }
 
 inline int WebSocketClient::init(const std::string& url)
@@ -85,7 +84,7 @@ void WebSocketClient::deinit()
 			task = this->create_websocket_task(
 			[](WFWebSocketTask *task){
 
-				WebSocketChannel *channel = (WebSocketChannel *)task->user_data;
+				ComplexWebSocketChannel *channel = (ComplexWebSocketChannel *)task->user_data;
 				if (task->get_state() == WFT_STATE_SUCCESS &&
 					channel->is_established())
 				{
@@ -108,16 +107,16 @@ WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
 								 websocket_process_t process)
 {
 	this->params = *params;
-	this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
-										 std::move(process));
+	this->channel = new ComplexWebSocketChannel(NULL, WFGlobal::get_scheduler(),
+												std::move(process));
 	this->channel->set_idle_timeout(this->params.idle_timeout);
 }
 
 WebSocketClient::WebSocketClient(websocket_process_t process)
 {
 	this->params = WEBSOCKET_PARAMS_DEFAULT;
-	this->channel = new WebSocketChannel(NULL, WFGlobal::get_scheduler(),
-										 std::move(process));
+	this->channel = new ComplexWebSocketChannel(NULL, WFGlobal::get_scheduler(),
+												std::move(process));
 	this->channel->set_idle_timeout(this->params.idle_timeout);
 }
 

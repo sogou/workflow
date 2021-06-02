@@ -23,6 +23,7 @@
 #include "CommScheduler.h"
 #include "TransRequest.h"
 #include "Workflow.h"
+#include "WebSocketMessage.h"
 
 template<class MSG>
 class WFChannelTask : public TransRequest
@@ -85,6 +86,11 @@ public:
 protected:
 	virtual ~WFChannelTask() { }
 };
+
+using WFWebSocketTask = WFChannelTask<protocol::WebSocketFrame>;
+using websocket_callback_t = std::function<void (WFWebSocketTask *)>;
+using websocket_process_t = std::function<void (WFWebSocketTask *)>;
+
 
 #include "WFChannel.inl"
 

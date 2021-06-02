@@ -15,7 +15,7 @@
 
 mysql://username:password@host:port/dbname?character_set=charset&character_set_results=charset
 
-- 如果以SSL连接访问MySQL，则scheme为**mysqls://**；
+- 如果以SSL连接访问MySQL，则scheme设为**mysqls://**。MySQL server 5.7及以上支持；
 
 - username和password按需填写；
 

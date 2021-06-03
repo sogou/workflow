@@ -241,7 +241,7 @@ CommMessageOut *ComplexMySQLTask::message_out()
 			auto *conn = this->get_connection();
 			auto *ctx = (struct handshake_ctx *)conn->get_context();
 
-			req->set_seqid(ctx->mysql_seqid);
+			req->set_seqid(ctx->mysql_seqid++);
 			return req;
 		}
 
@@ -254,7 +254,7 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		auto *conn = this->get_connection();
 		auto *ctx = (struct handshake_ctx *)conn->get_context();
 
-		req->set_seqid(ctx->mysql_seqid);
+		req->set_seqid(ctx->mysql_seqid++);
 		req->set_challenge(ctx->challenge);
 		delete ctx;
 		conn->set_context(NULL, nullptr);

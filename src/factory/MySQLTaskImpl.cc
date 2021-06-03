@@ -83,6 +83,15 @@ private:
 
 	int init_ssl_connection();
 
+	struct MySSLWrapper : public SSLWrapper
+	{
+		MySSLWrapper(ProtocolMessage *msg, SSL *ssl) :
+			SSLWrapper(msg, ssl)
+		{ }
+		ProtocolMessage *get_msg() const { return this->msg; }
+		virtual ~MySSLWrapper() { delete this->msg; }
+	};
+
 private:
 	struct handshake_ctx
 	{
@@ -201,6 +210,8 @@ int ComplexMySQLTask::init_ssl_connection()
 	if (!ssl)
 		return -1;
 
+	SSL_set_connect_state(ssl);
+
 	conn = this->WFComplexClientTask::get_connection();
 	SSLConnection *ssl_conn = new SSLConnection(ssl);
 
@@ -225,7 +236,14 @@ CommMessageOut *ComplexMySQLTask::message_out()
 	if (is_ssl_)
 	{
 		if (seqid == 1)
-			return new MySQLSSLRequest(character_set_, get_ssl());
+		{
+			auto *req = new MySQLSSLRequest(character_set_, get_ssl());
+			auto *conn = this->get_connection();
+			auto *ctx = (struct handshake_ctx *)conn->get_context();
+
+			req->set_seqid(ctx->mysql_seqid);
+			return req;
+		}
 
 		seqid--;
 	}
@@ -241,13 +259,19 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		delete ctx;
 		conn->set_context(NULL, nullptr);
 		req->set_auth(username_, password_, db_, character_set_);
-		return is_ssl_ ? get_ssl_wrapper(req) : (ProtocolMessage *)req;
+		if (is_ssl_)
+			return new MySSLWrapper(req, get_ssl());
+		else
+			return req;
 	}
 	else if (seqid == 2 && res_charset_.size() != 0)
 	{
 		auto *req = new MySQLRequest;
 		req->set_query("SET NAMES " + res_charset_);
-		return is_ssl_ ? get_ssl_wrapper(req) : (ProtocolMessage *)req;
+		if (is_ssl_)
+			return new MySSLWrapper(req, get_ssl());
+		else
+			return req;
 	}
 
 	is_user_request_ = true;
@@ -329,7 +353,13 @@ CommMessageIn *ComplexMySQLTask::message_in()
 	else
 		resp = (ProtocolMessage *)this->WFClientTask::message_in();
 
-	return is_ssl_ ? get_ssl_wrapper(resp) : resp;
+	if (!is_ssl_)
+		return resp;
+
+	if (is_user_request_)
+		return get_ssl_wrapper(resp);
+	else
+		return new MySSLWrapper(resp, get_ssl());
 }
 
 int ComplexMySQLTask::keep_alive_timeout()
@@ -381,7 +411,13 @@ int ComplexMySQLTask::keep_alive_timeout()
 	{
 		if (!is_ssl_ || seqid != 1)
 		{
-			auto *resp = (MySQLResponse *)this->get_message_in();
+			auto *msg = (ProtocolMessage *)this->get_message_in();
+			MySQLResponse *resp;
+	
+			if (is_ssl_)
+				resp = (MySQLResponse *)((MySSLWrapper *)msg)->get_msg();
+			else
+				resp = (MySQLResponse *)msg;
 
 			if (!resp->is_ok_packet())
 			{

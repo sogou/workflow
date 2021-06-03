@@ -38,15 +38,6 @@ struct DNSCacheValue
 	int64_t expire_time;
 };
 
-class ValueDeleter
-{
-public:
-	void operator() (const DNSCacheValue& value) const
-	{
-		freeaddrinfo(value.addrinfo);
-	}
-};
-
 // RAII: NO. Release handle by user
 // Thread safety: YES
 // MUST call release when handle no longer used
@@ -159,6 +150,16 @@ private:
 	const DNSHandle *get_inner(const HostPort& host_port, int type);
 
 	std::mutex mutex_;
+
+	class ValueDeleter
+	{
+	public:
+		void operator() (const DNSCacheValue& value) const
+		{
+			freeaddrinfo(value.addrinfo);
+		}
+	};
+
 	LRUCache<HostPort, DNSCacheValue, ValueDeleter> cache_pool_;
 };
 

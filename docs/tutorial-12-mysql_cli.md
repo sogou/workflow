@@ -15,6 +15,8 @@
 
 mysql://username:password@host:port/dbname?character_set=charset&character_set_results=charset
 
+- 如果以SSL连接访问MySQL，则scheme设为**mysqls://**。MySQL server 5.7及以上支持；
+
 - username和password按需填写；
 
 - port默认为3306；
@@ -32,6 +34,8 @@ MySQL URL示例：
 mysql://root:password@127.0.0.1
 
 mysql://@test.mysql.com:3306/db1?character_set=utf8&character_set_results=utf8
+
+mysqls://localhost/db1?character\_set=big5
 
 # 创建并启动MySQL任务
 

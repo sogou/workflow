@@ -131,6 +131,8 @@ void MySQLResultCursor::init(const MySQLResponse *resp)
 	this->field_count = 0;
 	this->fields = NULL;
 	this->parser = resp->get_parser();
+	this->status = MYSQL_STATUS_NOT_INIT;
+
 
 	if (!list_empty(&this->parser->result_set_list))
 	{

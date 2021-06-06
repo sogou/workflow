@@ -143,7 +143,7 @@ Memory reclamation mechanism
 
 #### Any other questions?
 
-You may check the [FAQ](docs/en/FAQ.md) and [issues](https://github.com/sogou/workflow/issues) list first to see if you can find the answer.
+You may check the [FAQ](https://github.com/sogou/workflow/issues/406) and [issues](https://github.com/sogou/workflow/issues) list first to see if you can find the answer.
 
 You are very welcome to send the problems you encounter in use to [issues](https://github.com/sogou/workflow/issues), and we will answer them as soon as possible. At the same time, more issues will also help new users.
 

@@ -105,7 +105,7 @@ struct dns_header
 	uint8_t z : 3;
 	uint8_t rcode : 4;
 #else
-#error "Your systems ENDIANNESS is broken, please fix!"
+#error endian?
 #endif
 	uint16_t qdcount;
 	uint16_t ancount;
@@ -154,8 +154,6 @@ struct dns_record
 	uint16_t rdlength;
 	void *rdata;
 };
-
-#define DNS_HEADER_SIZE sizeof(struct dns_header)
 
 typedef struct __dns_parser
 {

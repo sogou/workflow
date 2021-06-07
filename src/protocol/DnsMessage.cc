@@ -22,6 +22,7 @@
 
 #define DNS_LABELS_MAX				63
 #define DNS_MESSAGE_MAX_UDP_SIZE	512
+#define DNS_HEADER_SIZE				sizeof (struct dns_header)
 
 namespace protocol
 {
@@ -90,7 +91,7 @@ int DnsMessage::encode_reply()
 	h.arcount = htons(0);
 
 	msgbuf.append((const char *)&h, sizeof (struct dns_header));
-	p = parser->question.qname;
+	p = parser->question.qname ? parser->question.qname : ".";
 	while (*p)
 	{
 		name = p;

@@ -25,6 +25,8 @@ using namespace protocol;
 
 #define DNS_KEEPALIVE_DEFAULT	(60 * 1000)
 
+/**********Client**********/
+
 class ComplexDnsTask : public WFComplexClientTask<DnsRequest, DnsResponse,
 							  std::function<void (WFDnsTask *)>>
 {
@@ -164,6 +166,8 @@ bool ComplexDnsTask::need_redirect()
 	return false;
 }
 
+/**********Client Factory**********/
+
 WFDnsTask *WFTaskFactory::create_dns_task(const std::string& url,
 										  int retry_max,
 										  dns_callback_t callback)
@@ -192,4 +196,38 @@ WFDnsTask *WFTaskFactory::create_dns_task(const ParsedURI& uri,
 	task->init(uri);
 	task->set_keep_alive(DNS_KEEPALIVE_DEFAULT);
 	return task;
+}
+
+/**********Server**********/
+
+class WFDnsServerTask : public WFServerTask<DnsRequest, DnsResponse>
+{
+public:
+	WFDnsServerTask(CommService *service,
+					 std::function<void (WFDnsTask *)>& process):
+		WFServerTask(service, WFGlobal::get_scheduler(), process)
+	{ }
+
+protected:
+	virtual CommMessageOut *message_out()
+	{
+		DnsResponse *resp = this->get_resp();
+		resp->set_leading_length(true);
+		return this->WFServerTask::message_out();
+	}
+
+	virtual CommMessageIn *message_in()
+	{
+		DnsRequest *req = this->get_req();
+		req->set_leading_length(true);
+		return this->WFServerTask::message_in();
+	}
+};
+
+/**********Server Factory**********/
+
+WFDnsTask *WFServerTaskFactory::create_dns_task(CommService *service,
+							std::function<void (WFDnsTask *)>& process)
+{
+	return new WFDnsServerTask(service, process);
 }

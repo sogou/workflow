@@ -24,6 +24,7 @@
 #define DNS_LABELS_MAX			63
 #define DNS_NAMES_MAX			256
 #define DNS_MSGBASE_INIT_SIZE	514 // 512 + 2(leading length)
+#define DNS_HEADER_SIZE			sizeof (struct dns_header)
 #define MAX(x, y) ((x) <= (y) ? (y) : (x))
 
 struct __dns_record_entry

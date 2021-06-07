@@ -230,8 +230,6 @@ public:
 		return this->parser;
 	}
 
-	int append(const void *buf, size_t *size);
-
 	void set_request_id(uint16_t id)
 	{
 		this->request_id = id;
@@ -241,6 +239,9 @@ public:
 	{
 		this->request_name = name;
 	}
+
+protected:
+	virtual int append(const void *buf, size_t *size);
 
 private:
 	uint16_t request_id;

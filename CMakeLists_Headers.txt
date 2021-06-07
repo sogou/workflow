@@ -58,6 +58,7 @@ set(INCLUDE_HEADERS
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
 	src/server/WFServer.h
+	src/server/WFDnsServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h

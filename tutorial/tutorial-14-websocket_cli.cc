@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "PING task send callback() state=%d error=%d\n",
 				task->get_state(), task->get_error());
-		if (task->get_state() == WFT_STATE_SUCCESS)
+		if (task->get_state() != WFT_STATE_SUCCESS)
 		{
 			wg.done();
 			return;

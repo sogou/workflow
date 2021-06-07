@@ -350,7 +350,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		else
 		{
 			WFCounterTask *counter = channel->condition.create_wait_task(
-				[=](WFCounterTask *task)
+				[this](WFCounterTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 				channel->set_state(WFT_STATE_SUCCESS);
@@ -371,7 +371,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		else
 		{
 			WFCounterTask *counter = channel->condition.create_wait_task(
-				[=](WFCounterTask *task)
+				[this](WFCounterTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 				channel->set_state(WFT_STATE_SUCCESS);
@@ -425,7 +425,7 @@ SubTask *ComplexChannelOutTask<MSG>::done()
 template<class MSG>
 SubTask *ComplexChannelOutTask<MSG>::upgrade()
 {
-	WFCounterTask *counter =  new WFCounterTask(0, [=](WFCounterTask *task)
+	WFCounterTask *counter =  new WFCounterTask(0, [this](WFCounterTask *task)
 	{
 		auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 

@@ -141,7 +141,7 @@ SubTask *ComplexWebSocketOutTask::upgrade()
 
 	auto *http_task = new WFChannelOutTask<HttpRequest>(this->channel,
 														WFGlobal::get_scheduler(),
-														[=](WFChannelTask<HttpRequest> *task)
+														[this](WFChannelTask<HttpRequest> *task)
 	{
 		if (task->get_state() == WFT_STATE_SYS_ERROR)
 		{

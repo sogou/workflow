@@ -51,26 +51,40 @@ void process(WFWebSocketTask *task)
 	}
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+	if (argc != 2)
+	{
+		fprintf(stderr, "USAGE: %s <url>\n	url format:ws://host:ip\n", argv[0]);
+		return 0;
+	}
+
 	WebSocketClient client(process);
-	client.init("ws://10.129.43.67:9001");
+	client.init(argv[1]);
 
 	WFFacilities::WaitGroup wg(1);
-	auto *ping_task = client.create_websocket_task([&wg, &client](WFWebSocketTask *task){
-		fprintf(stderr, "PING task on_send() state=%d error=%d\n",
+	auto *ping_task = client.create_websocket_task([&wg, &client](WFWebSocketTask *task)
+	{
+		fprintf(stderr, "PING task send callback() state=%d error=%d\n",
 				task->get_state(), task->get_error());
+		if (task->get_state() == WFT_STATE_SUCCESS)
+		{
+			wg.done();
+			return;
+		}
+
+		sleep(5);
 
 		auto *text_task = client.create_websocket_task([&wg] (WFWebSocketTask *task)
 		{
-			fprintf(stderr, "TEXT task on_send() state=%d error=%d\n",
+			fprintf(stderr, "TEXT task send callback() state=%d error=%d\n",
 					task->get_state(), task->get_error());
 			wg.done();
 		});
 		WebSocketFrame *msg = text_task->get_msg();
 		msg->set_masking_key(1412);
-		msg->set_text_data("20210601", 8, true);
-		text_task->start();
+		msg->set_text_data("20210607", 8, true);
+		series_of(task)->push_back(text_task);
 	});
 
 	WebSocketFrame *msg = ping_task->get_msg();
@@ -81,6 +95,7 @@ int main()
 	sleep(3);
 	fprintf(stderr, "client deinit()\n");
 	client.deinit();
+	sleep(3);
 
 	return 0;
 }

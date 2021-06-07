@@ -33,11 +33,8 @@
 template<class MSG>
 class WFChannelOutTask : public WFChannelTask<MSG>
 {
-public:
-	virtual MSG *message_out()
-	{
-		return &this->msg;
-	}
+protected:
+	virtual MSG *message_out() { return &this->msg; }
 
 public:
 	WFChannelOutTask(CommChannel *channel, CommScheduler *scheduler,
@@ -160,8 +157,9 @@ public:
 protected:
 	virtual void dispatch();
 	virtual SubTask *done();
+	virtual void handle_terminated();
 	virtual WFRouterTask *route();
-	virtual void router_callback(WFRouterTask *task);
+	void router_callback(WFRouterTask *task);
 
 public:
 	pthread_mutex_t mutex;
@@ -230,10 +228,33 @@ SubTask *WFComplexChannel<MSG>::done()
 	if (this->state == WFT_STATE_SUCCESS)
 		this->state = WFT_STATE_UNDEFINED;
 
-	if (this->established == 0 && this->state == WFT_STATE_SUCCESS)
+	if (this->established == 0 && this->state == WFT_STATE_SYS_ERROR) // sending == false
 		delete this;
 
 	return series->pop();
+}
+
+template<class MSG>
+void WFComplexChannel<MSG>::handle_terminated()
+{
+	bool shutdown = false;
+
+	pthread_mutex_lock(&this->mutex);
+	Workflow::create_series_work(this, nullptr);
+
+	if (this->sending == false)
+	{
+		this->sending = true;
+		shutdown = true;
+	} else {
+		WFCounterTask *counter = this->condition.create_wait_task(nullptr);
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(counter);
+	}
+	pthread_mutex_unlock(&this->mutex);
+
+	if (shutdown == true)
+		this->dispatch();
 }
 
 template<class MSG>
@@ -281,13 +302,6 @@ protected:
 	virtual SubTask *upgrade();
 	void upgrade_callback(WFCounterTask *task);
 
-	void counter_callback(WFCounterTask *task)
-	{
-		auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
-		channel->set_state(WFT_STATE_SUCCESS);
-		this->ready = true;
-	}
-
 protected:
 	bool ready;
 
@@ -306,11 +320,14 @@ protected:
 template<class MSG>
 void ComplexChannelOutTask<MSG>::dispatch()
 {
-	int ret = false;
+	bool should_send = false;
 	auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 
-	if (this->state == WFT_STATE_SYS_ERROR)
+	if (this->state == WFT_STATE_SYS_ERROR ||
+		channel->get_state() == WFT_STATE_SYS_ERROR)
+	{
 		return this->subtask_done();
+	}
 
 	pthread_mutex_lock(&channel->mutex);
 
@@ -329,13 +346,16 @@ void ComplexChannelOutTask<MSG>::dispatch()
 			SubTask *upgrade_task = this->upgrade();
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(upgrade_task);
-			//this->upgrade_state = CHANNEL_TASK_WAITING;
 		}
 		else
 		{
-			auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::counter_callback,
-								  this, std::placeholders::_1);
-			WFCounterTask *counter = channel->condition.create_wait_task(cb);
+			WFCounterTask *counter = channel->condition.create_wait_task(
+				[=](WFCounterTask *task)
+			{
+				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
+				channel->set_state(WFT_STATE_SUCCESS);
+				this->ready = true;
+			});
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(counter);
 			this->ready = false;
@@ -346,13 +366,17 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		if (channel->get_sending() == false)
 		{
 			channel->set_sending(true);
-			ret = true;
+			should_send = true;
 		}
 		else
 		{
-			auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::counter_callback,
-								  this, std::placeholders::_1);
-			WFCounterTask *counter = channel->condition.create_wait_task(cb);
+			WFCounterTask *counter = channel->condition.create_wait_task(
+				[=](WFCounterTask *task)
+			{
+				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
+				channel->set_state(WFT_STATE_SUCCESS);
+				this->ready = true;
+			});
 			series_of(this)->push_front(this);
 			series_of(this)->push_front(counter);
 			this->ready = false;
@@ -367,7 +391,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 
 	pthread_mutex_unlock(&channel->mutex);
 
-	if (ret == true)
+	if (should_send == true)
 		return this->WFChannelOutTask<MSG>::dispatch();
 
 	return this->subtask_done();
@@ -401,23 +425,19 @@ SubTask *ComplexChannelOutTask<MSG>::done()
 template<class MSG>
 SubTask *ComplexChannelOutTask<MSG>::upgrade()
 {
-	auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::upgrade_callback,
-						  this, std::placeholders::_1);
+	WFCounterTask *counter =  new WFCounterTask(0, [=](WFCounterTask *task)
+	{
+		auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 
-	return new WFCounterTask(0, cb);
-}
+		pthread_mutex_lock(&channel->mutex);
+		channel->set_state(WFT_STATE_SUCCESS);
+		this->ready = true;
+		channel->set_sending(false);
+		channel->condition.signal();
+		pthread_mutex_unlock(&channel->mutex);
+	});
 
-template<class MSG>
-void ComplexChannelOutTask<MSG>::upgrade_callback(WFCounterTask *task)
-{
-	auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
-
-	pthread_mutex_lock(&channel->mutex);
-	channel->set_state(WFT_STATE_SUCCESS);
-	this->ready = true;
-	channel->set_sending(false);
-	channel->condition.signal();
-	pthread_mutex_unlock(&channel->mutex);
+	return counter;
 }
 
 /**********WebSocket task impl**********/
@@ -430,7 +450,7 @@ public:
 protected:
 	CommMessageIn *message_in();
 	void handle_in(CommMessageIn *in);
-	int first_timeout();
+	virtual int first_timeout();
 	virtual WFWebSocketTask *new_session();
 
 private:
@@ -449,9 +469,7 @@ class ComplexWebSocketOutTask : public ComplexChannelOutTask<protocol::WebSocket
 {
 protected:
 	virtual SubTask *upgrade();
-
-private:
-	void http_callback(WFChannelTask<protocol::HttpRequest> *task);
+	virtual SubTask *done();
 
 public:
 	ComplexWebSocketOutTask(ComplexWebSocketChannel *channel, CommScheduler *scheduler,

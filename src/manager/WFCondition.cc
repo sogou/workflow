@@ -27,18 +27,6 @@ class WFTimedWaitTask;
 class WFWaitTask : public WFCounterTask
 {
 public:
-	WFWaitTask(std::function<void (WFCounterTask *)>&& cb) :
-		WFCounterTask(1, std::move(cb))
-	{
-		this->timer = NULL;
-		this->entry.list.next = NULL;
-		this->entry.ptr = this;
-	}
-
-protected:
-	virtual SubTask *done();
-
-public:
 	void set_timer(WFTimedWaitTask *timer) { this->timer = timer; }
 	void clear_timer_waiter();
 
@@ -48,8 +36,21 @@ public:
 		WFWaitTask *ptr;
 	} entry;
 
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
 private:
 	WFTimedWaitTask *timer;
+
+public:
+	WFWaitTask(std::function<void (WFCounterTask *)>&& cb) :
+		WFCounterTask(1, std::move(cb))
+	{
+		this->timer = NULL;
+		this->entry.list.next = NULL;
+		this->entry.ptr = this;
+	}
 };
 
 class WFTimedWaitTask : public __WFTimerTask
@@ -75,12 +76,22 @@ private:
 	WFWaitTask *wait_task;
 };
 
+void WFWaitTask::dispatch()
+{
+	if (this->timer)
+		timer->dispatch();
+	
+	this->WFCounterTask::count();
+}
+
 SubTask *WFWaitTask::done()
 {
 	SeriesWork *series = series_of(this);
 
+	// TODO: data move
+
 	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
-		[this](WFTimerTask *task){
+		[this](WFTimerTask *task) {
 			if (this->callback)
 				this->callback(this);
 			delete this;
@@ -102,7 +113,6 @@ SubTask *WFTimedWaitTask::done()
 	if (this->wait_task && this->wait_task->entry.list.next)
 	{
 		list_del(&this->wait_task->entry.list);
-		this->wait_task->entry.list.next = NULL;//
 		this->wait_task->count();
 	}
 	pthread_mutex_unlock(this->mutex);
@@ -132,25 +142,18 @@ WFCounterTask *WFCondition::create_wait_task(counter_callback_t cb)
 	return task;
 }
 
-WFCounterTask *WFCondition::create_timedwait_task(unsigned int microseconds,
+WFCounterTask *WFCondition::create_timedwait_task(const struct timespec *abstime,
 												  counter_callback_t cb)
 {
 	WFWaitTask *waiter = new WFWaitTask(std::move(cb));
-	struct timespec value = {
-		.tv_sec     =   (time_t)(microseconds / 1000000),
-		.tv_nsec    =   (long)(microseconds % 1000000 * 1000)
-	};
-
-	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &this->mutex, &value,
+	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &this->mutex, abstime,
 												WFGlobal::get_scheduler(),
-												nullptr); //
+												nullptr);
 	waiter->set_timer(task);
 
 	pthread_mutex_lock(&this->mutex);
 	list_add_tail(&waiter->entry.list, &this->waiter_list);
 	pthread_mutex_unlock(&this->mutex);
-
-	task->dispatch();
 
 	return waiter;
 }
@@ -169,7 +172,6 @@ void WFCondition::signal()
 		entry = list_entry(pos, struct WFWaitTask::task_entry, list);
 		task = entry->ptr;
 		list_del(pos);
-		//task->list.next = NULL;
 		task->clear_timer_waiter();
 		task->count();
 	}
@@ -191,7 +193,6 @@ void WFCondition::broadcast()
 			entry = list_entry(pos, struct WFWaitTask::task_entry, list);
 			task = entry->ptr;
 			list_del(pos);
-			//task->list.next = NULL;	
 			task->count();
 		}
 	}

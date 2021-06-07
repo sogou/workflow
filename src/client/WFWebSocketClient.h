@@ -51,6 +51,7 @@ public:
 private:
 	ComplexWebSocketChannel *channel;
 	struct WFWebSocketParams params;
+	void channel_callback(WFChannel<protocol::WebSocketFrame> *channel);
 
 public:
 	WebSocketClient(const struct WFWebSocketParams *params,
@@ -83,7 +84,7 @@ void WebSocketClient::deinit()
 	{
 			task = this->create_websocket_task(
 			[](WFWebSocketTask *task){
-
+/*
 				ComplexWebSocketChannel *channel = (ComplexWebSocketChannel *)task->user_data;
 				if (task->get_state() == WFT_STATE_SUCCESS &&
 					channel->is_established())
@@ -91,11 +92,11 @@ void WebSocketClient::deinit()
 					Workflow::start_series_work(channel, nullptr);
 					channel->set_sending(true);
 				}
-			}
+*/			}
 		);
 		protocol::WebSocketFrame *msg = task->get_msg();
 		msg->set_opcode(WebSocketFrameConnectionClose);
-		task->user_data = this->channel;
+//		task->user_data = this->channel;
 	}
 	pthread_mutex_unlock(&this->channel->mutex);
 
@@ -110,6 +111,9 @@ WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
 	this->channel = new ComplexWebSocketChannel(NULL, WFGlobal::get_scheduler(),
 												std::move(process));
 	this->channel->set_idle_timeout(this->params.idle_timeout);
+	auto&& cb = std::bind(&WebSocketClient::channel_callback,
+						  this, std::placeholders::_1);
+	this->channel->set_callback(cb);
 }
 
 WebSocketClient::WebSocketClient(websocket_process_t process)
@@ -118,6 +122,20 @@ WebSocketClient::WebSocketClient(websocket_process_t process)
 	this->channel = new ComplexWebSocketChannel(NULL, WFGlobal::get_scheduler(),
 												std::move(process));
 	this->channel->set_idle_timeout(this->params.idle_timeout);
+	auto&& cb = std::bind(&WebSocketClient::channel_callback,
+						  this, std::placeholders::_1);
+	this->channel->set_callback(cb);
+}
+
+void WebSocketClient::channel_callback(WFChannel<protocol::WebSocketFrame> *channel)
+{
+	pthread_mutex_lock(&this->channel->mutex);
+	if (this->channel->is_established() == 0)
+	{
+		this->channel->set_state(WFT_STATE_SYS_ERROR);
+		this->channel->set_sending(false);
+	}
+	pthread_mutex_unlock(&this->channel->mutex);
 }
 
 #endif

@@ -159,7 +159,7 @@ void process(WFWebSocketTask *task)
 WFFacilities::WaitGroup wg(1);
 
 WFWebSocketTask *task = client.create_close_task([&wg](WFWebSocketTask *task) {
-	wg.done();
+    wg.done();
 });
 
 task->start();
@@ -181,7 +181,7 @@ public:
     WebSocketClient(const struct WFWebSocketParams *params,
                     websocket_process_t process);
     WebSocketClient(websocket_process_t process);
-	...
+    ...
 ```
 
 其中，参数的定义如下：

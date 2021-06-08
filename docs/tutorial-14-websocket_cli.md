@@ -123,8 +123,7 @@ void process(WFWebSocketTask *task)
     const char *data;
     size_t size;
 
-    if (task->get_state() == WFT_STATE_SUCCESS &&
-        task->get_msg()->get_opcode() == WebSocketFrameText)
+    if (task->get_msg()->get_opcode() == WebSocketFrameText)
     {
         task->get_msg()->get_data(&data, &size);
         ...
@@ -135,7 +134,7 @@ void process(WFWebSocketTask *task)
 #### 1. 参数
 
 ``process()``函数里拿到的参数``WFWebSocketTask *task``，与callback回调函数里拿到的类型是一样的，因此用法也非常类似：
-- 可以通过``task->get_state()``和``task->get_error()``拿到任务的状态，只有``WFT_STATE_SUCCESS``的情况下才可以使用里边的数据；
+
 - 可以通过``get_msg()``拿到对应的数据，也就是上述的``WebSocketFrame``；
 - 可以通过msg上的接口``get_opcode()``判断是什么类型的数据包，``process()``可能收到的数据包类型包括：**WebSocketFrameText**、**WebSocketFrameBinary**、**WebSocketFramePong**。
 

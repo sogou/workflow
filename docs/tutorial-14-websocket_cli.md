@@ -26,7 +26,7 @@ client.init(URL);
 ...
 ```
 
-构造client时需要传入``process()``函数，这是我们收消息的处理函数，类型为：``std::function<void (WFWebSocketTask *)>;``，与**Workflow**其他``process()``的语义类似。
+构造client时需要传入``process()``函数，这是我们收消息的处理函数，类型为：``std::function<void (WFWebSocketTask *)>``，与**Workflow**其他``process()``的语义类似。
 
 ``init()``中需要传入**URL**，如果**UR**L非法，则``init()``会返回-1表示**URL**解析失败。
 
@@ -39,7 +39,7 @@ msg->set_text_data("This is Workflow websocket client.");
 task->start();
 ```
 
-我们通过``create_websocket_task()``的接口创建一个要往外发的任务，并传入回调函数**callback**。task可以通过``get_msg()``接口拿到要发送的消息体，我们往消息体里填入要发送的数据。因为**WebSocket**协议支持**文本**和**二进制**的数据，所以我们使用``set_text_data()``接口，表示传入的是文本消息。最后把任务**start**起来。task相关的具体接口可以查看：[WFChannel.h](/src/factory/WFChannel.h)
+我们通过``create_websocket_task()``的接口创建一个往外发数据的任务，并传入回调函数**callback**。task可以通过``get_msg()``接口拿到要发送的消息体，我们往消息体里填入要发送的数据。因为**WebSocket**协议支持**文本**和**二进制**的数据，所以我们使用``set_text_data()``接口，表示传入的是文本消息。最后把任务**start**起来。task相关的具体接口可以查看：[WFChannel.h](/src/factory/WFChannel.h)
 
 ```cpp
 using WFWebSocketTask = WFChannelTask<protocol::WebSocketFrame>;
@@ -81,11 +81,11 @@ public:
 - WebSocketFramePing
 - WebSocketFramePong
 
-一般我们发送数据的时候用的是前两种（**文本**和**二进制**），无需手动指定**opcode**，而如果需要手动发送**PING**包时则需要通过``bool set_opcode(int opcode);``指定为**PING**包；发送完PING包之后根据**WebSocket**协议，对方会给我们回一个**PONG**包，我们会在``process()``里拿到。
+一般我们发送数据的时候用的是前两种（**文本**和**二进制**），无需手动指定**opcode**，而如果需要手动发送**PING**包时则需要通过``bool set_opcode(int opcode)``指定为**PING**包；发送完PING包之后根据**WebSocket**协议，对方会给我们回一个**PONG**包，我们会在``process()``里拿到。
 
 #### 2. masking_key
 
-**WebSocket**协议的文本和二进制数据都需要经过一个掩码加密，用户可以不填，也可以通过``void set_masking_key(uint32_t masking_key);``手动指定；
+**WebSocket**协议的文本和二进制数据都需要经过一个掩码加密，用户可以不填，也可以通过``void set_masking_key(uint32_t masking_key)``手动指定；
 
 #### 3. data
 
@@ -99,7 +99,9 @@ public:
 
 #### 4. callback
 
-只要消息发送完毕，就会回到我们创建task时传入的回调函数，此时我们得知消息是否发送成功。一个简单的例子：
+只要消息发送完毕，就会回到我们创建task时传入的回调函数，此时我们得知消息是否发送成功。
+
+一个简单的例子：
 
 ```cpp
 void send_callbakc(WFWebSocketTask *task)
@@ -111,7 +113,9 @@ void send_callbakc(WFWebSocketTask *task)
 
 # 收消息
 
-每次收到server发来的消息，``process()``都会被调起。如何在收到文本数据之后把数据打印出来？一个简单的例子：
+每次收到server发来的消息，``process()``都会被调起。如何在收到文本数据之后把数据打印出来？
+
+一个简单的例子：
 
 ```cpp
 void process(WFWebSocketTask *task)
@@ -137,20 +141,66 @@ void process(WFWebSocketTask *task)
 
 #### 2. data
 
-无论是**WebSocketFrameText**还是**WebSocketFrameBinary**，都由``bool get_data(const char **data, size_t *size) const;``拿收到的数据；
+无论是**文本**还是**二进制**，都由``bool get_data(const char **data, size_t *size) const``拿收到的数据；
 
 #### 3. fin
 
-由于数据可以分段发送，因此我们可以通过``bool is_finish() const;``判断该完整的消息是否结束。如果没有结束，则用户需要自行把data里的数据拷走，等消息结束之后进行完整消息的处理；
+由于数据可以分段发送，因此我们可以通过``bool is_finish() const``判断该完整的消息是否结束。如果没有结束，则用户需要自行把data里的数据拷走，等消息结束之后进行完整消息的处理；
 
-更多细节接口可以查看[websocket_parser.h ](src/protocol/websocket_parser.h）
+更多细节接口可以查看[websocket_parser.h ](src/protocol/websocket_parser.h)
 
-# 进阶版：Workflow用户的注意事项
+# 关闭client
 
-// 都会在一个线程里执行
-// poller线程需要改大
+根据**WebSocket**协议，用户需要发起一个close包已告诉对方以示断开连接。
+
+一个简单的例子：
+
+```cpp
+WFFacilities::WaitGroup wg(1);
+
+WFWebSocketTask *task = client.create_close_task([&wg](WFWebSocketTask *task) {
+	wg.done();
+});
+
+task->start();
+wait_group.wait();
+```
+
+这里发起了一个close任务，由于close是异步的，因此在``task->start()``之后当前线程会退出，我们在当前线程结合一个了``wait_group``进行不占线程的阻塞，并在close任务的回调函数里唤醒，然后当前线程就可以安全删除client实例和退出了。
+
+需要注意的是，如果不主动发起close任务，直接删除client实例，那么底层使用的那个网络连接还会存在，直到超时或其他原因断开。
 
 # websocket_cli的参数
 
-# 关于client的关闭
+``WebSocketClient``的构造函数有两个，除了刚才介绍的传入``process()``函数的接口以外，还可以传入client的参数：
 
+```cpp
+class WebSocketClient
+{
+public:
+    WebSocketClient(const struct WFWebSocketParams *params,
+                    websocket_process_t process);
+    WebSocketClient(websocket_process_t process);
+	...
+```
+
+其中，参数的定义如下：
+
+```cpp
+struct WFWebSocketParams
+{
+    int idle_timeout;        // client保持长连接的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：10s
+    int ping_interval;       // client自动发ping的时间间隔，用于做心跳，保持与远端server的连接。默认：-1，不自动发ping
+    bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：不自动生成
+};
+```
+
+如果不传入参数，会使用默认参数来构造client。
+
+# 进阶版：Workflow用户的注意事项！
+
+由于**WebSocket**协议是**Workflow**中首个实现的双工通信协议，因此有些差异是必须强调的：
+
+1. **WebSocket**协议的收发都是使用**poller**线程，因此websocket_cli用户需要把**poller**线程数改大点，参考：[about-config.md](/docs/about-config.md)
+2. **process**函数中所有的消息都是由同一个线程串行执行的；
+3. 回调函数**callback**的执行不一定在同一个线程；

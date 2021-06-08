@@ -176,7 +176,7 @@ bool WebSocketFrame::set_opcode(int opcode)
 	return true;
 }
 
-int WebSocketFrame::get_opcode()
+int WebSocketFrame::get_opcode() const
 {
 	return this->parser->opcode;
 }
@@ -185,15 +185,19 @@ void WebSocketFrame::set_masking_key(uint32_t masking_key)
 {
 	this->parser->mask = 1;
 	memcpy(this->parser->masking_key, &masking_key, WS_MASKING_KEY_LENGTH);
-//	sprintf((char *)this->parser->masking_key, "%u", masking_key);
 }
 
-uint32_t WebSocketFrame::get_masking_key()
+uint32_t WebSocketFrame::get_masking_key() const
 {
 	if (!this->parser->mask)
 		return atoi((char *)this->parser->masking_key);
 
 	return 0;
+}
+
+bool WebSocketFrame::set_binary_data(const char *data, size_t size)
+{
+	return this->set_binary_data(data, size, true);
 }
 
 bool WebSocketFrame::set_binary_data(const char *data, size_t size, bool fin)
@@ -214,6 +218,11 @@ bool WebSocketFrame::set_binary_data(const char *data, size_t size, bool fin)
 	this->parser->payload_length = size;
 
 	return ret;
+}
+
+bool WebSocketFrame::set_text_data(const char *data)
+{
+	return set_text_data(data, strlen(data), true);
 }
 
 bool WebSocketFrame::set_text_data(const char *data, size_t size, bool fin)
@@ -271,30 +280,19 @@ bool WebSocketFrame::set_data(const websocket_parser_t *parser)
 	return ret;
 }
 
-bool WebSocketFrame::get_binary_data(const char **data, size_t *size)
+bool WebSocketFrame::get_data(const char **data, size_t *size) const
 {
-	if (!this->parser->payload_length || !this->parser->payload_data ||
-		this->parser->opcode != WebSocketFrameBinary)
-	{
+	if (!this->parser->payload_length || !this->parser->payload_data)
 		return false;
-	}
 
 	*data = (char *)this->parser->payload_data;
 	*size = this->parser->payload_length;
 	return true;
 }
 
-bool WebSocketFrame::get_text_data(const char **data, size_t *size)
+bool WebSocketFrame::is_finish() const
 {
-	if (!this->parser->payload_length || !this->parser->payload_data ||
-		this->parser->opcode != WebSocketFrameText)
-	{
-		return false;
-	}
-
-	*data = (char *)this->parser->payload_data;
-	*size = this->parser->payload_length;
-	return true;
+	return this->parser->fin;
 }
 
 } // end namespace protocol

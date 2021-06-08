@@ -34,22 +34,26 @@ class WebSocketFrame : public ProtocolMessage
 {
 public:
 	bool set_opcode(int opcode);
-	int get_opcode();
+	int get_opcode() const;
 
 	void set_masking_key(uint32_t masking_key);
-	uint32_t get_masking_key();
 
+	bool set_text_data(const char *data);
 	bool set_text_data(const char *data, size_t size, bool fin);
-	bool get_text_data(const char **data, size_t *size);
 
+	bool set_binary_data(const char *data, size_t size);
 	bool set_binary_data(const char *data, size_t size, bool fin);
-	bool get_binary_data(const char **data, size_t *size);
 
+	bool get_data(const char **data, size_t *size) const;
+
+	bool is_finish() const;
+
+public:
 	void set_client() { this->parser->is_server = 0; }
 	void set_server() { this->parser->is_server = 1; }
-
-	bool set_data(const websocket_parser_t *parser);
 	const websocket_parser_t *get_parser() { return this->parser; }
+	bool set_data(const websocket_parser_t *parser);
+	uint32_t get_masking_key() const;
 
 private:
 	websocket_parser_t *parser;

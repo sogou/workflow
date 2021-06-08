@@ -39,7 +39,7 @@ public:
 	ComplexWebSocketInTask(ComplexWebSocketChannel *channel,
 						   CommScheduler *scheduler,
 						   websocket_process_t& proc) :
-	WFChannelInTask<WebSocketFrame>(channel, scheduler, proc)
+		WFChannelInTask<WebSocketFrame>(channel, scheduler, proc)
 	{
 	}
 };
@@ -123,6 +123,7 @@ SubTask *ComplexWebSocketOutTask::done()
 		this->get_state() == WFT_STATE_SUCCESS &&
 		channel->is_established())
 	{
+		series->push_front(this);
 		series->push_front(channel);
 		return series->pop();
 	}

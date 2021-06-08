@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "PING task send callback() state=%d error=%d\n",
 				task->get_state(), task->get_error());
+
 		if (task->get_state() != WFT_STATE_SUCCESS)
 		{
 			wg.done();
@@ -75,12 +76,27 @@ int main(int argc, char *argv[])
 
 		sleep(5);
 
-		auto *text_task = client.create_websocket_task([&wg] (WFWebSocketTask *task)
+		auto *text_task = client.create_websocket_task([&wg, &client] (WFWebSocketTask *task)
 		{
 			fprintf(stderr, "TEXT task send callback() state=%d error=%d\n",
 					task->get_state(), task->get_error());
-			wg.done();
+
+			if (task->get_state() != WFT_STATE_SUCCESS)
+			{
+				wg.done();
+				return;
+			}
+
+			auto *close_task = client.create_close_task([&wg](WFWebSocketTask *task)
+			{
+				fprintf(stderr, "CLOSE task callback() state=%d error=%d\n",
+						task->get_state(), task->get_error());
+				wg.done();
+			});
+
+			series_of(task)->push_back(close_task);
 		});
+
 		WebSocketFrame *msg = text_task->get_msg();
 		msg->set_masking_key(1412);
 		msg->set_text_data("20210607", 8, true);
@@ -93,6 +109,7 @@ int main(int argc, char *argv[])
 
 	wg.wait();
 	sleep(3);
+
 	fprintf(stderr, "client deinit()\n");
 	client.deinit();
 	sleep(3);

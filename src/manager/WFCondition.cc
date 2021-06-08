@@ -56,7 +56,7 @@ public:
 class WFTimedWaitTask : public __WFTimerTask
 {
 public:
-	WFTimedWaitTask(WFWaitTask *wait_task, pthread_mutex_t *mutex,
+	WFTimedWaitTask(WFWaitTask *wait_task, std::mutex *mutex,
 					const struct timespec *value,
 					CommScheduler *scheduler,
 					std::function<void (WFTimerTask *)> cb) :
@@ -72,7 +72,7 @@ protected:
 	virtual SubTask *done();
 
 private:
-	pthread_mutex_t *mutex;
+	std::mutex *mutex;
 	WFWaitTask *wait_task;
 };
 
@@ -109,13 +109,13 @@ void WFWaitTask::clear_timer_waiter()
 
 SubTask *WFTimedWaitTask::done()
 {
-	pthread_mutex_lock(this->mutex);
+	this->mutex->lock();
 	if (this->wait_task && this->wait_task->entry.list.next)
 	{
 		list_del(&this->wait_task->entry.list);
 		this->wait_task->count();
 	}
-	pthread_mutex_unlock(this->mutex);
+	this->mutex->unlock();
 
 	SeriesWork *series = series_of(this);
 	
@@ -128,17 +128,19 @@ SubTask *WFTimedWaitTask::done()
 
 void WFTimedWaitTask::clear_wait_task()
 {
-	pthread_mutex_lock(this->mutex);
+	this->mutex->lock();
 	this->wait_task = NULL;
-	pthread_mutex_unlock(this->mutex);
+	this->mutex->unlock();
 }
 
 WFCounterTask *WFCondition::create_wait_task(counter_callback_t cb)
 {
 	WFWaitTask *task = new WFWaitTask(std::move(cb));
-	pthread_mutex_lock(&this->mutex);
+
+	this->mutex.lock();
 	list_add_tail(&task->entry.list, &this->waiter_list);
-	pthread_mutex_unlock(&this->mutex);
+	this->mutex.unlock();
+
 	return task;
 }
 
@@ -151,9 +153,9 @@ WFCounterTask *WFCondition::create_timedwait_task(const struct timespec *abstime
 												nullptr);
 	waiter->set_timer(task);
 
-	pthread_mutex_lock(&this->mutex);
+	this->mutex.lock();
 	list_add_tail(&waiter->entry.list, &this->waiter_list);
-	pthread_mutex_unlock(&this->mutex);
+	this->mutex.unlock();
 
 	return waiter;
 }
@@ -164,7 +166,7 @@ void WFCondition::signal()
 	struct list_head *pos;
 	struct WFWaitTask::task_entry *entry;
 
-	pthread_mutex_lock(&this->mutex);
+	this->mutex.lock();
 
 	if (!list_empty(&this->waiter_list))
 	{
@@ -176,7 +178,7 @@ void WFCondition::signal()
 		task->count();
 	}
 
-	pthread_mutex_unlock(&this->mutex);
+	this->mutex.unlock();
 }
 
 void WFCondition::broadcast()
@@ -185,7 +187,7 @@ void WFCondition::broadcast()
 	struct list_head *pos, *tmp;
 	struct WFWaitTask::task_entry *entry;
 
-	pthread_mutex_lock(&this->mutex);
+	this->mutex.lock();
 	if (!list_empty(&this->waiter_list))
 	{
 		list_for_each_safe(pos, tmp, &this->waiter_list)
@@ -196,6 +198,6 @@ void WFCondition::broadcast()
 			task->count();
 		}
 	}
-	pthread_mutex_unlock(&this->mutex);
+	this->mutex.unlock();
 }
 

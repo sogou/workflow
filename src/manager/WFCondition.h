@@ -19,14 +19,16 @@
 #ifndef _WFCONDITION_H_
 #define _WFCONDITION_H_
 
-#include <pthread.h>
+#include <mutex>
+#include <time.h>
+#include <functional>
 #include "list.h"
 #include "WFTask.h"
 
 class WFCondition
 {
 public:
-	WFCondition() : mutex(PTHREAD_MUTEX_INITIALIZER)
+	WFCondition()
 	{
 		INIT_LIST_HEAD(&this->waiter_list);
 	}
@@ -38,8 +40,7 @@ public:
 	void broadcast();
 
 public:
-	pthread_mutex_t mutex;
-
+	std::mutex mutex;
 private:
 	struct list_head waiter_list;
 };

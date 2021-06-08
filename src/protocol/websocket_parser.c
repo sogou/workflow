@@ -39,7 +39,7 @@ void websocket_parser_init(websocket_parser_t *parser)
 
 void websocket_parser_deinit(websocket_parser_t *parser)
 {
-	if (parser->payload_data)
+	if (parser->payload_length != 0)
 		free(parser->payload_data);
 }
 

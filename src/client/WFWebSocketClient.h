@@ -46,12 +46,12 @@ class WebSocketClient
 public:
 	int init(const std::string& url);
 	WFWebSocketTask *create_websocket_task(websocket_callback_t cb);
+	WFWebSocketTask *create_close_task(websocket_callback_t cb);
 	void deinit();
 
 private:
 	ComplexWebSocketChannel *channel;
 	struct WFWebSocketParams params;
-	void channel_callback(WFChannel<protocol::WebSocketFrame> *channel);
 
 public:
 	WebSocketClient(const struct WFWebSocketParams *params,
@@ -77,21 +77,20 @@ inline int WebSocketClient::init(const std::string& url)
 	return 0;
 }
 
-void WebSocketClient::deinit()
+inline WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 {
-	WFWebSocketTask *task = NULL;
+	ComplexWebSocketOutTask *close_task;
+	close_task = new ComplexWebSocketOutTask(this->channel,
+											 WFGlobal::get_scheduler(),
+											 std::move(cb));
+	protocol::WebSocketFrame *msg = close_task->get_msg();
+	msg->set_opcode(WebSocketFrameConnectionClose);
+	return close_task;
+}
 
-	pthread_mutex_lock(&this->channel->mutex);
-	if (this->channel->is_established())
-	{
-		task = this->create_websocket_task(nullptr);
-		protocol::WebSocketFrame *msg = task->get_msg();
-		msg->set_opcode(WebSocketFrameConnectionClose);
-	}
-	pthread_mutex_unlock(&this->channel->mutex);
-
-	if (task)
-		task->start();
+inline void WebSocketClient::deinit()
+{
+	delete this->channel;
 }
 
 WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,

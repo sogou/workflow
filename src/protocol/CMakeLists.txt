@@ -7,10 +7,12 @@ set(SRC
 	mysql_stream.c
 	mysql_parser.c
 	mysql_byteorder.c
+	websocket_parser.c
 	MySQLMessage.cc
 	MySQLResult.cc
 	HttpMessage.cc
 	RedisMessage.cc
+	WebSocketMessage.cc
 	HttpUtil.cc
 	SSLWrapper.cc
 )
@@ -25,8 +27,5 @@ if (KAFKA STREQUAL "y")
 		KafkaResult.cc
 	)
 	add_library("protocol_kafka" OBJECT ${SRC})
-	set_property(SOURCE KafkaMessage.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
-	set_property(SOURCE KafkaDataTypes.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
-	set_property(SOURCE KafkaResult.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
 

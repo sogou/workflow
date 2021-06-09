@@ -150,6 +150,14 @@ __WFGlobal::__WFGlobal() : settings_(GLOBAL_SETTINGS_DEFAULT)
 	static_scheme_port_["Kafka"] = "9092";
 	static_scheme_port_["KAFKA"] = "9092";
 
+	static_scheme_port_["ws"] = "80";
+	static_scheme_port_["Ws"] = "80";
+	static_scheme_port_["WS"] = "80";
+
+	static_scheme_port_["wss"] = "443";
+	static_scheme_port_["Wss"] = "443";
+	static_scheme_port_["WSs"] = "443";
+
 	sync_count_ = 0;
 	sync_max_ = 0;
 }

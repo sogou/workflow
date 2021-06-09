@@ -7,6 +7,7 @@ set(COMMON_KERNEL_HEADERS
 	src/kernel/SleepRequest.h
 	src/kernel/ExecRequest.h
 	src/kernel/IORequest.h
+	src/kernel/TransRequest.h
 	src/kernel/Executor.h
 	src/kernel/list.h
 	src/kernel/mpoller.h
@@ -54,11 +55,14 @@ set(INCLUDE_HEADERS
 	src/protocol/mysql_types.h
 	src/protocol/mysql_byteorder.h
 	src/protocol/SSLWrapper.h
+	src/protocol/WebSocketMessage.h
+	src/protocol/websocket_parser.h
 	src/server/WFServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
 	src/client/WFMySQLConnection.h
+	src/client/WFWebSocketClient.h
 	src/manager/DNSCache.h
 	src/manager/WFGlobal.h
 	src/manager/UpstreamManager.h
@@ -67,6 +71,7 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
+	src/manager/WFCondition.h
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h
@@ -83,6 +88,8 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFChannel.h
+	src/factory/WFChannel.inl
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDNSResolver.h
 	src/nameservice/WFServiceGovernance.h

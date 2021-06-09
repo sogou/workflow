@@ -14,11 +14,14 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <stdint.h>
 #include <string.h>
 #include <string>
+#include <openssl/ssl.h>
+#include "SSLWrapper.h"
 #include "mysql_byteorder.h"
 
 namespace protocol
@@ -43,19 +46,22 @@ public:
 
 	void server_set(uint8_t protocol_version, const std::string server_version,
 					uint32_t connection_id, const uint8_t *auth1,
-					uint8_t character_set, uint16_t status_flags,
-					const uint8_t *auth2)
+					uint32_t capability_flags, uint8_t character_set,
+					uint16_t status_flags, const uint8_t *auth2)
 	{
 		protocol_version_ = protocol_version;
 		server_version_ = server_version;
 		connection_id_ = connection_id;
 		memcpy(auth_plugin_data_part_1_, auth1, 8);
+		capability_flags_ = capability_flags;
 		character_set_ = character_set;
 		status_flags_ = status_flags;
 		memcpy(auth_plugin_data_part_2_, auth2, 12);
 	}
 
-	bool host_disallowed() const { return this->disallowed_; }
+	bool host_disallowed() const { return disallowed_; }
+	uint32_t get_capability_flags() const { return capability_flags_; }
+	uint16_t get_status_flags() const { return status_flags_; }
 
 private:
 	virtual int decode_packet(const unsigned char *buf, size_t buflen);
@@ -64,6 +70,7 @@ private:
 	std::string server_version_;
 	uint32_t connection_id_;
 	uint8_t auth_plugin_data_part_1_[8];
+	uint32_t capability_flags_;
 	uint8_t character_set_;
 	uint16_t status_flags_;
 	uint8_t auth_plugin_data_part_2_[12];
@@ -75,6 +82,31 @@ public:
 	MySQLHandshakeResponse(MySQLHandshakeResponse&& move) = default;
 	//move operator
 	MySQLHandshakeResponse& operator= (MySQLHandshakeResponse&& move) = default;
+};
+
+class MySQLSSLRequest : public MySQLRequest
+{
+private:
+	virtual int encode(struct iovec vectors[], int max);
+
+	/* Do not support server side with SSL currently. */
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		return -2;
+	}
+
+private:
+	int character_set_;
+	SSLHandshaker ssl_handshaker_;
+
+public:
+	MySQLSSLRequest(int character_set, SSL *ssl) : ssl_handshaker_(ssl)
+	{
+		character_set_ = character_set;
+	}
+
+	MySQLSSLRequest(MySQLSSLRequest&& move) = default;
+	MySQLSSLRequest& operator= (MySQLSSLRequest&& move) = default;
 };
 
 class MySQLAuthRequest : public MySQLRequest

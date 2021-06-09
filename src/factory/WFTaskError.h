@@ -38,6 +38,7 @@ enum
 
 	//HTTP
 	WFT_ERR_HTTP_BAD_REDIRECT_HEADER = 2001,    ///< Http, 301/302/303/307/308 Location header value is NULL
+	WFT_ERR_HTTP_PROXY_CONNECT_FAILED = 2002,   ///< Http, proxy CONNECT return non 200
 
 	//REDIS
 	WFT_ERR_REDIS_ACCESS_DENIED = 3001,         ///< Redis, invalid password
@@ -49,6 +50,7 @@ enum
 	WFT_ERR_MYSQL_INVALID_CHARACTER_SET = 4003, ///< MySQL, invalid charset, not found in MySQL-Documentation
 	WFT_ERR_MYSQL_COMMAND_DISALLOWED = 4004,    ///< MySQL, sql command disabled, cannot be "USE"/"SET NAMES"/"SET CHARSET"/"SET CHARACTER SET"
 	WFT_ERR_MYSQL_QUERY_NOT_SET = 4005,         ///< MySQL, query not set sql, maybe forget please check
+	WFT_ERR_MYSQL_SSL_NOT_SUPPORTED = 4006,		///< MySQL, SSL not supported by the server
 
 	//KAFKA
 	WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED = 5001, ///< Kafka parse response failed

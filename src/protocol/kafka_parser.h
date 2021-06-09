@@ -444,7 +444,7 @@ int kafka_api_version_is_queryable(const char *broker_version,
 
 int kafka_sasl_set_mechanisms(kafka_config_t *conf);
 int kafka_sasl_set_username(const char *username, kafka_config_t *conf);
-int kafka_sasl_set_passwd(const char *passwd, kafka_config_t *conf);
+int kafka_sasl_set_password(const char *passwd, kafka_config_t *conf);
 
 #ifdef __cplusplus
 }

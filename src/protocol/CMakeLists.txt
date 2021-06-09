@@ -25,5 +25,8 @@ if (KAFKA STREQUAL "y")
 		KafkaResult.cc
 	)
 	add_library("protocol_kafka" OBJECT ${SRC})
+	set_property(SOURCE KafkaMessage.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	set_property(SOURCE KafkaDataTypes.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	set_property(SOURCE KafkaResult.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
 

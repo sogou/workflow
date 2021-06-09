@@ -146,6 +146,13 @@ __WFGlobal::__WFGlobal() : settings_(GLOBAL_SETTINGS_DEFAULT)
 	static_scheme_port_["MySQL"] = "3306";
 	static_scheme_port_["MYSQL"] = "3306";
 
+	static_scheme_port_["mysqls"] = "3306";
+	static_scheme_port_["Mysqls"] = "3306";
+	static_scheme_port_["MySqls"] = "3306";
+	static_scheme_port_["MySQLs"] = "3306";
+	static_scheme_port_["MYSQLs"] = "3306";
+	static_scheme_port_["MYSQLS"] = "3306";
+
 	static_scheme_port_["kafka"] = "9092";
 	static_scheme_port_["Kafka"] = "9092";
 	static_scheme_port_["KAFKA"] = "9092";
@@ -696,6 +703,9 @@ static inline const char *__get_task_error_string(int error)
 	case WFT_ERR_HTTP_BAD_REDIRECT_HEADER:
 		return "Http Bad Redirect Header";
 
+	case WFT_ERR_HTTP_PROXY_CONNECT_FAILED:
+		return "Http Proxy Connect Failed";
+
 	case WFT_ERR_REDIS_ACCESS_DENIED:
 		return "Redis Access Denied";
 
@@ -716,6 +726,9 @@ static inline const char *__get_task_error_string(int error)
 
 	case WFT_ERR_MYSQL_QUERY_NOT_SET:
 		return "MySQL Query Not Set";
+
+	case WFT_ERR_MYSQL_SSL_NOT_SUPPORTED:
+		return "MySQL SSL Not Supported";
 
 	case WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED:
 		return "Kafka parse response failed";

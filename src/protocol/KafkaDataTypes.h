@@ -481,7 +481,7 @@ public:
 	}
 	bool set_sasl_password(const char *passwd)
 	{
-		return kafka_sasl_set_username(passwd, this->ptr) == 0;
+		return kafka_sasl_set_password(passwd, this->ptr) == 0;
 	}
 
 	std::string get_sasl_info() const

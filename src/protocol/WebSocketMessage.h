@@ -46,7 +46,7 @@ public:
 
 	bool get_data(const char **data, size_t *size) const;
 
-	bool is_finish() const;
+	bool finished() const;
 
 public:
 	void set_client() { this->parser->is_server = 0; }

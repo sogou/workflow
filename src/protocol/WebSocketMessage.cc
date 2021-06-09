@@ -290,7 +290,7 @@ bool WebSocketFrame::get_data(const char **data, size_t *size) const
 	return true;
 }
 
-bool WebSocketFrame::is_finish() const
+bool WebSocketFrame::finished() const
 {
 	return this->parser->fin;
 }

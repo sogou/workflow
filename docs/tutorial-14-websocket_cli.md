@@ -68,7 +68,7 @@ public:
 
     bool get_data(const char **data, size_t *size) const;
 
-    bool is_finish() const;
+    bool finished() const;
     
     ...
 };
@@ -104,7 +104,7 @@ public:
 一个简单的例子：
 
 ```cpp
-void send_callbakc(WFWebSocketTask *task)
+void send_callback(WFWebSocketTask *task)
 {
     if (task->get_state() != WFT_STATE_SUCCESS)
         fprintf(stderr, "Task send error: %d\n", task->get_error());
@@ -136,17 +136,17 @@ void process(WFWebSocketTask *task)
 ``process()``函数里拿到的参数``WFWebSocketTask *task``，与callback回调函数里拿到的类型是一样的，因此用法也非常类似：
 
 - 可以通过``get_msg()``拿到对应的数据，也就是上述的``WebSocketFrame``；
-- 可以通过msg上的接口``get_opcode()``判断是什么类型的数据包，``process()``可能收到的数据包类型包括：**WebSocketFrameText**、**WebSocketFrameBinary**、**WebSocketFramePong**。
+- 可以通过msg上的接口``get_opcode()``判断是什么类型的数据包，``process()``可能收到的数据包类型包括：**WebSocketFrameText**、**WebSocketFrameBinary**、**WebSocketFramePong**；
 
 #### 2. data
 
-无论是**文本**还是**二进制**，都由``bool get_data(const char **data, size_t *size) const``拿收到的数据；
+无论是**文本**还是**二进制**，都由``bool get_data(const char **data, size_t *size) const``拿收到的数据。
 
 #### 3. fin
 
-由于数据可以分段发送，因此我们可以通过``bool is_finish() const``判断该完整的消息是否结束。如果没有结束，则用户需要自行把data里的数据拷走，等消息结束之后进行完整消息的处理；
+由于数据可以分段发送，因此我们可以通过``bool finished() const``判断该完整的消息是否结束。如果没有结束，则用户需要自行把data里的数据拷走，等消息结束之后进行完整消息的处理。
 
-更多细节接口可以查看[websocket_parser.h ](src/protocol/websocket_parser.h)
+更多接口细节可以查看[websocket_parser.h ](/src/protocol/websocket_parser.h)
 
 # 关闭client
 
@@ -189,17 +189,32 @@ public:
 struct WFWebSocketParams
 {
     int idle_timeout;        // client保持长连接的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：10s
-    int ping_interval;       // client自动发ping的时间间隔，用于做心跳，保持与远端server的连接。默认：-1，不自动发ping
-    bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：不自动生成
+    int ping_interval;       // client自动发ping的时间间隔，用于做心跳，保持与远端的连接。默认：-1，不自动发ping(功能开发中)
+    size_t size_limit;       // 每个数据包的大小限制，超过的话会拿到错误码1009(WSStatusCodeTooLarge)。默认：不限制
+    bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：不自动生成(功能开发中)
 };
 ```
 
 如果不传入参数，会使用默认参数来构造client。
 
-# 进阶版：Workflow用户的注意事项！
+# 进阶版：注意事项！
+
+#### 1. 与Workflow原有用法的差异
 
 由于**WebSocket**协议是**Workflow**中首个实现的双工通信协议，因此有些差异是必须强调的：
 
 1. **WebSocket**协议的收发都是使用**poller**线程，因此websocket_cli用户需要把**poller**线程数改大点，参考：[about-config.md](/docs/about-config.md)
 2. **process**函数中所有的消息都是由同一个线程串行执行的；
 3. 回调函数**callback**的执行不一定在同一个线程；
+
+#### 2. 时序性保证
+
+[**发消息**]
+
+消息发送顺序取决于发送任务调起的时机是否顺序，因此用户可以把要发送的任务串到一个series里做串行的保证，也可以在上一个任务的callback里发起一下一个任务。
+
+但如果没有顺序发送的保证，那么往外发的``WFWebSocketTask``也可以被放到任何一个任务流图里，随具体业务逻辑顺序调起。
+
+[**收消息**]
+
+用于收消息的``process()``函数是保证被按收包顺序调起的，且保证前一个消息的process()执行完毕，下一个process才会调起。

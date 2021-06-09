@@ -219,6 +219,7 @@ WFWebSocketTask *ComplexWebSocketChannel::new_session()
 	auto *task = new ComplexWebSocketInTask(this, this->scheduler,
 											this->process);
 	Workflow::create_series_work(task, nullptr);
+	task->get_msg()->set_size_limit(this->size_limit);
 	return task;
 }
 

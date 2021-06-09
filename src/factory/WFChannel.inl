@@ -446,6 +446,7 @@ class ComplexWebSocketChannel : public WFComplexChannel<protocol::WebSocketFrame
 {
 public:
 	void set_idle_timeout(int timeout) { this->idle_timeout = timeout; }
+	void set_size_limit(size_t size_limit) { this->size_limit = size_limit; }
 
 protected:
 	CommMessageIn *message_in();
@@ -455,6 +456,7 @@ protected:
 
 private:
 	int idle_timeout;
+	size_t size_limit;
 
 public:
 	ComplexWebSocketChannel(CommSchedObject *object, CommScheduler *scheduler,

@@ -31,6 +31,7 @@ struct WFWebSocketParams
 {
 	int idle_timeout;
 	int ping_interval;
+	size_t size_limit;
 	bool random_masking_key;
 };
 
@@ -38,6 +39,7 @@ static constexpr struct WFWebSocketParams WEBSOCKET_PARAMS_DEFAULT =
 {
 	.idle_timeout = WS_HANDSHAKE_TIMEOUT,
 	.ping_interval = -1,
+	.size_limit = (size_t)-1,
 	.random_masking_key = false,
 };
 
@@ -94,6 +96,7 @@ WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
 	this->channel = new ComplexWebSocketChannel(NULL, WFGlobal::get_scheduler(),
 												std::move(process));
 	this->channel->set_idle_timeout(this->params.idle_timeout);
+	this->channel->set_size_limit(this->params.size_limit);
 
 	this->channel->set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
 	{

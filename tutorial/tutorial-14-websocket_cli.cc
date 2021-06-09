@@ -57,12 +57,13 @@ int main(int argc, char *argv[])
 	client.init(argv[1]);
 
 	WFFacilities::WaitGroup wg(1);
-
 	auto *task = client.create_websocket_task([&wg, &client] (WFWebSocketTask *task)
 	{
+		fprintf(stderr, "send callback() state=%d error=%d\n",
+				task->get_state(), task->get_error());
+
 		if (task->get_state() != WFT_STATE_SUCCESS)
 		{
-			fprintf(stderr, "send failed. error=%d\n", task->get_error());
 			wg.done();
 			return;
 		}

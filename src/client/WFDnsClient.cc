@@ -273,3 +273,4 @@ WFDnsTask *WFDnsClient::create_dns_task(const std::string& name,
 
 	return task;
 }
+

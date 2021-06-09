@@ -182,6 +182,7 @@ int DnsResponse::append(const void *buf, size_t *size)
 {
 	int ret = this->DnsMessage::append(buf, size);
 	const char *qname = this->parser->question.qname;
+
 	if (ret >= 1 && (this->request_id != this->get_id() ||
 		strcasecmp(this->request_name.c_str(), qname) != 0))
 	{
@@ -202,3 +203,4 @@ int DnsResponse::append(const void *buf, size_t *size)
 }
 
 }
+

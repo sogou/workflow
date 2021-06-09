@@ -231,3 +231,4 @@ WFDnsTask *WFServerTaskFactory::create_dns_task(CommService *service,
 {
 	return new WFDnsServerTask(service, process);
 }
+

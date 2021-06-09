@@ -137,3 +137,4 @@ void DnsUtil::freeaddrinfo(struct addrinfo *ai)
 		free(p);
 	}
 }
+

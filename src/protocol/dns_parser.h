@@ -240,3 +240,4 @@ static inline void dns_record_cursor_deinit(dns_record_cursor_t *cursor)
 }
 
 #endif
+

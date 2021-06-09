@@ -7,6 +7,7 @@ set(COMMON_KERNEL_HEADERS
 	src/kernel/SleepRequest.h
 	src/kernel/ExecRequest.h
 	src/kernel/IORequest.h
+	src/kernel/TransRequest.h
 	src/kernel/Executor.h
 	src/kernel/list.h
 	src/kernel/mpoller.h

@@ -48,20 +48,6 @@ public:
 	using HostPort = std::pair<std::string, unsigned short>;
 	using DnsHandle = LRUHandle<HostPort, DnsCacheValue>;
 
-	class ValueDeleter
-	{
-	public:
-		void operator() (const DnsCacheValue& value) const
-		{
-			struct addrinfo *ai = value.addrinfo;
-
-			if (ai && (ai->ai_flags | AI_PASSIVE))
-				freeaddrinfo(ai);
-			else
-				DnsUtil::freeaddrinfo(ai);
-		}
-	};
-
 public:
 	// release handle by get/put
 	void release(DnsHandle *handle)
@@ -165,6 +151,21 @@ private:
 	const DnsHandle *get_inner(const HostPort& host_port, int type);
 
 	std::mutex mutex_;
+
+	class ValueDeleter
+	{
+	public:
+		void operator() (const DnsCacheValue& value) const
+		{
+			struct addrinfo *ai = value.addrinfo;
+
+			if (ai && (ai->ai_flags | AI_PASSIVE))
+				freeaddrinfo(ai);
+			else
+				DnsUtil::freeaddrinfo(ai);
+		}
+	};
+
 	LRUCache<HostPort, DnsCacheValue, ValueDeleter> cache_pool_;
 };
 

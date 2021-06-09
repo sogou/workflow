@@ -71,6 +71,7 @@ int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 		return 0;
 	}
 
+	delete policy;
 	return -1;
 }
 
@@ -86,6 +87,22 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 		return 0;
 	}
 
+	delete policy;
+	return -1;
+}
+
+int UpstreamManager::upstream_create_vswrr(const std::string& name)
+{
+	auto *ns = WFGlobal::get_name_service();
+	UPSWeightedRandomPolicy *policy = new UPSVNSWRRPolicy();
+
+	if (ns->add_policy(name.c_str(), policy) >= 0)
+	{
+		__UpstreamManager::get_instance()->add_policy_name(name);
+		return 0;
+	}
+
+	delete policy;
 	return -1;
 }
 
@@ -104,6 +121,7 @@ int UpstreamManager::upstream_create_manual(const std::string& name,
 		return 0;
 	}
 
+	delete policy;
 	return -1;
 }
 

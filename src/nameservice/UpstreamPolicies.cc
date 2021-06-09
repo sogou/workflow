@@ -102,14 +102,14 @@ UPSGroupPolicy::UPSGroupPolicy()
 
 UPSGroupPolicy::~UPSGroupPolicy()
 {
-    EndpointGroup *group;
+	EndpointGroup *group;
 
-    while (this->group_map.rb_node)
-    {    
-        group = rb_entry(this->group_map.rb_node, EndpointGroup, rb);
-        rb_erase(this->group_map.rb_node, &this->group_map);
-        delete group;
-    }
+	while (this->group_map.rb_node)
+	{
+		group = rb_entry(this->group_map.rb_node, EndpointGroup, rb);
+		rb_erase(this->group_map.rb_node, &this->group_map);
+		delete group;
+	}
 }
 
 inline bool UPSGroupPolicy::is_alive_or_group_alive(const EndpointAddress *addr) const
@@ -193,7 +193,7 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 	if (!select_addr)
 		select_addr = this->default_group->get_one_backup(tracing);
-	
+
 	pthread_rwlock_unlock(&this->rwlock);
 
 	if (select_addr)
@@ -206,15 +206,16 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 }
 
 /*
- * flag true : guarantee addr != NULL, and please return an available one.
- *             if no available addr, return NULL.
- *      false: addr may be NULL, means addr maybe useful but want one any way.
+ * flag true : return an available one. If not exists, return NULL.
+ *      false: means addr maybe group-alive.
+ *      	   If addr is not available, get one from addr->group.
  */
 inline const EndpointAddress *UPSGroupPolicy::check_and_get(const EndpointAddress *addr,
 															bool flag,
 															WFNSTracing *tracing)
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
+
 	if (flag == true) // && addr->fail_count >= addr->params->max_fails
 	{
 		if (params->group_id == -1)
@@ -440,6 +441,9 @@ const EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int h
 		}
 	}
 
+	if (!addr)
+		return NULL;
+
 	return this->check_and_get(addr, false, NULL);
 }
 
@@ -577,6 +581,81 @@ void UPSWeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 		this->available_weight -= params->weight;
 }
 
+const EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
+													   WFNSTracing *tracing)
+{
+	int idx = this->cur_idx;
+	for (int i = 0; i < this->total_weight; i++)
+	{
+		if (this->cur_idx >= this->pre_generated_vec.size() &&
+			(int)this->pre_generated_vec.size() < this->total_weight)
+		{
+			this->init_virtual_nodes();
+		}
+
+		idx = (this->cur_idx + i) % this->pre_generated_vec.size();
+		int pos = this->pre_generated_vec[idx];
+		if (WFServiceGovernance::in_select_history(tracing, this->servers[pos]))
+			continue;
+
+		break;
+	}
+	this->cur_idx = idx;
+	return this->servers[idx];
+}
+
+void UPSVNSWRRPolicy::init_virtual_nodes()
+{
+	if (this->total_weight <= (int)this->pre_generated_vec.size())
+		return;
+
+	std::vector<size_t> loop;
+	UPSAddrParams *params;
+	size_t s = this->pre_generated_vec.size();
+	size_t e = this->total_weight - s;
+	this->pre_generated_vec.resize(s);
+
+	for (size_t i = s; i < e; i++)
+	{
+		for (size_t j = 0; j < this->servers.size(); j++)
+		{
+			const EndpointAddress *server = this->servers[j];
+			params = static_cast<UPSAddrParams *>(server->params);
+			this->current_weight_vec[j] += params->weight;
+		}
+		std::vector<size_t>::iterator biggest = std::max_element(this->current_weight_vec.begin(),
+																 this->current_weight_vec.end());
+		this->pre_generated_vec[i] = std::distance(this->current_weight_vec.begin(), biggest);
+		this->current_weight_vec[loop[i]] -= this->total_weight;
+	}
+}
+
+void UPSVNSWRRPolicy::init()
+{
+	if (this->total_weight <= 0)
+		return;
+
+	this->pre_generated_vec.clear();
+	this->cur_idx = rand() % this->total_weight;
+	std::vector<size_t> t(this->servers.size(), 0);
+	this->current_weight_vec.swap(t);
+	this->init_virtual_nodes();
+}
+
+void UPSVNSWRRPolicy::add_server_locked(EndpointAddress *addr)
+{
+	UPSWeightedRandomPolicy::add_server_locked(addr);
+	init();
+	return;
+}
+
+int UPSVNSWRRPolicy::remove_server_locked(const std::string& address)
+{
+	int ret = UPSWeightedRandomPolicy::remove_server_locked(address);
+	init();
+	return ret;
+}
+
 const EndpointAddress *UPSConsistentHashPolicy::first_strategy(const ParsedURI& uri,
 															   WFNSTracing *tracing)
 {
@@ -598,7 +677,7 @@ const EndpointAddress *UPSManualPolicy::first_strategy(const ParsedURI& uri,
 {
 	unsigned int idx = this->manual_select(uri.path ? uri.path : "",
 										   uri.query ? uri.query : "",
-										   uri.fragment ? uri.fragment : ""); 
+										   uri.fragment ? uri.fragment : "");
 
 	if (idx >= this->servers.size())
 		idx %= this->servers.size();
@@ -621,4 +700,3 @@ const EndpointAddress *UPSManualPolicy::another_strategy(const ParsedURI& uri,
 																   uri.fragment ? uri.fragment : "");
 	return this->consistent_hash_with_group(hash_value);
 }
-

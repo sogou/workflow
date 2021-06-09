@@ -83,7 +83,7 @@ $ make
 * Asynchronous File IO tasks
   * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
 * User-defined protocol
-  * [A simple user-defined portocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
+  * [A simple user-defined protocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
 * Timing tasks and counting tasks
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
@@ -141,7 +141,9 @@ Memory reclamation mechanism
   * When a series is a branch of a parallel, it will be recycled after the callback of the parallel that it belongs to.
 * This project doesn’t use `std::shared_ptr` to manage memory.
 
-#### More design documents
+#### Any other questions?
 
-To be continued...
+You may check the [FAQ](https://github.com/sogou/workflow/issues/406) and [issues](https://github.com/sogou/workflow/issues) list first to see if you can find the answer.
+
+You are very welcome to send the problems you encounter in use to [issues](https://github.com/sogou/workflow/issues), and we will answer them as soon as possible. At the same time, more issues will also help new users.
 

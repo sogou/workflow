@@ -34,19 +34,19 @@ struct __dns_record_entry
 };
 
 
-static uint8_t __dns_parser_uint8(const char *ptr)
+static inline uint8_t __dns_parser_uint8(const char *ptr)
 {
 	return (unsigned char)ptr[0];
 }
 
-static uint16_t __dns_parser_uint16(const char *ptr)
+static inline uint16_t __dns_parser_uint16(const char *ptr)
 {
 	const unsigned char *p = (const unsigned char *)ptr;
 	return ((uint16_t)p[0] << 8) +
 		   ((uint16_t)p[1]);
 }
 
-static uint32_t __dns_parser_uint32(const char *ptr)
+static inline uint32_t __dns_parser_uint32(const char *ptr)
 {
 	const unsigned char *p = (const unsigned char *)ptr;
 	return ((uint32_t)p[0] << 24) +
@@ -1017,3 +1017,4 @@ const char *dns_rcode2str(int rcode)
 		return "Unknown";
 	}
 }
+

@@ -27,11 +27,12 @@
 #include <mutex>
 #include <utility>
 #include "LRUCache.h"
+#include "DnsUtil.h"
 
 #define GET_TYPE_TTL		0
 #define GET_TYPE_CONFIDENT	1
 
-struct DNSCacheValue
+struct DnsCacheValue
 {
 	struct addrinfo *addrinfo;
 	int64_t confident_time;
@@ -41,20 +42,20 @@ struct DNSCacheValue
 // RAII: NO. Release handle by user
 // Thread safety: YES
 // MUST call release when handle no longer used
-class DNSCache
+class DnsCache
 {
 public:
 	using HostPort = std::pair<std::string, unsigned short>;
-	using DNSHandle = LRUHandle<HostPort, DNSCacheValue>;
+	using DnsHandle = LRUHandle<HostPort, DnsCacheValue>;
 
 public:
 	// release handle by get/put
-	void release(DNSHandle *handle)
+	void release(DnsHandle *handle)
 	{
 		cache_pool_.release(handle);
 	}
 
-	void release(const DNSHandle *handle)
+	void release(const DnsHandle *handle)
 	{
 		cache_pool_.release(handle);
 	}
@@ -62,57 +63,57 @@ public:
 	// get handler
 	// Need call release when handle no longer needed
 	//Handle *get(const KEY &key);
-	const DNSHandle *get(const HostPort& host_port)
+	const DnsHandle *get(const HostPort& host_port)
 	{
 		return cache_pool_.get(host_port);
 	}
 
-	const DNSHandle *get(const std::string& host, unsigned short port)
+	const DnsHandle *get(const std::string& host, unsigned short port)
 	{
 		return get(HostPort(host, port));
 	}
 
-	const DNSHandle *get(const char *host, unsigned short port)
+	const DnsHandle *get(const char *host, unsigned short port)
 	{
 		return get(std::string(host), port);
 	}
 
-	const DNSHandle *get_ttl(const HostPort& host_port)
+	const DnsHandle *get_ttl(const HostPort& host_port)
 	{
 		return get_inner(host_port, GET_TYPE_TTL);
 	}
 
-	const DNSHandle *get_ttl(const std::string& host, unsigned short port)
+	const DnsHandle *get_ttl(const std::string& host, unsigned short port)
 	{
 		return get_ttl(HostPort(host, port));
 	}
 
-	const DNSHandle *get_ttl(const char *host, unsigned short port)
+	const DnsHandle *get_ttl(const char *host, unsigned short port)
 	{
 		return get_ttl(std::string(host), port);
 	}
 
-	const DNSHandle *get_confident(const HostPort& host_port)
+	const DnsHandle *get_confident(const HostPort& host_port)
 	{
 		return get_inner(host_port, GET_TYPE_CONFIDENT);
 	}
 
-	const DNSHandle *get_confident(const std::string& host, unsigned short port)
+	const DnsHandle *get_confident(const std::string& host, unsigned short port)
 	{
 		return get_confident(HostPort(host, port));
 	}
 
-	const DNSHandle *get_confident(const char *host, unsigned short port)
+	const DnsHandle *get_confident(const char *host, unsigned short port)
 	{
 		return get_confident(std::string(host), port);
 	}
 
-	const DNSHandle *put(const HostPort& host_port,
+	const DnsHandle *put(const HostPort& host_port,
 						 struct addrinfo *addrinfo,
 						 unsigned int dns_ttl_default,
 						 unsigned int dns_ttl_min);
 
-	const DNSHandle *put(const std::string& host,
+	const DnsHandle *put(const std::string& host,
 						 unsigned short port,
 						 struct addrinfo *addrinfo,
 						 unsigned int dns_ttl_default,
@@ -121,7 +122,7 @@ public:
 		return put(HostPort(host, port), addrinfo, dns_ttl_default, dns_ttl_min);
 	}
 
-	const DNSHandle *put(const char *host,
+	const DnsHandle *put(const char *host,
 						 unsigned short port,
 						 struct addrinfo *addrinfo,
 						 unsigned int dns_ttl_default,
@@ -147,20 +148,25 @@ public:
 	}
 
 private:
-	const DNSHandle *get_inner(const HostPort& host_port, int type);
+	const DnsHandle *get_inner(const HostPort& host_port, int type);
 
 	std::mutex mutex_;
 
 	class ValueDeleter
 	{
 	public:
-		void operator() (const DNSCacheValue& value) const
+		void operator() (const DnsCacheValue& value) const
 		{
-			freeaddrinfo(value.addrinfo);
+			struct addrinfo *ai = value.addrinfo;
+
+			if (ai && (ai->ai_flags | AI_PASSIVE))
+				freeaddrinfo(ai);
+			else
+				DnsUtil::freeaddrinfo(ai);
 		}
 	};
 
-	LRUCache<HostPort, DNSCacheValue, ValueDeleter> cache_pool_;
+	LRUCache<HostPort, DnsCacheValue, ValueDeleter> cache_pool_;
 };
 
 #endif

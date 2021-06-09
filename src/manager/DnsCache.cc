@@ -18,16 +18,16 @@
 
 #include <stdint.h>
 #include <chrono>
-#include "DNSCache.h"
+#include "DnsCache.h"
 
 #define GET_CURRENT_SECOND	std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
 #define CONFIDENT_INC		10
 #define	TTL_INC				10
 
-const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int type)
+const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port, int type)
 {
-	const DNSHandle *handle = cache_pool_.get(host_port);
+	const DnsHandle *handle = cache_pool_.get(host_port);
 
 	if (handle)
 	{
@@ -42,7 +42,7 @@ const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int ty
 
 				if (cur_time > handle->value.expire_time)
 				{
-					const_cast<DNSHandle *>(handle)->value.expire_time += TTL_INC;
+					const_cast<DnsHandle *>(handle)->value.expire_time += TTL_INC;
 					cache_pool_.release(handle);
 					return NULL;
 				}
@@ -57,7 +57,7 @@ const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int ty
 
 				if (cur_time > handle->value.confident_time)
 				{
-					const_cast<DNSHandle *>(handle)->value.confident_time += CONFIDENT_INC;
+					const_cast<DnsHandle *>(handle)->value.confident_time += CONFIDENT_INC;
 					cache_pool_.release(handle);
 					return NULL;
 				}
@@ -73,7 +73,7 @@ const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int ty
 	return handle;
 }
 
-const DNSCache::DNSHandle *DNSCache::put(const HostPort& host_port,
+const DnsCache::DnsHandle *DnsCache::put(const HostPort& host_port,
 										 struct addrinfo *addrinfo,
 										 unsigned int dns_ttl_default,
 										 unsigned int dns_ttl_min)

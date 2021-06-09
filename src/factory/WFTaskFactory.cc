@@ -293,20 +293,6 @@ void WFTaskFactory::count_by_name(const std::string& counter_name, unsigned int 
 	__CounterMap::get_instance()->count_n(counter_name, n);
 }
 
-WFDNSTask *WFTaskFactory::create_dns_task(const std::string& host,
-										  unsigned short port,
-										  dns_callback_t callback)
-{
-	auto *task = WFThreadTaskFactory<DNSInput, DNSOutput>::
-						create_thread_task(WFGlobal::get_dns_queue(),
-										   WFGlobal::get_dns_executor(),
-										   DNSRoutine::run,
-										   std::move(callback));
-
-	task->get_input()->reset(host, port);
-	return task;
-}
-
 /********FileIOTask*************/
 
 class WFFilepreadTask : public WFFileIOTask

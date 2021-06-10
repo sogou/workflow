@@ -67,7 +67,6 @@ set(INCLUDE_HEADERS
 	src/server/WFMySQLServer.h
 	src/client/WFMySQLConnection.h
 	src/client/WFWebSocketClient.h
-	src/manager/DNSCache.h
 	src/client/WFDnsClient.h
 	src/manager/DnsCache.h
 	src/manager/WFGlobal.h

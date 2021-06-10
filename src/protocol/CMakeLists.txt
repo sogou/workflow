@@ -8,12 +8,9 @@ set(SRC
 	mysql_stream.c
 	mysql_parser.c
 	mysql_byteorder.c
-<<<<<<< HEAD
 	websocket_parser.c
-=======
 	DnsMessage.cc
 	DnsUtil.cc
->>>>>>> 0465a939fa66b870e2fdddba73510f5d298385b4
 	MySQLMessage.cc
 	MySQLResult.cc
 	HttpMessage.cc

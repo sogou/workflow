@@ -25,11 +25,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
-#include "DNSRoutine.h"
+#include "DnsRoutine.h"
 
 #define PORT_STR_MAX	5
 
-DNSOutput::DNSOutput(DNSOutput&& move)
+DnsOutput::DnsOutput(DnsOutput&& move)
 {
 	error_ = move.error_;
 	addrinfo_ = move.addrinfo_;
@@ -38,7 +38,7 @@ DNSOutput::DNSOutput(DNSOutput&& move)
 	move.addrinfo_ = NULL;
 }
 
-DNSOutput& DNSOutput::operator= (DNSOutput&& move)
+DnsOutput& DnsOutput::operator= (DnsOutput&& move)
 {
 	if (this != &move)
 	{
@@ -55,7 +55,7 @@ DNSOutput& DNSOutput::operator= (DNSOutput&& move)
 	return *this;
 }
 
-void DNSRoutine::run_local_path(const std::string& path, DNSOutput *out)
+void DnsRoutine::run_local_path(const std::string& path, DnsOutput *out)
 {
 	struct sockaddr_un *sun = NULL;
 
@@ -85,7 +85,7 @@ void DNSRoutine::run_local_path(const std::string& path, DNSOutput *out)
 	out->error_ = EAI_SYSTEM;
 }
 
-void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
+void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 {
 	if (!in->host_.empty() && in->host_[0] == '/')
 	{

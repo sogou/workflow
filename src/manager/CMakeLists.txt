@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 project(manager)
 
 set(SRC
-	DNSCache.cc
+	DnsCache.cc
 	UpstreamManager.cc
 	RouteManager.cc
 	WFCondition.cc

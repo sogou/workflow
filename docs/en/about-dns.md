@@ -11,6 +11,7 @@ TTL (Time To Live) refers to the amount of time a DNS record is considered up-to
 
 ### DNS methods in the framework
 
+#### Sync request method
 Currently the framework directly calls the system function **getaddrinfo** to resolve domain names. Some details:
 
 1. When the DNS Cache of the framework is hit and its TTL is valid, DNS resolution will not happen.
@@ -18,7 +19,8 @@ Currently the framework directly calls the system function **getaddrinfo** to re
 3. DNS resolution is a special computing task, which is encapsulated as a WFThreadTask.
 4. DNS resolution uses a completely independent and isolated thread pool, that is, it does not occupy the computing thread pool or the communication thread pool.
 
-We are considering to send UDP requests to the DNS Server to obtain the results in the near future.
+#### Async request method
+The framework implements a complete DNS protocol resolution. The current version requires the user to manually specify `resolv_conf_path` to enable this method. On common Linux distributions, `resolv_conf_path` is generally `/etc/resolv.conf`, and `hosts_path` is generally `/etc/hosts`. Leave the above parameters blank, and the synchronous request method will be used.
 
 ### Global DNS configuration
 
@@ -34,6 +36,8 @@ struct WFGlobalSettings
     int poller_threads;
     int handler_threads;
     int compute_threads;
+    const char *resolv_conf_path;
+    const char *hosts_path;
 };
 
 static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
@@ -44,7 +48,9 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
     .dns_threads        =    4,
     .poller_threads     =    4,
     .handler_threads    =    20,
-    .compute_threads    =    -1
+    .compute_threads    =    -1,
+    .resolv_conf_path   =    NULL,
+    .hosts_path         =    NULL,
 };
 ~~~
 
@@ -53,6 +59,8 @@ where the DNS-related configuration items include:
 * dns\_threads: the number of threads in the DNS thread pool, 4 by default.
 * dns\_ttl\_default: default TTL in DNS Cache in seconds, 12 hours by default; DNS cache is used by the current process, and will be destroyed when the process exists. The configuration is valid only for the current process.
 * dns\_ttl\_min: minimum DNS ttl value, in seconds, 3 minutes by default, which is used to decide whether to retry DNS resolution after communication failure.
+* resolv_conf_path: path of the resolv.conf configuration file, we will use multi-threaded DNS resolution when it is empty.
+* hosts_path: path of the hosts configuration file.
 
 To put it simply, in every communication, the system will check TTL to decide whether to refresh DNS resolution.   
 dns\_ttl\_default is checked by default, and dns\_ttl\_min is checked in the retry after communication failure. 

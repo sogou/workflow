@@ -100,8 +100,11 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	if (this->get_req()->get_config()->get_sasl_mechanisms() && seqid <= 2)
+	const char *sasl_mechanisms = this->get_req()->get_config()->get_sasl_mechanisms();
+	if (sasl_mechanisms && seqid <= 4)
 	{
+		bool is_scram = strncasecmp(sasl_mechanisms, "SCRAM", 5) == 0;
+
 		WFConnection *conn = this->get_connection();
 		__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)conn->get_context();
 		if (!conn_info)
@@ -123,7 +126,18 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 		else if (conn_info->sasl_stage == 0)
 		{
-			conn_info->sasl_stage = 1;
+			conn_info->sasl_stage++;
+
+			KafkaRequest *req  = new KafkaRequest;
+
+			req->duplicate(*this->get_req());
+			req->set_api(Kafka_SaslAuthenticate);
+			is_user_request_ = false;
+			return req;
+		}
+		else if (is_scram && conn_info->sasl_stage < 3)
+		{
+			conn_info->sasl_stage++;
 
 			KafkaRequest *req  = new KafkaRequest;
 

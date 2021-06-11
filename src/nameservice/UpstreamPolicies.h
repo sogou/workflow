@@ -25,7 +25,7 @@
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFDNSResolver.h"
+#include "WFDnsResolver.h"
 #include "WFGlobal.h"
 #include "WFTaskError.h"
 #include "WFServiceGovernance.h"

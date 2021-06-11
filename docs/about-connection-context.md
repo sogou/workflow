@@ -29,7 +29,7 @@ template<class REQ, class, RESP>
 class WFNetworkTask : public CommRequest
 {
 public:
-    virtual WFConnection *get_connection() const;
+    virtual WFConnection *get_connection() const = 0;
     ...
 };
 ~~~

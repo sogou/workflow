@@ -42,22 +42,6 @@ int WFNetworkTask<REQ, RESP>::get_peer_addr(struct sockaddr *addr,
 }
 
 template<class REQ, class RESP>
-WFConnection *WFNetworkTask<REQ, RESP>::get_connection() const
-{
-	CommConnection *conn;
-
-	if (this->target)
-	{
-		conn = this->CommSession::get_connection();
-		if (conn)
-			return static_cast<WFConnection *>(conn);
-	}
-
-	errno = ENOTCONN;
-	return NULL;
-}
-
-template<class REQ, class RESP>
 class WFClientTask : public WFNetworkTask<REQ, RESP>
 {
 protected:
@@ -72,6 +56,22 @@ protected:
 	}
 
 	virtual CommMessageIn *message_in() { return &this->resp; }
+
+protected:
+	virtual WFConnection *get_connection() const
+	{
+		CommConnection *conn;
+
+		if (this->target)
+		{
+			conn = this->CommSession::get_connection();
+			if (conn)
+				return (WFConnection *)conn;
+		}
+
+		errno = ENOTCONN;
+		return NULL;
+	}
 
 public:
 	void set_prepare(std::function<void (WFNetworkTask<REQ, RESP> *)> prep)
@@ -106,7 +106,7 @@ protected:
 	{
 		if (this->state == WFT_STATE_TOREPLY)
 		{
-			/* After reply success, get_connection() is enabled again. */
+			/* Enable get_connection() again if the reply() call is success. */
 			this->processor.task = this;
 			if (this->scheduler->reply(this) >= 0)
 				return;
@@ -119,13 +119,14 @@ protected:
 		this->subtask_done();
 	}
 
-	/* CommSession's get_connection() is supposed to be called only in its
-	 * virtual functions. As a server task, call of this method after process()
-	 * and before callback() is very dangerous and should be blocked. */
+	/* CommSession::get_connection() is supposed to be called only in the
+	 * implementations of it's virtual functions. As a server task, to call
+	 * this function after process() and before callback() is very dangerous
+	 * and should be blocked. */
 	virtual WFConnection *get_connection() const
 	{
 		if (this->processor.task)
-			return this->WFNetworkTask<REQ, RESP>::get_connection();
+			return (WFConnection *)this->CommSession::get_connection();
 
 		errno = EPERM;
 		return NULL;

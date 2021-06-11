@@ -260,7 +260,7 @@ public:
 
 	int get_peer_addr(struct sockaddr *addr, socklen_t *addrlen) const;
 
-	virtual WFConnection *get_connection() const;
+	virtual WFConnection *get_connection() const = 0;
 
 public:
 	/* All in milliseconds. timeout == -1 for unlimited. */

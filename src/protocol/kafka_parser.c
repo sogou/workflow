@@ -398,6 +398,7 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->api = NULL;
 	broker->api_elements = 0;
 	broker->error = 0;
+	broker->status = KAFKA_BROKER_UNINIT;
 }
 
 void kafka_broker_deinit(kafka_broker_t *broker)

@@ -22,6 +22,9 @@
 #include <arpa/inet.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
 #include "list.h"
 
 enum
@@ -212,15 +215,33 @@ typedef struct __kafka_parser
 	size_t hsize;
 } kafka_parser_t;
 
+typedef struct __kafka_scram
+{
+    const EVP_MD *evp;
+    unsigned char *(*scram_h)(const unsigned char *d, size_t n,
+                              unsigned char *md);
+    size_t scram_h_size;
+    enum
+    {
+        KAFKA_SASL_SCRAM_STATE_CLIENT_FIRST_MESSAGE,
+        KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE,
+        KAFKA_SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE,
+    } state;
+    struct iovec cnonce;
+    struct iovec first_msg;
+    struct iovec server_signature_b64;
+} kafka_scram_t;
+
 typedef struct __kafka_sasl
 {
 	char *mechanisms;
 	char *username;
-	char *passwd;
+	char *password;
+    kafka_scram_t *scram;
 	char *buf;
 	size_t bsize;
 	int (*client_new)(void *);
-	int (*recv)(const char *buf, size_t len);
+	int (*recv)(const char *buf, size_t len, void *conf);
 } kafka_sasl_t;
 
 typedef struct __kafka_config
@@ -414,6 +435,9 @@ void kafka_record_deinit(kafka_record_t *record);
 
 void kafka_record_header_init(kafka_record_header_t *header);
 void kafka_record_header_deinit(kafka_record_header_t *header);
+
+void kafka_scram_init(kafka_scram_t *scram);
+void kafka_scram_deinit(kafka_scram_t *scram);
 
 int kafka_topic_partition_set_tp(const char *topic_name, int partition,
 								 kafka_topic_partition_t *toppar);

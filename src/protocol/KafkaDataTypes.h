@@ -477,11 +477,11 @@ public:
 
 	const char *get_sasl_password() const
 	{
-		return this->ptr->sasl.passwd;
+		return this->ptr->sasl.password;
 	}
-	bool set_sasl_password(const char *passwd)
+	bool set_sasl_password(const char *password)
 	{
-		return kafka_sasl_set_password(passwd, this->ptr) == 0;
+		return kafka_sasl_set_password(password, this->ptr) == 0;
 	}
 
 	std::string get_sasl_info() const
@@ -491,7 +491,7 @@ public:
 		{
 			info = this->ptr->sasl.username;
 			info += "|";
-			info += this->ptr->sasl.passwd;
+			info += this->ptr->sasl.password;
 		}
 
 		return info;

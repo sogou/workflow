@@ -3757,7 +3757,8 @@ int KafkaResponse::parse_saslanthenticate(void **buf, size_t *size)
 
 	std::string auth_bytes;
 	CHECK_RET(parse_bytes(buf, size, auth_bytes));
-	if (this->config.get_sasl()->recv(auth_bytes.c_str(), auth_bytes.size()) != 0)
+	if (this->config.get_sasl()->recv(auth_bytes.c_str(), auth_bytes.size(),
+		this->config.get_raw_ptr()) != 0)
 	{
 		errno = EBADMSG;
 		return -1;

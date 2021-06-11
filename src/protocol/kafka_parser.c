@@ -16,6 +16,7 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
+#include <openssl/sha.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
@@ -344,11 +345,12 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->offset_store = KAFKA_OFFSET_AUTO;
 	conf->sasl.mechanisms = NULL;
 	conf->sasl.username = NULL;
-	conf->sasl.passwd = NULL;
+	conf->sasl.password = NULL;
 	conf->sasl.recv = NULL;
 	conf->sasl.buf = NULL;
 	conf->sasl.bsize = 0;
 	conf->sasl.client_new = NULL;
+	conf->sasl.scram = NULL;
 }
 
 void kafka_config_deinit(kafka_config_t *conf)
@@ -357,8 +359,12 @@ void kafka_config_deinit(kafka_config_t *conf)
 	free(conf->client_id);
 	free(conf->sasl.mechanisms);
 	free(conf->sasl.username);
-	free(conf->sasl.passwd);
+	free(conf->sasl.password);
 	free(conf->sasl.buf);
+
+	if (conf->sasl.scram)
+		kafka_scram_deinit(conf->sasl.scram);
+	free(conf->sasl.scram);
 }
 
 void kafka_partition_init(kafka_partition_t *partition)
@@ -710,16 +716,16 @@ int kafka_cgroup_set_group(const char *group, kafka_cgroup_t *cgroup)
 	return 0;
 }
 
-int kafka_sasl_plain_recv(const char *buf, size_t len)
+static int kafka_sasl_plain_recv(const char *buf, size_t len, void *conf)
 {
 	return 0;
 }
 
-int kafka_sasl_plain_client_new(void *p)
+static int kafka_sasl_plain_client_new(void *p)
 {
 	kafka_config_t *conf = (kafka_config_t *)p;
 	size_t ulen = strlen(conf->sasl.username);
-	size_t plen = strlen(conf->sasl.passwd);
+	size_t plen = strlen(conf->sasl.password);
 	size_t blen = ulen + plen + 2;
 	size_t off = 0;
 	char *buf = (char *)malloc(blen);
@@ -733,12 +739,427 @@ int kafka_sasl_plain_client_new(void *p)
 	off += ulen;
 	buf[off++] = '\0';
 
-	memcpy(buf + off, conf->sasl.passwd, plen);
+	memcpy(buf + off, conf->sasl.password, plen);
 
 	free(conf->sasl.buf);
 	conf->sasl.buf = buf;
 	conf->sasl.bsize = blen;
 
+	return 0;
+}
+
+static int scram_get_attr(const struct iovec *inbuf, char attr,
+						  struct iovec *outbuf)
+{
+	const char *td;
+	size_t len;
+	size_t of = 0;
+	void *ptr;
+	char ochar, nchar;
+	for (of = 0; of < inbuf->iov_len;)
+	{
+		ptr = (char *)inbuf->iov_base + of;
+		td = memchr(ptr, ',', inbuf->iov_len - of);
+		if (td)
+			len = (size_t)((char *)td - (char *)inbuf->iov_base - of);
+		else
+			len = inbuf->iov_len - of;
+
+		ochar = *((char *)inbuf->iov_base + of);
+		nchar = *((char *)inbuf->iov_base + of + 1);
+		if (ochar == attr && inbuf->iov_len > of + 1 && nchar == '=')
+		{
+			outbuf->iov_base = (char *)ptr + 2;
+			outbuf->iov_len = len - 2;
+			return 0;
+		}
+
+		of += len + 1;
+	}
+
+	return -1;
+}
+
+static char *scram_base64_encode(const struct iovec *in)
+{
+	char *ret;
+	size_t ret_len, max_len;
+
+	if (in->iov_len > INT_MAX)
+		return NULL;
+
+	max_len = (((in->iov_len + 2) / 3) * 4) + 1;
+	ret = malloc(max_len);
+	if (!ret)
+		return NULL;
+
+	ret_len = EVP_EncodeBlock((uint8_t *)ret, (uint8_t *)in->iov_base,
+							  (int)in->iov_len);
+	if (ret_len < max_len)
+	{
+		free(ret);
+		return NULL;
+	}
+	ret[ret_len] = 0;
+
+	return ret;
+}
+
+static int scram_base64_decode(const struct iovec *in, struct iovec *out)
+{
+	size_t ret_len;
+
+	if (in->iov_len % 4 != 0 || in->iov_len > INT_MAX)
+		return -1;
+
+	ret_len = ((in->iov_len / 4) * 3);
+	out->iov_base = malloc(ret_len + 1);
+	if (!out->iov_base)
+		return -1;
+
+	if (EVP_DecodeBlock((uint8_t*)out->iov_base, (uint8_t*)in->iov_base,
+						(int)in->iov_len) == -1)
+	{
+		free(out->iov_base);
+		out->iov_base = NULL;
+		return -1;
+	}
+
+	if (in->iov_len > 1 && ((char *)(in->iov_base))[in->iov_len - 1] == '=')
+	{
+		if (in->iov_len > 2 && ((char *)(in->iov_base))[in->iov_len - 2] == '=')
+			ret_len -= 2;
+		else
+			ret_len -= 1;
+	}
+
+	((char *)(out->iov_base))[ret_len] = '\0';
+	out->iov_len = ret_len;
+
+	return 0;
+}
+
+static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
+					const struct iovec *salt, struct iovec *out)
+{
+	unsigned int  ressize = 0;
+	unsigned char tempres[EVP_MAX_MD_SIZE];
+	unsigned char tempdest[EVP_MAX_MD_SIZE];
+	unsigned char *saltplus;
+	int i, j;
+	saltplus = alloca(salt->iov_len + 4);
+	if (!saltplus)
+		return -1;
+
+	memcpy(saltplus, salt->iov_base, salt->iov_len);
+	saltplus[salt->iov_len]	  = '\0';
+	saltplus[salt->iov_len + 1] = '\0';
+	saltplus[salt->iov_len + 2] = '\0';
+	saltplus[salt->iov_len + 3] = '\1';
+
+	if (!HMAC(evp, (const unsigned char *)in->iov_base, (int)in->iov_len,
+			  saltplus, salt->iov_len + 4, tempres, &ressize))
+	{
+		return -1;
+	}
+
+	memcpy(out->iov_base, tempres, ressize);
+
+	for (i = 1; i < itcnt; i++)
+	{
+		if (!HMAC(evp, (const unsigned char *)in->iov_base, (int)in->iov_len,
+				  tempres, ressize, tempdest, NULL))
+		{
+			return -1;
+		}
+
+		for (j = 0; j < (int)ressize; j++)
+		{
+			((char *)(out->iov_base))[j] ^= tempdest[j];
+			tempres[j] = tempdest[j];
+		}
+	}
+
+	out->iov_len = ressize;
+	return 0;
+}
+
+static int scram_hmac(const EVP_MD *evp, const struct iovec *key,
+					  const struct iovec *str, struct iovec *out)
+{
+	unsigned int outsize;
+
+	if (!HMAC(evp, (const unsigned char *)key->iov_base, (int)key->iov_len,
+			  (const unsigned char *)str->iov_base, (int)str->iov_len,
+			  (unsigned char *)out->iov_base, &outsize))
+	{
+		return -1;
+	}
+
+	out->iov_len = outsize;
+
+	return 0;
+}
+
+static void scram_h(kafka_scram_t *scram, const struct iovec *str,
+		struct iovec *out)
+{
+	scram->scram_h((const unsigned char *)str->iov_base, str->iov_len,
+				  (unsigned char *)out->iov_base);
+	out->iov_len = scram->scram_h_size;
+}
+
+static void scram_build_client_final_message_wo_proof(
+		kafka_scram_t *scram, const struct iovec *snonce, struct iovec *out)
+{
+	const char *attr_c = "biws";
+
+	out->iov_len = 9 + scram->cnonce.iov_len + snonce->iov_len;
+	out->iov_base = malloc(out->iov_len + 1);
+	if (out->iov_base)
+	{
+		snprintf((char *)out->iov_base, out->iov_len + 1, "c=%s,r=%.*s%.*s",
+				 attr_c, (int)scram->cnonce.iov_len,
+				 (char *)scram->cnonce.iov_base, (int)snonce->iov_len,
+				 (char *)snonce->iov_base);
+	}
+}
+
+static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
+											const struct iovec *salt,
+											const struct iovec *server_first_msg,
+											const struct iovec *server_nonce,
+											struct iovec *out,
+											const kafka_config_t *conf)
+{
+	char salted_pwd[EVP_MAX_MD_SIZE];
+	char client_key[EVP_MAX_MD_SIZE];
+	char server_key[EVP_MAX_MD_SIZE];
+	char stored_key[EVP_MAX_MD_SIZE];
+	char client_sign[EVP_MAX_MD_SIZE];
+	char server_sign[EVP_MAX_MD_SIZE];
+	char client_proof[EVP_MAX_MD_SIZE];
+	struct iovec password_iov = {conf->sasl.password, strlen(conf->sasl.password)};
+	struct iovec salted_pwd_iov = {salted_pwd, EVP_MAX_MD_SIZE};
+	struct iovec client_key_verbatim_iov = {"Client Key", 10};
+	struct iovec server_key_verbatim_iov = {"Server Key", 10};
+	struct iovec client_key_iov = {client_key, EVP_MAX_MD_SIZE};
+	struct iovec server_key_iov = {server_key, EVP_MAX_MD_SIZE};
+	struct iovec stored_key_iov = {stored_key, EVP_MAX_MD_SIZE};
+	struct iovec server_sign_iov = {server_sign, EVP_MAX_MD_SIZE};
+	struct iovec client_sign_iov = {client_sign, EVP_MAX_MD_SIZE};
+	struct iovec client_proof_iov = {client_proof, EVP_MAX_MD_SIZE};
+	struct iovec client_final_msg_wo_proof_iov;
+	struct iovec auth_message_iov;
+	char *server_sign_b64, *client_proof_b64 = NULL;
+	int i;
+
+	if (scram_hi(scram->evp, itcnt, &password_iov, salt, &salted_pwd_iov) == -1)
+		return -1;
+
+	if (scram_hmac(scram->evp, &salted_pwd_iov, &client_key_verbatim_iov,
+				   &client_key_iov) == -1)
+		return -1;
+
+	scram_h(scram, &client_key_iov, &stored_key_iov);
+
+	scram_build_client_final_message_wo_proof(scram, server_nonce,
+											  &client_final_msg_wo_proof_iov);
+
+	auth_message_iov.iov_len = scram->first_msg.iov_len + 1 +
+		server_first_msg->iov_len + 1 + client_final_msg_wo_proof_iov.iov_len;
+	auth_message_iov.iov_base = alloca(auth_message_iov.iov_len + 1);
+	if (auth_message_iov.iov_base)
+	{
+		snprintf(auth_message_iov.iov_base, auth_message_iov.iov_len + 1,
+				 "%.*s,%.*s,%.*s",
+				 (int)scram->first_msg.iov_len,
+				 (char *)scram->first_msg.iov_base,
+				 (int)server_first_msg->iov_len,
+				 (char *)server_first_msg->iov_base,
+				 (int)client_final_msg_wo_proof_iov.iov_len,
+				 (char *)client_final_msg_wo_proof_iov.iov_base);
+
+		if (scram_hmac(scram->evp, &salted_pwd_iov, &server_key_verbatim_iov,
+					   &server_key_iov) == 0 &&
+			scram_hmac(scram->evp, &server_key_iov, &auth_message_iov,
+					   &server_sign_iov) == 0)
+		{
+			server_sign_b64 = scram_base64_encode(&server_sign_iov);
+			if (server_sign_b64 &&
+				scram_hmac(scram->evp, &stored_key_iov, &auth_message_iov,
+						   &client_sign_iov) ==0 &&
+				client_key_iov.iov_len == client_sign_iov.iov_len)
+			{
+				scram->server_signature_b64.iov_base = server_sign_b64;
+				scram->server_signature_b64.iov_len = strlen(server_sign_b64);
+				for (i = 0 ; i < (int)client_key_iov.iov_len; i++)
+					((char *)(client_proof_iov.iov_base))[i] =
+						((char *)(client_key_iov.iov_base))[i] ^
+						((char *)(client_sign_iov.iov_base))[i];
+				client_proof_iov.iov_len = client_key_iov.iov_len;
+
+				client_proof_b64 = scram_base64_encode(&client_proof_iov);
+				if (client_proof_b64)
+				{
+					out->iov_len = client_final_msg_wo_proof_iov.iov_len + 1 +
+						strlen(client_proof_b64);
+					out->iov_base = malloc(out->iov_len + 1);
+
+					snprintf((char *)out->iov_base, out->iov_len + 1, "%.*s,p=%s",
+							 (int)client_final_msg_wo_proof_iov.iov_len,
+							 (char *)client_final_msg_wo_proof_iov.iov_base,
+							 client_proof_b64);
+				}
+			}
+		}
+	}
+
+	free(client_proof_b64);
+	free(client_final_msg_wo_proof_iov.iov_base);
+	return 0;
+}
+
+static int scram_handle_server_first_message(const char *buf, size_t len,
+											 kafka_config_t *conf)
+{
+	int itcnt;
+	int ret = -1;
+	const char *endptr;
+	struct iovec out, salt, server_nonce;
+	const struct iovec in = {(void *)buf, len};
+
+	if (scram_get_attr(&in, 'm', &out) != 0)
+		return -1;
+
+	if (scram_get_attr(&in, 'r', &server_nonce) != 0)
+		return -1;
+
+	if (server_nonce.iov_len != conf->sasl.scram->cnonce.iov_len ||
+		memcmp(server_nonce.iov_base, conf->sasl.scram->cnonce.iov_base,
+			   server_nonce.iov_len) != 0)
+	{
+		return -1;
+	}
+
+	if (scram_get_attr(&in, 's', &out) != 0)
+		return -1;
+
+	if (scram_base64_decode(&out, &salt) != 0)
+		return -1;
+
+	if (scram_get_attr(&in, 'i', &out) == 0)
+	{
+		itcnt = (int)strtoul((const char *)out.iov_base, (char **)&endptr, 10);
+		if ((const char *)out.iov_base != endptr && *endptr == '\0' &&
+			itcnt <= 1000000)
+		{
+			ret = scram_build_client_final_message(conf->sasl.scram, itcnt, &salt, &in,
+												   &server_nonce, &out, conf);
+			if (ret == 0)
+			{
+				free(conf->sasl.buf);
+				conf->sasl.buf = out.iov_base;
+				conf->sasl.bsize = out.iov_len;
+			}
+		}
+	}
+
+	free(salt.iov_base);
+	return ret;
+}
+
+static int scram_handle_server_final_message(const char *buf, size_t len,
+											 kafka_config_t *conf)
+{
+	struct iovec attr_v, attr_e;
+	const struct iovec in = {(void *)buf, len};
+
+	if (scram_get_attr(&in, 'm', &attr_e) == 0)
+		return -1;
+
+	if (scram_get_attr(&in, 'v', &attr_v) == 0)
+	{
+		if (conf->sasl.scram->server_signature_b64.iov_len == attr_v.iov_len &&
+			strncmp((const char *)conf->sasl.scram->server_signature_b64.iov_base,
+					(const char *)attr_v.iov_base, attr_v.iov_len) != 0)
+		{
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int kafka_sasl_scram_recv(const char *buf, size_t len, void *p)
+{
+	kafka_config_t *conf = (kafka_config_t *)p;
+	int ret = -1;
+	switch(conf->sasl.scram->state)
+	{
+	case KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE:
+		ret = scram_handle_server_first_message(buf, len, conf);
+		conf->sasl.scram->state = KAFKA_SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE;
+		break;
+
+	case KAFKA_SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE:
+		ret = scram_handle_server_final_message(buf, len, conf);
+		break;
+
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static int jitter(int low, int high)
+{
+	return (low + (rand() % ((high - low) + 1)));
+}
+
+static int scram_generate_nonce(struct iovec *iov)
+{
+	int i;
+	char *ptr = (char *)malloc(33);
+	if (!ptr)
+		return -1;
+
+	for (i = 0; i < 32; i++)
+		ptr[i] = jitter(0x2d, 0x7e);
+	ptr[32] = '\0';
+
+	iov->iov_base = ptr;
+	iov->iov_len = 32;
+	return 0;
+}
+
+static int kafka_sasl_scram_client_new(void *p)
+{
+	kafka_config_t *conf = (kafka_config_t *)p;
+	size_t ulen = strlen(conf->sasl.username);
+	size_t tlen = 8; //strlen("n,,n=,r=");
+	size_t olen = ulen + tlen + 32;
+	void *ptr;
+
+	if (conf->sasl.scram->state != KAFKA_SASL_SCRAM_STATE_CLIENT_FIRST_MESSAGE)
+		return -1;
+
+	if (scram_generate_nonce(&conf->sasl.scram->cnonce) != 0)
+		return -1;
+
+	ptr = malloc(olen + 1);
+	if (!ptr)
+		return -1;
+
+	snprintf(ptr, olen, "n,,n=%s,r=%.*s", conf->sasl.username,
+			(int)conf->sasl.scram->cnonce.iov_len,
+			(char *)conf->sasl.scram->cnonce.iov_base);
+	conf->sasl.buf = ptr;
+	conf->sasl.bsize = olen;
+	conf->sasl.scram->first_msg.iov_base = (char *)ptr + 3;
+	conf->sasl.scram->first_msg.iov_len = olen - 3;
+	conf->sasl.scram->state = KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE;
 	return 0;
 }
 
@@ -751,8 +1172,58 @@ int kafka_sasl_set_mechanisms(kafka_config_t *conf)
 
 		return 0;
 	}
+	else if (strncasecmp(conf->sasl.mechanisms, "SCRAM", 5) == 0)
+	{
+		kafka_scram_t *scram = malloc(sizeof(kafka_scram_t));
+		if (!scram)
+			return -1;
+
+		kafka_scram_init(scram);
+		if (strcasecmp(conf->sasl.mechanisms, "SCRAM-SHA-1") == 0)
+		{
+			scram->evp = EVP_sha1();
+			scram->scram_h = SHA1;
+			scram->scram_h_size = SHA_DIGEST_LENGTH;
+		}
+		else if (strcasecmp(conf->sasl.mechanisms, "SCRAM-SHA-256") == 0)
+		{
+			scram->evp = EVP_sha256();
+			scram->scram_h = SHA256;
+			scram->scram_h_size = SHA256_DIGEST_LENGTH;
+		}
+		else if (strcasecmp(conf->sasl.mechanisms, "SCRAM-SHA-512") == 0)
+		{
+			scram->evp = EVP_sha512();
+			scram->scram_h = SHA512;
+			scram->scram_h_size = SHA512_DIGEST_LENGTH;
+		}
+		else
+			return -1;
+
+		conf->sasl.scram->state = KAFKA_SASL_SCRAM_STATE_CLIENT_FIRST_MESSAGE;
+		conf->sasl.recv = kafka_sasl_scram_recv;
+		conf->sasl.client_new = kafka_sasl_scram_client_new;
+
+		if (conf->sasl.scram)
+			kafka_scram_deinit(conf->sasl.scram);
+		conf->sasl.scram = scram;
+	}
 
 	return -1;
+}
+
+void kafka_scram_init(kafka_scram_t *scram)
+{
+	scram->cnonce.iov_base = NULL;
+	scram->cnonce.iov_len = 0;
+	scram->server_signature_b64.iov_base = NULL;
+	scram->server_signature_b64.iov_len = 0;
+}
+
+void kafka_scram_deinit(kafka_scram_t *scram)
+{
+	free(scram->cnonce.iov_base);
+	free(scram->server_signature_b64.iov_base);
 }
 
 int kafka_sasl_set_username(const char *username, kafka_config_t *conf)
@@ -767,14 +1238,14 @@ int kafka_sasl_set_username(const char *username, kafka_config_t *conf)
 	return 0;
 }
 
-int kafka_sasl_set_password(const char *passwd, kafka_config_t *conf)
+int kafka_sasl_set_password(const char *password, kafka_config_t *conf)
 {
-	char *t = strdup(passwd);
+	char *t = strdup(password);
 
 	if (!t)
 		return -1;
 
-	free(conf->sasl.passwd);
-	conf->sasl.passwd = t;
+	free(conf->sasl.password);
+	conf->sasl.password = t;
 	return 0;
 }

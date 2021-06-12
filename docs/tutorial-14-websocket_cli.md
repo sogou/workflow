@@ -150,7 +150,7 @@ void process(WFWebSocketTask *task)
 
 # 关闭client
 
-根据**WebSocket**协议，用户需要发起一个close包已告诉对方以示断开连接。
+根据**WebSocket**协议，用户需要发起一个**close**包已告诉对方以示断开连接。
 
 一个简单的例子：
 
@@ -199,21 +199,31 @@ struct WFWebSocketParams
 
 # 进阶版：注意事项！
 
+<img src="https://raw.githubusercontent.com/wiki/holmes1412/holmes1412/websocket_connect_close.png" width = "420" height = "340" alt="websocket_connect_close"/> <img src="https://raw.githubusercontent.com/wiki/holmes1412/holmes1412/websocket_read_write.png" width = "450" height = "380" alt="websocket_read_write"/>
+
 #### 1. 与Workflow原有用法的差异
 
 由于**WebSocket**协议是**Workflow**中首个实现的双工通信协议，因此有些差异是必须强调的：
 
-1. **WebSocket**协议的收发都是使用**poller**线程，因此websocket_cli用户需要把**poller**线程数改大点，参考：[about-config.md](/docs/about-config.md)
+1. **WebSocket**协议的收发都是使用**poller**线程，因此websocket_cli用户需要把**poller**线程数改大点，同理可以把handler线程数改小。参考：[about-config.md](/docs/about-config.md)
 2. **process**函数中所有的消息都是由同一个线程串行执行的；
 3. 回调函数**callback**的执行不一定在同一个线程；
 
-#### 2. 时序性保证
+#### 2. 连接的生命周期
+
+只有在第一个任务发出的时候，连接才会真正被建立。因此如果只希望监听server而没有写消息需求的用户依然需要手动发一个**PING**，让内部建立连接。可以通过client的``create_ping_task()``接口创建一个**PING** task，该回调函数里可以通过**state**判断连接是否可用，如果等于**WF_STATE_SUCCESS**,则表示``process()``里已经随时可以接收server来的消息了。
+
+前面提到，需要发起**CLOSE** task关闭连接，回到该回调函数时则表示连接已关闭。
+
+#### 3. 时序性保证
 
 [**发消息**]
 
-消息发送顺序取决于发送任务调起的时机是否顺序，因此用户可以把要发送的任务串到一个series里做串行的保证，也可以在上一个任务的callback里发起一下一个任务。
+消息发送顺序取决于发送任务调起的顺序。因此发消息保序有两种方式：
+- 可以把要发送的任务串到一个series里做串行的保证
+- 也可以在上一个任务的callback里发起下一个任务
 
-但如果没有顺序发送的保证，那么往外发的``WFWebSocketTask``也可以被放到任何一个任务流图里，随具体业务逻辑顺序调起。
+但如果没有保证顺序发送的需求，那么往外发的``WFWebSocketTask``也可以被放到任何一个任务流图里，随具体业务逻辑顺序调起。
 
 [**收消息**]
 

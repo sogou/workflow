@@ -48,6 +48,7 @@ class WebSocketClient
 public:
 	int init(const std::string& url);
 	WFWebSocketTask *create_websocket_task(websocket_callback_t cb);
+	WFWebSocketTask *create_ping_task(websocket_callback_t cb);
 	WFWebSocketTask *create_close_task(websocket_callback_t cb);
 
 private:
@@ -78,14 +79,29 @@ inline int WebSocketClient::init(const std::string& url)
 	return 0;
 }
 
+inline WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t cb)
+{
+	ComplexWebSocketOutTask *ping_task;
+	ping_task = new ComplexWebSocketOutTask(this->channel,
+											WFGlobal::get_scheduler(),
+											std::move(cb));
+
+	protocol::WebSocketFrame *msg = ping_task->get_msg();
+	msg->set_opcode(WebSocketFramePing);
+
+	return ping_task;
+}
+
 inline WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 {
 	ComplexWebSocketOutTask *close_task;
 	close_task = new ComplexWebSocketOutTask(this->channel,
 											 WFGlobal::get_scheduler(),
 											 std::move(cb));
+
 	protocol::WebSocketFrame *msg = close_task->get_msg();
 	msg->set_opcode(WebSocketFrameConnectionClose);
+
 	return close_task;
 }
 

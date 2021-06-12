@@ -199,19 +199,19 @@ struct WFWebSocketParams
 
 # 进阶版：注意事项！
 
-<img src="https://raw.githubusercontent.com/wiki/holmes1412/holmes1412/websocket_connect_close.png" width = "420" height = "340" alt="websocket_connect_close"/> <img src="https://raw.githubusercontent.com/wiki/holmes1412/holmes1412/websocket_read_write.png" width = "450" height = "380" alt="websocket_read_write"/>
+<img src="https://raw.githubusercontent.com/wiki/holmes1412/holmes1412/websocket_connect_close.png" width = "350" height = "270" alt="websocket_connect_close"/> <img src="https://raw.githubusercontent.com/wiki/holmes1412/holmes1412/websocket_read_write.png" width = "380" height = "300" alt="websocket_read_write"/>
 
 #### 1. 与Workflow原有用法的差异
 
 由于**WebSocket**协议是**Workflow**中首个实现的双工通信协议，因此有些差异是必须强调的：
 
-1. **WebSocket**协议的收发都是使用**poller**线程，因此websocket_cli用户需要把**poller**线程数改大点，同理可以把handler线程数改小。参考：[about-config.md](/docs/about-config.md)
+1. **WebSocket**协议的收发都是使用**poller**线程，因此websocket_cli用户需要把**poller**线程数改大点，同理可以把**handler**线程数改小。参考：[about-config.md](/docs/about-config.md)
 2. **process**函数中所有的消息都是由同一个线程串行执行的；
 3. 回调函数**callback**的执行不一定在同一个线程；
 
 #### 2. 连接的生命周期
 
-只有在第一个任务发出的时候，连接才会真正被建立。因此如果只希望监听server而没有写消息需求的用户依然需要手动发一个**PING**，让内部建立连接。可以通过client的``create_ping_task()``接口创建一个**PING** task，该回调函数里可以通过**state**判断连接是否可用，如果等于**WF_STATE_SUCCESS**,则表示``process()``里已经随时可以接收server来的消息了。
+只有在第一个任务发出的时候，连接才会真正被建立。因此如果只希望监听server而没有写消息需求的用户依然需要手动发一个**PING**，让内部建立连接。可以通过client的``create_ping_task()``接口创建一个**PING** task，该回调函数里可以通过**state**判断连接是否可用，如果等于**WFT_STATE_SUCCESS**,则表示``process()``里已经随时可以接收server来的消息了。
 
 前面提到，需要发起**CLOSE** task关闭连接，回到该回调函数时则表示连接已关闭。
 
@@ -227,4 +227,4 @@ struct WFWebSocketParams
 
 [**收消息**]
 
-用于收消息的``process()``函数是保证被按收包顺序调起的，且保证前一个消息的process()执行完毕，下一个process才会调起。
+用于收消息的``process()``函数是保证被按收包顺序调起的，且保证前一个消息的process执行完毕，下一个process才会调起，因此用户无需担心收消息的顺序问题。

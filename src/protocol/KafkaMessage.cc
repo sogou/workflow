@@ -2743,7 +2743,7 @@ int KafkaRequest::encode_saslhandshake(struct iovec vectors[], int max)
 
 int KafkaRequest::encode_saslauthenticate(struct iovec vectors[], int max)
 {
-	append_bytes(this->msgbuf, this->config.get_sasl()->buf, this->config.get_sasl()->bsize);
+	append_bytes(this->msgbuf, this->sasl->buf, this->sasl->bsize);
 
 	this->cur_size = this->msgbuf.size();
 
@@ -3738,7 +3738,7 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 		return -1;
 	}
 
-	if (!this->config.new_client())
+	if (!this->config.new_client(this->sasl))
 	{
 		ptr->error = KAFKA_SASL_AUTHENTICATION_FAILED;
 		return -1;
@@ -3755,10 +3755,18 @@ int KafkaResponse::parse_saslanthenticate(void **buf, size_t *size)
 	CHECK_RET(parse_i16(buf, size, &ptr->error));
 	CHECK_RET(parse_string(buf, size, error_message));
 
+	if (ptr->error != 0)
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
 	std::string auth_bytes;
 	CHECK_RET(parse_bytes(buf, size, auth_bytes));
-	if (this->config.get_sasl()->recv(auth_bytes.c_str(), auth_bytes.size(),
-		this->config.get_raw_ptr()) != 0)
+	if (this->config.get_raw_ptr()->recv(auth_bytes.c_str(),
+										 auth_bytes.size(),
+										 this->config.get_raw_ptr(),
+										 this->sasl) != 0)
 	{
 		errno = EBADMSG;
 		return -1;

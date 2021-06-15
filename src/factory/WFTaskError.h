@@ -62,7 +62,7 @@ enum
 	WFT_ERR_KAFKA_LEAVEGROUP_FAILED = 5007,
 	WFT_ERR_KAFKA_API_UNKNOWN = 5008,		   ///< api type not supported
 	WFT_ERR_KAFKA_VERSION_DISALLOWED = 5009,   ///< broker version not supported
+	WFT_ERR_KAFKA_SASL_DISALLOWED = 5010,   ///< sasl not supported
 };
 
 #endif
-

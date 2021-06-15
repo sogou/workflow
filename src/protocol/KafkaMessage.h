@@ -111,6 +111,11 @@ public:
 		return &this->broker_list;
 	}
 
+	void set_sasl(kafka_sasl_t *sasl)
+	{
+		this->sasl = sasl;
+	}
+
 	void duplicate(KafkaMessage& msg)
 	{
 		this->config = msg.config;
@@ -119,22 +124,7 @@ public:
 		this->meta_list = msg.meta_list;
 		this->broker_list = msg.broker_list;
 		this->toppar_list = msg.toppar_list;
-	}
-
-	void duplicate2(KafkaMessage& msg)
-	{
-		kafka_parser_deinit(this->parser);
-		delete this->parser;
-		this->config = msg.config;
-		this->cgroup = msg.cgroup;
-		this->broker = msg.broker;
-		this->meta_list = msg.meta_list;
-		this->broker_list = msg.broker_list;
-		this->toppar_list = msg.toppar_list;
-		this->uncompressed = msg.uncompressed;
-		this->parser = msg.parser;
-		msg.parser = new kafka_parser_t;
-		kafka_parser_init(msg.parser);
+		this->sasl = msg.sasl;
 	}
 
 	void clear_buf()
@@ -148,8 +138,8 @@ public:
 	}
 
 protected:
-	static int parse_message_set(void **buf, size_t *size, 
-								 bool check_crcs, int msg_vers, 
+	static int parse_message_set(void **buf, size_t *size,
+								 bool check_crcs, int msg_vers,
 								 struct list_head *record_list,
 								 KafkaBuffer *uncompressed,
 								 KafkaToppar *toppar);
@@ -157,7 +147,7 @@ protected:
 	static int parse_message_record(void **buf, size_t *size,
 									kafka_record_t *record);
 
-	static int parse_record_batch(void **buf, size_t *size, 
+	static int parse_record_batch(void **buf, size_t *size,
 								  bool check_crcs,
 								  struct list_head *record_list,
 								  KafkaBuffer *uncompressed,
@@ -208,6 +198,8 @@ protected:
 
 	void *compress_env;
 	size_t cur_size;
+
+	kafka_sasl_t *sasl;
 };
 
 class KafkaRequest : public KafkaMessage

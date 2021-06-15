@@ -449,7 +449,7 @@ public:
 
 	const char *get_sasl_mechanisms() const
 	{
-		return this->ptr->sasl.mechanisms;
+		return this->ptr->mechanisms;
 	}
 	bool set_sasl_mechanisms(const char *mechanisms)
 	{
@@ -458,8 +458,8 @@ public:
 		if (!p)
 			return false;
 
-		free(this->ptr->sasl.mechanisms);
-		this->ptr->sasl.mechanisms = p;
+		free(this->ptr->mechanisms);
+		this->ptr->mechanisms = p;
 		if (kafka_sasl_set_mechanisms(this->ptr) != 0)
 			return false;
 
@@ -468,7 +468,7 @@ public:
 
 	const char *get_sasl_username() const
 	{
-		return this->ptr->sasl.username;
+		return this->ptr->username;
 	}
 	bool set_sasl_username(const char *username)
 	{
@@ -477,7 +477,7 @@ public:
 
 	const char *get_sasl_password() const
 	{
-		return this->ptr->sasl.password;
+		return this->ptr->password;
 	}
 	bool set_sasl_password(const char *password)
 	{
@@ -487,24 +487,31 @@ public:
 	std::string get_sasl_info() const
 	{
 		std::string info;
-		if (strcmp(this->ptr->sasl.mechanisms, "plain") == 0)
+		if (strcasecmp(this->ptr->mechanisms, "plain") == 0)
 		{
-			info = this->ptr->sasl.username;
+			info += this->ptr->mechanisms;
 			info += "|";
-			info += this->ptr->sasl.password;
+			info += this->ptr->username;
+			info += "|";
+			info += this->ptr->password;
+			info += "|";
+		}
+		else if (strncasecmp(this->ptr->mechanisms, "SCRAM", 5) == 0)
+		{
+			info += this->ptr->mechanisms;
+			info += "|";
+			info += this->ptr->username;
+			info += "|";
+			info += this->ptr->password;
+			info += "|";
 		}
 
 		return info;
 	}
 
-	kafka_sasl_t *get_sasl()
+	bool new_client(kafka_sasl_t *sasl)
 	{
-		return &this->ptr->sasl;
-	}
-
-	bool new_client()
-	{
-		return this->ptr->sasl.client_new(this->ptr) == 0;
+		return this->ptr->client_new(this->ptr, sasl) == 0;
 	}
 
 public:

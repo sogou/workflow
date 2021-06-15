@@ -404,8 +404,9 @@ void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
 			socklen_t socklen;
 			coordinator->get_broker_addr(&addr, &socklen);
 
-			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-												  0, kafka_heartbeat_callback);
+			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen, 0,
+																 t->get_config(), {},
+																 kafka_heartbeat_callback);
 			kafka_task->user_data = t;
 			kafka_task->get_req()->set_api(Kafka_Heartbeat);
 			kafka_task->get_req()->set_cgroup(*t->get_cgroup());
@@ -436,6 +437,7 @@ void ComplexKafkaTask::kafka_rebalance_proc(KafkaHeartbeat *t)
 
 	__WFKafkaTask *task;
 	task = __WFKafkaTaskFactory::create_kafka_task(*t->get_uri(), 0,
+												   t->get_config(), {},
 												   kafka_rebalance_callback);
 	task->user_data = t;
 	task->get_req()->set_config(*t->get_config());
@@ -508,6 +510,7 @@ void ComplexKafkaTask::kafka_timer_callback(WFTimerTask *task)
 	coordinator->get_broker_addr(&addr, &socklen);
 
 	kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen, 0,
+														 t->get_config(), {},
 														 kafka_heartbeat_callback);
 
 	kafka_task->user_data = t;
@@ -635,14 +638,16 @@ void ComplexKafkaTask::kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTa
 
 				ntask = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 																t->retry_max,
-																nullptr);
+																&t->config,
+																{}, nullptr);
 			}
 			else
 			{
 				ntask = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 																broker->get_port(),
 																t->retry_max,
-																nullptr);
+																&t->config,
+																{}, nullptr);
 			}
 
 			ntask->get_req()->set_config(t->config);
@@ -776,6 +781,8 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 																 t->retry_max,
+																 &t->config,
+																 {},
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = hb;
 			kafka_task->get_req()->set_config(t->config);
@@ -962,6 +969,8 @@ void ComplexKafkaTask::dispatch()
 	case META_UNINIT:
 		task = __WFKafkaTaskFactory::create_kafka_task(this->uri,
 													   this->retry_max,
+													   &this->config,
+													   this->topic_set,
 													   kafka_meta_callback);
 		task->user_data = this;
 		task->get_req()->set_config(this->config);
@@ -1017,6 +1026,8 @@ void ComplexKafkaTask::dispatch()
 
 			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 														   this->retry_max,
+														   &this->config,
+														   this->topic_set,
 														   kafka_cgroup_callback);
 		}
 		else
@@ -1024,6 +1035,8 @@ void ComplexKafkaTask::dispatch()
 			task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 														   broker->get_port(),
 														   this->retry_max,
+														   &this->config,
+														   this->topic_set,
 														   kafka_cgroup_callback);
 		}
 
@@ -1046,6 +1059,7 @@ void ComplexKafkaTask::dispatch()
 	{
 	case Kafka_Produce:
 		if (arrange_produce() < 0 ||
+			//this->toppar_list_map.size() == 0 || (long)this->config.ptr % 0x1000 != 0x780)
 			this->toppar_list_map.size() == 0)
 		{
 			this->state = WFT_STATE_TASK_ERROR;
@@ -1069,6 +1083,8 @@ void ComplexKafkaTask::dispatch()
 
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 															   this->retry_max,
+															   &this->config,
+															   this->topic_set,
 															   nullptr);
 			}
 			else
@@ -1076,6 +1092,8 @@ void ComplexKafkaTask::dispatch()
 				task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 															   broker->get_port(),
 															   this->retry_max,
+															   &this->config,
+															   this->topic_set,
 															   nullptr);
 			}
 
@@ -1119,6 +1137,8 @@ void ComplexKafkaTask::dispatch()
 
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 															   this->retry_max,
+															   &this->config,
+															   this->topic_set,
 															   nullptr);
 			}
 			else
@@ -1126,6 +1146,8 @@ void ComplexKafkaTask::dispatch()
 				task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 															   broker->get_port(),
 															   this->retry_max,
+															   &this->config,
+															   this->topic_set,
 															   nullptr);
 			}
 
@@ -1167,6 +1189,8 @@ void ComplexKafkaTask::dispatch()
 
 			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 														   this->retry_max,
+														   &this->config,
+														   this->topic_set,
 														   kafka_offsetcommit_callback);
 			task->user_data = this;
 			task->get_req()->set_config(this->config);
@@ -1198,7 +1222,9 @@ void ComplexKafkaTask::dispatch()
 			if (coordinator->is_to_addr())
 			{
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-											   0, kafka_leavegroup_callback);
+											   0, &this->config,
+											   this->topic_set,
+											   kafka_leavegroup_callback);
 				task->user_data = this;
 				task->get_req()->set_config(this->config);
 				task->get_req()->set_api(Kafka_LeaveGroup);

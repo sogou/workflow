@@ -1058,9 +1058,7 @@ void ComplexKafkaTask::dispatch()
 	switch(this->api_type)
 	{
 	case Kafka_Produce:
-		if (arrange_produce() < 0 ||
-			//this->toppar_list_map.size() == 0 || (long)this->config.ptr % 0x1000 != 0x780)
-			this->toppar_list_map.size() == 0)
+		if (arrange_produce() < 0 || this->toppar_list_map.size() == 0)
 		{
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_PRODUCE_FAILED;

@@ -556,6 +556,55 @@ protected:
 	virtual ~WFCounterTask() { }
 };
 
+class WFMailboxTask : public WFCounterTask
+{
+public:
+	void send(void *mail)
+	{
+		*this->next++ = mail;
+		this->count();
+	}
+
+	void *get_mail(size_t index) { return this->mailbox[index]; }
+
+	void **get_mailbox(size_t *count)
+	{
+		*count = this->next - this->mailbox;
+		return this->mailbox;
+	}
+
+public:
+	void set_callback(std::function<void (WFMailboxTask *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
+protected:
+	void **mailbox;
+	std::atomic<void **> next;
+	std::function<void (WFMailboxTask *)> callback;
+
+private:
+	static void callback_wrapper(WFCounterTask *task)
+	{
+		WFMailboxTask *mbt = (WFMailboxTask *)task;
+		mbt->callback(mbt);
+	}
+
+public:
+	WFMailboxTask(void *mailbox[], size_t size,
+				  std::function<void (WFMailboxTask *)>&& cb) :
+		WFCounterTask(size, WFMailboxTask::callback_wrapper),
+		next(mailbox),
+		callback(std::move(cb))
+	{
+		this->mailbox = mailbox;
+	}
+
+protected:
+	virtual ~WFMailboxTask() { }
+};
+
 class WFGoTask : public ExecRequest
 {
 public:

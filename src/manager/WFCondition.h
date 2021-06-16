@@ -28,11 +28,6 @@
 class WFCondition
 {
 public:
-	WFCondition()
-	{
-		INIT_LIST_HEAD(&this->waiter_list);
-	}
-
 	WFCounterTask *create_wait_task(std::function<void (WFCounterTask *)> cb);
 	WFCounterTask *create_timedwait_task(const struct timespec *abstime,
 										 std::function<void (WFCounterTask *)> cb);
@@ -40,7 +35,11 @@ public:
 	void broadcast();
 
 public:
+	WFCondition() { INIT_LIST_HEAD(&this->waiter_list); }
+
+public:
 	std::mutex mutex;
+
 private:
 	struct list_head waiter_list;
 };

@@ -67,10 +67,12 @@ int main(int argc, char *argv[])
 			return;
 		}
 
+		auto *timer_task = WFTaskFactory::create_timer_task(3000000 /* 3s */, nullptr);
 		auto *close_task = client.create_close_task([&wg] (WFWebSocketTask *task) {
 			wg.done();
 		});
 
+		series_of(task)->push_back(timer_task);
 		series_of(task)->push_back(close_task);
 	});
 

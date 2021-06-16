@@ -109,13 +109,19 @@ void WFWaitTask::clear_timer_waiter()
 
 SubTask *WFTimedWaitTask::done()
 {
+	WFWaitTask *tmp = NULL;
+
 	this->mutex->lock();
 	if (this->wait_task && this->wait_task->entry.list.next)
 	{
 		list_del(&this->wait_task->entry.list);
-		this->wait_task->count();
+		tmp = this->wait_task;
+		this->wait_task = NULL;
 	}
 	this->mutex->unlock();
+
+	if (tmp)
+		tmp->count();
 
 	SeriesWork *series = series_of(this);
 	
@@ -162,7 +168,7 @@ WFCounterTask *WFCondition::create_timedwait_task(const struct timespec *abstime
 
 void WFCondition::signal()
 {
-	WFWaitTask *task;
+	WFWaitTask *task = NULL;
 	struct list_head *pos;
 	struct WFWaitTask::task_entry *entry;
 
@@ -175,10 +181,12 @@ void WFCondition::signal()
 		task = entry->ptr;
 		list_del(pos);
 		task->clear_timer_waiter();
-		task->count();
 	}
 
 	this->mutex.unlock();
+
+	if (task)
+		task->count();
 }
 
 void WFCondition::broadcast()
@@ -186,6 +194,7 @@ void WFCondition::broadcast()
 	WFWaitTask *task;
 	struct list_head *pos, *tmp;
 	struct WFWaitTask::task_entry *entry;
+	LIST_HEAD(tmp_list);
 
 	this->mutex.lock();
 	if (!list_empty(&this->waiter_list))
@@ -193,11 +202,17 @@ void WFCondition::broadcast()
 		list_for_each_safe(pos, tmp, &this->waiter_list)
 		{
 			entry = list_entry(pos, struct WFWaitTask::task_entry, list);
-			task = entry->ptr;
-			list_del(pos);
-			task->count();
+			list_move_tail(pos, &tmp_list);
 		}
 	}
 	this->mutex.unlock();
+
+	while (!list_empty(&tmp_list))
+	{
+		entry = list_entry(tmp_list.next, struct WFWaitTask::task_entry, list);
+		task = entry->ptr;
+		list_del(&entry->list);
+		task->count();
+	}
 }
 

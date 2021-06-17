@@ -187,20 +187,3 @@ count_by_name("c1")等价于count_by_name("c1", 1)。
 虽然描述很复杂，但总结起来就一句话，按照创建顺序，依次访问所有名字为name的计数器，直到n为0。  
 也就是说，一次count_by_name(name, n)可以唤醒多个计数器。  
 用好计数器，可以实现非常复杂的业务逻辑。计数器在我们框架里，往往用于实现异步锁，或者用于任务之间的通道。形态上更像一种控制任务。  
-
-# 计数器的扩展WFContainerTask
-
-计数器像一种信号量，每一个count操作，并不能附带操作数据，很多时候会带来一些不便。  
-大家如果把计数器想象成有向无环图上的一个节点，每个count是一条入边。那么，节点上可以有属性的，但入边则没有包含任何信息。  
-而WFContainerTask则是一种给入边加上属性的任务。在[WFContainerTask.h](../src/factory/WFContainerTask.h)里，有相关的定义：
-~~~cpp
-template<tyename T>
-class WFContainerTask : public WFCounterTask
-{
-public:
-    void push(const T& value);
-    void push(T&& value);
-    ...
-};
-~~~
-有需要的用户可以自行查阅相关代码。由于WFTaskFactory没有提供工厂函数，创造container任务需要自己调用new。

@@ -1313,6 +1313,7 @@ public:
 		free(this->ptr->coordinator.api);
 		this->ptr->coordinator.api = (kafka_api_version_t *)p;
 		this->ptr->coordinator.api_elements = coord->get_raw_ptr()->api_elements;
+		this->ptr->coordinator.features = coord->get_raw_ptr()->features;
 		return true;
 	}
 

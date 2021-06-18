@@ -41,10 +41,11 @@ public:
 
 	virtual ~KafkaMessage();
 
-private:
+protected:
 	virtual int encode(struct iovec vectors[], int max);
 	virtual int append(const void *buf, size_t *size);
 
+private:
 	int encode_head();
 
 public:
@@ -224,12 +225,15 @@ private:
 	int encode_saslauthenticate(struct iovec vectors[], int max);
 };
 
-class KafkaResponse : public KafkaMessage
+class KafkaResponse : public KafkaRequest
 {
 public:
 	KafkaResponse();
 
 	int parse_response();
+
+protected:
+    virtual int append(const void *buf, size_t *size);
 
 private:
 	int parse_produce(void **buf, size_t *size);
@@ -245,7 +249,9 @@ private:
 	int parse_heartbeat(void **buf, size_t *size);
 	int parse_apiversions(void **buf, size_t *size);
 	int parse_saslhandshake(void **buf, size_t *size);
-	int parse_saslanthenticate(void **buf, size_t *size);
+	int parse_saslauthenticate(void **buf, size_t *size);
+
+	int handle_sasl_continue();
 };
 
 }

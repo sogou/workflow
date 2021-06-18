@@ -24,7 +24,6 @@
 using __WFKafkaTask = WFNetworkTask<protocol::KafkaRequest,
 									protocol::KafkaResponse>;
 using __kafka_callback_t = std::function<void (__WFKafkaTask *)>;
-using KafkaConfig = protocol::KafkaConfig;
 
 class __WFKafkaTaskFactory
 {
@@ -35,27 +34,21 @@ public:
 	 */
 	static __WFKafkaTask *create_kafka_task(const ParsedURI& uri,
 											int retry_max,
-											const KafkaConfig *config,
-											const std::set<std::string>&,
 											__kafka_callback_t callback);
 
 	static __WFKafkaTask *create_kafka_task(const std::string& url,
 											int retry_max,
-											const KafkaConfig *config,
-											const std::set<std::string>&,
 											__kafka_callback_t callback);
 
 	static __WFKafkaTask *create_kafka_task(const struct sockaddr *addr,
 											socklen_t addrlen,
 											int retry_max,
-											const KafkaConfig *config,
-											const std::set<std::string>&,
+											const std::string& info,
 											__kafka_callback_t callback);
 
 	static __WFKafkaTask *create_kafka_task(const char *host,
 											int port,
 											int retry_max,
-											const KafkaConfig *config,
-											const std::set<std::string>&,
+											const std::string& info,
 											__kafka_callback_t callback);
 };

@@ -119,7 +119,7 @@ public:
 	KafkaMember()
 	{
 		this->ref = new std::atomic<int>(1);
-		this->broker_hosts = new std::vector<ParsedURI>;
+		this->broker_hosts = new std::vector<std::string>;
 		this->cgroup = new KafkaCgroup;
 		this->meta_list = new KafkaMetaList;
 		this->broker_list = new KafkaBrokerList;
@@ -143,7 +143,7 @@ public:
 		}
 	}
 
-	std::vector<ParsedURI> *broker_hosts;
+	std::vector<std::string> *broker_hosts;
 	KafkaCgroup *cgroup;
 	KafkaMetaList *meta_list;
 	KafkaBrokerList *broker_list;
@@ -188,14 +188,24 @@ public:
 		return &this->config;
 	}
 
-	void set_uri(const ParsedURI& uri)
+	void set_url(const std::string& url)
 	{
-		this->uri = uri;
+		this->url = url;
 	}
 
-	ParsedURI *get_uri()
+	std::string get_url()
 	{
-		return &this->uri;
+		return this->url;
+	}
+
+	void set_userinfo(const std::string& userinfo)
+	{
+		this->userinfo = userinfo;
+	}
+
+	std::string get_userinfo()
+	{
+		return this->userinfo;
 	}
 
 	void set_lock_status(const KafkaLockStatus& lock_status)
@@ -222,7 +232,8 @@ private:
 	KafkaCgroup cgroup;
 	KafkaMetaList meta_list;
 	KafkaConfig config;
-	ParsedURI uri;
+	std::string url;
+	std::string userinfo;
 	KafkaLockStatus lock_status;
 	WFKafkaClient *client;
 };
@@ -248,7 +259,7 @@ public:
 		if (!client->member->broker_hosts->empty())
 		{
 			int rpos = rand() % client->member->broker_hosts->size();
-			this->uri = client->member->broker_hosts->at(rpos);
+			this->url = client->member->broker_hosts->at(rpos);
 		}
 	}
 
@@ -257,7 +268,7 @@ public:
 		this->lock_status.get_cnt()->fetch_sub(1);
 	}
 
-	ParsedURI *get_uri() { return &this->uri; }
+	std::string *get_url() { return &this->url; }
 
 protected:
 	virtual bool add_topic(const std::string& topic);
@@ -270,6 +281,7 @@ protected:
 	virtual void dispatch();
 
 	virtual void parse_query();
+	virtual void generate_info();
 
 private:
 	static void kafka_merge_meta_list(KafkaMetaList* dst,
@@ -318,6 +330,8 @@ private:
 
 	MetaStatus get_meta_status();
 
+	std::string get_userinfo() { return this->userinfo; }
+
 private:
 	WFKafkaClient *client;
 	KafkaLockStatus lock_status;
@@ -326,9 +340,10 @@ private:
 	KafkaBrokerMap client_broker_map;
 	KafkaCgroup cgroup;
 	std::map<int, KafkaTopparList> toppar_list_map;
-	ParsedURI uri;
+	std::string url;
 	std::string query;
 	std::set<std::string> topic_set;
+	std::string userinfo;
 
 	friend class WFKafkaClient;
 };
@@ -404,8 +419,10 @@ void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
 			socklen_t socklen;
 			coordinator->get_broker_addr(&addr, &socklen);
 
-			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen, 0,
-																 t->get_config(), {},
+			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr,
+																 socklen,
+																 0,
+																 t->get_userinfo(),
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = t;
 			kafka_task->get_req()->set_api(Kafka_Heartbeat);
@@ -436,8 +453,7 @@ void ComplexKafkaTask::kafka_rebalance_proc(KafkaHeartbeat *t)
 	}
 
 	__WFKafkaTask *task;
-	task = __WFKafkaTaskFactory::create_kafka_task(*t->get_uri(), 0,
-												   t->get_config(), {},
+	task = __WFKafkaTaskFactory::create_kafka_task(t->get_url(), 0,
 												   kafka_rebalance_callback);
 	task->user_data = t;
 	task->get_req()->set_config(*t->get_config());
@@ -510,7 +526,7 @@ void ComplexKafkaTask::kafka_timer_callback(WFTimerTask *task)
 	coordinator->get_broker_addr(&addr, &socklen);
 
 	kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen, 0,
-														 t->get_config(), {},
+														 t->get_userinfo(),
 														 kafka_heartbeat_callback);
 
 	kafka_task->user_data = t;
@@ -638,16 +654,16 @@ void ComplexKafkaTask::kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTa
 
 				ntask = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 																t->retry_max,
-																&t->config,
-																{}, nullptr);
+																t->get_userinfo(),
+																nullptr);
 			}
 			else
 			{
 				ntask = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 																broker->get_port(),
 																t->retry_max,
-																&t->config,
-																{}, nullptr);
+																t->get_userinfo(),
+																nullptr);
 			}
 
 			ntask->get_req()->set_config(t->config);
@@ -768,7 +784,8 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 			hb->set_cgroup(t->cgroup);
 			hb->set_meta_list(t->client_meta_list);
 			hb->set_config(t->config);
-			hb->set_uri(t->uri);
+			hb->set_url(t->url);
+			hb->set_userinfo(t->userinfo);
 			t->lock_status.add_cnt();
 			hb->set_lock_status(t->lock_status);
 			hb->set_client(t->client);
@@ -781,8 +798,7 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 																 t->retry_max,
-																 &t->config,
-																 {},
+																 t->get_userinfo(),
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = hb;
 			kafka_task->get_req()->set_config(t->config);
@@ -889,6 +905,21 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 	this->result.set_resp(std::move(*task->get_resp()), idx);
 }
 
+void ComplexKafkaTask::generate_info()
+{
+	if (this->config.get_sasl_mechanisms())
+	{
+		this->userinfo = this->config.get_sasl_username();
+		this->userinfo += ":";
+		this->userinfo += this->config.get_sasl_password();
+		this->userinfo += ":";
+		this->userinfo += this->config.get_sasl_mechanisms();
+		this->userinfo += "@";
+		this->url = "kafka://" + this->userinfo +
+			this->url.substr(this->url.find("kafka://") + 8);
+	}
+}
+
 void ComplexKafkaTask::parse_query()
 {
 	auto query_kv = URIParser::split_query_strict(this->query);
@@ -959,7 +990,9 @@ void ComplexKafkaTask::dispatch()
 	}
 
 	if (!this->query.empty())
-		parse_query();
+		this->parse_query();
+
+	this->generate_info();
 
 	this->lock_status.get_mutex()->lock();
 
@@ -967,10 +1000,8 @@ void ComplexKafkaTask::dispatch()
 	switch(this->get_meta_status())
 	{
 	case META_UNINIT:
-		task = __WFKafkaTaskFactory::create_kafka_task(this->uri,
+		task = __WFKafkaTaskFactory::create_kafka_task(this->url,
 													   this->retry_max,
-													   &this->config,
-													   this->topic_set,
 													   kafka_meta_callback);
 		task->user_data = this;
 		task->get_req()->set_config(this->config);
@@ -1026,8 +1057,7 @@ void ComplexKafkaTask::dispatch()
 
 			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 														   this->retry_max,
-														   &this->config,
-														   this->topic_set,
+														   this->get_userinfo(),
 														   kafka_cgroup_callback);
 		}
 		else
@@ -1035,8 +1065,7 @@ void ComplexKafkaTask::dispatch()
 			task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 														   broker->get_port(),
 														   this->retry_max,
-														   &this->config,
-														   this->topic_set,
+														   this->get_userinfo(),
 														   kafka_cgroup_callback);
 		}
 
@@ -1081,8 +1110,7 @@ void ComplexKafkaTask::dispatch()
 
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 															   this->retry_max,
-															   &this->config,
-															   this->topic_set,
+															   this->get_userinfo(),
 															   nullptr);
 			}
 			else
@@ -1090,8 +1118,7 @@ void ComplexKafkaTask::dispatch()
 				task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 															   broker->get_port(),
 															   this->retry_max,
-															   &this->config,
-															   this->topic_set,
+															   this->get_userinfo(),
 															   nullptr);
 			}
 
@@ -1135,8 +1162,7 @@ void ComplexKafkaTask::dispatch()
 
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 															   this->retry_max,
-															   &this->config,
-															   this->topic_set,
+															   this->get_userinfo(),
 															   nullptr);
 			}
 			else
@@ -1144,8 +1170,7 @@ void ComplexKafkaTask::dispatch()
 				task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 															   broker->get_port(),
 															   this->retry_max,
-															   &this->config,
-															   this->topic_set,
+															   this->get_userinfo(),
 															   nullptr);
 			}
 
@@ -1187,8 +1212,7 @@ void ComplexKafkaTask::dispatch()
 
 			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
 														   this->retry_max,
-														   &this->config,
-														   this->topic_set,
+														   this->get_userinfo(),
 														   kafka_offsetcommit_callback);
 			task->user_data = this;
 			task->get_req()->set_config(this->config);
@@ -1219,10 +1243,11 @@ void ComplexKafkaTask::dispatch()
 
 			if (coordinator->is_to_addr())
 			{
-				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-											   0, &this->config,
-											   this->topic_set,
-											   kafka_leavegroup_callback);
+				task = __WFKafkaTaskFactory::create_kafka_task(addr,
+															   socklen,
+															   0,
+															   this->get_userinfo(),
+															   kafka_leavegroup_callback);
 				task->user_data = this;
 				task->get_req()->set_config(this->config);
 				task->get_req()->set_api(Kafka_LeaveGroup);
@@ -1648,52 +1673,34 @@ SubTask *WFKafkaTask::done()
 
 int WFKafkaClient::init(const std::string& broker)
 {
-	std::vector<ParsedURI> broker_hosts;
+	std::vector<std::string> broker_hosts;
 	std::string::size_type pos = broker.find(',');
 	std::string::size_type ppos = 0;
 
 	if (pos == std::string::npos)
 	{
 		std::string host = broker;
-		ParsedURI uri;
-
 		if (host.find("kafka://") != 0)
 			host = "kafka://" + host;
-
-		if (URIParser::parse(host, uri) != 0)
-			return -1;
-
-		broker_hosts.emplace_back(uri);
+		broker_hosts.emplace_back(host);
 	}
 	else
 	{
 		do
 		{
 			std::string host = broker.substr(ppos, pos - ppos);
-			ParsedURI uri;
-
 			if (host.find("kafka://") != 0)
 				host = "kafka://" + host;
-
-			if (URIParser::parse(host, uri) != 0)
-				return -1;
-
-			broker_hosts.emplace_back(uri);
+			broker_hosts.emplace_back(host);
 
 			ppos = pos + 1;
 			pos = broker.find(',', ppos);
 		} while (pos != std::string::npos);
 
 		std::string host = broker.substr(ppos, pos - ppos);
-		ParsedURI uri;
-
 		if (host.find("kafka://") != 0)
 			host = "kafka://" + host;
-
-		if (URIParser::parse(host, uri) != 0)
-			return -1;
-
-		broker_hosts.emplace_back(uri);
+		broker_hosts.emplace_back(host);
 	}
 
 	this->member = new KafkaMember;

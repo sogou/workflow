@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string>
 #include <set>
+#include "StringUtil.h"
 #include "KafkaTaskImpl.inl"
 
 using namespace protocol;
@@ -32,29 +33,13 @@ using namespace protocol;
 class __ComplexKafkaTask : public WFComplexClientTask<KafkaRequest, KafkaResponse, std::function<void (__WFKafkaTask *)>>
 {
 public:
-	__ComplexKafkaTask(int retry_max, const KafkaConfig *config,
-					   const std::set<std::string>& topic_set,
-					   __kafka_callback_t&& callback) :
+	__ComplexKafkaTask(int retry_max, __kafka_callback_t&& callback) :
 		WFComplexClientTask(retry_max, std::move(callback))
 	{
 		update_metadata_ = false;
 		is_user_request_ = true;
 		is_redirect_ = false;
-
-		if (config->get_sasl_mechanisms())
-		{
-			std::string info = config->get_sasl_info();
-			for (auto& t : topic_set)
-			{
-				info += t;
-				info += "|";
-			}
-			info += std::to_string((long)this);
-			info_ = info;
-		}
 	}
-
-	std::string get_info() { return info_; }
 
 protected:
 	virtual CommMessageOut *message_out();
@@ -65,12 +50,11 @@ protected:
 private:
 	struct __KafkaConnectionInfo
 	{
-		int sasl_stage;
 		kafka_sasl_t sasl;
+		std::string mechanisms;
 
 		__KafkaConnectionInfo()
 		{
-			this->sasl_stage = 0;
 			kafka_sasl_init(&this->sasl);
 		}
 
@@ -81,6 +65,8 @@ private:
 
 		bool init(const char *mechanisms)
 		{
+			this->mechanisms = mechanisms;
+
 			if (strncasecmp(mechanisms, "SCRAM", 5) == 0)
 			{
 				if (strcasecmp(mechanisms, "SCRAM-SHA-1") == 0)
@@ -116,8 +102,6 @@ private:
 	bool update_metadata_;
 	bool is_user_request_;
 	bool is_redirect_;
-
-	std::string info_;
 };
 
 CommMessageOut *__ComplexKafkaTask::message_out()
@@ -159,10 +143,8 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	}
 
 	const char *sasl_mechanisms = this->get_req()->get_config()->get_sasl_mechanisms();
-	if (sasl_mechanisms && seqid < 4)
+	if (seqid < 2 && sasl_mechanisms)
 	{
-		bool is_scram = strncasecmp(sasl_mechanisms, "SCRAM", 5) == 0;
-
 		WFConnection *conn = this->get_connection();
 		__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)conn->get_context();
 		if (!conn_info)
@@ -187,33 +169,12 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			KafkaRequest *req  = new KafkaRequest;
 
 			req->duplicate(*this->get_req());
-			req->set_api(Kafka_SaslHandshake);
-			is_user_request_ = false;
-			return req;
-		}
-		else if (conn_info->sasl_stage == 0)
-		{
-			conn_info->sasl_stage++;
 
-			this->get_req()->set_sasl(&conn_info->sasl);
+			if (broker->get_features() & KAFKA_FEATURE_SASL_HANDSHAKE)
+				req->set_api(Kafka_SaslHandshake);
+			else
+				req->set_api(Kafka_SaslAuthenticate);
 
-			KafkaRequest *req  = new KafkaRequest;
-
-			req->duplicate(*this->get_req());
-			req->set_api(Kafka_SaslAuthenticate);
-			is_user_request_ = false;
-			return req;
-		}
-		else if (is_scram && conn_info->sasl_stage < 2)
-		{
-			conn_info->sasl_stage++;
-
-			this->get_req()->set_sasl(&conn_info->sasl);
-
-			KafkaRequest *req  = new KafkaRequest;
-
-			req->duplicate(*this->get_req());
-			req->set_api(Kafka_SaslAuthenticate);
 			is_user_request_ = false;
 			return req;
 		}
@@ -271,13 +232,55 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 bool __ComplexKafkaTask::init_success()
 {
 	TransportType type = TT_TCP;
-	if (uri_.scheme && strcasecmp(uri_.scheme, "kafka") == 0)
-		type = TT_TCP;
-	//else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
-	//	type = TT_TCP_SSL;
+	if (uri_.scheme)
+	{
+		if (strcasecmp(uri_.scheme, "kafka") == 0)
+			type = TT_TCP;
+		//else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
+		//	type = TT_TCP_SSL;
+		else
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_URI_SCHEME_INVALID;
+			return false;
+		}
+	}
 
-	this->WFComplexClientTask::set_info(info_);
+	std::string username, password, sasl;
+	if (uri_.userinfo)
+	{
+		const char *pos = strchr(uri_.userinfo, ':');
+		if (pos)
+		{
+			username = std::string(uri_.userinfo, pos - uri_.userinfo);
+			StringUtil::url_decode(username);
+			const char *pos1 = strchr(pos + 1, ':');
+			if (pos1)
+			{
+				password = std::string(pos + 1, pos1 - pos - 1);
+				StringUtil::url_decode(password);
+				sasl = std::string(pos1 + 1);
+			}
+		}
+
+		if (username.empty() || password.empty() || sasl.empty())
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_URI_SCHEME_INVALID;
+			return false;
+		}
+	}
+
+	size_t info_len = username.size() + password.size() + sasl.size() + 50;
+	char *info = new char[info_len];
+
+	snprintf(info, info_len, "%s|user:%s|pass:%s|sasl:%s|", "kafka",
+			 username.c_str(), password.c_str(), sasl.c_str());
+
+	this->WFComplexClientTask::set_info(info);
 	this->WFComplexClientTask::set_transport_type(type);
+
+	delete []info;
 	return true;
 }
 
@@ -517,18 +520,7 @@ bool __ComplexKafkaTask::finish_once()
 {
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (this->get_resp()->parse_response() < 0)
-		{
-			this->disable_retry();
-
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED;
-			if (*get_mutable_ctx())
-				(*get_mutable_ctx())(this);
-
-			return true;
-		}
-		else if (has_next())
+		if (has_next())
 		{
 			if (!is_user_request_)
 			{
@@ -580,13 +572,12 @@ bool __ComplexKafkaTask::finish_once()
 }
 
 /**********Factory**********/
+// kafka://user:password:sasl@host:port/api=type&topic=name
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
 													   int retry_max,
-													   const KafkaConfig *config,
-													   const std::set<std::string>& topic_s,
 													   __kafka_callback_t callback)
 {
-	auto *task = new __ComplexKafkaTask(retry_max, config, topic_s, std::move(callback));
+	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 	ParsedURI uri;
 
 	URIParser::parse(url, uri);
@@ -597,11 +588,9 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 													   int retry_max,
-													   const KafkaConfig *config,
-													   const std::set<std::string>& topic_s,
 													   __kafka_callback_t callback)
 {
-	auto *task = new __ComplexKafkaTask(retry_max, config, topic_s, std::move(callback));
+	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
 	task->init(uri);
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
@@ -611,13 +600,12 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *addr,
 													   socklen_t addrlen,
 													   int retry_max,
-													   const KafkaConfig *config,
-													   const std::set<std::string>& topic_s,
+													   const std::string& info,
 													   __kafka_callback_t callback)
 {
-	auto *task = new __ComplexKafkaTask(retry_max, config, topic_s, std::move(callback));
+	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
-	task->init(TT_TCP, addr, addrlen, task->get_info());
+	task->init(TT_TCP, addr, addrlen, info);
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;
 }
@@ -625,13 +613,16 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *ad
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
 													   int port,
 													   int retry_max,
-													   const KafkaConfig *config,
-													   const std::set<std::string>& topic_s,
+													   const std::string& info,
 													   __kafka_callback_t callback)
 {
-	auto *task = new __ComplexKafkaTask(retry_max, config, topic_s, std::move(callback));
+	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
 	std::string url = "kafka://";
+
+	if (!info.empty())
+		url += info;
+
 	url += host;
 	url += ":" + std::to_string(port);
 

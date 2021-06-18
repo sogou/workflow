@@ -2768,7 +2768,7 @@ KafkaResponse::KafkaResponse()
 	this->parse_func_map[Kafka_LeaveGroup] = std::bind(&KafkaResponse::parse_leavegroup, this, _1, _2);
 	this->parse_func_map[Kafka_ApiVersions] = std::bind(&KafkaResponse::parse_apiversions, this, _1, _2);
 	this->parse_func_map[Kafka_SaslHandshake] = std::bind(&KafkaResponse::parse_saslhandshake, this, _1, _2);
-	this->parse_func_map[Kafka_SaslAuthenticate] = std::bind(&KafkaResponse::parse_saslanthenticate, this, _1, _2);
+	this->parse_func_map[Kafka_SaslAuthenticate] = std::bind(&KafkaResponse::parse_saslauthenticate, this, _1, _2);
 }
 
 int KafkaResponse::parse_response()
@@ -3717,11 +3717,17 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 
 int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 {
-	kafka_broker_t *ptr = this->broker.get_raw_ptr();
 	std::string mechanism;
 	int cnt, i;
+	short error;
 
-	CHECK_RET(parse_i16(buf, size, &ptr->error));
+	CHECK_RET(parse_i16(buf, size, &error));
+	if (error != 0)
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
 	CHECK_RET(parse_i32(buf, size, &cnt));
 
 	for (i = 0; i < cnt; i++)
@@ -3740,22 +3746,23 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 
 	if (!this->config.new_client(this->sasl))
 	{
-		ptr->error = KAFKA_SASL_AUTHENTICATION_FAILED;
+		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
+		errno = EBADMSG;
 		return -1;
 	}
 
 	return 0;
 }
 
-int KafkaResponse::parse_saslanthenticate(void **buf, size_t *size)
+int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 {
-	kafka_broker_t *ptr = this->broker.get_raw_ptr();
 	std::string error_message;
+	short error;
 
-	CHECK_RET(parse_i16(buf, size, &ptr->error));
+	CHECK_RET(parse_i16(buf, size, &error));
 	CHECK_RET(parse_string(buf, size, error_message));
 
-	if (ptr->error != 0)
+	if (error != 0)
 	{
 		errno = EBADMSG;
 		return -1;
@@ -3768,11 +3775,65 @@ int KafkaResponse::parse_saslanthenticate(void **buf, size_t *size)
 										 this->config.get_raw_ptr(),
 										 this->sasl) != 0)
 	{
+		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
 		errno = EBADMSG;
 		return -1;
 	}
 
 	return 0;
+}
+
+int KafkaResponse::handle_sasl_continue()
+{
+	int ret;
+	std::vector<struct iovec> iovecs(2);
+	if (this->encode(iovecs.data(), 2) == 2)
+	{
+		for (auto vec : iovecs)
+		{
+			ret = this->feedback((const char *)vec.iov_base, vec.iov_len);
+			if (ret != vec.iov_len)
+			{
+				if (ret > 0)
+					errno = EAGAIN;
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+int KafkaResponse::append(const void *buf, size_t *size)
+{
+	int ret = KafkaMessage::append(buf, size);
+
+	if (ret == 1)
+	{
+		int resp_ret = this->parse_response();
+		if (resp_ret == 0)
+		{
+			if (this->api_type == Kafka_SaslHandshake)
+			{
+				this->api_type = Kafka_SaslAuthenticate;
+				this->clear_buf();
+				ret = this->handle_sasl_continue();
+			}
+			else if (this->api_type == Kafka_SaslAuthenticate)
+			{
+				if (strncasecmp(this->config.get_sasl_mechanisms(), "SCRAM", 5) == 0)
+				{
+					this->clear_buf();
+					if (this->sasl->scram.state != -1)
+						ret = this->handle_sasl_continue();
+				}
+			}
+		}
+		else
+			ret = resp_ret;
+	}
+
+	return ret;
 }
 
 }

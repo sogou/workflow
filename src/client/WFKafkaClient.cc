@@ -124,7 +124,8 @@ public:
 		this->meta_list = new KafkaMetaList;
 		this->broker_list = new KafkaBrokerList;
 		this->lock_status = new KafkaLockStatus;
-		this->broker_map = new KafkaBrokerMap;
+		this->broker_map_by_id = new KafkaBrokerMap;
+		this->broker_map_by_uri = new KafkaBrokerMap;
 		this->meta_map = new std::map<std::string, MetaStatus>;
 	}
 
@@ -137,7 +138,8 @@ public:
 			delete this->cgroup;
 			delete this->meta_list;
 			delete this->broker_list;
-			delete this->broker_map;
+			delete this->broker_map_by_id;
+			delete this->broker_map_by_uri;
 			delete this->lock_status;
 			delete this->meta_map;
 		}
@@ -147,7 +149,8 @@ public:
 	KafkaCgroup *cgroup;
 	KafkaMetaList *meta_list;
 	KafkaBrokerList *broker_list;
-	KafkaBrokerMap *broker_map;
+	KafkaBrokerMap *broker_map_by_id;
+	KafkaBrokerMap *broker_map_by_uri;
 	KafkaLockStatus *lock_status;
 	std::map<std::string, MetaStatus> *meta_map;
 
@@ -253,7 +256,8 @@ public:
 		this->cgroup = *client->member->cgroup;
 		this->client_meta_list = *client->member->meta_list;
 		this->client_broker_list = *client->member->broker_list;
-		this->client_broker_map = *client->member->broker_map;
+		this->client_broker_map_by_id = *client->member->broker_map_by_id;
+		this->client_broker_map_by_uri = *client->member->broker_map_by_uri;
 		this->query = query;
 
 		if (!client->member->broker_hosts->empty())
@@ -323,7 +327,13 @@ private:
 
 	inline KafkaBroker *get_broker(int node_id)
 	{
-		return this->client_broker_map.find_item(node_id);
+		return this->client_broker_map_by_id.find_item(node_id);
+	}
+
+	inline KafkaBroker *find_broker(const KafkaBrokerMap& map,
+									const KafkaBroker& broker)
+	{
+		return map.find_item(broker);
 	}
 
 	int get_node_id(const KafkaToppar *toppar);
@@ -337,7 +347,8 @@ private:
 	KafkaLockStatus lock_status;
 	KafkaMetaList client_meta_list;
 	KafkaBrokerList client_broker_list;
-	KafkaBrokerMap client_broker_map;
+	KafkaBrokerMap client_broker_map_by_id;
+	KafkaBrokerMap client_broker_map_by_uri;
 	KafkaCgroup cgroup;
 	std::map<int, KafkaTopparList> toppar_list_map;
 	std::string url;
@@ -594,7 +605,7 @@ void ComplexKafkaTask::kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTa
 					   sizeof(kafka_api_version_t) * api_cnt);
 
 				broker->get_raw_ptr()->status = KAFKA_BROKER_INITED;
-				t->client_broker_map.add_item(*broker);
+				t->client_broker_map_by_id.add_item(*broker, broker->get_node_id());
 			}
 			else
 			{
@@ -628,9 +639,18 @@ void ComplexKafkaTask::kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTa
 		task->get_resp()->get_broker_list()->rewind();
 		while ((broker = task->get_resp()->get_broker_list()->get_next()) != NULL)
 		{
-			exist = t->get_broker(broker->get_node_id());
+			exist = t->find_broker(t->client_broker_map_by_uri, *broker);
 			if (exist && exist->get_raw_ptr()->status == KAFKA_BROKER_INITED)
+			{
+				if (exist->get_node_id() != broker->get_node_id())
+				{
+					broker->copy_from(*exist);
+					broker->get_raw_ptr()->status = KAFKA_BROKER_INITED;
+					t->client_broker_map_by_id.add_item(*broker,
+														broker->get_node_id());
+				}
 				continue;
+			}
 			else if (exist && exist->get_raw_ptr()->status == KAFKA_BROKER_DOING)
 			{
 				char name[64];
@@ -641,7 +661,9 @@ void ComplexKafkaTask::kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTa
 				continue;
 			}
 
-			t->client_broker_map.add_item(*broker);
+			broker->get_raw_ptr()->status = KAFKA_BROKER_DOING;
+			t->client_broker_map_by_uri.add_item(*broker);
+			t->client_broker_map_by_id.add_item(*broker, broker->get_node_id());
 
 			auto cb = std::bind(&ComplexKafkaTask::kafka_broker_api_callback, t,
 								std::placeholders::_1);
@@ -670,7 +692,6 @@ void ComplexKafkaTask::kafka_process_broker_api(ComplexKafkaTask *t, __WFKafkaTa
 			ntask->get_req()->set_broker(*broker);
 			ntask->get_req()->set_api(Kafka_ApiVersions);
 			ntask->user_data = broker->get_raw_ptr();
-			broker->get_raw_ptr()->status = KAFKA_BROKER_DOING;
 			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(ntask);
 			*ctask->get_mutable_ctx() = cb;
 			series = Workflow::create_series_work(ntask, nullptr);
@@ -914,6 +935,15 @@ void ComplexKafkaTask::generate_info()
 		this->userinfo += this->config.get_sasl_password();
 		this->userinfo += ":";
 		this->userinfo += this->config.get_sasl_mechanisms();
+
+		this->meta_list.rewind();
+		KafkaMeta *meta;
+		while ((meta = this->meta_list.get_next()) != NULL)
+		{
+			this->userinfo += "%";
+			this->userinfo += meta->get_topic();
+		}
+
 		this->userinfo += "@";
 		this->url = "kafka://" + this->userinfo +
 			this->url.substr(this->url.find("kafka://") + 8);
@@ -1040,7 +1070,7 @@ void ComplexKafkaTask::dispatch()
 	else if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit) &&
 			 (*this->lock_status.get_status() & KAFKA_CGROUP_INIT))
 	{
-		KafkaBroker *broker = this->client_broker_map.get_first_entry();
+		KafkaBroker *broker = this->client_broker_map_by_id.get_first_entry();
 		if (!broker)
 		{
 			this->state = WFT_STATE_TASK_ERROR;

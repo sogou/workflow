@@ -3787,12 +3787,12 @@ int KafkaResponse::handle_sasl_continue()
 {
 	int ret;
 	std::vector<struct iovec> iovecs(2);
-	if (this->encode(iovecs.data(), 2) == 2)
+	if (this->encode(iovecs.data(), 2) > 0)
 	{
 		for (auto vec : iovecs)
 		{
 			ret = this->feedback((const char *)vec.iov_base, vec.iov_len);
-			if (ret != vec.iov_len)
+			if (ret != (int)vec.iov_len)
 			{
 				if (ret > 0)
 					errno = EAGAIN;
@@ -3810,8 +3810,7 @@ int KafkaResponse::append(const void *buf, size_t *size)
 
 	if (ret == 1)
 	{
-		int resp_ret = this->parse_response();
-		if (resp_ret == 0)
+		if (this->parse_response() == 0)
 		{
 			if (this->api_type == Kafka_SaslHandshake)
 			{
@@ -3830,7 +3829,7 @@ int KafkaResponse::append(const void *buf, size_t *size)
 			}
 		}
 		else
-			ret = resp_ret;
+			return -1;
 	}
 
 	return ret;

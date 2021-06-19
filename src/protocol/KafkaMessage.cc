@@ -3787,11 +3787,11 @@ int KafkaResponse::handle_sasl_continue()
 {
 	int ret;
 	std::vector<struct iovec> iovecs(2);
-	if (this->encode(iovecs.data(), 2) > 0)
+	if (this->encode(iovecs.data(), 2) >= 0)
 	{
 		for (auto vec : iovecs)
 		{
-			ret = this->feedback((const char *)vec.iov_base, vec.iov_len);
+			ret = this->feedback(vec.iov_base, vec.iov_len);
 			if (ret != (int)vec.iov_len)
 			{
 				if (ret > 0)
@@ -3800,6 +3800,8 @@ int KafkaResponse::handle_sasl_continue()
 			}
 		}
 	}
+	else
+		return -1;
 
 	return 0;
 }
@@ -3829,7 +3831,7 @@ int KafkaResponse::append(const void *buf, size_t *size)
 			}
 		}
 		else
-			return -1;
+			ret = -1;
 	}
 
 	return ret;

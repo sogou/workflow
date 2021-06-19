@@ -199,22 +199,3 @@ When you **call WFTaskFactory::count\_by\_name(name, n)**:
 Although the description is very complicated, it can be summed up in one sentence. Access all counters with that name according to the order of creation one by one until n is 0.   
 In other words, one **count\_by\_name(name, n)** may wake up multiple counters.   
 The counters can be used to realize very complex business logic if you can use them well. In our framework, counters are often used to implement asynchronous locks or to build channels between tasks. It is more like a control task in form.
-
-# WFContainerTask - extension of a counter
-
-A counter is like a kind of semaphore, and every count operation cannot be accompanied with operation data, which is often inconvenient.   
-If you consider a counter as a node on a directed acyclic graph and each count is an incoming edge. Then, the node can have attributes, but the incoming edge does not contain any information.   
-WFContainerTask is a task that adds attributes to the incoming edge. [WFContainerTask.h](/src/factory/WFContainerTask.h) contains relevant definitions:
-
-~~~cpp
-template<tyename T>
-class WFContainerTask : public WFCounterTask
-{
-public:
-    void push(const T& value);
-    void push(T&& value);
-    ...
-};
-~~~
-
-You can read the codes on demand. Since WFTaskFactory does not provide a factory function, you have to call **new** to create a container task.

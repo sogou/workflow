@@ -110,7 +110,7 @@ private:
 
 protected:
 	/* Send small packet while receiving. Call only in append(). */
-	int feedback(const char *buf, size_t size);
+	int feedback(const void *buf, size_t size);
 
 private:
 	struct CommConnEntry *entry;

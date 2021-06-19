@@ -90,6 +90,8 @@ using fsync_callback_t = std::function<void (WFFileSyncTask *)>;
 using timer_callback_t = std::function<void (WFTimerTask *)>;
 using counter_callback_t = std::function<void (WFCounterTask *)>;
 
+using mailbox_callback_t = std::function<void (WFMailboxTask *)>;
+
 // Graph (DAG) task.
 using graph_callback_t = std::function<void (WFGraphTask *)>;
 
@@ -222,6 +224,10 @@ public:
 	 * the operation is performed on the counters in the sequence of its
 	 * creation, and more than one counter may reach target value. */
 	static void count_by_name(const std::string& counter_name, unsigned int n);
+
+public:
+	static WFMailboxTask *create_mailbox_task(size_t size,
+											  mailbox_callback_t callback);
 
 public:
 	template<class FUNC, class... ARGS>

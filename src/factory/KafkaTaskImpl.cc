@@ -48,17 +48,17 @@ protected:
 	virtual bool finish_once();
 
 private:
-	struct __KafkaConnectionInfo
+	struct KafkaConnectionInfo
 	{
 		kafka_sasl_t sasl;
 		std::string mechanisms;
 
-		__KafkaConnectionInfo()
+		KafkaConnectionInfo()
 		{
 			kafka_sasl_init(&this->sasl);
 		}
 
-		~__KafkaConnectionInfo()
+		~KafkaConnectionInfo()
 		{
 			kafka_sasl_deinit(&this->sasl);
 		}
@@ -109,16 +109,24 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	long long seqid = this->get_seq();
 	KafkaBroker *broker = this->get_req()->get_broker();
 
-	if (!broker->get_api())
+	if (seqid == 0)
 	{
 		if (!this->get_req()->get_config()->get_broker_version())
 		{
-			KafkaRequest *req  = new KafkaRequest;
+			if (!broker->get_api())
+			{
+				KafkaRequest *req  = new KafkaRequest;
 
-			req->duplicate(*this->get_req());
-			req->set_api(Kafka_ApiVersions);
-			is_user_request_ = false;
-			return req;
+				req->duplicate(*this->get_req());
+				req->set_api(Kafka_ApiVersions);
+
+				if (this->get_req()->get_api() != Kafka_ApiVersions)
+					is_user_request_ = false;
+
+				return req;
+			}
+			else
+				seqid++;
 		}
 		else
 		{
@@ -139,17 +147,16 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				this->error = WFT_ERR_KAFKA_VERSION_DISALLOWED;
 				return NULL;
 			}
+			seqid++;
 		}
 	}
 
-	const char *sasl_mechanisms = this->get_req()->get_config()->get_sasl_mechanisms();
-	if (seqid < 2 && sasl_mechanisms)
+	if (seqid == 1 && !this->get_connection()->get_context())
 	{
-		WFConnection *conn = this->get_connection();
-		__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)conn->get_context();
-		if (!conn_info)
+		const char *sasl_mechanisms = this->get_req()->get_config()->get_sasl_mechanisms();
+		if (sasl_mechanisms)
 		{
-			conn_info = new __KafkaConnectionInfo;
+			KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
 			if (!conn_info->init(sasl_mechanisms))
 			{
 				this->state = WFT_STATE_TASK_ERROR;
@@ -158,16 +165,14 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			}
 
 			auto&& deleter = [] (void *ctx)
-			{
-				__KafkaConnectionInfo *conn_info = (__KafkaConnectionInfo *)ctx;
-				delete conn_info;
-			};
-			conn->set_context(conn_info, std::move(deleter));
-
+				{
+					KafkaConnectionInfo *conn_info = (KafkaConnectionInfo *)ctx;
+					delete conn_info;
+				};
+			this->get_connection()->set_context(conn_info, std::move(deleter));
 			this->get_req()->set_sasl(&conn_info->sasl);
 
 			KafkaRequest *req  = new KafkaRequest;
-
 			req->duplicate(*this->get_req());
 
 			if (broker->get_features() & KAFKA_FEATURE_SASL_HANDSHAKE)

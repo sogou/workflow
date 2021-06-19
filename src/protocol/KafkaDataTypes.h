@@ -234,7 +234,56 @@ public:
 		return *this;
 	}
 
-	T *find_item(int id)
+	T *find_item(const T& v) const
+	{
+		rb_node **p = &this->t_map->rb_node;
+		T *t;
+
+		while (*p)
+		{
+			t = rb_entry(*p, T, rb);
+
+			if (v < *t)
+				p = &(*p)->rb_left;
+			else if (v > *t)
+				p = &(*p)->rb_right;
+			else
+				break;
+		}
+
+		return *p ? t : NULL;
+	}
+
+	void add_item(T& obj)
+	{
+		rb_node **p = &this->t_map->rb_node;
+		rb_node *parent = NULL;
+		T *t;
+
+		while (*p)
+		{
+			parent = *p;
+			t = rb_entry(*p, T, rb);
+
+			if (obj < *t)
+				p = &(*p)->rb_left;
+			else if (obj > *t)
+				p = &(*p)->rb_right;
+			else
+				break;
+		}
+
+		if (*p == NULL)
+		{
+			T *nt = new T;
+
+			*nt = obj;
+			rb_link_node(nt->get_rb(), parent, p);
+			rb_insert_color(nt->get_rb(), this->t_map);
+		}
+	}
+
+	T *find_item(int id) const
 	{
 		rb_node **p = &this->t_map->rb_node;
 		T *t;
@@ -254,12 +303,11 @@ public:
 		return *p ? t : NULL;
 	}
 
-	void add_item(T& obj)
+	void add_item(T& obj, int id)
 	{
 		rb_node **p = &this->t_map->rb_node;
 		rb_node *parent = NULL;
 		T *t;
-		int id = obj.get_id();
 
 		while (*p)
 		{
@@ -978,6 +1026,41 @@ public:
 		return *this;
 	}
 
+	bool operator< (const KafkaBroker& broker) const
+	{
+		return this->get_uri() < broker.get_uri();
+	}
+
+	bool operator> (const KafkaBroker& broker) const
+	{
+		return this->get_uri() > broker.get_uri();
+	}
+
+	bool copy_from(const KafkaBroker& broker)
+	{
+		const struct sockaddr *addr;
+		socklen_t socklen;
+		broker.get_broker_addr(&addr, &socklen);
+		memcpy(&this->ptr->addr, addr, socklen);
+		this->ptr->addrlen = socklen;
+		this->ptr->to_addr = 1;
+
+		size_t size = (broker.get_raw_ptr()->api_elements) *
+			sizeof(kafka_api_version_t);
+		void *p = malloc(size);
+
+		if (!p)
+			return false;
+
+		memcpy(p, broker.get_raw_ptr()->api, size);
+		free(this->ptr->api);
+		this->ptr->api = (kafka_api_version_t *)p;
+		this->ptr->api_elements = broker.get_raw_ptr()->api_elements;
+		this->ptr->features = broker.get_raw_ptr()->features;
+
+		return true;
+	}
+
 	kafka_broker_t *get_raw_ptr() const { return this->ptr; }
 
 	struct list_head *get_list() { return &this->list; }
@@ -1011,7 +1094,7 @@ public:
 		return is_equal(broker.ptr->host, broker.ptr->port);
 	}
 
-	void get_broker_addr(const struct sockaddr **addr, socklen_t *socklen)
+	void get_broker_addr(const struct sockaddr **addr, socklen_t *socklen) const
 	{
 		if (this->ptr->addrlen)
 		{

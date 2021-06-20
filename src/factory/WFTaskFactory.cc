@@ -295,6 +295,33 @@ void WFTaskFactory::count_by_name(const std::string& counter_name, unsigned int 
 	__CounterMap::get_instance()->count_n(counter_name, n);
 }
 
+/********MailboxTask*************/
+
+class __WFMailboxTask : public WFMailboxTask
+{
+public:
+	__WFMailboxTask(size_t size, mailbox_callback_t&& cb) :
+		WFMailboxTask(new void *[size], size, std::move(cb))
+	{
+	}
+
+	virtual ~__WFMailboxTask()
+	{
+		delete []this->mailbox;
+	}
+};
+
+WFMailboxTask *WFTaskFactory::create_mailbox_task(size_t size,
+												  mailbox_callback_t callback)
+{
+	return new __WFMailboxTask(size, std::move(callback));
+}
+
+WFMailboxTask *WFTaskFactory::create_mailbox_task(mailbox_callback_t callback)
+{
+	return new WFMailboxTask(std::move(callback));
+}
+
 WFDNSTask *WFTaskFactory::create_dns_task(const std::string& host,
 										  unsigned short port,
 										  dns_callback_t callback)

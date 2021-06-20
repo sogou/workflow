@@ -620,6 +620,14 @@ public:
 		this->mailbox = mailbox;
 	}
 
+	WFMailboxTask(std::function<void (WFMailboxTask *)>&& cb) :
+		next(&this->user_data),
+		value(2),
+		callback(std::move(cb))
+	{
+		this->mailbox = &this->user_data;
+	}
+
 protected:
 	virtual ~WFMailboxTask() { }
 };

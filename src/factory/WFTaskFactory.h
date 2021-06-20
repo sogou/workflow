@@ -90,6 +90,7 @@ using fsync_callback_t = std::function<void (WFFileSyncTask *)>;
 using timer_callback_t = std::function<void (WFTimerTask *)>;
 using counter_callback_t = std::function<void (WFCounterTask *)>;
 
+// Mailbox is like counter with data passing
 using mailbox_callback_t = std::function<void (WFMailboxTask *)>;
 
 // Graph (DAG) task.
@@ -228,6 +229,9 @@ public:
 public:
 	static WFMailboxTask *create_mailbox_task(size_t size,
 											  mailbox_callback_t callback);
+
+	/* Use 'user_data' as mailbox. Store only one message. */
+	static WFMailboxTask *create_mailbox_task(mailbox_callback_t callback);
 
 public:
 	template<class FUNC, class... ARGS>

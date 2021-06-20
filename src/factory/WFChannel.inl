@@ -449,8 +449,8 @@ public:
 	void set_size_limit(size_t size_limit) { this->size_limit = size_limit; }
 
 protected:
-	CommMessageIn *message_in();
-	void handle_in(CommMessageIn *in);
+	virtual CommMessageIn *message_in();
+	virtual void handle_in(CommMessageIn *in);
 	virtual int first_timeout();
 	virtual WFWebSocketTask *new_session();
 

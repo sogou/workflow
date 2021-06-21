@@ -17,6 +17,8 @@
 */
 
 #include <openssl/sha.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
@@ -947,11 +949,12 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 	char *server_sign_b64, *client_proof_b64 = NULL;
 	int i;
 
-	if (scram_hi(scram->evp, itcnt, &password_iov, salt, &salted_pwd_iov) == -1)
+	if (scram_hi((const EVP_MD *)scram->evp, itcnt, &password_iov, salt,
+				 &salted_pwd_iov) == -1)
 		return -1;
 
-	if (scram_hmac(scram->evp, &salted_pwd_iov, &client_key_verbatim_iov,
-				   &client_key_iov) == -1)
+	if (scram_hmac((const EVP_MD *)scram->evp, &salted_pwd_iov,
+				   &client_key_verbatim_iov, &client_key_iov) == -1)
 		return -1;
 
 	scram_h(scram, &client_key_iov, &stored_key_iov);
@@ -973,15 +976,15 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 				 (int)client_final_msg_wo_proof_iov.iov_len,
 				 (char *)client_final_msg_wo_proof_iov.iov_base);
 
-		if (scram_hmac(scram->evp, &salted_pwd_iov, &server_key_verbatim_iov,
-					   &server_key_iov) == 0 &&
-			scram_hmac(scram->evp, &server_key_iov, &auth_message_iov,
-					   &server_sign_iov) == 0)
+		if (scram_hmac((const EVP_MD *)scram->evp, &salted_pwd_iov,
+					   &server_key_verbatim_iov, &server_key_iov) == 0 &&
+			scram_hmac((const EVP_MD *)scram->evp, &server_key_iov,
+					   &auth_message_iov, &server_sign_iov) == 0)
 		{
 			server_sign_b64 = scram_base64_encode(&server_sign_iov);
 			if (server_sign_b64 &&
-				scram_hmac(scram->evp, &stored_key_iov, &auth_message_iov,
-						   &client_sign_iov) ==0 &&
+				scram_hmac((const EVP_MD *)scram->evp, &stored_key_iov,
+						   &auth_message_iov, &client_sign_iov) ==0 &&
 				client_key_iov.iov_len == client_sign_iov.iov_len)
 			{
 				scram->server_signature_b64.iov_base = server_sign_b64;

@@ -3785,23 +3785,26 @@ int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 
 int KafkaResponse::handle_sasl_continue()
 {
+	struct iovec iovecs[64];
 	int ret;
-	std::vector<struct iovec> iovecs(2);
-	if (this->encode(iovecs.data(), 2) >= 0)
+	int cnt = this->encode(iovecs, 64);
+	if ((unsigned int)cnt > 64)
 	{
-		for (auto vec : iovecs)
+		if (cnt > 64)
+			errno = EOVERFLOW;
+		return -1;
+	}
+
+	for (int i = 0; i < cnt; i++)
+	{
+		ret = this->feedback(iovecs[i].iov_base, iovecs[i].iov_len);
+		if (ret != (int)iovecs[i].iov_len)
 		{
-			ret = this->feedback(vec.iov_base, vec.iov_len);
-			if (ret != (int)vec.iov_len)
-			{
-				if (ret > 0)
-					errno = EAGAIN;
-				return -1;
-			}
+			if (ret > 0)
+				errno = EAGAIN;
+			return -1;
 		}
 	}
-	else
-		return -1;
 
 	return 0;
 }

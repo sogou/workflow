@@ -195,6 +195,13 @@ enum
 	KAFKA_OFFSET_ASSIGN,
 };
 
+enum
+{
+	KAFKA_BROKER_UNINIT,
+	KAFKA_BROKER_DOING,
+	KAFKA_BROKER_INITED,
+};
+
 typedef struct __kafka_api_version
 {
 	short api_key;
@@ -264,6 +271,7 @@ typedef struct __kafka_broker
 	kafka_api_version_t *api;
 	int api_elements;
 	short error;
+	int status;
 } kafka_broker_t;
 
 typedef struct __kafka_partition

@@ -193,7 +193,7 @@ void CommTarget::deinit()
 	free(this->addr);
 }
 
-int CommMessageIn::feedback(const char *buf, size_t size)
+int CommMessageIn::feedback(const void *buf, size_t size)
 {
 	struct CommConnEntry *entry = this->entry;
 	int error;

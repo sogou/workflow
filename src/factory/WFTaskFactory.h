@@ -28,7 +28,8 @@
 #include "RedisMessage.h"
 #include "HttpMessage.h"
 #include "MySQLMessage.h"
-#include "DNSRoutine.h"
+#include "DnsMessage.h"
+#include "DnsRoutine.h"
 #include "Workflow.h"
 #include "WFTask.h"
 #include "WFGraphTask.h"
@@ -48,6 +49,10 @@ using redis_callback_t = std::function<void (WFRedisTask *)>;
 using WFMySQLTask = WFNetworkTask<protocol::MySQLRequest,
 								  protocol::MySQLResponse>;
 using mysql_callback_t = std::function<void (WFMySQLTask *)>;
+
+using WFDnsTask = WFNetworkTask<protocol::DnsRequest,
+								protocol::DnsResponse>;
+using dns_callback_t = std::function<void (WFDnsTask *)>;
 
 // File IO tasks
 
@@ -85,6 +90,9 @@ using fsync_callback_t = std::function<void (WFFileSyncTask *)>;
 using timer_callback_t = std::function<void (WFTimerTask *)>;
 using counter_callback_t = std::function<void (WFCounterTask *)>;
 
+// Mailbox is like counter with data passing
+using mailbox_callback_t = std::function<void (WFMailboxTask *)>;
+
 // Graph (DAG) task.
 using graph_callback_t = std::function<void (WFGraphTask *)>;
 
@@ -92,10 +100,6 @@ using WFEmptyTask = WFGenericTask;
 
 using WFDynamicTask = WFGenericTask;
 using dynamic_create_t = std::function<SubTask *(WFDynamicTask *)>;
-
-// DNS task. For internal usage only.
-using WFDNSTask = WFThreadTask<DNSInput, DNSOutput>;
-using dns_callback_t = std::function<void (WFDNSTask *)>;
 
 class WFTaskFactory
 {
@@ -137,6 +141,14 @@ public:
 	static WFMySQLTask *create_mysql_task(const ParsedURI& uri,
 										  int retry_max,
 										  mysql_callback_t callback);
+
+	static WFDnsTask *create_dns_task(const std::string& url,
+									  int retry_max,
+									  dns_callback_t callback);
+
+	static WFDnsTask *create_dns_task(const ParsedURI& uri,
+									  int retry_max,
+									  dns_callback_t callback);
 
 public:
 	static WFFileIOTask *create_pread_task(int fd,
@@ -215,6 +227,13 @@ public:
 	static void count_by_name(const std::string& counter_name, unsigned int n);
 
 public:
+	static WFMailboxTask *create_mailbox_task(size_t size,
+											  mailbox_callback_t callback);
+
+	/* Use 'user_data' as mailbox. Store only one message. */
+	static WFMailboxTask *create_mailbox_task(mailbox_callback_t callback);
+
+public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,
 									FUNC&& func, ARGS&&... args);
@@ -224,11 +243,6 @@ public:
 	{
 		return new WFGraphTask(std::move(callback));
 	}
-
-public:
-	static WFDNSTask *create_dns_task(const std::string& host,
-									  unsigned short port,
-									  dns_callback_t callback);
 
 public:
 	static WFEmptyTask *create_empty_task()

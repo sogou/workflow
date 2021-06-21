@@ -8,12 +8,14 @@ set(SRC
 	mysql_stream.c
 	mysql_parser.c
 	mysql_byteorder.c
+	websocket_parser.c
 	DnsMessage.cc
 	DnsUtil.cc
 	MySQLMessage.cc
 	MySQLResult.cc
 	HttpMessage.cc
 	RedisMessage.cc
+	WebSocketMessage.cc
 	HttpUtil.cc
 	SSLWrapper.cc
 )

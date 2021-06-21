@@ -158,11 +158,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		{
 			KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
 			if (!conn_info->init(sasl_mechanisms))
-			{
-				this->state = WFT_STATE_TASK_ERROR;
-				this->error = WFT_ERR_KAFKA_SASL_DISALLOWED;
 				return NULL;
-			}
 
 			auto&& deleter = [] (void *ctx)
 				{

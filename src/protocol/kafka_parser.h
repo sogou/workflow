@@ -22,9 +22,6 @@
 #include <arpa/inet.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
 #include "list.h"
 
 enum
@@ -224,7 +221,7 @@ typedef struct __kafka_parser
 
 typedef struct __kafka_scram
 {
-	const EVP_MD *evp;
+	const void *evp;
 	unsigned char *(*scram_h)(const unsigned char *d, size_t n,
 							  unsigned char *md);
 	size_t scram_h_size;

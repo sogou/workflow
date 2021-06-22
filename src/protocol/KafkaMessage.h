@@ -55,8 +55,8 @@ public:
 public:
 	int encode_message(int api_type, struct iovec vectors[], int max);
 
-	void set_api(int api_type) { this->api_type = api_type; }
-	int get_api() const { return this->api_type; }
+	void set_api_type(int api_type) { this->api_type = api_type; }
+	int get_api_type() const { return this->api_type; }
 
 	void set_api_version(int ver) { this->api_version = ver; }
 	int get_api_version() const { return this->api_version; }
@@ -117,6 +117,11 @@ public:
 		this->sasl = sasl;
 	}
 
+	void set_api(kafka_api_t *api)
+	{
+		this->api = api;
+	}
+
 	void duplicate(KafkaMessage& msg)
 	{
 		this->config = msg.config;
@@ -126,6 +131,7 @@ public:
 		this->broker_list = msg.broker_list;
 		this->toppar_list = msg.toppar_list;
 		this->sasl = msg.sasl;
+		this->api = msg.api;
 	}
 
 	void clear_buf()
@@ -201,6 +207,7 @@ protected:
 	size_t cur_size;
 
 	kafka_sasl_t *sasl;
+	kafka_api_t *api;
 };
 
 class KafkaRequest : public KafkaMessage

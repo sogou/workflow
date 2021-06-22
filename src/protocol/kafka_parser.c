@@ -1234,3 +1234,4 @@ int kafka_sasl_set_password(const char *password, kafka_config_t *conf)
 	conf->password = t;
 	return 0;
 }
+

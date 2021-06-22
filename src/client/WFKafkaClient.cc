@@ -1606,3 +1606,4 @@ KafkaBrokerList *WFKafkaClient::get_broker_list()
 {
 	return this->member->broker_list;
 }
+

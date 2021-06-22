@@ -321,3 +321,4 @@ inline void RedisResponse::get_result(RedisValue& value) const
 }
 
 #endif
+

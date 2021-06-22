@@ -3834,3 +3834,4 @@ int KafkaResponse::append(const void *buf, size_t *size)
 }
 
 }
+

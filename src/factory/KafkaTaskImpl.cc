@@ -633,3 +633,4 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;
 }
+

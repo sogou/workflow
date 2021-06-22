@@ -28,9 +28,9 @@ set(TUTORIAL_LIST
 	tutorial-04-http_echo_server
 	tutorial-05-http_proxy
 	tutorial-06-parallel_wget
-	tutorial-09-http_file_server
 	tutorial-07-sort_task
 	tutorial-08-matrix_multiply
+	tutorial-09-http_file_server
 	tutorial-11-graph_task
 )
 

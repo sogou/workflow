@@ -211,7 +211,7 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	int ret;
 
 	if (!entry->ssl)
-		return send(entry->sockfd, buf, (int)size, 0);
+		return send(entry->sockfd, (const char *)buf, (int)size, 0);
 
 	if (size == 0)
 		return 0;

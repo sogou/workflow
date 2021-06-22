@@ -9,6 +9,8 @@ set(SRC
 	MySQLTaskImpl.cc
 	WebSocketTaskImpl.cc
 	WFTaskFactory.cc
+	WFSemaphore.cc
+	WFSemTaskFactory.cc
 	Workflow.cc
 )
 

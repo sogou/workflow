@@ -28,9 +28,9 @@
 class WFCondition
 {
 public:
-	WFCounterTask *create_wait_task(std::function<void (WFCounterTask *)> cb);
-	WFCounterTask *create_timedwait_task(const struct timespec *abstime,
-										 std::function<void (WFCounterTask *)> cb);
+	WFMailboxTask *create_wait_task(std::function<void (WFMailboxTask *)> cb);
+	WFMailboxTask *create_timedwait_task(const struct timespec *abstime,
+										 std::function<void (WFMailboxTask *)> cb);
 	void signal();
 	void broadcast();
 

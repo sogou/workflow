@@ -21,7 +21,9 @@
 #include "TransRequest.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
-#include "WFCondition.h"
+//#include "WFCondition.h"
+#include "WFSemaphore.h"
+#include "WFSemTaskFactory.h"
 #include "WFNameService.h"
 #include "RouteManager.h"
 #include "WFGlobal.h"
@@ -247,7 +249,7 @@ void WFComplexChannel<MSG>::handle_terminated()
 		this->sending = true;
 		shutdown = true;
 	} else {
-		WFCounterTask *counter = this->condition.create_wait_task(nullptr);
+		SubTask *counter = WFSemTaskFactory::create_wait_task(&this->condition, nullptr);
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(counter);
 	}
@@ -349,8 +351,8 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		}
 		else
 		{
-			WFCounterTask *counter = channel->condition.create_wait_task(
-				[this](WFCounterTask *task)
+			SubTask *counter = WFSemTaskFactory::create_wait_task(&channel->condition,
+				[this](WFMailboxTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 				channel->set_state(WFT_STATE_SUCCESS);
@@ -370,8 +372,8 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		}
 		else
 		{
-			WFCounterTask *counter = channel->condition.create_wait_task(
-				[this](WFCounterTask *task)
+			SubTask *counter = WFSemTaskFactory::create_wait_task(&channel->condition,
+				[this](WFMailboxTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 				channel->set_state(WFT_STATE_SUCCESS);
@@ -416,7 +418,7 @@ SubTask *ComplexChannelOutTask<MSG>::done()
 
 	pthread_mutex_lock(&channel->mutex);
 	channel->set_sending(false);
-	channel->condition.signal();
+	channel->condition.signal(NULL);
 	pthread_mutex_unlock(&channel->mutex);
 
 	return WFChannelOutTask<MSG>::done();
@@ -433,7 +435,7 @@ SubTask *ComplexChannelOutTask<MSG>::upgrade()
 		channel->set_state(WFT_STATE_SUCCESS);
 		this->ready = true;
 		channel->set_sending(false);
-		channel->condition.signal();
+		channel->condition.signal(NULL);
 		pthread_mutex_unlock(&channel->mutex);
 	});
 

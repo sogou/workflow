@@ -209,6 +209,13 @@ typedef struct __kafka_api_version
 	short max_ver;
 } kafka_api_version_t;
 
+typedef struct __kafka_api_t
+{
+	unsigned features;
+	kafka_api_version_t *api;
+	int elements;
+} kafka_api_t;
+
 typedef struct __kafka_parser
 {
 	int complete;
@@ -241,6 +248,7 @@ typedef struct __kafka_sasl
 	kafka_scram_t scram;
 	char *buf;
 	size_t bsize;
+	int status;
 } kafka_sasl_t;
 
 typedef struct __kafka_config
@@ -285,9 +293,6 @@ typedef struct __kafka_broker
 	int to_addr;
 	struct sockaddr_storage addr;
 	socklen_t addrlen;
-	unsigned features;
-	kafka_api_version_t *api;
-	int api_elements;
 	short error;
 	int status;
 } kafka_broker_t;
@@ -441,6 +446,9 @@ void kafka_record_deinit(kafka_record_t *record);
 void kafka_record_header_init(kafka_record_header_t *header);
 void kafka_record_header_deinit(kafka_record_header_t *header);
 
+void kafka_api_init(kafka_api_t *api);
+void kafka_api_deinit(kafka_api_t *api);
+
 void kafka_sasl_init(kafka_sasl_t *sasl);
 void kafka_sasl_deinit(kafka_sasl_t *sasl);
 
@@ -461,8 +469,7 @@ int kafka_meta_set_topic(const char *topic_name, kafka_meta_t *meta);
 
 int kafka_cgroup_set_group(const char *group_name, kafka_cgroup_t *cgroup);
 
-int kafka_broker_get_api_version(const kafka_broker_t *broker,
-								 int api_key,
+int kafka_broker_get_api_version(const kafka_api_t *broker, int api_key,
 								 int min_ver, int max_ver);
 
 unsigned kafka_get_features(kafka_api_version_t *api, size_t api_cnt);

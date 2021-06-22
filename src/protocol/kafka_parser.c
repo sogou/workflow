@@ -280,15 +280,14 @@ unsigned kafka_get_features(kafka_api_version_t *api, size_t api_cnt)
 	return features;
 }
 
-int kafka_broker_get_api_version(const kafka_broker_t *broker,
-								 int api_key,
+int kafka_broker_get_api_version(const kafka_api_t *api, int api_key,
 								 int min_ver, int max_ver)
 {
 	kafka_api_version_t sk = { .api_key = api_key };
 	kafka_api_version_t *retp;
 
-	retp = bsearch(&sk, broker->api, broker->api_elements,
-				   sizeof(*broker->api), kafka_api_version_key_cmp);
+	retp = bsearch(&sk, api->api, api->elements,
+				   sizeof(*api->api), kafka_api_version_key_cmp);
 
 	if (!retp)
 		return -1;
@@ -379,6 +378,18 @@ void kafka_partition_deinit(kafka_partition_t *partition)
 	free(partition->isr_nodes);
 }
 
+void kafka_api_init(kafka_api_t *api)
+{
+	api->features = 0;
+	api->api = NULL;
+	api->elements = 0;
+}
+
+void kafka_api_deinit(kafka_api_t *api)
+{
+	free(api->api);
+}
+
 void kafka_broker_init(kafka_broker_t *broker)
 {
 	broker->node_id = -1;
@@ -388,9 +399,6 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->to_addr = 0;
 	memset(&broker->addr, 0, sizeof(broker->addr));
 	broker->addrlen = 0;
-	broker->features = 0;
-	broker->api = NULL;
-	broker->api_elements = 0;
 	broker->error = 0;
 	broker->status = KAFKA_BROKER_UNINIT;
 }
@@ -399,7 +407,6 @@ void kafka_broker_deinit(kafka_broker_t *broker)
 {
 	free(broker->host);
 	free(broker->rack);
-	free(broker->api);
 }
 
 void kafka_meta_init(kafka_meta_t *meta)
@@ -1195,6 +1202,7 @@ void kafka_sasl_init(kafka_sasl_t *sasl)
 	sasl->scram.first_msg.iov_len = 0;
 	sasl->scram.server_signature_b64.iov_base = NULL;
 	sasl->scram.server_signature_b64.iov_len = 0;
+	sasl->status = 0;
 }
 
 void kafka_sasl_deinit(kafka_sasl_t *sasl)

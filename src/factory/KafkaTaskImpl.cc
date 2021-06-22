@@ -50,16 +50,19 @@ protected:
 private:
 	struct KafkaConnectionInfo
 	{
+		kafka_api_t api;
 		kafka_sasl_t sasl;
 		std::string mechanisms;
 
 		KafkaConnectionInfo()
 		{
+			kafka_api_init(&this->api);
 			kafka_sasl_init(&this->sasl);
 		}
 
 		~KafkaConnectionInfo()
 		{
+			kafka_api_deinit(&this->api);
 			kafka_sasl_deinit(&this->sasl);
 		}
 
@@ -107,81 +110,82 @@ private:
 CommMessageOut *__ComplexKafkaTask::message_out()
 {
 	long long seqid = this->get_seq();
-	KafkaBroker *broker = this->get_req()->get_broker();
-
 	if (seqid == 0)
 	{
+		KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
+		auto&& deleter = [] (void *ctx)
+			{
+				KafkaConnectionInfo *conn_info = (KafkaConnectionInfo *)ctx;
+				delete conn_info;
+			};
+
+		this->get_connection()->set_context(conn_info, std::move(deleter));
+		this->get_req()->set_api(&conn_info->api);
+
 		if (!this->get_req()->get_config()->get_broker_version())
 		{
-			if (!broker->get_api())
-			{
-				KafkaRequest *req  = new KafkaRequest;
-
-				req->duplicate(*this->get_req());
-				req->set_api(Kafka_ApiVersions);
-
-				if (this->get_req()->get_api() != Kafka_ApiVersions)
-					is_user_request_ = false;
-
-				return req;
-			}
-			else
-				seqid++;
+			KafkaRequest *req  = new KafkaRequest;
+			req->duplicate(*this->get_req());
+			req->set_api_type(Kafka_ApiVersions);
+			is_user_request_ = false;
+			return req;
 		}
 		else
 		{
 			kafka_api_version_t *api;
 			size_t api_cnt;
-			const char *brk_ver = this->get_req()->get_config()->get_broker_version();
-			int ret = kafka_api_version_is_queryable(brk_ver, &api, &api_cnt);
+			const char *v = this->get_req()->get_config()->get_broker_version();
+			int ret = kafka_api_version_is_queryable(v, &api, &api_cnt);
+			kafka_api_version_t *p = NULL;
 
 			if (ret == 0)
 			{
-				broker->allocate_api_version(api_cnt);
-				memcpy(broker->get_api(), api,
-					   sizeof(kafka_api_version_t) * api_cnt);
+				p = (kafka_api_version_t *)malloc(api_cnt * sizeof(*p));
+				if (p)
+				{
+					memcpy(p, api, sizeof(kafka_api_version_t) * api_cnt);
+					conn_info->api.api = p;
+					conn_info->api.elements = api_cnt;
+					conn_info->api.features = kafka_get_features(p, api_cnt);
+				}
 			}
-			else
-			{
-				this->state = WFT_STATE_TASK_ERROR;
-				this->error = WFT_ERR_KAFKA_VERSION_DISALLOWED;
+
+			if (!p)
 				return NULL;
-			}
+
 			seqid++;
 		}
 	}
 
-	if (seqid == 1 && !this->get_connection()->get_context())
+	if (seqid == 1)
 	{
-		const char *sasl_mechanisms = this->get_req()->get_config()->get_sasl_mechanisms();
-		if (sasl_mechanisms)
+		const char *sasl_mech = this->get_req()->get_config()->get_sasl_mech();
+		KafkaConnectionInfo *conn_info =
+			(KafkaConnectionInfo *)this->get_connection()->get_context();
+		if (sasl_mech && conn_info->sasl.status == 0)
 		{
-			KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
-			if (!conn_info->init(sasl_mechanisms))
+			if (!conn_info->init(sasl_mech))
 				return NULL;
 
-			auto&& deleter = [] (void *ctx)
-				{
-					KafkaConnectionInfo *conn_info = (KafkaConnectionInfo *)ctx;
-					delete conn_info;
-				};
-			this->get_connection()->set_context(conn_info, std::move(deleter));
+			this->get_req()->set_api(&conn_info->api);
 			this->get_req()->set_sasl(&conn_info->sasl);
 
 			KafkaRequest *req  = new KafkaRequest;
 			req->duplicate(*this->get_req());
-
-			if (broker->get_features() & KAFKA_FEATURE_SASL_HANDSHAKE)
-				req->set_api(Kafka_SaslHandshake);
+			if (conn_info->api.features & KAFKA_FEATURE_SASL_HANDSHAKE)
+				req->set_api_type(Kafka_SaslHandshake);
 			else
-				req->set_api(Kafka_SaslAuthenticate);
-
+				req->set_api_type(Kafka_SaslAuthenticate);
 			is_user_request_ = false;
 			return req;
 		}
 	}
 
-	if (this->get_req()->get_api() == Kafka_Fetch)
+	KafkaConnectionInfo *conn_info =
+		(KafkaConnectionInfo *)this->get_connection()->get_context();
+	this->get_req()->set_api(&conn_info->api);
+
+	if (this->get_req()->get_api_type() == Kafka_Fetch)
 	{
 		KafkaRequest *req = this->get_req();
 		req->get_toppar_list()->rewind();
@@ -205,11 +209,11 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		if (flag)
 		{
 			KafkaRequest *new_req = new KafkaRequest;
-
+			new_req->set_api(&conn_info->api);
 			new_req->set_broker(*req->get_broker());
 			new_req->set_toppar_list(toppar_list);
 			new_req->set_config(*req->get_config());
-			new_req->set_api(Kafka_ListOffsets);
+			new_req->set_api_type(Kafka_ListOffsets);
 			is_user_request_ = false;
 			return new_req;
 		}
@@ -223,7 +227,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	KafkaRequest *req = static_cast<KafkaRequest *>(this->get_message_out());
 	KafkaResponse *resp = this->get_resp();
 
-	resp->set_api(req->get_api());
+	resp->set_api_type(req->get_api_type());
 	resp->set_api_version(req->get_api_version());
 	resp->duplicate(*req);
 
@@ -290,7 +294,7 @@ int __ComplexKafkaTask::first_timeout()
 	KafkaRequest *client_req = this->get_req();
 	int ret = 0;
 
-	switch(client_req->get_api())
+	switch(client_req->get_api_type())
 	{
 	case Kafka_Fetch:
 		ret = client_req->get_config()->get_fetch_timeout();
@@ -372,7 +376,7 @@ bool __ComplexKafkaTask::has_next()
 		msg->get_broker()->set_to_addr(1);
 	}
 
-	switch (msg->get_api())
+	switch (msg->get_api_type())
 	{
 	case Kafka_FindCoordinator:
 		if (msg->get_cgroup()->get_error())
@@ -384,7 +388,7 @@ bool __ComplexKafkaTask::has_next()
 		else
 		{
 			is_redirect_ = check_redirect();
-			this->get_req()->set_api(Kafka_JoinGroup);
+			this->get_req()->set_api_type(Kafka_JoinGroup);
 		}
 
 		break;
@@ -398,17 +402,17 @@ bool __ComplexKafkaTask::has_next()
 
 		if (msg->get_cgroup()->get_error() == KAFKA_MISSING_TOPIC)
 		{
-			this->get_req()->set_api(Kafka_Metadata);
+			this->get_req()->set_api_type(Kafka_Metadata);
 			update_metadata_ = true;
 		}
 		else if (msg->get_cgroup()->get_error() == KAFKA_MEMBER_ID_REQUIRED)
 		{
-			this->get_req()->set_api(Kafka_JoinGroup);
+			this->get_req()->set_api_type(Kafka_JoinGroup);
 		}
 		else if (msg->get_cgroup()->get_error() == KAFKA_UNKNOWN_MEMBER_ID)
 		{
 			msg->get_cgroup()->set_member_id("");
-			this->get_req()->set_api(Kafka_JoinGroup);
+			this->get_req()->set_api_type(Kafka_JoinGroup);
 		}
 		else if (msg->get_cgroup()->get_error())
 		{
@@ -417,7 +421,7 @@ bool __ComplexKafkaTask::has_next()
 			ret = false;
 		}
 		else
-			this->get_req()->set_api(Kafka_SyncGroup);
+			this->get_req()->set_api_type(Kafka_SyncGroup);
 
 		break;
 
@@ -429,7 +433,7 @@ bool __ComplexKafkaTask::has_next()
 			ret = false;
 		}
 		else
-			this->get_req()->set_api(Kafka_OffsetFetch);
+			this->get_req()->set_api_type(Kafka_OffsetFetch);
 
 		break;
 
@@ -444,7 +448,7 @@ bool __ComplexKafkaTask::has_next()
 				this->state = WFT_STATE_TASK_ERROR;
 			}
 			else
-				this->get_req()->set_api(Kafka_SyncGroup);
+				this->get_req()->set_api_type(Kafka_SyncGroup);
 		}
 		else
 		{
@@ -457,7 +461,7 @@ bool __ComplexKafkaTask::has_next()
 				if (meta->get_error() == KAFKA_LEADER_NOT_AVAILABLE)
 				{
 					ret = true;
-					this->get_req()->set_api(Kafka_Metadata);
+					this->get_req()->set_api_type(Kafka_Metadata);
 					break;
 				}
 			}
@@ -482,7 +486,7 @@ bool __ComplexKafkaTask::has_next()
 			{
 				if (!toppar->record_reach_end())
 				{
-					this->get_req()->set_api(Kafka_Produce);
+					this->get_req()->set_api_type(Kafka_Produce);
 					return true;
 				}
 			}
@@ -549,9 +553,9 @@ bool __ComplexKafkaTask::finish_once()
 			return false;
 		}
 
-		if (this->get_resp()->get_api() == Kafka_Fetch ||
-			this->get_resp()->get_api() == Kafka_Produce ||
-			this->get_resp()->get_api() == Kafka_ApiVersions)
+		if (this->get_resp()->get_api_type() == Kafka_Fetch ||
+			this->get_resp()->get_api_type() == Kafka_Produce ||
+			this->get_resp()->get_api_type() == Kafka_ApiVersions)
 		{
 			if (*get_mutable_ctx())
 				(*get_mutable_ctx())(this);
@@ -561,7 +565,7 @@ bool __ComplexKafkaTask::finish_once()
 	{
 		this->disable_retry();
 
-		this->get_resp()->set_api(this->get_req()->get_api());
+		this->get_resp()->set_api_type(this->get_req()->get_api_type());
 		this->get_resp()->set_api_version(this->get_req()->get_api_version());
 		this->get_resp()->duplicate(*this->get_req());
 

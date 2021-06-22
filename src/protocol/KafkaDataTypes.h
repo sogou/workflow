@@ -495,11 +495,11 @@ public:
 		this->ptr->offset_store = offset_store;
 	}
 
-	const char *get_sasl_mechanisms() const
+	const char *get_sasl_mech() const
 	{
 		return this->ptr->mechanisms;
 	}
-	bool set_sasl_mechanisms(const char *mechanisms)
+	bool set_sasl_mech(const char *mechanisms)
 	{
 		char *p = strdup(mechanisms);
 
@@ -1036,38 +1036,11 @@ public:
 		return this->get_uri() > broker.get_uri();
 	}
 
-	bool copy_from(const KafkaBroker& broker)
-	{
-		const struct sockaddr *addr;
-		socklen_t socklen;
-		broker.get_broker_addr(&addr, &socklen);
-		memcpy(&this->ptr->addr, addr, socklen);
-		this->ptr->addrlen = socklen;
-		this->ptr->to_addr = 1;
-
-		size_t size = (broker.get_raw_ptr()->api_elements) *
-			sizeof(kafka_api_version_t);
-		void *p = malloc(size);
-
-		if (!p)
-			return false;
-
-		memcpy(p, broker.get_raw_ptr()->api, size);
-		free(this->ptr->api);
-		this->ptr->api = (kafka_api_version_t *)p;
-		this->ptr->api_elements = broker.get_raw_ptr()->api_elements;
-		this->ptr->features = broker.get_raw_ptr()->features;
-
-		return true;
-	}
-
 	kafka_broker_t *get_raw_ptr() const { return this->ptr; }
 
 	struct list_head *get_list() { return &this->list; }
 
 	struct rb_node *get_rb() { return &this->rb; }
-
-	void set_feature(unsigned features) { this->ptr->features = features; }
 
 	bool is_equal(const struct sockaddr *addr, socklen_t socklen) const
 	{
@@ -1120,33 +1093,6 @@ public:
 	int get_node_id() const { return this->ptr->node_id; }
 
 	int get_id () const { return this->ptr->node_id; }
-
-	bool allocate_api_version(size_t len)
-	{
-		void *p = malloc(len * sizeof(kafka_api_version_t));
-
-		if (!p)
-			return false;
-
-		free(this->ptr->api);
-		this->ptr->api = (kafka_api_version_t *)p;
-		this->ptr->api_elements = len;
-		return true;
-	}
-
-	kafka_api_version_t *get_api()
-	{
-		return this->ptr->api;
-	}
-
-	void set_features(unsigned features)
-	{
-		this->ptr->features = features;
-	}
-	unsigned get_features()
-	{
-		return this->ptr->features;
-	}
 
 private:
 	struct list_head list;
@@ -1382,22 +1328,6 @@ public:
 			this->coordinator = new KafkaBroker(&this->ptr->coordinator);
 
 		return this->coordinator;
-	}
-
-	bool set_coordinator(KafkaBroker *coord)
-	{
-		size_t size = (coord->get_raw_ptr()->api_elements) * sizeof(kafka_api_version_t);
-		void *p = malloc(size);
-
-		if (!p)
-			return false;
-
-		memcpy(p, coord->get_raw_ptr()->api, size);
-		free(this->ptr->coordinator.api);
-		this->ptr->coordinator.api = (kafka_api_version_t *)p;
-		this->ptr->coordinator.api_elements = coord->get_raw_ptr()->api_elements;
-		this->ptr->coordinator.features = coord->get_raw_ptr()->features;
-		return true;
 	}
 
 	int run_assignor(KafkaMetaList *meta_list, const char *protocol_name);

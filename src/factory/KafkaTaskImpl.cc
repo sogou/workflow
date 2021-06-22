@@ -113,13 +113,9 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	if (seqid == 0)
 	{
 		KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
-		auto&& deleter = [] (void *ctx)
-			{
-				KafkaConnectionInfo *conn_info = (KafkaConnectionInfo *)ctx;
-				delete conn_info;
-			};
-
-		this->get_connection()->set_context(conn_info, std::move(deleter));
+		this->get_connection()->set_context(conn_info, std::move([](void *ctx) {
+					delete (KafkaConnectionInfo *)ctx;
+				}));
 		this->get_req()->set_api(&conn_info->api);
 
 		if (!this->get_req()->get_config()->get_broker_version())
@@ -143,7 +139,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				p = (kafka_api_version_t *)malloc(api_cnt * sizeof(*p));
 				if (p)
 				{
-					memcpy(p, api, sizeof(kafka_api_version_t) * api_cnt);
+					memcpy(p, api, api_cnt * sizeof(kafka_api_version_t));
 					conn_info->api.api = p;
 					conn_info->api.elements = api_cnt;
 					conn_info->api.features = kafka_get_features(p, api_cnt);

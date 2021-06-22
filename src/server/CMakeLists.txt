@@ -3,8 +3,13 @@ project(server)
 
 set(SRC
 	WFServer.cc
-	WFMySQLServer.cc
 )
 
-add_library(${PROJECT_NAME} OBJECT ${SRC})
+if (MYSQL STREQUAL "y")
+	set(SRC
+		${SRC}
+		WFMySQLServer.cc
+	)
+endif ()
 
+add_library(${PROJECT_NAME} OBJECT ${SRC})

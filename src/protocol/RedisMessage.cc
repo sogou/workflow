@@ -426,6 +426,30 @@ std::string RedisValue::debug_string() const
 	return ret;
 }
 
+RedisMessage::RedisMessage():
+	parser_(new redis_parser_t),
+	stream_(new EncodeStream),
+	cur_size_(0),
+	asking_(false)
+{
+	redis_parser_init(parser_);
+}
+
+RedisMessage::~RedisMessage()
+{
+	if (parser_)
+	{
+		redis_parser_deinit(parser_);
+		delete parser_;
+		delete stream_;
+	}
+}
+
+RedisValue::~RedisValue()
+{
+	free_data();
+}
+
 RedisMessage::RedisMessage(RedisMessage&& move) :
 	ProtocolMessage(std::move(move))
 {
@@ -672,4 +696,3 @@ bool RedisResponse::set_result(const RedisValue& value)
 }
 
 }
-

@@ -47,7 +47,7 @@ public:
 		int state;
 
 	private:
-		virtual CommConnection *new_connection(int)
+		virtual WFConnection *new_connection(int connect_fd)
 		{
 			return new WFConnection;
 		}

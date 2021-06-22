@@ -81,6 +81,11 @@ int WFServerBase::init_ssl_ctx(const char *cert_file, const char *key_file)
 	return -1;
 }
 
+void WFServerBase::delete_connection(WFConnection *conn)
+{
+	delete (WFServerConnection *)conn;
+}
+
 int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 					   const char *cert_file, const char *key_file)
 {
@@ -130,7 +135,7 @@ int WFServerBase::create_listen_fd()
 	return listen_fd;
 }
 
-CommConnection *WFServerBase::new_connection(int accept_fd)
+WFConnection *WFServerBase::new_connection(int accept_fd)
 {
 	if (++this->conn_count <= this->params.max_connections ||
 		this->drain(1) == 1)

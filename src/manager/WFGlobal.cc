@@ -716,6 +716,9 @@ static inline const char *__get_task_error_string(int error)
 	case WFT_ERR_HTTP_BAD_REDIRECT_HEADER:
 		return "Http Bad Redirect Header";
 
+	case WFT_ERR_HTTP_PROXY_CONNECT_FAILED:
+		return "Http Proxy Connect Failed";
+
 	case WFT_ERR_REDIS_ACCESS_DENIED:
 		return "Redis Access Denied";
 
@@ -733,6 +736,9 @@ static inline const char *__get_task_error_string(int error)
 
 	case WFT_ERR_MYSQL_COMMAND_DISALLOWED:
 		return "MySQL Command Disallowed";
+
+	case WFT_ERR_MYSQL_SSL_NOT_SUPPORTED:
+		return "MySQL SSL Not Supported";
 
 	default:
 		break;

@@ -587,23 +587,18 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 
 		kafka_merge_broker_list(&t->client_broker_map,
 								task->get_resp()->get_broker_list());
-
-		char name[64];
-		snprintf(name, 64, "%p.meta", t->client);
-		t->lock_status.get_mutex()->unlock();
-		WFTaskFactory::count_by_name(name, (unsigned int)-1);
 	}
 	else
 	{
 		t->state = WFT_STATE_TASK_ERROR;
 		t->error = WFT_ERR_KAFKA_META_FAILED;
 		t->finish = true;
-
-		char name[64];
-		snprintf(name, 64, "%p.meta", t->client);
-		t->lock_status.get_mutex()->unlock();
-		WFTaskFactory::count_by_name(name, (unsigned int)-1);
 	}
+
+	char name[64];
+	snprintf(name, 64, "%p.meta", t->client);
+	t->lock_status.get_mutex()->unlock();
+	WFTaskFactory::count_by_name(name, (unsigned int)-1);
 }
 
 void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
@@ -1611,3 +1606,4 @@ KafkaBrokerList *WFKafkaClient::get_broker_list()
 {
 	return this->member->broker_list;
 }
+

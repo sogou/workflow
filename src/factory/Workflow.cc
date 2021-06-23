@@ -33,7 +33,9 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->back = 0;
 	this->in_parallel = false;
 	this->canceled = false;
-	first->set_pointer(this);
+  if (first != nullptr) {
+    first->set_pointer(this);
+  }
 	this->first = first;
 	this->last = NULL;
 	this->context = NULL;
@@ -83,6 +85,9 @@ void SeriesWork::expand_queue()
 void SeriesWork::push_front(SubTask *task)
 {
 	this->mutex.lock();
+  if (this->first == nullptr) {
+    this->first = task;
+  }
 	if (--this->front == -1)
 		this->front = this->queue_size - 1;
 
@@ -97,6 +102,9 @@ void SeriesWork::push_front(SubTask *task)
 void SeriesWork::push_back(SubTask *task)
 {
 	this->mutex.lock();
+  if (this->first == nullptr) {
+    this->first = task;
+  }
 	task->set_pointer(this);
 	this->queue[this->back] = task;
 	if (++this->back == this->queue_size)

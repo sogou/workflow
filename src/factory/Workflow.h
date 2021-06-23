@@ -38,6 +38,9 @@ public:
 	static SeriesWork *
 	create_series_work(SubTask *first, series_callback_t callback);
 
+	static SeriesWork *
+	create_series_work(series_callback_t callback);
+
 	static void
 	start_series_work(SubTask *first, series_callback_t callback);
 
@@ -163,6 +166,12 @@ inline SeriesWork *
 Workflow::create_series_work(SubTask *first, series_callback_t callback)
 {
 	return new SeriesWork(first, std::move(callback));
+}
+
+inline SeriesWork *
+Workflow::create_series_work(series_callback_t callback)
+{
+	return new SeriesWork(nullptr, std::move(callback));
 }
 
 inline void

@@ -101,7 +101,11 @@ TEST(condition_unittest, timedwait)
 	auto *task2 = WFSemTaskFactory::create_timedwait_task("timedwait2", &ts,
 		[&wait_group](WFMailboxTask *task) {
 		EXPECT_EQ(task->get_error(), 0);
-		EXPECT_TRUE(strcmp((char *)task->user_data, "wake up!!") == 0);
+		void **msg;
+		size_t n;
+		msg = task->get_mailbox(&n);
+		EXPECT_EQ(n, 1);
+		EXPECT_TRUE(strcmp((char *)*msg, "wake up!!") == 0);
 		wait_group.done();
 	});
 

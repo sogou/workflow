@@ -68,19 +68,23 @@ class WFSemaphoreTask : public WFMailboxTask
 {
 public:
 	WFSemaphoreTask(std::function<void (WFMailboxTask *)>&& cb) :
-		WFMailboxTask(std::move(cb))
-//		WFMailboxTask(&this->msg, 1, std::move(cb))
+		WFMailboxTask(&this->msg, 1, std::move(cb))
 	{
-		this->list.next = NULL;
+		this->node.list.next = NULL;
+		this->node.ptr = this;
 	}
 
 	virtual ~WFSemaphoreTask() { }
 
 public:
-	struct list_head list;
+	struct entry
+	{
+		struct list_head list;
+		WFSemaphoreTask *ptr;
+	} node;
 
 private:
-	void *msg; // TODO: user_data instead
+	void *msg;
 };
 
 class WFTimedWaitTask;

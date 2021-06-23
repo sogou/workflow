@@ -38,7 +38,7 @@ WFMailboxTask *WFSemaphore::acquire(std::function<void (WFMailboxTask *)> cb)
 	else
 	{
 		this->mutex.lock();
-		list_add_tail(&task->list, &this->waiter_list);
+		list_add_tail(&task->node.list, &this->waiter_list);
 		this->mutex.unlock();
 	}
 
@@ -49,13 +49,15 @@ void WFSemaphore::release(void *msg)
 {
 	WFSemaphoreTask *task;
 	struct list_head *pos;
+	struct WFSemaphoreTask::entry *node;
 
 	this->mutex.lock();
 
 	if (++this->concurrency <= 0)// && !list_empty(&this->waiter_list))
 	{
 		pos = this->waiter_list.next;
-		task = list_entry(pos, WFSemaphoreTask, list);
+		node = list_entry(pos, struct WFSemaphoreTask::entry, list);
+		task = node->ptr;
 		list_del(pos);
 		task->send(msg);
 	}
@@ -82,9 +84,9 @@ void WFWaitTask::clear_timer_waiter()
 SubTask *WFTimedWaitTask::done()
 {
 	this->mutex->lock();
-	if (this->wait_task && this->wait_task->list.next)
+	if (this->wait_task && this->wait_task->node.list.next)
 	{
-		list_del(&this->wait_task->list);
+		list_del(&this->wait_task->node.list);
 		this->wait_task->set_error(ETIMEDOUT);
 		this->wait_task->count();
 		this->wait_task = NULL;
@@ -101,13 +103,15 @@ void WFCondition::signal(void *msg)
 {
 	WFWaitTask *task;
 	struct list_head *pos;
+	struct WFSemaphoreTask::entry *node;
 
 	this->mutex.lock();
 
 	if (!list_empty(&this->waiter_list))
 	{
 		pos = this->waiter_list.next;
-		task = list_entry(pos, WFWaitTask, list);
+		node = list_entry(pos, struct WFSemaphoreTask::entry, list);
+		task = (WFWaitTask *)node->ptr;
 		list_del(pos);
 		task->clear_timer_waiter();
 		task->send(msg);
@@ -120,13 +124,15 @@ void WFCondition::broadcast(void *msg)
 {
 	WFWaitTask *task;
 	struct list_head *pos, *tmp;
+	struct WFSemaphoreTask::entry *node;
 
 	this->mutex.lock();
 	if (!list_empty(&this->waiter_list))
 	{
 		list_for_each_safe(pos, tmp, &this->waiter_list)
 		{
-			task = list_entry(pos, WFWaitTask, list);
+			node = list_entry(pos, struct WFSemaphoreTask::entry, list);
+			task = (WFWaitTask *)node->ptr;
 			list_del(pos);
 			task->send(msg);
 		}

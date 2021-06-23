@@ -32,9 +32,17 @@ class __WFCondition : public WFCondition
 public:
 	__WFCondition(const std::string& str) :
 		name(str)
-	{ }
+	{
+		this->node.ptr = this;
+	}
 
-	struct rb_node rb;
+public:
+	struct entry
+	{
+		struct rb_node rb;
+		__WFCondition *ptr;
+	} node;
+
 	std::string name;
 };
 
@@ -132,13 +140,19 @@ __ConditionMap::~__ConditionMap()
 	WFWaitTask *task;
 	struct list_head *pos;
 	struct list_head *tmp;
+	struct WFSemaphoreTask::entry *node;
+	struct __WFCondition::entry *cond_node;
 
 	while (this->condition_map.rb_node)
 	{
-		cond = rb_entry(this->condition_map.rb_node, __WFCondition, rb);
+		cond_node = rb_entry(this->condition_map.rb_node,
+							 struct __WFCondition::entry, rb);
+		cond = cond_node->ptr;
+
 		list_for_each_safe(pos, tmp, &cond->waiter_list)
 		{
-			task = list_entry(pos, WFWaitTask, list);
+			node = list_entry(pos, struct WFSemaphoreTask::entry, list);
+			task = (WFWaitTask *)node->ptr;
 			list_del(pos);
 			delete task;
 		}
@@ -150,15 +164,17 @@ __ConditionMap::~__ConditionMap()
 
 __WFCondition *__ConditionMap::find_condition(const std::string& name)
 {
+	__WFCondition *cond;
+	struct __WFCondition::entry *cond_node;
 	struct rb_node **p = &this->condition_map.rb_node;
 	struct rb_node *parent = NULL;
-	__WFCondition *cond;
 
 	this->mutex.lock();
 	while (*p)
 	{
 		parent = *p;
-		cond = rb_entry(*p, __WFCondition, rb);
+		cond_node = rb_entry(*p, struct __WFCondition::entry, rb);
+		cond = cond_node->ptr;
 
 		if (name < cond->name)
 			p = &(*p)->rb_left;
@@ -171,8 +187,8 @@ __WFCondition *__ConditionMap::find_condition(const std::string& name)
 	if (*p == NULL)
 	{
 		cond = new __WFCondition(name);
-		rb_link_node(&cond->rb, parent, p);
-		rb_insert_color(&cond->rb, &this->condition_map);
+		rb_link_node(&cond->node.rb, parent, p);
+		rb_insert_color(&cond->node.rb, &this->condition_map);
 	}
 
 	this->mutex.unlock();
@@ -236,7 +252,7 @@ WFMailboxTask *WFSemTaskFactory::create_wait_task(WFCondition *cond,
 	WFWaitTask *task = new WFWaitTask(std::move(callback));
 
 	cond->mutex.lock();
-	list_add_tail(&task->list, &cond->waiter_list);
+	list_add_tail(&task->node.list, &cond->waiter_list);
 	cond->mutex.unlock();
 
 	return task;
@@ -253,7 +269,7 @@ WFMailboxTask *WFSemTaskFactory::create_timedwait_task(WFCondition *cond,
 	waiter->set_timer(task);
 
 	cond->mutex.lock();
-	list_add_tail(&waiter->list, &cond->waiter_list);
+	list_add_tail(&waiter->node.list, &cond->waiter_list);
 	cond->mutex.unlock();
 
 	return waiter;
@@ -265,7 +281,7 @@ WFMailboxTask *WFSemTaskFactory::create_switch_wait_task(WFCondition *cond,
 	WFWaitTask *task = new WFSwitchWaitTask(std::move(callback));
 
 	cond->mutex.lock();
-	list_add_tail(&task->list, &cond->waiter_list);
+	list_add_tail(&task->node.list, &cond->waiter_list);
 	cond->mutex.unlock();
 
 	return task;
@@ -282,7 +298,7 @@ WFMailboxTask *WFSemTaskFactory::create_switch_timedwait_task(WFCondition *cond,
 	waiter->set_timer(task);
 
 	cond->mutex.lock();
-	list_add_tail(&waiter->list, &cond->waiter_list);
+	list_add_tail(&waiter->node.list, &cond->waiter_list);
 	cond->mutex.unlock();
 
 	return waiter;

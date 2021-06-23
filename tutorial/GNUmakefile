@@ -9,7 +9,6 @@ CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake;
 KAFKA 		?= n
 MYSQL 		?= y
 REDIS 		?= y
-UPSTREAM 	?= y
 
 .PHONY: $(ALL_TARGETS)
 
@@ -17,9 +16,9 @@ all:
 	mkdir -p $(BUILD_DIR)
 
 ifeq ($(DEBUG),y)
-	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) -D UPSTREAM=$(UPSTREAM) $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) $(ROOT_DIR)
 else
-	cd $(BUILD_DIR) && $(CMAKE3) -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) -D UPSTREAM=$(UPSTREAM) $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) $(ROOT_DIR)
 endif
 	make -C $(BUILD_DIR) -f Makefile
 

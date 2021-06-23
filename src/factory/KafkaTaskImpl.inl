@@ -52,3 +52,4 @@ public:
 											const std::string& info,
 											__kafka_callback_t callback);
 };
+

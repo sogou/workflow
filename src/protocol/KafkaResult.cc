@@ -118,3 +118,4 @@ void KafkaResult::fetch_records(std::vector<std::vector<KafkaRecord *>>& records
 }
 
 }
+

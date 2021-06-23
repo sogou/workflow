@@ -239,6 +239,7 @@ SubTask *WFComplexChannel<MSG>::done()
 template<class MSG>
 void WFComplexChannel<MSG>::handle_terminated()
 {
+	WFMailboxTask *waiter;
 	bool shutdown = false;
 
 	pthread_mutex_lock(&this->mutex);
@@ -249,9 +250,10 @@ void WFComplexChannel<MSG>::handle_terminated()
 		this->sending = true;
 		shutdown = true;
 	} else {
-		SubTask *counter = WFSemTaskFactory::create_wait_task(&this->condition, nullptr);
+		waiter = WFSemTaskFactory::create_switch_wait_task(&this->condition,
+														   nullptr);
 		series_of(this)->push_front(this);
-		series_of(this)->push_front(counter);
+		series_of(this)->push_front(waiter);
 	}
 	pthread_mutex_unlock(&this->mutex);
 
@@ -322,6 +324,7 @@ protected:
 template<class MSG>
 void ComplexChannelOutTask<MSG>::dispatch()
 {
+	WFMailboxTask *waiter;
 	bool should_send = false;
 	auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 
@@ -351,7 +354,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		}
 		else
 		{
-			SubTask *counter = WFSemTaskFactory::create_wait_task(&channel->condition,
+			waiter = WFSemTaskFactory::create_switch_wait_task(&channel->condition,
 				[this](WFMailboxTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
@@ -359,7 +362,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 				this->ready = true;
 			});
 			series_of(this)->push_front(this);
-			series_of(this)->push_front(counter);
+			series_of(this)->push_front(waiter);
 			this->ready = false;
 		}
 		break;
@@ -372,7 +375,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		}
 		else
 		{
-			SubTask *counter = WFSemTaskFactory::create_wait_task(&channel->condition,
+			waiter = WFSemTaskFactory::create_switch_wait_task(&channel->condition,
 				[this](WFMailboxTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
@@ -380,7 +383,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 				this->ready = true;
 			});
 			series_of(this)->push_front(this);
-			series_of(this)->push_front(counter);
+			series_of(this)->push_front(waiter);
 			this->ready = false;
 		}
 		break;

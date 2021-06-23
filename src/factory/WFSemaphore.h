@@ -121,11 +121,9 @@ public:
 		this->wait_task = wait_task;
 	}
 
-	void clear_wait_task()
+	void clear_wait_task() // must called within this mutex
 	{
-		this->mutex->lock();
 		this->wait_task = NULL;
-		this->mutex->unlock();
 	}
 
 protected:

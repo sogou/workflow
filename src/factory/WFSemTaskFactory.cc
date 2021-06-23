@@ -18,8 +18,10 @@
 
 #include <mutex>
 #include <time.h>
+#include <string>
 #include <functional>
 #include "list.h"
+#include "rbtree.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 #include "WFGlobal.h"

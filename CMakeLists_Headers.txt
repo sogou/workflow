@@ -60,6 +60,9 @@ set(INCLUDE_HEADERS
 	src/protocol/DnsUtil.h
 	src/protocol/WebSocketMessage.h
 	src/protocol/websocket_parser.h
+	src/protocol/dns_parser.h
+	src/protocol/DnsMessage.h
+	src/protocol/DnsUtil.h
 	src/server/WFServer.h
 	src/server/WFDnsServer.h
 	src/server/WFHttpServer.h

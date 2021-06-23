@@ -197,17 +197,7 @@ __WFCondition *__ConditionMap::find_condition(const std::string& name)
 }
 
 /////////////// factory api ///////////////
-/*
-SubTask *acquire_by_name(const std::string& name, mailbox_callback_t callback)
-{
-	return __SemaphoreMap::get_instance()->acquire(name, std::move(callback));
-}
 
-void release_by_name(const std::string& name, void *msg)
-{
-	return __SemaphoreMap::get_instance()->release(name, msg);
-}
-*/
 void WFSemTaskFactory::signal_by_name(const std::string& name, void *msg)
 {
 	return __ConditionMap::get_instance()->signal(name, msg);
@@ -303,3 +293,4 @@ WFMailboxTask *WFSemTaskFactory::create_switch_timedwait_task(WFCondition *cond,
 
 	return waiter;
 }
+

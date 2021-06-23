@@ -44,12 +44,10 @@ public:
 	{
 		INIT_LIST_HEAD(&this->waiter_list);
 		this->concurrency = value;
-//		this->size = value;
 	}
 
 private:
 	std::atomic<int> concurrency;
-//	int size;
 };
 
 class WFCondition : public WFSemaphore

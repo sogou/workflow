@@ -32,11 +32,6 @@
 class WFSemTaskFactory
 {
 public:
-	// use semaphore by name
-	static SubTask *acquire_by_name(const std::string& name, mailbox_callback_t cb);
-
-	static void release_by_name(const std::string& name, void *msg);
-
 	// use condition by name
 	static void signal_by_name(const std::string& name, void *msg);
 

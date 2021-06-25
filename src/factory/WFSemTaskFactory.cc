@@ -52,17 +52,11 @@ public:
 	void signal(const std::string& name, void *msg);
 	void broadcast(const std::string& name, void *msg);
 
-	WFMailboxTask *create(const std::string& name,
-						  mailbox_callback_t&& cb);
-	WFMailboxTask *create(const std::string& name,
+	WFWaitTask *create(const std::string& name,
+						  wait_callback_t&& cb);
+	WFWaitTask *create(const std::string& name,
 						  const struct timespec *abstime,
-						  mailbox_callback_t&& cb);
-
-	WFMailboxTask *create_switch(const std::string& name,
-								 mailbox_callback_t&& cb);
-	WFMailboxTask *create_switch(const std::string& name,
-								 const struct timespec *abstime,
-								 mailbox_callback_t&& cb);
+						  wait_callback_t&& cb);
 
 public:
 	static __ConditionMap *get_instance()
@@ -98,17 +92,17 @@ void __ConditionMap::broadcast(const std::string& name, void *msg)
 	cond->broadcast(msg);
 }
 
-WFMailboxTask *__ConditionMap::create(const std::string& name,
-									  mailbox_callback_t&& cb)
+WFWaitTask *__ConditionMap::create(const std::string& name,
+									  wait_callback_t&& cb)
 {
 	__WFCondition *cond = this->find_condition(name);
 
 	return WFSemTaskFactory::create_wait_task(cond, std::move(cb));
 }
 
-WFMailboxTask *__ConditionMap::create(const std::string& name,
+WFWaitTask *__ConditionMap::create(const std::string& name,
 									  const struct timespec *abstime,
-									  mailbox_callback_t&& cb)
+									  wait_callback_t&& cb)
 {
 	__WFCondition *cond = this->find_condition(name);
 
@@ -116,28 +110,10 @@ WFMailboxTask *__ConditionMap::create(const std::string& name,
 												   std::move(cb));
 }
 
-WFMailboxTask *__ConditionMap::create_switch(const std::string& name,
-											 mailbox_callback_t&& cb)
-{
-	__WFCondition *cond = this->find_condition(name);
-
-	return WFSemTaskFactory::create_switch_wait_task(cond, std::move(cb));
-}
-
-WFMailboxTask *__ConditionMap::create_switch(const std::string& name,
-											 const struct timespec *abstime,
-											 mailbox_callback_t&& cb)
-{
-	__WFCondition *cond = this->find_condition(name);
-
-	return WFSemTaskFactory::create_switch_timedwait_task(cond, abstime,
-														  std::move(cb));
-}
-
 __ConditionMap::~__ConditionMap()
 {
 	__WFCondition *cond;
-	WFWaitTask *task;
+	WFCondWaitTask *task;
 	struct list_head *pos;
 	struct list_head *tmp;
 	struct WFSemaphoreTask::entry *node;
@@ -152,7 +128,7 @@ __ConditionMap::~__ConditionMap()
 		list_for_each_safe(pos, tmp, &cond->waiter_list)
 		{
 			node = list_entry(pos, struct WFSemaphoreTask::entry, list);
-			task = (WFWaitTask *)node->ptr;
+			task = (WFCondWaitTask *)node->ptr;
 			list_del(pos);
 			delete task;
 		}
@@ -208,38 +184,24 @@ void WFSemTaskFactory::broadcast_by_name(const std::string& name, void *msg)
 	return __ConditionMap::get_instance()->broadcast(name, msg);
 }
 
-WFMailboxTask *WFSemTaskFactory::create_wait_task(const std::string& name,
-												  mailbox_callback_t callback)
+WFWaitTask *WFSemTaskFactory::create_wait_task(const std::string& name,
+												  wait_callback_t callback)
 {
 	return __ConditionMap::get_instance()->create(name, std::move(callback));
 }
 
-WFMailboxTask *WFSemTaskFactory::create_timedwait_task(const std::string& name,
+WFWaitTask *WFSemTaskFactory::create_timedwait_task(const std::string& name,
 													   const struct timespec *abstime,
-													   mailbox_callback_t callback)
+													   wait_callback_t callback)
 {
 	return __ConditionMap::get_instance()->create(name, abstime,
 												  std::move(callback));
 }
 
-WFMailboxTask *WFSemTaskFactory::create_switch_wait_task(const std::string& name,
-														 mailbox_callback_t callback)
+WFWaitTask *WFSemTaskFactory::create_wait_task(WFCondition *cond,
+												  wait_callback_t callback)
 {
-	return __ConditionMap::get_instance()->create_switch(name, std::move(callback));
-}
-
-WFMailboxTask *WFSemTaskFactory::create_switch_timedwait_task(const std::string& name,
-														 	  const struct timespec *abstime,
-															  mailbox_callback_t callback)
-{
-	return __ConditionMap::get_instance()->create_switch(name, abstime,
-														 std::move(callback));
-}
-
-WFMailboxTask *WFSemTaskFactory::create_wait_task(WFCondition *cond,
-												  mailbox_callback_t callback)
-{
-	WFWaitTask *task = new WFWaitTask(std::move(callback));
+	WFCondWaitTask *task = new WFCondWaitTask(std::move(callback));
 
 	cond->mutex.lock();
 	list_add_tail(&task->node.list, &cond->waiter_list);
@@ -248,40 +210,11 @@ WFMailboxTask *WFSemTaskFactory::create_wait_task(WFCondition *cond,
 	return task;
 }
 
-WFMailboxTask *WFSemTaskFactory::create_timedwait_task(WFCondition *cond,
+WFWaitTask *WFSemTaskFactory::create_timedwait_task(WFCondition *cond,
 													   const struct timespec *abstime,
-													   mailbox_callback_t callback)
+													   wait_callback_t callback)
 {
-	WFWaitTask *waiter = new WFWaitTask(std::move(callback));
-	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &cond->mutex, abstime,
-												WFGlobal::get_scheduler(),
-												nullptr);
-	waiter->set_timer(task);
-
-	cond->mutex.lock();
-	list_add_tail(&waiter->node.list, &cond->waiter_list);
-	cond->mutex.unlock();
-
-	return waiter;
-}
-
-WFMailboxTask *WFSemTaskFactory::create_switch_wait_task(WFCondition *cond,
-														 mailbox_callback_t callback)
-{
-	WFWaitTask *task = new WFSwitchWaitTask(std::move(callback));
-
-	cond->mutex.lock();
-	list_add_tail(&task->node.list, &cond->waiter_list);
-	cond->mutex.unlock();
-
-	return task;
-}
-
-WFMailboxTask *WFSemTaskFactory::create_switch_timedwait_task(WFCondition *cond,
-															  const struct timespec *abstime,
-															  mailbox_callback_t callback)
-{
-	WFSwitchWaitTask *waiter = new WFSwitchWaitTask(std::move(callback));
+	WFCondWaitTask *waiter = new WFCondWaitTask(std::move(callback));
 	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &cond->mutex, abstime,
 												WFGlobal::get_scheduler(),
 												nullptr);

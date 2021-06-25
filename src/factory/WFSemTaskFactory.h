@@ -37,34 +37,21 @@ public:
 
 	static void broadcast_by_name(const std::string& name, void *msg);
 
-	static WFMailboxTask *create_wait_task(const std::string& name,
-										   mailbox_callback_t callback);
+	static WFWaitTask *create_wait_task(const std::string& name,
+										wait_callback_t callback);
 
-	static WFMailboxTask *create_timedwait_task(const std::string& name,
-												const struct timespec *abstime,
-												mailbox_callback_t callback);
-
-	static WFMailboxTask *create_switch_wait_task(const std::string& name,
-												  mailbox_callback_t callback);
-
-	static WFMailboxTask *create_switch_timedwait_task(const std::string& name,
-													   const struct timespec *abstime,
-													   mailbox_callback_t callback);
+	static WFWaitTask *create_timedwait_task(const std::string& name,
+											 const struct timespec *abstime,
+											 wait_callback_t callback);
 
 	// use condition by ptr
-	static WFMailboxTask *create_wait_task(WFCondition *cond,
-										   mailbox_callback_t callback);
+	static WFWaitTask *create_wait_task(WFCondition *cond,
+										wait_callback_t callback);
 
-	static WFMailboxTask *create_timedwait_task(WFCondition *cond,
-												const struct timespec *abstime,
-									  			mailbox_callback_t callback);
+	static WFWaitTask *create_timedwait_task(WFCondition *cond,
+											 const struct timespec *abstime,
+											   wait_callback_t callback);
 
-	static WFMailboxTask *create_switch_wait_task(WFCondition *cond,
-												  mailbox_callback_t callback);
-
-	static WFMailboxTask *create_switch_timedwait_task(WFCondition *cond,
-													   const struct timespec *abstime,
-									 				   mailbox_callback_t callback);
 };
 
 #endif

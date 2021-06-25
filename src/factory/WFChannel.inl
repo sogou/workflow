@@ -250,8 +250,8 @@ void WFComplexChannel<MSG>::handle_terminated()
 		this->sending = true;
 		shutdown = true;
 	} else {
-		waiter = WFSemTaskFactory::create_switch_wait_task(&this->condition,
-														   nullptr);
+		waiter = WFSemTaskFactory::create_wait_task(&this->condition,
+													nullptr);
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(waiter);
 	}
@@ -354,7 +354,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		}
 		else
 		{
-			waiter = WFSemTaskFactory::create_switch_wait_task(&channel->condition,
+			waiter = WFSemTaskFactory::create_wait_task(&channel->condition,
 				[this](WFMailboxTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
@@ -375,7 +375,7 @@ void ComplexChannelOutTask<MSG>::dispatch()
 		}
 		else
 		{
-			waiter = WFSemTaskFactory::create_switch_wait_task(&channel->condition,
+			waiter = WFSemTaskFactory::create_wait_task(&channel->condition,
 				[this](WFMailboxTask *task)
 			{
 				auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();

@@ -27,25 +27,40 @@
 
 /////////////// Semaphore Impl ///////////////
 
-WFMailboxTask *WFSemaphore::acquire(std::function<void (WFMailboxTask *)> cb)
+bool WFSemaphore::get()
 {
-	WFSemaphoreTask *task = new WFSemaphoreTask(std::move(cb));
-
 	if (--this->concurrency >= 0)
+		return true;
+
+	WFSemaphoreTask *task = new WFSemaphoreTask(nullptr);
+
+	this->mutex.lock();
+	list_add_tail(&task->node.list, &this->waiter_list);
+	this->mutex.unlock();
+
+	return true;
+}
+
+WFWaitTask *WFSemaphore::create_wait_task(std::function<void (WFWaitTask *)> cb)
+{
+	WFSemaphoreTask *task = NULL;
+	struct list_head *pos;
+	struct WFSemaphoreTask::entry *node;
+
+	this->mutex.lock();
+	if (!list_empty(&this->waiter_list))
 	{
-		task->count();
+		pos = this->waiter_list.next;
+		node = list_entry(pos, struct WFSemaphoreTask::entry, list);
+		task = node->ptr;
+		task->set_callback(std::move(cb));
 	}
-	else
-	{
-		this->mutex.lock();
-		list_add_tail(&task->node.list, &this->waiter_list);
-		this->mutex.unlock();
-	}
+	this->mutex.unlock();
 
 	return task;
 }
 
-void WFSemaphore::release(void *msg)
+void WFSemaphore::post(void *msg)
 {
 	WFSemaphoreTask *task;
 	struct list_head *pos;
@@ -62,20 +77,38 @@ void WFSemaphore::release(void *msg)
 		task->send(msg);
 	}
 
+	if (this->concurrency > this->total)
+		this->concurrency = this->total;
+
 	this->mutex.unlock();
 }
 
 /////////////// Wait tasks Impl ///////////////
 
-void WFWaitTask::dispatch()
+void WFCondWaitTask::dispatch()
 {
 	if (this->timer)
 		timer->dispatch();
 	
-	this->WFMailboxTask::count();
+	this->WFWaitTask::count();
 }
 
-void WFWaitTask::clear_timer_waiter()
+SubTask *WFCondWaitTask::done()
+{
+	SeriesWork *series = series_of(this);
+
+	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
+		[this](WFTimerTask *task) {
+			if (this->callback)
+				this->callback(this);
+			delete this;
+	});
+	series->push_front(switch_task);
+
+	return series->pop();
+}
+
+void WFCondWaitTask::clear_timer_waiter()
 {
 	if (this->timer)
 		timer->clear_wait_task();
@@ -101,7 +134,7 @@ SubTask *WFTimedWaitTask::done()
 
 void WFCondition::signal(void *msg)
 {
-	WFWaitTask *task;
+	WFCondWaitTask *task;
 	struct list_head *pos;
 	struct WFSemaphoreTask::entry *node;
 
@@ -111,7 +144,7 @@ void WFCondition::signal(void *msg)
 	{
 		pos = this->waiter_list.next;
 		node = list_entry(pos, struct WFSemaphoreTask::entry, list);
-		task = (WFWaitTask *)node->ptr;
+		task = (WFCondWaitTask *)node->ptr;
 		list_del(pos);
 		task->clear_timer_waiter();
 		task->send(msg);
@@ -122,7 +155,7 @@ void WFCondition::signal(void *msg)
 
 void WFCondition::broadcast(void *msg)
 {
-	WFWaitTask *task;
+	WFCondWaitTask *task;
 	struct list_head *pos, *tmp;
 	struct WFSemaphoreTask::entry *node;
 
@@ -132,7 +165,7 @@ void WFCondition::broadcast(void *msg)
 		list_for_each_safe(pos, tmp, &this->waiter_list)
 		{
 			node = list_entry(pos, struct WFSemaphoreTask::entry, list);
-			task = (WFWaitTask *)node->ptr;
+			task = (WFCondWaitTask *)node->ptr;
 			list_del(pos);
 			task->send(msg);
 		}

@@ -29,25 +29,34 @@
 #include "WFTaskFactory.h"
 #include "WFGlobal.h"
 
+using WFWaitTask = WFMailboxTask;
+using wait_callback_t = mailbox_callback_t;
+
 class WFSemaphore
 {
 public:
-	WFMailboxTask *acquire(std::function<void (WFMailboxTask *)> cb);
-	void release(void *msg);
+	bool get();
+	WFWaitTask *create_wait_task(std::function<void (WFWaitTask *)> cb);
+	void post(void *msg);
 
 public:
 	std::mutex mutex;
 	struct list_head waiter_list;
-	
+
 public:
 	WFSemaphore(int value)
 	{
+		if (value <= 0)
+			value = 1;
+
 		INIT_LIST_HEAD(&this->waiter_list);
 		this->concurrency = value;
+		this->total = value;
 	}
 
 private:
 	std::atomic<int> concurrency;
+	int total;
 };
 
 class WFCondition : public WFSemaphore
@@ -59,14 +68,14 @@ public:
 public:
 	WFCondition() : WFSemaphore(1) { }
 	WFCondition(int value) : WFSemaphore(value) { }
-	~WFCondition() { }
+	virtual ~WFCondition() { }
 };
 
-class WFSemaphoreTask : public WFMailboxTask
+class WFSemaphoreTask : public WFWaitTask
 {
 public:
-	WFSemaphoreTask(std::function<void (WFMailboxTask *)>&& cb) :
-		WFMailboxTask(&this->msg, 1, std::move(cb))
+	WFSemaphoreTask(std::function<void (WFWaitTask *)>&& cb) :
+		WFWaitTask(&this->msg, 1, std::move(cb))
 	{
 		this->node.list.next = NULL;
 		this->node.ptr = this;
@@ -87,7 +96,7 @@ private:
 
 class WFTimedWaitTask;
 
-class WFWaitTask : public WFSemaphoreTask
+class WFCondWaitTask : public WFSemaphoreTask
 {
 public:
 	void set_timer(WFTimedWaitTask *timer) { this->timer = timer; }
@@ -96,24 +105,25 @@ public:
 
 protected:
 	void dispatch();
+	SubTask *done();
 
 private:
 	WFTimedWaitTask *timer;
 
 public:
-	WFWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
+	WFCondWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
 		WFSemaphoreTask(std::move(cb))
 	{
 		this->timer = NULL;
 	}
 
-	virtual ~WFWaitTask() { }
+	virtual ~WFCondWaitTask() { }
 };
 
 class WFTimedWaitTask : public __WFTimerTask
 {
 public:
-	WFTimedWaitTask(WFWaitTask *wait_task, std::mutex *mutex,
+	WFTimedWaitTask(WFCondWaitTask *wait_task, std::mutex *mutex,
 					const struct timespec *value,
 					CommScheduler *scheduler,
 					std::function<void (WFTimerTask *)> cb) :
@@ -133,31 +143,7 @@ protected:
 
 private:
 	std::mutex *mutex;
-	WFWaitTask *wait_task;
-};
-
-class WFSwitchWaitTask : public WFWaitTask
-{
-public:
-	WFSwitchWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
-			WFWaitTask(std::move(cb))
-	{ }
-
-protected:
-	SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
-			[this](WFTimerTask *task) {
-				if (this->callback)
-					this->callback(this);
-				delete this;
-		});
-		series->push_front(switch_task);
-
-		return series->pop();
-	}
+	WFCondWaitTask *wait_task;
 };
 
 #endif

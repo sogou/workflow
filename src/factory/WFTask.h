@@ -556,6 +556,82 @@ protected:
 	virtual ~WFCounterTask() { }
 };
 
+class WFMailboxTask : public WFGenericTask
+{
+public:
+	void send(void *msg)
+	{
+		*this->next++ = msg;
+		this->count();
+	}
+
+	void **get_mailbox(size_t *n)
+	{
+		*n = this->next - this->mailbox;
+		return this->mailbox;
+	}
+
+public:
+	void set_callback(std::function<void (WFMailboxTask *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
+public:
+	virtual void count()
+	{
+		if (--this->value == 0)
+		{
+			this->state = WFT_STATE_SUCCESS;
+			this->subtask_done();
+		}
+	}
+
+protected:
+	virtual void dispatch()
+	{
+		this->WFMailboxTask::count();
+	}
+
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+
+		if (this->callback)
+			this->callback(this);
+
+		delete this;
+		return series->pop();
+	}
+
+protected:
+	void **mailbox;
+	std::atomic<void **> next;
+	std::atomic<size_t> value;
+	std::function<void (WFMailboxTask *)> callback;
+
+public:
+	WFMailboxTask(void **mailbox, size_t size,
+				  std::function<void (WFMailboxTask *)>&& cb) :
+		next(mailbox),
+		value(size + 1),
+		callback(std::move(cb))
+	{
+		this->mailbox = mailbox;
+	}
+
+	WFMailboxTask(std::function<void (WFMailboxTask *)>&& cb) :
+		next(&this->user_data),
+		value(2),
+		callback(std::move(cb))
+	{
+		this->mailbox = &this->user_data;
+	}
+
+protected:
+	virtual ~WFMailboxTask() { }
+};
+
 class WFGoTask : public ExecRequest
 {
 public:

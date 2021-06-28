@@ -130,7 +130,7 @@ SubTask *ComplexWebSocketOutTask::done()
 
 	pthread_mutex_lock(&channel->mutex);
 	channel->set_sending(false);
-	channel->condition.signal();
+	channel->condition.signal(NULL);
 	pthread_mutex_unlock(&channel->mutex);
 
 	return WFChannelOutTask<WebSocketFrame>::done();
@@ -201,7 +201,7 @@ void ComplexWebSocketChannel::handle_in(CommMessageIn *in)
 	if (!parse_websocket) // so this is equal to should_count
 	{
 		pthread_mutex_lock(&this->mutex);
-		this->condition.signal();
+		this->condition.signal(NULL);
 		pthread_mutex_unlock(&this->mutex);
 		return;
 	}

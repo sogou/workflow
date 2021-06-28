@@ -24,7 +24,7 @@
 
 class WFTimedWaitTask;
 
-class WFWaitTask : public WFCounterTask
+class WFWaitTask : public WFMailboxTask
 {
 public:
 	void set_timer(WFTimedWaitTask *timer) { this->timer = timer; }
@@ -44,8 +44,8 @@ private:
 	WFTimedWaitTask *timer;
 
 public:
-	WFWaitTask(std::function<void (WFCounterTask *)>&& cb) :
-		WFCounterTask(1, std::move(cb))
+	WFWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
+		WFMailboxTask(&this->user_data, 1, std::move(cb))
 	{
 		this->timer = NULL;
 		this->entry.list.next = NULL;
@@ -81,7 +81,7 @@ void WFWaitTask::dispatch()
 	if (this->timer)
 		timer->dispatch();
 	
-	this->WFCounterTask::count();
+	this->WFMailboxTask::count();
 }
 
 SubTask *WFWaitTask::done()
@@ -139,7 +139,7 @@ void WFTimedWaitTask::clear_wait_task()
 	this->mutex->unlock();
 }
 
-WFCounterTask *WFCondition::create_wait_task(counter_callback_t cb)
+WFMailboxTask *WFCondition::create_wait_task(mailbox_callback_t cb)
 {
 	WFWaitTask *task = new WFWaitTask(std::move(cb));
 
@@ -150,8 +150,8 @@ WFCounterTask *WFCondition::create_wait_task(counter_callback_t cb)
 	return task;
 }
 
-WFCounterTask *WFCondition::create_timedwait_task(const struct timespec *abstime,
-												  counter_callback_t cb)
+WFMailboxTask *WFCondition::create_timedwait_task(const struct timespec *abstime,
+												  mailbox_callback_t cb)
 {
 	WFWaitTask *waiter = new WFWaitTask(std::move(cb));
 	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &this->mutex, abstime,

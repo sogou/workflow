@@ -14,62 +14,13 @@
   limitations under the License.
 
   Author: Li Yingxin (liyingxin@sogou-inc.com)
+          Xie Han (xiehan@sogou-inc.com)
           Liu Kai (liukaidx@sogou-inc.com)
 */
 
-#ifndef _WFSEMAPHORE_H_
-#define _WFSEMAPHORE_H_
-
-#include <mutex>
-#include <time.h>
-#include <functional>
-#include <atomic>
 #include "list.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
-#include "WFGlobal.h"
-
-using WFWaitTask = WFMailboxTask;
-using wait_callback_t = mailbox_callback_t;
-
-class WFSemaphore
-{
-public:
-	bool get();
-	WFWaitTask *create_wait_task(std::function<void (WFWaitTask *)> cb);
-	void post(void *msg);
-
-public:
-	std::mutex mutex;
-	struct list_head waiter_list;
-
-public:
-	WFSemaphore(int value)
-	{
-		if (value <= 0)
-			value = 1;
-
-		INIT_LIST_HEAD(&this->waiter_list);
-		this->concurrency = value;
-		this->total = value;
-	}
-
-private:
-	std::atomic<int> concurrency;
-	int total;
-};
-
-class WFCondition : public WFSemaphore
-{	
-public:
-	void signal(void *msg);
-	void broadcast(void *msg);
-
-public:
-	WFCondition() : WFSemaphore(1) { }
-	WFCondition(int value) : WFSemaphore(value) { }
-	virtual ~WFCondition() { }
-};
 
 class WFSemaphoreTask : public WFWaitTask
 {
@@ -145,6 +96,4 @@ private:
 	std::mutex *mutex;
 	WFCondWaitTask *wait_task;
 };
-
-#endif
 

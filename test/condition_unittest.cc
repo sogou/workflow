@@ -24,7 +24,6 @@
 #include <gtest/gtest.h>
 #include "workflow/WFTask.h"
 #include "workflow/WFTaskFactory.h"
-//#include "workflow/WFCondition.h"
 #include "workflow/WFSemaphore.h"
 #include "workflow/WFSemTaskFactory.h"
 #include "workflow/WFFacilities.h"
@@ -33,11 +32,13 @@ TEST(condition_unittest, signal)
 {
 	WFCondition cond;
 	std::mutex mutex;
+	WFFacilities::WaitGroup wg(1);
 	int ret = 3;
 	int *ptr = &ret;
 
-	auto *task1 = WFSemTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+	auto *task1 = WFSemTaskFactory::create_wait_task(&cond, [&wg, &ptr](WFMailboxTask *) {
 		*ptr = 1;
+		wg.done();
 	});
 
 	auto *task2 = WFSemTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
@@ -53,7 +54,7 @@ TEST(condition_unittest, signal)
 	mutex.lock();
 	cond.signal(NULL);
 	mutex.unlock();
-	usleep(1000);
+	wg.wait();
 	EXPECT_EQ(ret, 1);
 	cond.signal(NULL);
 	usleep(1000);
@@ -116,5 +117,44 @@ TEST(condition_unittest, timedwait)
 	char msg[10] = "wake up!!";
 	WFSemTaskFactory::signal_by_name("timedwait2", msg);
 	wait_group.wait();
+}
+
+#define work usleep
+
+TEST(condition_unittest, semaphore)
+{
+	int sem_concurrency = 1;
+	int task_concurrency = 3;
+	WFSemaphore sem(sem_concurrency);
+	WFFacilities::WaitGroup wg(task_concurrency);
+
+	for (int i = 0; i < task_concurrency; i ++)
+	{
+		auto *t = WFTaskFactory::create_timer_task(i * 1, [&sem, &wg](WFTimerTask *task) {
+			uint64_t id = (uint64_t)series_of(task)->get_context();
+			if (!sem.get())
+			{
+				auto *waiter = sem.create_wait_task([&sem, &wg](WFWaitTask *task) {
+					uint64_t id = (uint64_t)series_of(task)->get_context();
+					work(3);
+					wg.done();
+					sem.post(reinterpret_cast<uint64_t *>(id));
+				});
+				series_of(task)->push_back(waiter);
+			}
+			else
+			{
+				work(3);
+				wg.done();
+				sem.post(reinterpret_cast<uint64_t *>(id));
+			}
+		});
+
+		SeriesWork *series = Workflow::create_series_work(t, nullptr);
+		series->set_context(reinterpret_cast<uint64_t *>(i));
+		series->start();
+	}
+
+	wg.wait();
 }
 

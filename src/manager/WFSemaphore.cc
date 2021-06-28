@@ -14,6 +14,7 @@
   limitations under the License.
 
   Author: Li Yingxin (liyingxin@sogou-inc.com)
+          Xie Han (xiehan@sogou-inc.com)
           Liu Kai (liukaidx@sogou-inc.com)
 */
 
@@ -35,10 +36,10 @@ bool WFSemaphore::get()
 	WFSemaphoreTask *task = new WFSemaphoreTask(nullptr);
 
 	this->mutex.lock();
-	list_add_tail(&task->node.list, &this->waiter_list);
+	list_add_tail(&task->node.list, &this->get_list);
 	this->mutex.unlock();
 
-	return true;
+	return false;
 }
 
 WFWaitTask *WFSemaphore::create_wait_task(std::function<void (WFWaitTask *)> cb)
@@ -48,39 +49,41 @@ WFWaitTask *WFSemaphore::create_wait_task(std::function<void (WFWaitTask *)> cb)
 	struct WFSemaphoreTask::entry *node;
 
 	this->mutex.lock();
-	if (!list_empty(&this->waiter_list))
+	if (!list_empty(&this->get_list))
 	{
-		pos = this->waiter_list.next;
+		pos = this->get_list.next;
+		list_move_tail(pos, &this->wait_list);
 		node = list_entry(pos, struct WFSemaphoreTask::entry, list);
 		task = node->ptr;
 		task->set_callback(std::move(cb));
 	}
-	this->mutex.unlock();
 
+	this->mutex.unlock();
 	return task;
 }
 
 void WFSemaphore::post(void *msg)
 {
-	WFSemaphoreTask *task;
+	WFSemaphoreTask *task = NULL;
 	struct list_head *pos;
 	struct WFSemaphoreTask::entry *node;
 
 	this->mutex.lock();
 
-	if (++this->concurrency <= 0)// && !list_empty(&this->waiter_list))
+	if (++this->concurrency <= 0)
 	{
-		pos = this->waiter_list.next;
+		if (!list_empty(&this->wait_list))
+			pos = this->wait_list.next;
+		else
+			pos = this->get_list.next;
 		node = list_entry(pos, struct WFSemaphoreTask::entry, list);
 		task = node->ptr;
 		list_del(pos);
-		task->send(msg);
 	}
 
-	if (this->concurrency > this->total)
-		this->concurrency = this->total;
-
 	this->mutex.unlock();
+	if (task)
+		task->send(msg);
 }
 
 /////////////// Wait tasks Impl ///////////////
@@ -134,23 +137,23 @@ SubTask *WFTimedWaitTask::done()
 
 void WFCondition::signal(void *msg)
 {
-	WFCondWaitTask *task;
+	WFCondWaitTask *task = NULL;
 	struct list_head *pos;
 	struct WFSemaphoreTask::entry *node;
 
 	this->mutex.lock();
-
-	if (!list_empty(&this->waiter_list))
+	if (!list_empty(&this->wait_list))
 	{
-		pos = this->waiter_list.next;
+		pos = this->wait_list.next;
 		node = list_entry(pos, struct WFSemaphoreTask::entry, list);
 		task = (WFCondWaitTask *)node->ptr;
 		list_del(pos);
 		task->clear_timer_waiter();
-		task->send(msg);
 	}
 
 	this->mutex.unlock();
+	if (task)
+		task->send(msg);
 }
 
 void WFCondition::broadcast(void *msg)
@@ -158,18 +161,24 @@ void WFCondition::broadcast(void *msg)
 	WFCondWaitTask *task;
 	struct list_head *pos, *tmp;
 	struct WFSemaphoreTask::entry *node;
+	LIST_HEAD(tmp_list);
 
 	this->mutex.lock();
-	if (!list_empty(&this->waiter_list))
+	if (!list_empty(&this->wait_list))
 	{
-		list_for_each_safe(pos, tmp, &this->waiter_list)
+		list_for_each_safe(pos, tmp, &this->wait_list)
 		{
-			node = list_entry(pos, struct WFSemaphoreTask::entry, list);
-			task = (WFCondWaitTask *)node->ptr;
-			list_del(pos);
-			task->send(msg);
+			list_move_tail(pos, &tmp_list);
 		}
 	}
+
 	this->mutex.unlock();
+	while (!list_empty(&tmp_list))
+	{
+		node = list_entry(tmp_list.next, struct WFSemaphoreTask::entry, list);
+		task = (WFCondWaitTask *)node->ptr;
+		list_del(&node->list);
+		task->send(msg);
+	}
 }
 

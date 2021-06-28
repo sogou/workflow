@@ -5,6 +5,7 @@ set(SRC
 	DnsCache.cc
 	UpstreamManager.cc
 	RouteManager.cc
+	WFSemaphore.cc
 	WFGlobal.cc
 )
 

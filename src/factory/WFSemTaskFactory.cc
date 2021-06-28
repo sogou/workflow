@@ -125,7 +125,7 @@ __ConditionMap::~__ConditionMap()
 							 struct __WFCondition::entry, rb);
 		cond = cond_node->ptr;
 
-		list_for_each_safe(pos, tmp, &cond->waiter_list)
+		list_for_each_safe(pos, tmp, &cond->wait_list)
 		{
 			node = list_entry(pos, struct WFSemaphoreTask::entry, list);
 			task = (WFCondWaitTask *)node->ptr;
@@ -204,7 +204,7 @@ WFWaitTask *WFSemTaskFactory::create_wait_task(WFCondition *cond,
 	WFCondWaitTask *task = new WFCondWaitTask(std::move(callback));
 
 	cond->mutex.lock();
-	list_add_tail(&task->node.list, &cond->waiter_list);
+	list_add_tail(&task->node.list, &cond->wait_list);
 	cond->mutex.unlock();
 
 	return task;
@@ -221,7 +221,7 @@ WFWaitTask *WFSemTaskFactory::create_timedwait_task(WFCondition *cond,
 	waiter->set_timer(task);
 
 	cond->mutex.lock();
-	list_add_tail(&waiter->node.list, &cond->waiter_list);
+	list_add_tail(&waiter->node.list, &cond->wait_list);
 	cond->mutex.unlock();
 
 	return waiter;

@@ -139,5 +139,5 @@ $ make
 也可以通过QQ群：``618773193`` 联系我们。
 
 #### Gitee镜像
-用户可以在访问GitHub遇到困难时，使用我们的Gitee镜像仓库：https://gitee.com/mirrors/sogou-cpp-workflow  
+用户可以在访问GitHub遇到困难时，使用我们的Gitee镜像仓库：https://gitee.com/sogou/workflow  
 **另外也麻烦在Gitee上star了项目的用户，尽量同步star一下[GitHub主仓库](https://github.com/sogou/workflow)。谢谢！**

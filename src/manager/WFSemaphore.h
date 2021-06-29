@@ -36,9 +36,9 @@ using wait_callback_t = mailbox_callback_t;
 class WFSemaphore
 {
 public:
-	bool get();
+	bool get(void **dest);
 	WFWaitTask *create_wait_task(std::function<void (WFWaitTask *)> cb);
-	void post(void *msg);
+	void post(void *src);
 
 public:
 	std::mutex mutex;
@@ -46,7 +46,7 @@ public:
 	struct list_head wait_list;
 
 public:
-	WFSemaphore(int value)
+	WFSemaphore(int value, void **resources)
 	{
 		if (value <= 0)
 			value = 1;
@@ -55,23 +55,36 @@ public:
 		INIT_LIST_HEAD(&this->wait_list);
 		this->concurrency = value;
 		this->total = value;
+		this->index = value;
+		this->resources = resources;
+//		this->resources = new void *[value];
 	}
+
+	virtual ~WFSemaphore() { /* delete []this->resources; */ }
 
 private:
 	std::atomic<int> concurrency;
 	int total;
+	int index;
+
+protected:
+	void **resources;
 };
 
 class WFCondition : public WFSemaphore
-{	
+{
 public:
 	void signal(void *msg);
 	void broadcast(void *msg);
 
 public:
-	WFCondition() : WFSemaphore(1) { }
-	WFCondition(int value) : WFSemaphore(value) { }
-	virtual ~WFCondition() { }
+	WFCondition() : WFSemaphore(1, new void *[1]) { }
+	WFCondition(int value) : WFSemaphore(value, new void *[value]) { }
+	virtual ~WFCondition() { delete []this->resources;}
+
+	bool get(void **dest) = delete;
+	WFWaitTask *create_wait_task(wait_callback_t cb) = delete;
+	void post(void *src) = delete;
 };
 
 #include "WFSemaphore.inl"

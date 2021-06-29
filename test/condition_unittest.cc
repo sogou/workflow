@@ -119,34 +119,42 @@ TEST(condition_unittest, timedwait)
 	wait_group.wait();
 }
 
-#define work usleep
-
 TEST(condition_unittest, semaphore)
 {
 	int sem_concurrency = 1;
 	int task_concurrency = 3;
-	WFSemaphore sem(sem_concurrency);
+	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
+	WFSemaphore sem(sem_concurrency, (void **)words);
 	WFFacilities::WaitGroup wg(task_concurrency);
 
-	for (int i = 0; i < task_concurrency; i ++)
+	for (int i = 0; i < task_concurrency; i++)
 	{
 		auto *t = WFTaskFactory::create_timer_task(i * 1, [&sem, &wg](WFTimerTask *task) {
 			uint64_t id = (uint64_t)series_of(task)->get_context();
-			if (!sem.get())
+			void *dest_res;
+
+			if (!sem.get(&dest_res))
 			{
 				auto *waiter = sem.create_wait_task([&sem, &wg](WFWaitTask *task) {
 					uint64_t id = (uint64_t)series_of(task)->get_context();
-					work(3);
+					void **msg;
+					size_t n;
+					msg = task->get_mailbox(&n);
+					fprintf(stderr, "%lu after wait. get resource:%s\n", id, (char *)*msg);
+					usleep(10);
 					wg.done();
-					sem.post(reinterpret_cast<uint64_t *>(id));
+					sem.post(*msg);
+					//sem.post(reinterpret_cast<uint64_t *>(id));
 				});
 				series_of(task)->push_back(waiter);
 			}
 			else
 			{
-				work(3);
+				fprintf(stderr, "%lu no wait. get resource: %s\n", id, (char *)dest_res);
+				usleep(10);
 				wg.done();
-				sem.post(reinterpret_cast<uint64_t *>(id));
+				//sem.post(reinterpret_cast<uint64_t *>(id));
+				sem.post(dest_res);
 			}
 		});
 
@@ -154,7 +162,6 @@ TEST(condition_unittest, semaphore)
 		series->set_context(reinterpret_cast<uint64_t *>(i));
 		series->start();
 	}
-
 	wg.wait();
 }
 

@@ -28,14 +28,18 @@
 
 /////////////// Semaphore Impl ///////////////
 
-bool WFSemaphore::get()
+bool WFSemaphore::get(void **dest)
 {
+	this->mutex.lock();
 	if (--this->concurrency >= 0)
+	{
+		*dest = this->resources[--this->index];
+		this->mutex.unlock();
 		return true;
+	}
 
 	WFSemaphoreTask *task = new WFSemaphoreTask(nullptr);
 
-	this->mutex.lock();
 	list_add_tail(&task->node.list, &this->get_list);
 	this->mutex.unlock();
 
@@ -62,7 +66,7 @@ WFWaitTask *WFSemaphore::create_wait_task(std::function<void (WFWaitTask *)> cb)
 	return task;
 }
 
-void WFSemaphore::post(void *msg)
+void WFSemaphore::post(void *src)
 {
 	WFSemaphoreTask *task = NULL;
 	struct list_head *pos;
@@ -81,9 +85,11 @@ void WFSemaphore::post(void *msg)
 		list_del(pos);
 	}
 
+	this->resources[this->index++] = src;
+
 	this->mutex.unlock();
 	if (task)
-		task->send(msg);
+		task->send(src);
 }
 
 /////////////// Wait tasks Impl ///////////////
@@ -92,7 +98,7 @@ void WFCondWaitTask::dispatch()
 {
 	if (this->timer)
 		timer->dispatch();
-	
+
 	this->WFWaitTask::count();
 }
 

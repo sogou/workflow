@@ -25,6 +25,19 @@
 class WFSemaphoreTask : public WFWaitTask
 {
 public:
+	void start()
+	{
+		assert(!series_of(this));
+		Workflow::start_series_work(this, nullptr);
+	}
+
+	void dismiss()
+	{
+		assert(!series_of(this));
+		delete this;
+	}
+
+public:
 	WFSemaphoreTask(std::function<void (WFWaitTask *)>&& cb) :
 		WFWaitTask(&this->msg, 1, std::move(cb))
 	{

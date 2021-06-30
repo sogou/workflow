@@ -49,11 +49,11 @@ int main()
 
 #### 快速开始（Linux, maxOS）：
 ~~~sh
-$ git clone https://github.com/sogou/workflow # From gitee: $ git clone https://gitee.com/sogou/workflow
-$ cd workflow
-$ make
-$ cd tutorial
-$ make
+git clone https://github.com/sogou/workflow # From gitee: git clone https://gitee.com/sogou/workflow
+cd workflow
+make
+cd tutorial
+make
 ~~~
 
 # 示例教程

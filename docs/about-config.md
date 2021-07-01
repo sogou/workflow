@@ -17,6 +17,8 @@ struct WFGlobalSettings
     int poller_threads;
     int handler_threads;
     int compute_threads;            ///< auto-set by system CPU number if value<=0
+    const char *resolv_conf_path;
+    const char *hosts_path;
 };
 
 
@@ -29,6 +31,8 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
     .poller_threads     =   4,
     .handler_threads    =   20,
     .compute_threads    =   -1,
+    .resolv_conf_path   =   NULL,   // use thread dns task for default
+    .hosts_path         =   NULL,
 };
 ~~~
 

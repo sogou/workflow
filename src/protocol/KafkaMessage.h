@@ -41,10 +41,11 @@ public:
 
 	virtual ~KafkaMessage();
 
-private:
+protected:
 	virtual int encode(struct iovec vectors[], int max);
 	virtual int append(const void *buf, size_t *size);
 
+private:
 	int encode_head();
 
 public:
@@ -54,8 +55,8 @@ public:
 public:
 	int encode_message(int api_type, struct iovec vectors[], int max);
 
-	void set_api(int api_type) { this->api_type = api_type; }
-	int get_api() const { return this->api_type; }
+	void set_api_type(int api_type) { this->api_type = api_type; }
+	int get_api_type() const { return this->api_type; }
 
 	void set_api_version(int ver) { this->api_version = ver; }
 	int get_api_version() const { return this->api_version; }
@@ -111,6 +112,16 @@ public:
 		return &this->broker_list;
 	}
 
+	void set_sasl(kafka_sasl_t *sasl)
+	{
+		this->sasl = sasl;
+	}
+
+	void set_api(kafka_api_t *api)
+	{
+		this->api = api;
+	}
+
 	void duplicate(KafkaMessage& msg)
 	{
 		this->config = msg.config;
@@ -119,22 +130,8 @@ public:
 		this->meta_list = msg.meta_list;
 		this->broker_list = msg.broker_list;
 		this->toppar_list = msg.toppar_list;
-	}
-
-	void duplicate2(KafkaMessage& msg)
-	{
-		kafka_parser_deinit(this->parser);
-		delete this->parser;
-		this->config = msg.config;
-		this->cgroup = msg.cgroup;
-		this->broker = msg.broker;
-		this->meta_list = msg.meta_list;
-		this->broker_list = msg.broker_list;
-		this->toppar_list = msg.toppar_list;
-		this->uncompressed = msg.uncompressed;
-		this->parser = msg.parser;
-		msg.parser = new kafka_parser_t;
-		kafka_parser_init(msg.parser);
+		this->sasl = msg.sasl;
+		this->api = msg.api;
 	}
 
 	void clear_buf()
@@ -148,8 +145,8 @@ public:
 	}
 
 protected:
-	static int parse_message_set(void **buf, size_t *size, 
-								 bool check_crcs, int msg_vers, 
+	static int parse_message_set(void **buf, size_t *size,
+								 bool check_crcs, int msg_vers,
 								 struct list_head *record_list,
 								 KafkaBuffer *uncompressed,
 								 KafkaToppar *toppar);
@@ -157,7 +154,7 @@ protected:
 	static int parse_message_record(void **buf, size_t *size,
 									kafka_record_t *record);
 
-	static int parse_record_batch(void **buf, size_t *size, 
+	static int parse_record_batch(void **buf, size_t *size,
 								  bool check_crcs,
 								  struct list_head *record_list,
 								  KafkaBuffer *uncompressed,
@@ -208,6 +205,9 @@ protected:
 
 	void *compress_env;
 	size_t cur_size;
+
+	kafka_sasl_t *sasl;
+	kafka_api_t *api;
 };
 
 class KafkaRequest : public KafkaMessage
@@ -232,12 +232,15 @@ private:
 	int encode_saslauthenticate(struct iovec vectors[], int max);
 };
 
-class KafkaResponse : public KafkaMessage
+class KafkaResponse : public KafkaRequest
 {
 public:
 	KafkaResponse();
 
 	int parse_response();
+
+protected:
+    virtual int append(const void *buf, size_t *size);
 
 private:
 	int parse_produce(void **buf, size_t *size);
@@ -253,9 +256,12 @@ private:
 	int parse_heartbeat(void **buf, size_t *size);
 	int parse_apiversions(void **buf, size_t *size);
 	int parse_saslhandshake(void **buf, size_t *size);
-	int parse_saslanthenticate(void **buf, size_t *size);
+	int parse_saslauthenticate(void **buf, size_t *size);
+
+	int handle_sasl_continue();
 };
 
 }
 
 #endif
+

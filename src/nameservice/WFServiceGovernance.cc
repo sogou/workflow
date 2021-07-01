@@ -20,7 +20,7 @@
 #include "URIParser.h"
 #include "StringUtil.h"
 #include "WFNameService.h"
-#include "WFDNSResolver.h"
+#include "WFDnsResolver.h"
 #include "WFServiceGovernance.h"
 #include "UpstreamManager.h"
 
@@ -230,7 +230,7 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 	this->recover_server_from_breaker(server);
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFDNSResolver::success(result, tracing, target);
+	WFDnsResolver::success(result, tracing, target);
 }
 
 void WFServiceGovernance::failed(RouteManager::RouteResult *result,
@@ -253,7 +253,7 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFDNSResolver::failed(result, tracing, target);
+	WFDnsResolver::failed(result, tracing, target);
 }
 
 void WFServiceGovernance::check_breaker()

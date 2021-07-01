@@ -16,6 +16,7 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
+#include <set>
 #include "WFTaskFactory.h"
 #include "KafkaMessage.h"
 
@@ -42,10 +43,13 @@ public:
 	static __WFKafkaTask *create_kafka_task(const struct sockaddr *addr,
 											socklen_t addrlen,
 											int retry_max,
+											const std::string& info,
 											__kafka_callback_t callback);
 
 	static __WFKafkaTask *create_kafka_task(const char *host,
 											int port,
-											int retyr_max,
+											int retry_max,
+											const std::string& info,
 											__kafka_callback_t callback);
 };
+

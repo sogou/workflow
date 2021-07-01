@@ -12,13 +12,15 @@ workflow也设计了自己的DNS Cache，为了方便用户使用，DNS这部分
 
 ### 框架的DNS方法
 
-目前直接调用系统函数getaddrinfo获取结果，一些细节：
+#### 同步请求
+通过调用系统函数getaddrinfo获取结果，一些细节：
 1. 当命中框架自己的DNS Cache且TTL有效时，DNS解析不会发生。
 2. 当域名是ipv4、ipv6、unix-domain-socket，DNS解析不会发生。
 3. DNS解析是一个特殊的计算任务,被封装成了一个WFThreadTask。
 4. DNS解析使用的是一个完全独立隔离的线程池，即不占用计算线程池、也不占用通信线程池。
 
-正在考虑在不久的将来增加UDP请求DNS Server的方式获取结果。
+#### 异步请求
+框架实现了完备的DNS协议解析，当前版本需要用户手动指定`resolv_conf_path`来启用此功能。在常见的Linux发行版上，`resolv_conf_path`一般是`/etc/resolv.conf`，`hosts_path`一般是`/etc/hosts`。将上述参数置空，则会使用同步请求方案。
 
 ### 全局DNS配置
 
@@ -33,6 +35,8 @@ struct WFGlobalSettings
     int poller_threads;
     int handler_threads;
     int compute_threads;
+    const char *resolv_conf_path;
+    const char *hosts_path;
 };
 
 static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
@@ -43,7 +47,9 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
     .dns_threads        =    4,
     .poller_threads     =    4,
     .handler_threads    =    20,
-    .compute_threads    =    -1
+    .compute_threads    =    -1,
+    .resolv_conf_path   =    NULL,
+    .hosts_path         =    NULL,
 };
 //compute_threads<=0 means auto-set by system cpu number
 ~~~
@@ -51,6 +57,8 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
   * dns_threads: DNS线程池线程数，默认4。
   * dns_ttl_default: DNS Cache中默认的TTL，单位秒，默认12小时，dns cache是当前进程的，即进程退出就会消失，配置也仅对当前进程有效。
   * dns_ttl_min: dns最短生效时间，单位秒，默认3分钟，用于通信失败重试是否尝试重新dns的决策。
+  * resolv_conf_path: resolv.conf配置文件路径，为空时表示使用多线程DNS解析
+  * hosts_path: hosts配置文件路径
 
 简单来讲，每次通信都会检查TTL来决定要不要重新进行DNS解析。  
 默认检查dns_ttl_default，通信失败重试时才会去检查dns_ttl_min。

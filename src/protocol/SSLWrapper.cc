@@ -25,6 +25,17 @@
 namespace protocol
 {
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+static inline BIO *__get_wbio(SSL *ssl)
+{
+	BIO *wbio = SSL_get_wbio(ssl);
+	BIO *next = BIO_next(wbio);
+	return next ? next : wbio;
+}
+
+# define SSL_get_wbio(ssl)	__get_wbio(ssl)
+#endif
+
 int SSLHandshaker::encode(struct iovec vectors[], int max)
 {
 	BIO *wbio = SSL_get_wbio(this->ssl);
@@ -61,12 +72,11 @@ int SSLHandshaker::encode(struct iovec vectors[], int max)
 		return -1;
 }
 
-int SSLHandshaker::append(const void *buf, size_t *size)
+static int __ssl_handshake(const void *buf, size_t *size, SSL *ssl,
+						   char **ptr, long *len)
 {
-	BIO *rbio = SSL_get_rbio(this->ssl);
-	BIO *wbio = SSL_get_wbio(this->ssl);
-	char *ptr;
-	long len;
+	BIO *wbio = SSL_get_wbio(ssl);
+	BIO *rbio = SSL_get_rbio(ssl);
 	int ret;
 
 	if (BIO_reset(wbio) <= 0)
@@ -77,10 +87,10 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 		return -1;
 
 	*size = ret;
-	ret = SSL_do_handshake(this->ssl);
+	ret = SSL_do_handshake(ssl);
 	if (ret <= 0)
 	{
-		ret = SSL_get_error(this->ssl, ret);
+		ret = SSL_get_error(ssl, ret);
 		if (ret != SSL_ERROR_WANT_READ)
 		{
 			if (ret != SSL_ERROR_SYSCALL)
@@ -92,17 +102,34 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 		ret = 0;
 	}
 
-	len = BIO_get_mem_data(wbio, &ptr);
-	if (len >= 0)
-	{
-		long n = this->feedback(ptr, len);
+	*len = BIO_get_mem_data(wbio, ptr);
+	if (*len < 0)
+		return -1;
 
-		if (n == len)
-			return ret;
+	return ret;
+}
 
-		if (n >= 0)
-			errno = EAGAIN;
-	}
+int SSLHandshaker::append(const void *buf, size_t *size)
+{
+	char *ptr;
+	long len;
+	long n;
+	int ret;
+
+	ret = __ssl_handshake(buf, size, this->ssl, &ptr, &len);
+	if (ret < 0)
+		return -1;
+
+	if (len > 0)
+		n = this->feedback(ptr, len);
+	else
+		n = 0;
+
+	if (n == len)
+		return ret;
+
+	if (n >= 0)
+		errno = EAGAIN;
 
 	return -1;
 }
@@ -210,12 +237,25 @@ int SSLWrapper::append(const void *buf, size_t *size)
 
 int ServiceSSLWrapper::append(const void *buf, size_t *size)
 {
-	int ret = this->handshaker.append(buf, size);
+	char *ptr;
+	long len;
+	long n;
 
-	if (ret > 0)
-		ret = this->append_message();
+	if (__ssl_handshake(buf, size, this->ssl, &ptr, &len) < 0)
+		return -1;
 
-	return ret;
+	if (len > 0)
+		n = this->feedback(ptr, len);
+	else
+		n = 0;
+
+	if (n == len)
+		return this->append_message();
+
+	if (n >= 0)
+		errno = EAGAIN;
+
+	return -1;
 }
 
 }

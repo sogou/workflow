@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <sys/uio.h>
@@ -21,8 +22,10 @@
 #include <string.h>
 #include <errno.h>
 #include <string>
+#include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <utility>
+#include "SSLWrapper.h"
 #include "mysql_types.h"
 #include "MySQLResult.h"
 #include "MySQLMessage.h"
@@ -173,18 +176,21 @@ std::string MySQLRequest::get_query() const
 
 int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 {
-	const char empty13[13] = {0};
+	const char empty[11] = {0};
+	uint16_t cap_flags_lower = capability_flags_ & 0xffffffff;
+	uint16_t cap_flags_upper = capability_flags_ >> 16;
 
 	buf_.clear();
 	buf_.append((const char *)&protocol_version_, 1);
 	buf_.append(server_version_.c_str(), server_version_.size() + 1);
 	buf_.append((const char *)&connection_id_, 4);
 	buf_.append((const char *)auth_plugin_data_part_1_, 8);
-	buf_.append(empty13, 1);
-	buf_.append(empty13, 2);
+	buf_.append(empty, 1);
+	buf_.append((const char *)&cap_flags_lower, 2);
 	buf_.append((const char *)&character_set_, 1);
 	buf_.append((const char *)&status_flags_, 2);
-	buf_.append(empty13, 13);
+	buf_.append((const char *)&cap_flags_upper, 2);
+	buf_.append(empty, 11);
 	buf_.append((const char *)auth_plugin_data_part_2_, 12);
 	return this->MySQLMessage::encode(vectors, max);
 }
@@ -193,6 +199,8 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 {
 	const unsigned char *end = buf + buflen;
 	const unsigned char *pos;
+	uint16_t cap_flags_lower;
+	uint16_t cap_flags_upper;
 
 	if (buflen == 0)
 		return -2;
@@ -227,12 +235,15 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	buf += 4;
 	memcpy(auth_plugin_data_part_1_, buf, 8);
 	buf += 9;
+	cap_flags_lower = uint2korr(buf);
 	buf += 2;
 	character_set_ = *buf++;
 	status_flags_ = uint2korr(buf);
 	buf += 2;
+	cap_flags_upper = uint2korr(buf);
 	buf += 13;
 	memcpy(auth_plugin_data_part_2_, buf, 12);
+	capability_flags_ = (cap_flags_upper << 16U) + cap_flags_lower;
 	return 1;
 }
 
@@ -252,6 +263,7 @@ static inline std::string __sha1_bin(const std::string& str)
 	return std::string((const char *)md, 20);
 }
 
+#define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
 #define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
 #define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
 #define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
@@ -259,6 +271,44 @@ static inline std::string __sha1_bin(const std::string& str)
 #define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
 #define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
 #define MYSQL_CAPFLAG_CLIENT_LOCAL_FILES		0x00000080
+
+int MySQLSSLRequest::encode(struct iovec vectors[], int max)
+{
+	unsigned char header[32] = {0};
+	unsigned char *pos = header;
+	int ret;
+
+	int4store(pos, MYSQL_CAPFLAG_CLIENT_SSL |
+				   MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
+				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
+				   MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB |
+				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
+				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
+				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
+				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS);
+	pos += 4;
+	int4store(pos, 0);
+	pos += 4;
+	*pos = (uint8_t)character_set_;
+
+	buf_.clear();
+	buf_.append((char *)header, 32);
+	ret = this->MySQLMessage::encode(vectors, max);
+	if (ret >= 0)
+	{
+		max -= ret;
+		if (max >= 8) /* Indeed SSL handshaker needs only 1 vector. */
+		{
+			max = ssl_handshaker_.encode(vectors + ret, max);
+			if (max >= 0)
+				return max + ret;
+		}
+		else
+			errno = EOVERFLOW;
+	}
+
+	return -1;
+}
 
 int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 {

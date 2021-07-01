@@ -18,9 +18,9 @@
 
 #include "WFMySQLServer.h"
 
-CommConnection *WFMySQLServer::new_connection(int accept_fd)
+WFConnection *WFMySQLServer::new_connection(int accept_fd)
 {
-	CommConnection *conn = this->WFServer::new_connection(accept_fd);
+	WFConnection *conn = this->WFServer::new_connection(accept_fd);
 
 	if (conn)
 	{
@@ -29,7 +29,7 @@ CommConnection *WFMySQLServer::new_connection(int accept_fd)
 		int count;
 
 		resp.server_set(0x0a, "5.5", 1, (const uint8_t *)"12345678",
-						33, 0, (const uint8_t *)"123456789abc");
+						0, 33, 0, (const uint8_t *)"123456789abc");
 		count = resp.encode(vec, 8);
 		if (count >= 0)
 		{
@@ -37,7 +37,7 @@ CommConnection *WFMySQLServer::new_connection(int accept_fd)
 				return conn;
 		}
 
-		delete conn;
+		this->delete_connection(conn);
 	}
 
 	return NULL;

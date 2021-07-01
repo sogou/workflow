@@ -234,7 +234,56 @@ public:
 		return *this;
 	}
 
-	T *find_item(int id)
+	T *find_item(const T& v) const
+	{
+		rb_node **p = &this->t_map->rb_node;
+		T *t;
+
+		while (*p)
+		{
+			t = rb_entry(*p, T, rb);
+
+			if (v < *t)
+				p = &(*p)->rb_left;
+			else if (v > *t)
+				p = &(*p)->rb_right;
+			else
+				break;
+		}
+
+		return *p ? t : NULL;
+	}
+
+	void add_item(T& obj)
+	{
+		rb_node **p = &this->t_map->rb_node;
+		rb_node *parent = NULL;
+		T *t;
+
+		while (*p)
+		{
+			parent = *p;
+			t = rb_entry(*p, T, rb);
+
+			if (obj < *t)
+				p = &(*p)->rb_left;
+			else if (obj > *t)
+				p = &(*p)->rb_right;
+			else
+				break;
+		}
+
+		if (*p == NULL)
+		{
+			T *nt = new T;
+
+			*nt = obj;
+			rb_link_node(nt->get_rb(), parent, p);
+			rb_insert_color(nt->get_rb(), this->t_map);
+		}
+	}
+
+	T *find_item(int id) const
 	{
 		rb_node **p = &this->t_map->rb_node;
 		T *t;
@@ -254,12 +303,11 @@ public:
 		return *p ? t : NULL;
 	}
 
-	void add_item(T& obj)
+	void add_item(T& obj, int id)
 	{
 		rb_node **p = &this->t_map->rb_node;
 		rb_node *parent = NULL;
 		T *t;
-		int id = obj.get_id();
 
 		while (*p)
 		{
@@ -447,19 +495,19 @@ public:
 		this->ptr->offset_store = offset_store;
 	}
 
-	const char *get_sasl_mechanisms() const
+	const char *get_sasl_mech() const
 	{
-		return this->ptr->sasl.mechanisms;
+		return this->ptr->mechanisms;
 	}
-	bool set_sasl_mechanisms(const char *mechanisms)
+	bool set_sasl_mech(const char *mechanisms)
 	{
 		char *p = strdup(mechanisms);
 
 		if (!p)
 			return false;
 
-		free(this->ptr->sasl.mechanisms);
-		this->ptr->sasl.mechanisms = p;
+		free(this->ptr->mechanisms);
+		this->ptr->mechanisms = p;
 		if (kafka_sasl_set_mechanisms(this->ptr) != 0)
 			return false;
 
@@ -468,7 +516,7 @@ public:
 
 	const char *get_sasl_username() const
 	{
-		return this->ptr->sasl.username;
+		return this->ptr->username;
 	}
 	bool set_sasl_username(const char *username)
 	{
@@ -477,34 +525,41 @@ public:
 
 	const char *get_sasl_password() const
 	{
-		return this->ptr->sasl.passwd;
+		return this->ptr->password;
 	}
-	bool set_sasl_password(const char *passwd)
+	bool set_sasl_password(const char *password)
 	{
-		return kafka_sasl_set_username(passwd, this->ptr) == 0;
+		return kafka_sasl_set_password(password, this->ptr) == 0;
 	}
 
 	std::string get_sasl_info() const
 	{
 		std::string info;
-		if (strcmp(this->ptr->sasl.mechanisms, "plain") == 0)
+		if (strcasecmp(this->ptr->mechanisms, "plain") == 0)
 		{
-			info = this->ptr->sasl.username;
+			info += this->ptr->mechanisms;
 			info += "|";
-			info += this->ptr->sasl.passwd;
+			info += this->ptr->username;
+			info += "|";
+			info += this->ptr->password;
+			info += "|";
+		}
+		else if (strncasecmp(this->ptr->mechanisms, "SCRAM", 5) == 0)
+		{
+			info += this->ptr->mechanisms;
+			info += "|";
+			info += this->ptr->username;
+			info += "|";
+			info += this->ptr->password;
+			info += "|";
 		}
 
 		return info;
 	}
 
-	kafka_sasl_t *get_sasl()
+	bool new_client(kafka_sasl_t *sasl)
 	{
-		return &this->ptr->sasl;
-	}
-
-	bool new_client()
-	{
-		return this->ptr->sasl.client_new(this->ptr) == 0;
+		return this->ptr->client_new(this->ptr, sasl) == 0;
 	}
 
 public:
@@ -971,13 +1026,21 @@ public:
 		return *this;
 	}
 
+	bool operator< (const KafkaBroker& broker) const
+	{
+		return this->get_uri() < broker.get_uri();
+	}
+
+	bool operator> (const KafkaBroker& broker) const
+	{
+		return this->get_uri() > broker.get_uri();
+	}
+
 	kafka_broker_t *get_raw_ptr() const { return this->ptr; }
 
 	struct list_head *get_list() { return &this->list; }
 
 	struct rb_node *get_rb() { return &this->rb; }
-
-	void set_feature(unsigned features) { this->ptr->features = features; }
 
 	bool is_equal(const struct sockaddr *addr, socklen_t socklen) const
 	{
@@ -1004,7 +1067,7 @@ public:
 		return is_equal(broker.ptr->host, broker.ptr->port);
 	}
 
-	void get_broker_addr(const struct sockaddr **addr, socklen_t *socklen)
+	void get_broker_addr(const struct sockaddr **addr, socklen_t *socklen) const
 	{
 		if (this->ptr->addrlen)
 		{
@@ -1030,33 +1093,6 @@ public:
 	int get_node_id() const { return this->ptr->node_id; }
 
 	int get_id () const { return this->ptr->node_id; }
-
-	bool allocate_api_version(size_t len)
-	{
-		void *p = malloc(len * sizeof(kafka_api_version_t));
-
-		if (!p)
-			return false;
-
-		free(this->ptr->api);
-		this->ptr->api = (kafka_api_version_t *)p;
-		this->ptr->api_elements = len;
-		return true;
-	}
-
-	kafka_api_version_t *get_api()
-	{
-		return this->ptr->api;
-	}
-
-	void set_features(unsigned features)
-	{
-		this->ptr->features = features;
-	}
-	unsigned get_features()
-	{
-		return this->ptr->features;
-	}
 
 private:
 	struct list_head list;
@@ -1292,21 +1328,6 @@ public:
 			this->coordinator = new KafkaBroker(&this->ptr->coordinator);
 
 		return this->coordinator;
-	}
-
-	bool set_coordinator(KafkaBroker *coord)
-	{
-		size_t size = (coord->get_raw_ptr()->api_elements) * sizeof(kafka_api_version_t);
-		void *p = malloc(size);
-
-		if (!p)
-			return false;
-
-		memcpy(p, coord->get_raw_ptr()->api, size);
-		free(this->ptr->coordinator.api);
-		this->ptr->coordinator.api = (kafka_api_version_t *)p;
-		this->ptr->coordinator.api_elements = coord->get_raw_ptr()->api_elements;
-		return true;
 	}
 
 	int run_assignor(KafkaMetaList *meta_list, const char *protocol_name);

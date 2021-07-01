@@ -85,6 +85,7 @@ public:
 	}
 
 protected:
+	virtual void dispatch();
 	virtual SubTask *done();
 
 protected:

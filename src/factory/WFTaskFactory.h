@@ -226,6 +226,17 @@ public:
 	static WFMailboxTask *create_mailbox_task(mailbox_callback_t callback);
 
 public:
+	static WFConditional *create_conditional(SubTask *task, void **msgbuf)
+	{
+		return new WFConditional(task, msgbuf);
+	}
+
+	static WFConditional *create_conditional(SubTask *task)
+	{
+		return new WFConditional(task);
+	}
+
+public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,
 									FUNC&& func, ARGS&&... args);

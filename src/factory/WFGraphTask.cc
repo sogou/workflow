@@ -54,18 +54,27 @@ WFGraphNode& WFGraphTask::create_graph_node(SubTask *task)
 	return *node;
 }
 
+void WFGraphTask::dispatch()
+{
+	SeriesWork *series = series_of(this);
+
+	if (this->parallel)
+	{
+		series->push_front(this);
+		series->push_front(this->parallel);
+		this->parallel = NULL;
+	}
+	else
+		this->state = WFT_STATE_SUCCESS;
+
+	this->subtask_done();
+}
+
 SubTask *WFGraphTask::done()
 {
 	SeriesWork *series = series_of(this);
-	ParallelWork *parallel = this->parallel;
 
-	if (parallel)
-	{
-		this->parallel = NULL;
-		series->push_front(this);
-		series->push_front(parallel);
-	}
-	else
+	if (this->state == WFT_STATE_SUCCESS)
 	{
 		if (this->callback)
 			this->callback(this);

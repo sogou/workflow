@@ -7,6 +7,7 @@ set(COMMON_KERNEL_HEADERS
 	src/kernel/SleepRequest.h
 	src/kernel/ExecRequest.h
 	src/kernel/IORequest.h
+	src/kernel/TransRequest.h
 	src/kernel/Executor.h
 	src/kernel/list.h
 	src/kernel/mpoller.h
@@ -57,12 +58,18 @@ set(INCLUDE_HEADERS
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/WebSocketMessage.h
+	src/protocol/websocket_parser.h
+	src/protocol/dns_parser.h
+	src/protocol/DnsMessage.h
+	src/protocol/DnsUtil.h
 	src/server/WFServer.h
 	src/server/WFDnsServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
 	src/client/WFMySQLConnection.h
+	src/client/WFWebSocketClient.h
 	src/client/WFDnsClient.h
 	src/manager/DnsCache.h
 	src/manager/WFGlobal.h
@@ -72,6 +79,8 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
+	src/manager/WFSemaphore.h
+	src/manager/WFSemaphore.inl
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h
@@ -86,8 +95,11 @@ set(INCLUDE_HEADERS
 	src/factory/WFTaskFactory.inl
 	src/factory/WFAlgoTaskFactory.h
 	src/factory/WFAlgoTaskFactory.inl
+	src/factory/WFSemTaskFactory.h
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFChannel.h
+	src/factory/WFChannel.inl
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h
 	src/nameservice/WFServiceGovernance.h
@@ -106,3 +118,4 @@ if(KAFKA STREQUAL "y")
 		src/factory/KafkaTaskImpl.inl
 	)
 endif()
+

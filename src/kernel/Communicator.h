@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <errno.h>
 #include <time.h>
 #include <stddef.h>
 #include <pthread.h>
@@ -124,6 +125,7 @@ public:
 #define CS_STATE_ERROR		1
 #define CS_STATE_STOPPED	2
 #define CS_STATE_TOREPLY	3	/* for service session only. */
+#define CS_STATE_SHUTDOWN	4	/* for channel only */
 
 class CommSession
 {
@@ -238,6 +240,49 @@ public:
 	friend class Communicator;
 };
 
+class CommChannel : public CommSession
+{
+private:
+	virtual CommMessageIn *message_in() = 0;
+	virtual int keep_alive_timeout() { return -1; }
+	virtual int first_timeout() { return -1; }
+	virtual void handle_established() = 0;
+	virtual void handle_in(CommMessageIn *msg) = 0;
+	virtual void handle_terminated() { }
+	virtual void handle(int state, int error) = 0;
+
+private:
+	virtual CommMessageOut *message_out(); /* final */
+	CommMessageOut *get_message_out() { return NULL; } /* deleted */
+
+private:
+	struct CommConnEntry *entry;
+	friend class Communicator;
+};
+
+class TransSession : public CommSession
+{
+private:
+	virtual CommMessageOut *message_out()
+	{
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	virtual CommMessageIn *message_in()
+	{
+		errno = ENOSYS;
+		return NULL;
+	}
+
+protected:
+	CommChannel *get_channel() const { return this->channel; }
+
+private:
+	CommChannel *channel;
+	friend class Communicator;
+};
+
 #define SS_STATE_COMPLETE	0
 #define SS_STATE_ERROR		1
 #define SS_STATE_DISRUPTED	2
@@ -270,6 +315,10 @@ public:
 
 	int bind(CommService *service);
 	void unbind(CommService *service);
+
+	int establish(CommChannel *channel, CommTarget *target);
+	int send(TransSession *session, CommChannel *channel);
+	void shutdown(CommChannel *channel);
 
 	int sleep(SleepSession *session);
 

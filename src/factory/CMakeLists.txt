@@ -4,7 +4,7 @@ project(factory)
 set(SRC
 	WFGraphTask.cc
 	DnsTaskImpl.cc
-	WFTaskFactory.cc
+	WFSemTaskFactory.cc
 	Workflow.cc
 	HttpTaskImpl.cc
 )
@@ -30,5 +30,4 @@ if (KAFKA STREQUAL "y")
 		KafkaTaskImpl.cc
 	)
 	add_library("factory_kafka" OBJECT ${SRC})
-	set_property(SOURCE KafkaTaskImpl.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()

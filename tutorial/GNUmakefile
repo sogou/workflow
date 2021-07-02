@@ -6,21 +6,19 @@ DEFAULT_BUILD_DIR := build
 BUILD_DIR := $(shell if [ -f $(MAKE_FILE) ]; then echo "."; else echo $(DEFAULT_BUILD_DIR); fi)
 CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake; fi;)
 
+KAFKA 		?= n
+MYSQL 		?= y
+REDIS 		?= y
+
 .PHONY: $(ALL_TARGETS)
 
 all:
 	mkdir -p $(BUILD_DIR)
 
-ifeq ($(KAFKA),y)
-	KAFKA=y
-else
-	KAFKA=n
-endif
-
 ifeq ($(DEBUG),y)
-	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug -D KAFKA=$(KAFKA) $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) $(ROOT_DIR)
 else
-	cd $(BUILD_DIR) && $(CMAKE3) -D KAFKA=$(KAFKA) $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) $(ROOT_DIR)
 endif
 	make -C $(BUILD_DIR) -f Makefile
 
@@ -31,4 +29,3 @@ else ifeq (build, $(wildcard build))
 	-make -C build clean
 endif
 	rm -rf build
-

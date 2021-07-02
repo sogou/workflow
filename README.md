@@ -53,10 +53,10 @@ int main()
 
 ### Get started (Linux, macOS):
 ~~~sh
-$ git clone https://github.com/sogou/workflow
-$ make
-$ cd tutorial
-$ make
+git clone https://github.com/sogou/workflow
+make
+cd tutorial
+make
 ~~~~
 
 # Tutorials

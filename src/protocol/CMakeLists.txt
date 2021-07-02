@@ -3,22 +3,34 @@ project(protocol)
 
 set(SRC
 	dns_parser.c
-	http_parser.c
-	redis_parser.c
-	mysql_stream.c
-	mysql_parser.c
-	mysql_byteorder.c
-	websocket_parser.c
 	DnsMessage.cc
 	DnsUtil.cc
-	MySQLMessage.cc
-	MySQLResult.cc
-	HttpMessage.cc
-	RedisMessage.cc
-	WebSocketMessage.cc
-	HttpUtil.cc
 	SSLWrapper.cc
+	http_parser.c
+	HttpMessage.cc
+	HttpUtil.cc
+	websocket_parser.c
+	WebSocketMessage.cc
 )
+
+if (MYSQL STREQUAL "y")
+	set(SRC
+		${SRC}
+		mysql_stream.c
+		mysql_parser.c
+		mysql_byteorder.c
+		MySQLMessage.cc
+		MySQLResult.cc
+	)
+endif ()
+
+if (REDIS STREQUAL "y")
+	set(SRC
+		${SRC}
+		redis_parser.c
+		RedisMessage.cc
+	)
+endif ()
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 
@@ -34,4 +46,3 @@ if (KAFKA STREQUAL "y")
 	set_property(SOURCE KafkaDataTypes.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 	set_property(SOURCE KafkaResult.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
-

@@ -49,11 +49,11 @@ int main()
 
 #### 快速开始（Linux, maxOS）：
 ~~~sh
-$ git clone https://github.com/sogou/workflow
-$ cd workflow
-$ make
-$ cd tutorial
-$ make
+git clone https://github.com/sogou/workflow # From gitee: git clone https://gitee.com/sogou/workflow
+cd workflow
+make
+cd tutorial
+make
 ~~~
 
 # 示例教程
@@ -138,6 +138,6 @@ $ make
 非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。  
 也可以通过QQ群：``618773193`` 联系我们。
 
-#### Gitee镜像
-用户可以在访问GitHub遇到困难时，使用我们的Gitee镜像仓库：https://gitee.com/mirrors/sogou-cpp-workflow  
-**另外也麻烦在Gitee上star了项目的用户，尽量同步star一下[GitHub主仓库](https://github.com/sogou/workflow)。谢谢！**
+#### Gitee仓库
+用户可以在访问GitHub遇到困难时，使用我们的Gitee官方仓库：https://gitee.com/sogou/workflow  
+**另外也麻烦在Gitee上star了项目的用户，尽量同步star一下[GitHub仓库](https://github.com/sogou/workflow)。谢谢！**

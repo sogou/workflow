@@ -3,8 +3,14 @@ project(client)
 
 set(SRC
 	WFDnsClient.cc
-	WFMySQLConnection.cc
 )
+
+if (MYSQL STREQUAL "y")
+	set(SRC
+		${SRC}
+		WFMySQLConnection.cc
+	)
+endif ()
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 

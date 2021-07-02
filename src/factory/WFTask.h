@@ -478,7 +478,6 @@ public:
 protected:
 	virtual void dispatch()
 	{
-		this->state = WFT_STATE_SUCCESS;
 		this->subtask_done();
 	}
 
@@ -630,6 +629,52 @@ public:
 
 protected:
 	virtual ~WFMailboxTask() { }
+};
+
+class WFConditional : public WFGenericTask
+{
+public:
+	void signal(void *msg)
+	{
+		*this->msgbuf = msg;
+		if (this->flag.exchange(true))
+			this->subtask_done();
+	}
+
+protected:
+	virtual void dispatch()
+	{
+		series_of(this)->push_front(this->task);
+		this->task = NULL;
+		if (this->flag.exchange(true))
+			this->subtask_done();
+	}
+
+protected:
+	std::atomic<bool> flag;
+	SubTask *task;
+	void **msgbuf;
+
+public:
+	WFConditional(SubTask *task, void **msgbuf) :
+		flag(false)
+	{
+		this->task = task;
+		this->msgbuf = msgbuf;
+	}
+
+	WFConditional(SubTask *task) :
+		flag(false)
+	{
+		this->task = task;
+		this->msgbuf = &this->user_data;
+	}
+
+protected:
+	virtual ~WFConditional()
+	{
+		delete this->task;
+	}
 };
 
 class WFGoTask : public ExecRequest

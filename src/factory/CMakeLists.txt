@@ -4,14 +4,26 @@ project(factory)
 set(SRC
 	WFGraphTask.cc
 	DnsTaskImpl.cc
-	HttpTaskImpl.cc
-	RedisTaskImpl.cc
-	MySQLTaskImpl.cc
-	WebSocketTaskImpl.cc
-	WFTaskFactory.cc
-	WFSemTaskFactory.cc
 	Workflow.cc
+	WFTaskFactory.cc
+	WFCondTaskFactory.cc
+	HttpTaskImpl.cc
+	WebSocketTaskImpl.cc
 )
+
+if (MYSQL STREQUAL "y")
+	set(SRC
+		${SRC}
+		MySQLTaskImpl.cc
+	)
+endif ()
+
+if (REDIS STREQUAL "y")
+	set(SRC
+		${SRC}
+		RedisTaskImpl.cc
+	)
+endif ()
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 
@@ -21,4 +33,3 @@ if (KAFKA STREQUAL "y")
 	)
 	add_library("factory_kafka" OBJECT ${SRC})
 endif ()
-

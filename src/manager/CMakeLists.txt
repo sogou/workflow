@@ -3,11 +3,16 @@ project(manager)
 
 set(SRC
 	DnsCache.cc
-	UpstreamManager.cc
 	RouteManager.cc
-	WFSemaphore.cc
+	WFCondition.cc
 	WFGlobal.cc
 )
 
-add_library(${PROJECT_NAME} OBJECT ${SRC})
+if (UPSTREAM STREQUAL "y")
+	set(SRC
+		${SRC}
+		UpstreamManager.cc
+	)
+endif ()
 
+add_library(${PROJECT_NAME} OBJECT ${SRC})

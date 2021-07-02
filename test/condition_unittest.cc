@@ -24,8 +24,8 @@
 #include <gtest/gtest.h>
 #include "workflow/WFTask.h"
 #include "workflow/WFTaskFactory.h"
-#include "workflow/WFSemaphore.h"
-#include "workflow/WFSemTaskFactory.h"
+#include "workflow/WFCondition.h"
+#include "workflow/WFCondTaskFactory.h"
 #include "workflow/WFFacilities.h"
 
 TEST(condition_unittest, signal)
@@ -36,12 +36,12 @@ TEST(condition_unittest, signal)
 	int ret = 3;
 	int *ptr = &ret;
 
-	auto *task1 = WFSemTaskFactory::create_wait_task(&cond, [&wg, &ptr](WFMailboxTask *) {
+	auto *task1 = WFCondTaskFactory::create_wait_task(&cond, [&wg, &ptr](WFMailboxTask *) {
 		*ptr = 1;
 		wg.done();
 	});
 
-	auto *task2 = WFSemTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+	auto *task2 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
 		*ptr = 2;
 	});
 
@@ -68,12 +68,12 @@ TEST(condition_unittest, broadcast)
 	int ret = 0;
 	int *ptr = &ret;
 
-	auto *task1 = WFSemTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+	auto *task1 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
 		(*ptr)++;
 	});
 	SeriesWork *series1 = Workflow::create_series_work(task1, nullptr);
 
-	auto *task2 = WFSemTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+	auto *task2 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
 		(*ptr)++;
 	});
 	SeriesWork *series2 = Workflow::create_series_work(task2, nullptr);
@@ -93,13 +93,13 @@ TEST(condition_unittest, timedwait)
 	ts.tv_sec = 1;
 	ts.tv_nsec = 0;
 
-	auto *task1 = WFSemTaskFactory::create_timedwait_task("timedwait1", &ts,
+	auto *task1 = WFCondTaskFactory::create_timedwait_task("timedwait1", &ts,
 		[&wait_group](WFMailboxTask *task) {
 		EXPECT_EQ(task->get_error(), ETIMEDOUT);
 		wait_group.done();
 	});
 
-	auto *task2 = WFSemTaskFactory::create_timedwait_task("timedwait2", &ts,
+	auto *task2 = WFCondTaskFactory::create_timedwait_task("timedwait2", &ts,
 		[&wait_group](WFMailboxTask *task) {
 		EXPECT_EQ(task->get_error(), 0);
 		void **msg;
@@ -115,42 +115,30 @@ TEST(condition_unittest, timedwait)
 
 	usleep(1000);
 	char msg[10] = "wake up!!";
-	WFSemTaskFactory::signal_by_name("timedwait2", msg);
+	WFCondTaskFactory::signal_by_name("timedwait2", msg);
 	wait_group.wait();
 }
 
-#define work usleep
-
 TEST(condition_unittest, semaphore)
 {
-	int sem_concurrency = 1;
-	int task_concurrency = 3;
-	WFSemaphore sem(sem_concurrency);
+	int sem_concurrency = 3;
+	int task_concurrency = 10;
+	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
+	WFSemaphore sem(sem_concurrency, (void **)words);
 	WFFacilities::WaitGroup wg(task_concurrency);
 
-	for (int i = 0; i < task_concurrency; i ++)
+	for (int i = 0; i < task_concurrency; i++)
 	{
-		auto *t = WFTaskFactory::create_timer_task(i * 1, [&sem, &wg](WFTimerTask *task) {
+		auto *user_task = WFTaskFactory::create_timer_task(0,
+		[&wg, &sem](WFTimerTask *task) {
 			uint64_t id = (uint64_t)series_of(task)->get_context();
-			if (!sem.get())
-			{
-				auto *waiter = sem.create_wait_task([&sem, &wg](WFWaitTask *task) {
-					uint64_t id = (uint64_t)series_of(task)->get_context();
-					work(3);
-					wg.done();
-					sem.post(reinterpret_cast<uint64_t *>(id));
-				});
-				series_of(task)->push_back(waiter);
-			}
-			else
-			{
-				work(3);
-				wg.done();
-				sem.post(reinterpret_cast<uint64_t *>(id));
-			}
+			printf("task-%lu get [%s]\n", id, (char *)task->user_data);
+			sem.post(task->user_data);
+			wg.done();
 		});
-
-		SeriesWork *series = Workflow::create_series_work(t, nullptr);
+		auto *cond = WFTaskFactory::create_conditional(user_task, &user_task->user_data);
+		sem.get(cond);
+		SeriesWork *series = Workflow::create_series_work(cond, nullptr);
 		series->set_context(reinterpret_cast<uint64_t *>(i));
 		series->start();
 	}

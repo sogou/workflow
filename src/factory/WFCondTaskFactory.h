@@ -16,8 +16,8 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#ifndef _WFSEMTASKFACTORY_H_
-#define _WFSEMTASKFACTORY_H_
+#ifndef _WFCONDTASKFACTORY_H_
+#define _WFCONDTASKFACTORY_H_
 
 #include <mutex>
 #include <time.h>
@@ -27,9 +27,9 @@
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 #include "WFGlobal.h"
-#include "WFSemaphore.h"
+#include "WFCondition.h"
 
-class WFSemTaskFactory
+class WFCondTaskFactory
 {
 public:
 	// use condition by name
@@ -50,7 +50,7 @@ public:
 
 	static WFWaitTask *create_timedwait_task(WFCondition *cond,
 											 const struct timespec *abstime,
-											   wait_callback_t callback);
+											 wait_callback_t callback);
 
 };
 

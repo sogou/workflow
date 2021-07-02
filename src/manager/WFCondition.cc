@@ -16,79 +16,74 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <mutex>
 #include <time.h>
+#include <functional>
+#include "list.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
-#include "WFGlobal.h"
 #include "WFCondition.h"
 
-class WFTimedWaitTask;
+/////////////// Semaphore Impl ///////////////
 
-class WFWaitTask : public WFMailboxTask
+bool WFSemaphore::get(WFConditional *cond)
 {
-public:
-	void set_timer(WFTimedWaitTask *timer) { this->timer = timer; }
-	void clear_timer_waiter();
-
-	struct task_entry
+	this->mutex.lock();
+	if (--this->concurrency >= 0)
 	{
-		struct list_head list;
-		WFWaitTask *ptr;
-	} entry;
-
-protected:
-	virtual void dispatch();
-	virtual SubTask *done();
-
-private:
-	WFTimedWaitTask *timer;
-
-public:
-	WFWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
-		WFMailboxTask(&this->user_data, 1, std::move(cb))
-	{
-		this->timer = NULL;
-		this->entry.list.next = NULL;
-		this->entry.ptr = this;
-	}
-};
-
-class WFTimedWaitTask : public __WFTimerTask
-{
-public:
-	WFTimedWaitTask(WFWaitTask *wait_task, std::mutex *mutex,
-					const struct timespec *value,
-					CommScheduler *scheduler,
-					std::function<void (WFTimerTask *)> cb) :
-		__WFTimerTask(value, scheduler, std::move(cb))
-	{
-		this->mutex = mutex;
-		this->wait_task = wait_task;
+		cond->signal(this->resources[--this->index]);
+		this->mutex.unlock();
+		return true;
 	}
 
-	void clear_wait_task();
+	struct WFSemaphore::entry *entry;
+	entry = new WFSemaphore::entry;
+	entry->ptr = cond;
+	entry->list.next = NULL;
 
-protected:
-	virtual SubTask *done();
+	list_add_tail(&entry->list, &this->wait_list);
+	this->mutex.unlock();
 
-private:
-	std::mutex *mutex;
-	WFWaitTask *wait_task;
-};
+	return false;
+}
 
-void WFWaitTask::dispatch()
+void WFSemaphore::post(void *msg)
+{
+	struct WFSemaphore::entry *entry;
+	WFConditional *cond = NULL;
+	struct list_head *pos;
+
+	this->mutex.lock();
+
+	if (++this->concurrency <= 0)
+	{
+		pos = this->wait_list.next;
+		entry = list_entry(pos, struct WFSemaphore::entry, list);
+		cond = entry->ptr;
+		list_del(pos);
+		delete entry;
+	}
+	else
+		this->resources[this->index++] = msg;
+
+	this->mutex.unlock();
+	if (cond)
+		cond->signal(msg);
+}
+
+/////////////// Wait tasks Impl ///////////////
+
+void WFCondWaitTask::dispatch()
 {
 	if (this->timer)
 		timer->dispatch();
-	
-	this->WFMailboxTask::count();
+
+	this->WFWaitTask::count();
 }
 
-SubTask *WFWaitTask::done()
+SubTask *WFCondWaitTask::done()
 {
 	SeriesWork *series = series_of(this);
-
-	// TODO: data move
 
 	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
 		[this](WFTimerTask *task) {
@@ -101,7 +96,7 @@ SubTask *WFWaitTask::done()
 	return series->pop();
 }
 
-void WFWaitTask::clear_timer_waiter()
+void WFCondWaitTask::clear_timer_waiter()
 {
 	if (this->timer)
 		timer->clear_wait_task();
@@ -109,110 +104,62 @@ void WFWaitTask::clear_timer_waiter()
 
 SubTask *WFTimedWaitTask::done()
 {
-	WFWaitTask *tmp = NULL;
-
 	this->mutex->lock();
-	if (this->wait_task && this->wait_task->entry.list.next)
+	if (this->wait_task && this->wait_task->list.next)
 	{
-		list_del(&this->wait_task->entry.list);
-		tmp = this->wait_task;
+		list_del(&this->wait_task->list);
+		this->wait_task->set_error(ETIMEDOUT);
+		this->wait_task->count();
 		this->wait_task = NULL;
 	}
 	this->mutex->unlock();
 
-	if (tmp)
-		tmp->count();
-
-	SeriesWork *series = series_of(this);
-	
-	if (this->callback)
-		this->callback(this);
-
 	delete this;
-	return series->pop();
+	return NULL;
 }
 
-void WFTimedWaitTask::clear_wait_task()
+/////////////// Condition Impl ///////////////
+
+void WFCondition::signal(void *msg)
 {
-	this->mutex->lock();
-	this->wait_task = NULL;
-	this->mutex->unlock();
-}
-
-WFMailboxTask *WFCondition::create_wait_task(mailbox_callback_t cb)
-{
-	WFWaitTask *task = new WFWaitTask(std::move(cb));
-
-	this->mutex.lock();
-	list_add_tail(&task->entry.list, &this->waiter_list);
-	this->mutex.unlock();
-
-	return task;
-}
-
-WFMailboxTask *WFCondition::create_timedwait_task(const struct timespec *abstime,
-												  mailbox_callback_t cb)
-{
-	WFWaitTask *waiter = new WFWaitTask(std::move(cb));
-	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &this->mutex, abstime,
-												WFGlobal::get_scheduler(),
-												nullptr);
-	waiter->set_timer(task);
-
-	this->mutex.lock();
-	list_add_tail(&waiter->entry.list, &this->waiter_list);
-	this->mutex.unlock();
-
-	return waiter;
-}
-
-void WFCondition::signal()
-{
-	WFWaitTask *task = NULL;
+	WFCondWaitTask *task = NULL;
 	struct list_head *pos;
-	struct WFWaitTask::task_entry *entry;
 
 	this->mutex.lock();
-
-	if (!list_empty(&this->waiter_list))
+	if (!list_empty(&this->wait_list))
 	{
-		pos = this->waiter_list.next;
-		entry = list_entry(pos, struct WFWaitTask::task_entry, list);
-		task = entry->ptr;
+		pos = this->wait_list.next;
+		task = list_entry(pos, WFCondWaitTask, list);
 		list_del(pos);
 		task->clear_timer_waiter();
 	}
 
 	this->mutex.unlock();
-
 	if (task)
-		task->count();
+		task->send(msg);
 }
 
-void WFCondition::broadcast()
+void WFCondition::broadcast(void *msg)
 {
-	WFWaitTask *task;
+	WFCondWaitTask *task;
 	struct list_head *pos, *tmp;
-	struct WFWaitTask::task_entry *entry;
 	LIST_HEAD(tmp_list);
 
 	this->mutex.lock();
-	if (!list_empty(&this->waiter_list))
+	if (!list_empty(&this->wait_list))
 	{
-		list_for_each_safe(pos, tmp, &this->waiter_list)
+		list_for_each_safe(pos, tmp, &this->wait_list)
 		{
-			entry = list_entry(pos, struct WFWaitTask::task_entry, list);
 			list_move_tail(pos, &tmp_list);
 		}
 	}
-	this->mutex.unlock();
 
+	this->mutex.unlock();
 	while (!list_empty(&tmp_list))
 	{
-		entry = list_entry(tmp_list.next, struct WFWaitTask::task_entry, list);
-		task = entry->ptr;
-		list_del(&entry->list);
-		task->count();
+		task = list_entry(tmp_list.next, WFCondWaitTask, list);
+		list_del(&task->list);
+		task->send(msg);
 	}
 }
 

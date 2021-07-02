@@ -137,7 +137,7 @@ public:
 
 public:
 	/* If you don't leavegroup manually, rebalance would be triggered */
-	WFKafkaTask *create_leavegroup_task(int retry_max, 
+	WFKafkaTask *create_leavegroup_task(int retry_max,
 										kafka_callback_t callback);
 
 public:
@@ -153,3 +153,4 @@ private:
 };
 
 #endif
+

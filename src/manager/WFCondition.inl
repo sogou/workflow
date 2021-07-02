@@ -14,53 +14,15 @@
   limitations under the License.
 
   Author: Li Yingxin (liyingxin@sogou-inc.com)
-          Xie Han (xiehan@sogou-inc.com)
-          Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include "list.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 
-class WFSemaphoreTask : public WFWaitTask
-{
-public:
-	void start()
-	{
-		assert(!series_of(this));
-		Workflow::start_series_work(this, nullptr);
-	}
-
-	void dismiss()
-	{
-		assert(!series_of(this));
-		delete this;
-	}
-
-public:
-	WFSemaphoreTask(std::function<void (WFWaitTask *)>&& cb) :
-		WFWaitTask(&this->msg, 1, std::move(cb))
-	{
-		this->node.list.next = NULL;
-		this->node.ptr = this;
-	}
-
-	virtual ~WFSemaphoreTask() { }
-
-public:
-	struct entry
-	{
-		struct list_head list;
-		WFSemaphoreTask *ptr;
-	} node;
-
-private:
-	void *msg;
-};
-
 class WFTimedWaitTask;
 
-class WFCondWaitTask : public WFSemaphoreTask
+class WFCondWaitTask : public WFWaitTask
 {
 public:
 	void set_timer(WFTimedWaitTask *timer) { this->timer = timer; }
@@ -73,15 +35,20 @@ protected:
 
 private:
 	WFTimedWaitTask *timer;
+	void *msg;
 
 public:
 	WFCondWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
-		WFSemaphoreTask(std::move(cb))
+		WFWaitTask(&this->msg, 1, std::move(cb))
 	{
 		this->timer = NULL;
+		this->list.next = NULL;
 	}
 
 	virtual ~WFCondWaitTask() { }
+
+public:
+	struct list_head list;
 };
 
 class WFTimedWaitTask : public __WFTimerTask

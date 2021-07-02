@@ -6,7 +6,7 @@ set(SRC
 	DnsTaskImpl.cc
 	Workflow.cc
 	WFTaskFactory.cc
-	WFSemTaskFactory.cc
+	WFCondTaskFactory.cc
 	HttpTaskImpl.cc
 	WebSocketTaskImpl.cc
 )

@@ -79,8 +79,8 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
-	src/manager/WFSemaphore.h
-	src/manager/WFSemaphore.inl
+	src/manager/WFCondition.h
+	src/manager/WFCondition.inl
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h
@@ -95,7 +95,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFTaskFactory.inl
 	src/factory/WFAlgoTaskFactory.h
 	src/factory/WFAlgoTaskFactory.inl
-	src/factory/WFSemTaskFactory.h
+	src/factory/WFCondTaskFactory.h
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
 	src/factory/WFChannel.h

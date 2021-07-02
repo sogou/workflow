@@ -4,9 +4,11 @@ project(factory)
 set(SRC
 	WFGraphTask.cc
 	DnsTaskImpl.cc
-	WFSemTaskFactory.cc
 	Workflow.cc
+	WFTaskFactory.cc
+	WFSemTaskFactory.cc
 	HttpTaskImpl.cc
+	WebSocketTaskImpl.cc
 )
 
 if (MYSQL STREQUAL "y")

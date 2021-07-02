@@ -138,7 +138,9 @@ TEST(condition_unittest, semaphore)
 		});
 		auto *cond = WFTaskFactory::create_conditional(user_task, &user_task->user_data);
 		sem.get(cond);
-		cond->start();
+		SeriesWork *series = Workflow::create_series_work(cond, nullptr);
+		series->set_context(reinterpret_cast<uint64_t *>(i));
+		series->start();
 	}
 
 	wg.wait();

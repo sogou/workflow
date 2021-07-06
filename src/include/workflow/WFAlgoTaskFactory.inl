@@ -1,0 +1,1 @@
+../../../src/factory/WFAlgoTaskFactory.inl

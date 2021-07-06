@@ -1,1 +1,1 @@
-../../../src/kernel/thrdpool.h
+../../kernel/thrdpool.h

@@ -1,1 +1,1 @@
-../../../src/server/WFMySQLServer.h
+../../server/WFMySQLServer.h

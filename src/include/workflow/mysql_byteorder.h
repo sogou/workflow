@@ -1,1 +1,1 @@
-../../../src/protocol/mysql_byteorder.h
+../../protocol/mysql_byteorder.h

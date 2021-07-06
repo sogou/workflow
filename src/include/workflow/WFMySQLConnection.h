@@ -1,1 +1,1 @@
-../../../src/client/WFMySQLConnection.h
+../../client/WFMySQLConnection.h

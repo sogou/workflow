@@ -1,1 +1,1 @@
-../../../src/protocol/KafkaResult.h
+../../protocol/KafkaResult.h

@@ -1,1 +1,1 @@
-../../../src/factory/WFAlgoTaskFactory.inl
+../../factory/WFAlgoTaskFactory.inl

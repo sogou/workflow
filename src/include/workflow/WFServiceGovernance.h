@@ -1,1 +1,1 @@
-../../../src/nameservice/WFServiceGovernance.h
+../../nameservice/WFServiceGovernance.h

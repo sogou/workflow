@@ -1,1 +1,1 @@
-../../../src/algorithm/MapReduce.inl
+../../algorithm/MapReduce.inl

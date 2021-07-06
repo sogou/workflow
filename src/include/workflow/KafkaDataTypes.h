@@ -1,1 +1,1 @@
-../../../src/protocol/KafkaDataTypes.h
+../../protocol/KafkaDataTypes.h

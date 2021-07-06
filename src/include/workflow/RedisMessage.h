@@ -1,1 +1,1 @@
-../../../src/protocol/RedisMessage.h
+../../protocol/RedisMessage.h

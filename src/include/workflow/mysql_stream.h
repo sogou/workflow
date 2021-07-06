@@ -1,1 +1,1 @@
-../../../src/protocol/mysql_stream.h
+../../protocol/mysql_stream.h

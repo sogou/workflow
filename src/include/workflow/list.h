@@ -1,1 +1,1 @@
-../../../src/kernel/list.h
+../../kernel/list.h

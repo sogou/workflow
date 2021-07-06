@@ -1,1 +1,1 @@
-../../../src/manager/WFGlobal.h
+../../manager/WFGlobal.h

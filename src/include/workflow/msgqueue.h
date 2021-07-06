@@ -1,1 +1,1 @@
-../../../src/kernel/msgqueue.h
+../../kernel/msgqueue.h

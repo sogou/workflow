@@ -1,1 +1,1 @@
-../../../src/protocol/DnsUtil.h
+../../protocol/DnsUtil.h

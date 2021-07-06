@@ -1,1 +1,1 @@
-../../../src/nameservice/WFDnsResolver.h
+../../nameservice/WFDnsResolver.h

@@ -1,1 +1,1 @@
-../../../src/protocol/ProtocolMessage.h
+../../protocol/ProtocolMessage.h

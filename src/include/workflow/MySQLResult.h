@@ -1,1 +1,1 @@
-../../../src/protocol/MySQLResult.h
+../../protocol/MySQLResult.h

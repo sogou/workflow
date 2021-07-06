@@ -1,1 +1,1 @@
-../../../src/client/WFKafkaClient.h
+../../client/WFKafkaClient.h

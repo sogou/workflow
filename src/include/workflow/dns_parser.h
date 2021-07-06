@@ -1,1 +1,1 @@
-../../../src/protocol/dns_parser.h
+../../protocol/dns_parser.h

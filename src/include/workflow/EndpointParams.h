@@ -1,1 +1,1 @@
-../../../src/manager/EndpointParams.h
+../../manager/EndpointParams.h

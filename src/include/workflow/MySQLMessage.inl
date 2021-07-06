@@ -1,1 +1,1 @@
-../../../src/protocol/MySQLMessage.inl
+../../protocol/MySQLMessage.inl

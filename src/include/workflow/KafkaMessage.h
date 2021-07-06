@@ -1,1 +1,1 @@
-../../../src/protocol/KafkaMessage.h
+../../protocol/KafkaMessage.h

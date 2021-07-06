@@ -1,1 +1,1 @@
-../../../src/protocol/MySQLMessage.h
+../../protocol/MySQLMessage.h

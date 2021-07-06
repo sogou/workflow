@@ -1,1 +1,1 @@
-../../../src/algorithm/MapReduce.h
+../../algorithm/MapReduce.h

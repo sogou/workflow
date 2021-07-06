@@ -1,1 +1,1 @@
-../../../src/client/WFDnsClient.h
+../../client/WFDnsClient.h

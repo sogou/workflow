@@ -1,1 +1,1 @@
-../../../src/algorithm/DnsRoutine.h
+../../algorithm/DnsRoutine.h

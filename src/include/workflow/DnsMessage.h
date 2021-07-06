@@ -1,1 +1,1 @@
-../../../src/protocol/DnsMessage.h
+../../protocol/DnsMessage.h

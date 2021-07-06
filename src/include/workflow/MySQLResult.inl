@@ -1,1 +1,1 @@
-../../../src/protocol/MySQLResult.inl
+../../protocol/MySQLResult.inl

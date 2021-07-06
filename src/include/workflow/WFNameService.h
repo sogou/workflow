@@ -1,1 +1,1 @@
-../../../src/nameservice/WFNameService.h
+../../nameservice/WFNameService.h

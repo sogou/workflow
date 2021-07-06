@@ -1,1 +1,1 @@
-../../../src/protocol/mysql_types.h
+../../protocol/mysql_types.h

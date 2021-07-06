@@ -1,1 +1,1 @@
-../../../src/protocol/http_parser.h
+../../protocol/http_parser.h

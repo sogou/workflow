@@ -1,1 +1,1 @@
-../../../src/protocol/kafka_parser.h
+../../protocol/kafka_parser.h

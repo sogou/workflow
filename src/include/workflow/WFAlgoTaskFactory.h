@@ -1,1 +1,1 @@
-../../../src/factory/WFAlgoTaskFactory.h
+../../factory/WFAlgoTaskFactory.h

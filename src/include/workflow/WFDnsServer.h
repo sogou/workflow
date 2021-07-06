@@ -1,1 +1,1 @@
-../../../src/server/WFDnsServer.h
+../../server/WFDnsServer.h

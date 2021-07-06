@@ -1,1 +1,1 @@
-../../../src/protocol/mysql_parser.h
+../../protocol/mysql_parser.h

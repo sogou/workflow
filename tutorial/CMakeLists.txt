@@ -47,7 +47,7 @@ foreach(src ${TUTORIAL_LIST})
 	target_link_libraries(${bin_name} ${WORKFLOW_LIB})
 endforeach()
 
-if (REDIS STREQUAL "y")
+if (NOT REDIS STREQUAL "n")
 set(TUTORIAL_LIST
 	tutorial-02-redis_cli
 	tutorial-03-wget_to_redis
@@ -60,7 +60,7 @@ foreach(src ${TUTORIAL_LIST})
 endforeach()
 endif()
 
-if (MYSQL STREQUAL "y")
+if (NOT MYSQL STREQUAL "n")
 set(TUTORIAL_LIST
 	tutorial-12-mysql_cli
 )

@@ -23,17 +23,17 @@
 #include <netdb.h>
 #include <string>
 
-class DNSInput
+class DnsInput
 {
 public:
-	DNSInput():
+	DnsInput():
 		port_(0)
 	{}
 
 	//move constructor
-	DNSInput(DNSInput&& move) = default;
+	DnsInput(DnsInput&& move) = default;
 	//move operator
-	DNSInput& operator= (DNSInput &&move) = default;
+	DnsInput& operator= (DnsInput &&move) = default;
 
 	void reset(const std::string& host, unsigned short port)
 	{
@@ -48,32 +48,32 @@ protected:
 	std::string host_;
 	unsigned short port_;
 
-	friend class DNSRoutine;
+	friend class DnsRoutine;
 };
 
-class DNSOutput
+class DnsOutput
 {
 public:
-	DNSOutput():
+	DnsOutput():
 		error_(0),
 		addrinfo_(NULL)
 	{}
 
-	~DNSOutput()
+	~DnsOutput()
 	{
 		if (addrinfo_)
 			freeaddrinfo(addrinfo_);
 	}
 
 	//move constructor
-	DNSOutput(DNSOutput&& move);
+	DnsOutput(DnsOutput&& move);
 	//move operator
-	DNSOutput& operator= (DNSOutput&& move);
+	DnsOutput& operator= (DnsOutput&& move);
 
 	int get_error() const { return error_; }
 	const struct addrinfo *get_addrinfo() const { return addrinfo_; }
 
-	//if DONOT want DNSOutput release addrinfo, use move_addrinfo in callback
+	//if DONOT want DnsOutput release addrinfo, use move_addrinfo in callback
 	struct addrinfo *move_addrinfo()
 	{
 		struct addrinfo *p = addrinfo_;
@@ -85,19 +85,27 @@ protected:
 	int error_;
 	struct addrinfo *addrinfo_;
 
-	friend class DNSRoutine;
+	friend class DnsRoutine;
 };
 
-class DNSRoutine
+class DnsRoutine
 {
 public:
-	static void run(const DNSInput *in, DNSOutput *out);
+	static void run(const DnsInput *in, DnsOutput *out);
+	static void create(DnsOutput *out, int error, struct addrinfo *ai)
+	{
+		if (out->addrinfo_)
+			freeaddrinfo(out->addrinfo_);
+
+		out->error_ = error;
+		out->addrinfo_ = ai;
+	}
 
 private:
-	static void run_local_path(const std::string& path, DNSOutput *out);
+	static void run_local_path(const std::string& path, DnsOutput *out);
 };
 
-//new WFDNSTask(queue, executor, dns_routine, callback)
+//new WFDnsTask(queue, executor, dns_routine, callback)
 //if donot want freeaddrinfo, please std::move output in callback
 
 #endif

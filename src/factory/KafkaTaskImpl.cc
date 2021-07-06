@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string>
 #include <set>
+#include "StringUtil.h"
 #include "KafkaTaskImpl.inl"
 
 using namespace protocol;
@@ -47,6 +48,56 @@ protected:
 	virtual bool finish_once();
 
 private:
+	struct KafkaConnectionInfo
+	{
+		kafka_api_t api;
+		kafka_sasl_t sasl;
+		std::string mechanisms;
+
+		KafkaConnectionInfo()
+		{
+			kafka_api_init(&this->api);
+			kafka_sasl_init(&this->sasl);
+		}
+
+		~KafkaConnectionInfo()
+		{
+			kafka_api_deinit(&this->api);
+			kafka_sasl_deinit(&this->sasl);
+		}
+
+		bool init(const char *mechanisms)
+		{
+			this->mechanisms = mechanisms;
+
+			if (strncasecmp(mechanisms, "SCRAM", 5) == 0)
+			{
+				if (strcasecmp(mechanisms, "SCRAM-SHA-1") == 0)
+				{
+					this->sasl.scram.evp = EVP_sha1();
+					this->sasl.scram.scram_h = SHA1;
+					this->sasl.scram.scram_h_size = SHA_DIGEST_LENGTH;
+				}
+				else if (strcasecmp(mechanisms, "SCRAM-SHA-256") == 0)
+				{
+					this->sasl.scram.evp = EVP_sha256();
+					this->sasl.scram.scram_h = SHA256;
+					this->sasl.scram.scram_h_size = SHA256_DIGEST_LENGTH;
+				}
+				else if (strcasecmp(mechanisms, "SCRAM-SHA-512") == 0)
+				{
+					this->sasl.scram.evp = EVP_sha512();
+					this->sasl.scram.scram_h = SHA512;
+					this->sasl.scram.scram_h_size = SHA512_DIGEST_LENGTH;
+				}
+				else
+					return false;
+			}
+
+			return true;
+		}
+	};
+
 	virtual int first_timeout();
 	bool has_next();
 	bool check_redirect();
@@ -59,16 +110,19 @@ private:
 CommMessageOut *__ComplexKafkaTask::message_out()
 {
 	long long seqid = this->get_seq();
-	KafkaBroker *broker = this->get_req()->get_broker();
-
-	if (!broker->get_api())
+	if (seqid == 0)
 	{
+		KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
+		this->get_connection()->set_context(conn_info, std::move([](void *ctx) {
+					delete (KafkaConnectionInfo *)ctx;
+				}));
+		this->get_req()->set_api(&conn_info->api);
+
 		if (!this->get_req()->get_config()->get_broker_version())
 		{
 			KafkaRequest *req  = new KafkaRequest;
-
 			req->duplicate(*this->get_req());
-			req->set_api(Kafka_ApiVersions);
+			req->set_api_type(Kafka_ApiVersions);
 			is_user_request_ = false;
 			return req;
 		}
@@ -76,35 +130,58 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		{
 			kafka_api_version_t *api;
 			size_t api_cnt;
-			const char *brk_ver = this->get_req()->get_config()->get_broker_version();
-			int ret = kafka_api_version_is_queryable(brk_ver, &api, &api_cnt);
+			const char *v = this->get_req()->get_config()->get_broker_version();
+			int ret = kafka_api_version_is_queryable(v, &api, &api_cnt);
+			kafka_api_version_t *p = NULL;
 
 			if (ret == 0)
 			{
-				broker->allocate_api_version(api_cnt);
-				memcpy(broker->get_api(), api,
-					   sizeof(kafka_api_version_t) * api_cnt);
+				p = (kafka_api_version_t *)malloc(api_cnt * sizeof(*p));
+				if (p)
+				{
+					memcpy(p, api, api_cnt * sizeof(kafka_api_version_t));
+					conn_info->api.api = p;
+					conn_info->api.elements = api_cnt;
+					conn_info->api.features = kafka_get_features(p, api_cnt);
+				}
 			}
-			else
-			{
-				this->state = WFT_STATE_TASK_ERROR;
-				this->error = WFT_ERR_KAFKA_VERSION_DISALLOWED;
+
+			if (!p)
 				return NULL;
-			}
+
+			seqid++;
 		}
 	}
 
-	if (seqid == 0 && this->get_req()->get_config()->get_sasl_mechanisms())
+	if (seqid == 1)
 	{
-		KafkaRequest *req  = new KafkaRequest;
+		const char *sasl_mech = this->get_req()->get_config()->get_sasl_mech();
+		KafkaConnectionInfo *conn_info =
+			(KafkaConnectionInfo *)this->get_connection()->get_context();
+		if (sasl_mech && conn_info->sasl.status == 0)
+		{
+			if (!conn_info->init(sasl_mech))
+				return NULL;
 
-		req->duplicate(*this->get_req());
-		req->set_api(Kafka_SaslHandshake);
-		is_user_request_ = false;
-		return req;
+			this->get_req()->set_api(&conn_info->api);
+			this->get_req()->set_sasl(&conn_info->sasl);
+
+			KafkaRequest *req  = new KafkaRequest;
+			req->duplicate(*this->get_req());
+			if (conn_info->api.features & KAFKA_FEATURE_SASL_HANDSHAKE)
+				req->set_api_type(Kafka_SaslHandshake);
+			else
+				req->set_api_type(Kafka_SaslAuthenticate);
+			is_user_request_ = false;
+			return req;
+		}
 	}
 
-	if (this->get_req()->get_api() == Kafka_Fetch)
+	KafkaConnectionInfo *conn_info =
+		(KafkaConnectionInfo *)this->get_connection()->get_context();
+	this->get_req()->set_api(&conn_info->api);
+
+	if (this->get_req()->get_api_type() == Kafka_Fetch)
 	{
 		KafkaRequest *req = this->get_req();
 		req->get_toppar_list()->rewind();
@@ -128,11 +205,11 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		if (flag)
 		{
 			KafkaRequest *new_req = new KafkaRequest;
-
+			new_req->set_api(&conn_info->api);
 			new_req->set_broker(*req->get_broker());
 			new_req->set_toppar_list(toppar_list);
 			new_req->set_config(*req->get_config());
-			new_req->set_api(Kafka_ListOffsets);
+			new_req->set_api_type(Kafka_ListOffsets);
 			is_user_request_ = false;
 			return new_req;
 		}
@@ -146,7 +223,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	KafkaRequest *req = static_cast<KafkaRequest *>(this->get_message_out());
 	KafkaResponse *resp = this->get_resp();
 
-	resp->set_api(req->get_api());
+	resp->set_api_type(req->get_api_type());
 	resp->set_api_version(req->get_api_version());
 	resp->duplicate(*req);
 
@@ -155,13 +232,48 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 
 bool __ComplexKafkaTask::init_success()
 {
-	if (this->get_req()->get_config()->get_sasl_mechanisms())
+	if (!uri_.scheme || strcasecmp(uri_.scheme, "kafka") != 0)
 	{
-		std::string info = this->get_req()->get_config()->get_sasl_info();
-		this->WFComplexClientTask::set_info(info);
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_URI_SCHEME_INVALID;
+		return false;
 	}
 
+	std::string username, password, sasl;
+	if (uri_.userinfo)
+	{
+		const char *pos = strchr(uri_.userinfo, ':');
+		if (pos)
+		{
+			username = std::string(uri_.userinfo, pos - uri_.userinfo);
+			StringUtil::url_decode(username);
+			const char *pos1 = strchr(pos + 1, ':');
+			if (pos1)
+			{
+				password = std::string(pos + 1, pos1 - pos - 1);
+				StringUtil::url_decode(password);
+				sasl = std::string(pos1 + 1);
+			}
+		}
+
+		if (username.empty() || password.empty() || sasl.empty())
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_URI_SCHEME_INVALID;
+			return false;
+		}
+	}
+
+	size_t info_len = username.size() + password.size() + sasl.size() + 50;
+	char *info = new char[info_len];
+
+	snprintf(info, info_len, "%s|user:%s|pass:%s|sasl:%s|", "kafka",
+			 username.c_str(), password.c_str(), sasl.c_str());
+
+	this->WFComplexClientTask::set_info(info);
 	this->WFComplexClientTask::set_transport_type(TT_TCP);
+
+	delete []info;
 	return true;
 }
 
@@ -170,7 +282,7 @@ int __ComplexKafkaTask::first_timeout()
 	KafkaRequest *client_req = this->get_req();
 	int ret = 0;
 
-	switch(client_req->get_api())
+	switch(client_req->get_api_type())
 	{
 	case Kafka_Fetch:
 		ret = client_req->get_config()->get_fetch_timeout();
@@ -252,7 +364,7 @@ bool __ComplexKafkaTask::has_next()
 		msg->get_broker()->set_to_addr(1);
 	}
 
-	switch (msg->get_api())
+	switch (msg->get_api_type())
 	{
 	case Kafka_FindCoordinator:
 		if (msg->get_cgroup()->get_error())
@@ -264,7 +376,7 @@ bool __ComplexKafkaTask::has_next()
 		else
 		{
 			is_redirect_ = check_redirect();
-			this->get_req()->set_api(Kafka_JoinGroup);
+			this->get_req()->set_api_type(Kafka_JoinGroup);
 		}
 
 		break;
@@ -278,17 +390,17 @@ bool __ComplexKafkaTask::has_next()
 
 		if (msg->get_cgroup()->get_error() == KAFKA_MISSING_TOPIC)
 		{
-			this->get_req()->set_api(Kafka_Metadata);
+			this->get_req()->set_api_type(Kafka_Metadata);
 			update_metadata_ = true;
 		}
 		else if (msg->get_cgroup()->get_error() == KAFKA_MEMBER_ID_REQUIRED)
 		{
-			this->get_req()->set_api(Kafka_JoinGroup);
+			this->get_req()->set_api_type(Kafka_JoinGroup);
 		}
 		else if (msg->get_cgroup()->get_error() == KAFKA_UNKNOWN_MEMBER_ID)
 		{
 			msg->get_cgroup()->set_member_id("");
-			this->get_req()->set_api(Kafka_JoinGroup);
+			this->get_req()->set_api_type(Kafka_JoinGroup);
 		}
 		else if (msg->get_cgroup()->get_error())
 		{
@@ -297,7 +409,7 @@ bool __ComplexKafkaTask::has_next()
 			ret = false;
 		}
 		else
-			this->get_req()->set_api(Kafka_SyncGroup);
+			this->get_req()->set_api_type(Kafka_SyncGroup);
 
 		break;
 
@@ -309,7 +421,7 @@ bool __ComplexKafkaTask::has_next()
 			ret = false;
 		}
 		else
-			this->get_req()->set_api(Kafka_OffsetFetch);
+			this->get_req()->set_api_type(Kafka_OffsetFetch);
 
 		break;
 
@@ -324,7 +436,7 @@ bool __ComplexKafkaTask::has_next()
 				this->state = WFT_STATE_TASK_ERROR;
 			}
 			else
-				this->get_req()->set_api(Kafka_SyncGroup);
+				this->get_req()->set_api_type(Kafka_SyncGroup);
 		}
 		else
 		{
@@ -337,7 +449,7 @@ bool __ComplexKafkaTask::has_next()
 				if (meta->get_error() == KAFKA_LEADER_NOT_AVAILABLE)
 				{
 					ret = true;
-					this->get_req()->set_api(Kafka_Metadata);
+					this->get_req()->set_api_type(Kafka_Metadata);
 					break;
 				}
 			}
@@ -351,8 +463,6 @@ bool __ComplexKafkaTask::has_next()
 			this->state = WFT_STATE_TASK_ERROR;
 			ret = false;
 		}
-		else
-			this->get_req()->set_api(Kafka_SaslAuthenticate);
 
 		break;
 
@@ -364,13 +474,22 @@ bool __ComplexKafkaTask::has_next()
 			{
 				if (!toppar->record_reach_end())
 				{
-					this->get_req()->set_api(Kafka_Produce);
+					this->get_req()->set_api_type(Kafka_Produce);
 					return true;
 				}
 			}
 		}
 
 	case Kafka_SaslAuthenticate:
+		if (msg->get_broker()->get_error())
+		{
+			this->error = msg->get_broker()->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+		}
+
+		ret = false;
+		break;
+
 	case Kafka_Fetch:
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
@@ -394,14 +513,15 @@ bool __ComplexKafkaTask::finish_once()
 {
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (this->get_resp()->parse_response() < 0)
+		if (has_next())
 		{
-			this->disable_retry();
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_KAFKA_PARSE_RESPONSE_FAILED;
-		}
-		else if (has_next() && is_user_request_)
-		{
+			if (!is_user_request_)
+			{
+				delete this->get_message_out();
+				this->get_resp()->clear_buf();
+				return false;
+			}
+
 			this->get_req()->clear_buf();
 			if (is_redirect_)
 			{
@@ -421,9 +541,9 @@ bool __ComplexKafkaTask::finish_once()
 			return false;
 		}
 
-		if (this->get_resp()->get_api() == Kafka_Fetch ||
-			this->get_resp()->get_api() == Kafka_Produce ||
-			this->get_resp()->get_api() == Kafka_ApiVersions)
+		if (this->get_resp()->get_api_type() == Kafka_Fetch ||
+			this->get_resp()->get_api_type() == Kafka_Produce ||
+			this->get_resp()->get_api_type() == Kafka_ApiVersions)
 		{
 			if (*get_mutable_ctx())
 				(*get_mutable_ctx())(this);
@@ -433,7 +553,7 @@ bool __ComplexKafkaTask::finish_once()
 	{
 		this->disable_retry();
 
-		this->get_resp()->set_api(this->get_req()->get_api());
+		this->get_resp()->set_api_type(this->get_req()->get_api_type());
 		this->get_resp()->set_api_version(this->get_req()->get_api_version());
 		this->get_resp()->duplicate(*this->get_req());
 
@@ -445,6 +565,7 @@ bool __ComplexKafkaTask::finish_once()
 }
 
 /**********Factory**********/
+// kafka://user:password:sasl@host:port/api=type&topic=name
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
 													   int retry_max,
 													   __kafka_callback_t callback)
@@ -472,11 +593,12 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *addr,
 													   socklen_t addrlen,
 													   int retry_max,
+													   const std::string& info,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
-	task->init(TT_TCP, addr, addrlen, "");
+	task->init(TT_TCP, addr, addrlen, info);
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;
 }
@@ -484,11 +606,16 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *ad
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
 													   int port,
 													   int retry_max,
+													   const std::string& info,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
 	std::string url = "kafka://";
+
+	if (!info.empty())
+		url += info;
+
 	url += host;
 	url += ":" + std::to_string(port);
 
@@ -498,3 +625,4 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;
 }
+

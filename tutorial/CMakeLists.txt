@@ -25,8 +25,6 @@ endif ()
 set(TUTORIAL_LIST
 	tutorial-00-helloworld
 	tutorial-01-wget
-	tutorial-02-redis_cli
-	tutorial-03-wget_to_redis
 	tutorial-04-http_echo_server
 	tutorial-05-http_proxy
 	tutorial-06-parallel_wget
@@ -34,7 +32,6 @@ set(TUTORIAL_LIST
 	tutorial-08-matrix_multiply
 	tutorial-09-http_file_server
 	tutorial-11-graph_task
-	tutorial-12-mysql_cli
 )
 
 if (APPLE)
@@ -49,6 +46,31 @@ foreach(src ${TUTORIAL_LIST})
 	add_executable(${bin_name} ${src}.cc)
 	target_link_libraries(${bin_name} ${WORKFLOW_LIB})
 endforeach()
+
+if (NOT REDIS STREQUAL "n")
+set(TUTORIAL_LIST
+	tutorial-02-redis_cli
+	tutorial-03-wget_to_redis
+)
+foreach(src ${TUTORIAL_LIST})
+	string(REPLACE "-" ";" arr ${src})
+	list(GET arr -1 bin_name)
+	add_executable(${bin_name} ${src}.cc)
+	target_link_libraries(${bin_name} ${WORKFLOW_LIB})
+endforeach()
+endif()
+
+if (NOT MYSQL STREQUAL "n")
+set(TUTORIAL_LIST
+	tutorial-12-mysql_cli
+)
+foreach(src ${TUTORIAL_LIST})
+	string(REPLACE "-" ";" arr ${src})
+	list(GET arr -1 bin_name)
+	add_executable(${bin_name} ${src}.cc)
+	target_link_libraries(${bin_name} ${WORKFLOW_LIB})
+endforeach()
+endif()
 
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")

@@ -26,7 +26,7 @@
 
 #include <string>
 #include "CommScheduler.h"
-#include "DNSCache.h"
+#include "DnsCache.h"
 #include "RouteManager.h"
 #include "Executor.h"
 #include "EndpointParams.h"
@@ -51,6 +51,8 @@ struct WFGlobalSettings
 	int poller_threads;
 	int handler_threads;
 	int compute_threads;			///< auto-set by system CPU number if value<=0
+	const char *resolv_conf_path;
+	const char *hosts_path;
 };
 
 /**
@@ -65,6 +67,8 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 	.poller_threads		=	4,
 	.handler_threads	=	20,
 	.compute_threads	=	-1,
+	.resolv_conf_path	=	NULL,			// use thread dns task for default
+	.hosts_path			=	NULL,
 };
 
 /**
@@ -107,7 +111,7 @@ public:
 public:
 	// Internal usage only
 	static CommScheduler *get_scheduler();
-	static DNSCache *get_dns_cache();
+	static DnsCache *get_dns_cache();
 	static RouteManager *get_route_manager();
 	static ExecQueue *get_exec_queue(const std::string& queue_name);
 	static Executor *get_compute_executor();
@@ -115,6 +119,7 @@ public:
 	static ExecQueue *get_dns_queue();
 	static Executor *get_dns_executor();
 	static WFNameService *get_name_service();
+	static class WFDnsClient *get_dns_client();
 	static void sync_operation_begin();
 	static void sync_operation_end();
 };

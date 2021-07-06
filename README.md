@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
-[![Build Status](https://travis-ci.org/sogou/workflow.svg?branch=master)](https://travis-ci.org/sogou/workflow)
+[![Build Status](https://travis-ci.com/sogou/workflow.svg?branch=master)](https://travis-ci.com/sogou/workflow)
 
 As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method，online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
 
@@ -46,17 +46,17 @@ int main()
 
 * This project supports `Linux`, `macOS`, `Windows`, `Android` and other operating systems.
   * `Windows` version is currently released as an independent [branch](https://github.com/sogou/workflow/tree/windows), using `iocp` to implement asynchronous networking. All user interfaces are consistent with the `Linux` version.
-* Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors.
+* Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors, `loongson` processors.
 * Relies on `OpenSSL`; `OpenSSL 1.1` and above is recommended. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch. But still need to link `crypto` for `md5` and `sha1`.
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
 ### Get started (Linux, macOS):
 ~~~sh
-$ git clone https://github.com/sogou/workflow
-$ make
-$ cd tutorial
-$ make
+git clone https://github.com/sogou/workflow
+make
+cd tutorial
+make
 ~~~~
 
 # Tutorials
@@ -141,7 +141,9 @@ Memory reclamation mechanism
   * When a series is a branch of a parallel, it will be recycled after the callback of the parallel that it belongs to.
 * This project doesn’t use `std::shared_ptr` to manage memory.
 
-#### More design documents
+#### Any other questions?
 
-To be continued...
+You may check the [FAQ](https://github.com/sogou/workflow/issues/406) and [issues](https://github.com/sogou/workflow/issues) list first to see if you can find the answer.
+
+You are very welcome to send the problems you encounter in use to [issues](https://github.com/sogou/workflow/issues), and we will answer them as soon as possible. At the same time, more issues will also help new users.
 

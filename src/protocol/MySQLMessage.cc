@@ -175,18 +175,21 @@ std::string MySQLRequest::get_query() const
 
 int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 {
-	const char empty13[13] = {0};
+	const char empty[11] = {0};
+	uint16_t cap_flags_lower = capability_flags_ & 0xffffffff;
+	uint16_t cap_flags_upper = capability_flags_ >> 16;
 
 	buf_.clear();
 	buf_.append((const char *)&protocol_version_, 1);
 	buf_.append(server_version_.c_str(), server_version_.size() + 1);
 	buf_.append((const char *)&connection_id_, 4);
 	buf_.append((const char *)auth_plugin_data_part_1_, 8);
-	buf_.append(empty13, 1);
-	buf_.append(empty13, 2);
+	buf_.append(empty, 1);
+	buf_.append((const char *)&cap_flags_lower, 2);
 	buf_.append((const char *)&character_set_, 1);
 	buf_.append((const char *)&status_flags_, 2);
-	buf_.append(empty13, 13);
+	buf_.append((const char *)&cap_flags_upper, 2);
+	buf_.append(empty, 11);
 	buf_.append((const char *)auth_plugin_data_part_2_, 12);
 	return this->MySQLMessage::encode(vectors, max);
 }
@@ -195,6 +198,8 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 {
 	const unsigned char *end = buf + buflen;
 	const unsigned char *pos;
+	uint16_t cap_flags_lower;
+	uint16_t cap_flags_upper;
 
 	if (buflen == 0)
 		return -2;
@@ -229,12 +234,15 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	buf += 4;
 	memcpy(auth_plugin_data_part_1_, buf, 8);
 	buf += 9;
+	cap_flags_lower = uint2korr(buf);
 	buf += 2;
 	character_set_ = *buf++;
 	status_flags_ = uint2korr(buf);
 	buf += 2;
+	cap_flags_upper = uint2korr(buf);
 	buf += 13;
 	memcpy(auth_plugin_data_part_2_, buf, 12);
+	capability_flags_ = (cap_flags_upper << 16U) + cap_flags_lower;
 	return 1;
 }
 

@@ -22,7 +22,7 @@
 #include "EndpointParams.h"
 #include "WFNameService.h"
 
-class WFDNSResolver : public WFNSPolicy
+class WFDnsResolver : public WFNSPolicy
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,

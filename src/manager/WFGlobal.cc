@@ -152,6 +152,13 @@ __WFGlobal::__WFGlobal() : settings_(GLOBAL_SETTINGS_DEFAULT)
 	static_scheme_port_["MySQL"] = "3306";
 	static_scheme_port_["MYSQL"] = "3306";
 
+	static_scheme_port_["mysqls"] = "3306";
+	static_scheme_port_["Mysqls"] = "3306";
+	static_scheme_port_["MySqls"] = "3306";
+	static_scheme_port_["MySQLs"] = "3306";
+	static_scheme_port_["MYSQLs"] = "3306";
+	static_scheme_port_["MYSQLS"] = "3306";
+
 	static_scheme_port_["kafka"] = "9092";
 	static_scheme_port_["Kafka"] = "9092";
 	static_scheme_port_["KAFKA"] = "9092";

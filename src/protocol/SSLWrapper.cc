@@ -268,6 +268,9 @@ int SSLWrapper::feedback(const void *buf, size_t size)
 	if (size == 0)
 		return 0;
 
+	if (BIO_reset(wbio) <= 0)
+		return -1;
+
 	ret = SSL_write(this->ssl, buf, size);
 	if (ret <= 0)
 	{

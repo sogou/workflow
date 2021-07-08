@@ -31,7 +31,6 @@ public:
 
 protected:
 	void dispatch();
-	SubTask *done();
 
 private:
 	WFTimedWaitTask *timer;
@@ -75,5 +74,16 @@ protected:
 private:
 	std::mutex *mutex;
 	WFCondWaitTask *wait_task;
+};
+
+class WFSwitchWaitTask : public WFCondWaitTask
+{
+public:
+	WFSwitchWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
+		WFCondWaitTask(std::move(cb))
+	{ }
+
+protected:
+	SubTask *done();
 };
 

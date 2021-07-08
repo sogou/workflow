@@ -81,7 +81,7 @@ void WFCondWaitTask::dispatch()
 	this->WFWaitTask::count();
 }
 
-SubTask *WFCondWaitTask::done()
+SubTask *WFSwitchWaitTask::done()
 {
 	SeriesWork *series = series_of(this);
 

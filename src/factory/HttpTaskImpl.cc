@@ -466,7 +466,7 @@ private:
 		SSL *ssl_;
 		SSLHandshaker handshaker_;
 		SSLWrapper wrapper_;
-		SSLConnection(SSL *ssl) : handshaker_(ssl), wrapper_(NULL, ssl)
+		SSLConnection(SSL *ssl) : handshaker_(ssl), wrapper_(&wrapper_, ssl)
 		{
 			ssl_ = ssl;
 		}

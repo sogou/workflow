@@ -96,7 +96,7 @@ private:
 
 protected:
 	/* Send small packet while receiving. Call only in append(). */
-	int feedback(const void *buf, size_t size);
+	virtual int feedback(const void *buf, size_t size);
 
 private:
 	struct CommConnEntry *entry;

@@ -20,27 +20,20 @@
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 
-class WFTimedWaitTask;
-
 class WFCondWaitTask : public WFWaitTask
 {
 public:
-	void set_timer(WFTimedWaitTask *timer) { this->timer = timer; }
-	void clear_timer_waiter();
+	void set_state(int state) { this->state = state; }
 	void set_error(int error) { this->error = error; }
-
-protected:
-	void dispatch();
+	virtual void count();
 
 private:
-	WFTimedWaitTask *timer;
 	void *msg;
 
 public:
-	WFCondWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
+	WFCondWaitTask(mailbox_callback_t&& cb) :
 		WFWaitTask(&this->msg, 1, std::move(cb))
 	{
-		this->timer = NULL;
 		this->list.next = NULL;
 	}
 
@@ -50,14 +43,37 @@ public:
 	struct list_head list;
 };
 
-class WFTimedWaitTask : public __WFTimerTask
+class __WFWaitTimerTask;
+
+class WFTimedWaitTask : public WFCondWaitTask
 {
 public:
-	WFTimedWaitTask(WFCondWaitTask *wait_task, std::mutex *mutex,
-					const struct timespec *value,
-					CommScheduler *scheduler,
-					std::function<void (WFTimerTask *)> cb) :
-		__WFTimerTask(value, scheduler, std::move(cb))
+	void set_timer(__WFWaitTimerTask *timer) { this->timer = timer; }
+	void clear_timer_waiter();
+
+protected:
+	virtual void dispatch();
+
+private:
+	__WFWaitTimerTask *timer;
+
+public:
+	WFTimedWaitTask(mailbox_callback_t&& cb) :
+		WFCondWaitTask(std::move(cb))
+	{
+		this->timer = NULL;
+	}
+
+	virtual ~WFTimedWaitTask() { }
+};
+
+class __WFWaitTimerTask : public __WFTimerTask
+{
+public:
+	__WFWaitTimerTask(WFTimedWaitTask *wait_task, std::mutex *mutex,
+					  const struct timespec *value,
+					  CommScheduler *scheduler) :
+		__WFTimerTask(value, scheduler, nullptr)
 	{
 		this->mutex = mutex;
 		this->wait_task = wait_task;
@@ -73,13 +89,13 @@ protected:
 
 private:
 	std::mutex *mutex;
-	WFCondWaitTask *wait_task;
+	WFTimedWaitTask *wait_task;
 };
 
 class WFSwitchWaitTask : public WFCondWaitTask
 {
 public:
-	WFSwitchWaitTask(std::function<void (WFMailboxTask *)>&& cb) :
+	WFSwitchWaitTask(mailbox_callback_t&& cb) :
 		WFCondWaitTask(std::move(cb))
 	{ }
 

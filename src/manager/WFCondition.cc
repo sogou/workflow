@@ -73,7 +73,17 @@ void WFSemaphore::post(void *msg)
 
 /////////////// Wait tasks Impl ///////////////
 
-void WFCondWaitTask::dispatch()
+void WFCondWaitTask::count()
+{
+	if (--this->value == 0)
+	{
+		if (this->state == WFT_STATE_UNDEFINED)
+			this->state = WFT_STATE_SUCCESS;
+		this->subtask_done();
+	}
+}
+
+void WFTimedWaitTask::dispatch()
 {
 	if (this->timer)
 		timer->dispatch();
@@ -96,24 +106,28 @@ SubTask *WFSwitchWaitTask::done()
 	return series->pop();
 }
 
-void WFCondWaitTask::clear_timer_waiter()
+void WFTimedWaitTask::clear_timer_waiter()
 {
 	if (this->timer)
 		timer->clear_wait_task();
 }
 
-SubTask *WFTimedWaitTask::done()
+SubTask *__WFWaitTimerTask::done()
 {
+	WFTimedWaitTask *waiter = NULL;
+
 	this->mutex->lock();
-	if (this->wait_task && this->wait_task->list.next)
+	if (this->wait_task)
 	{
 		list_del(&this->wait_task->list);
+		this->wait_task->set_state(WFT_STATE_SYS_ERROR);
 		this->wait_task->set_error(ETIMEDOUT);
-		this->wait_task->count();
-		this->wait_task = NULL;
+		waiter = this->wait_task;
 	}
 	this->mutex->unlock();
 
+	if (waiter)
+		waiter->count();
 	delete this;
 	return NULL;
 }
@@ -123,6 +137,7 @@ SubTask *WFTimedWaitTask::done()
 void WFCondition::signal(void *msg)
 {
 	WFCondWaitTask *task = NULL;
+	WFTimedWaitTask *waiter;
 	struct list_head *pos;
 
 	this->mutex.lock();
@@ -131,7 +146,9 @@ void WFCondition::signal(void *msg)
 		pos = this->wait_list.next;
 		task = list_entry(pos, WFCondWaitTask, list);
 		list_del(pos);
-		task->clear_timer_waiter();
+		waiter = dynamic_cast<WFTimedWaitTask *>(task);
+		if (waiter)
+			waiter->clear_timer_waiter();
 	}
 
 	this->mutex.unlock();
@@ -142,6 +159,7 @@ void WFCondition::signal(void *msg)
 void WFCondition::broadcast(void *msg)
 {
 	WFCondWaitTask *task;
+	WFTimedWaitTask *waiter;
 	struct list_head *pos, *tmp;
 	LIST_HEAD(tmp_list);
 
@@ -159,6 +177,9 @@ void WFCondition::broadcast(void *msg)
 	{
 		task = list_entry(tmp_list.next, WFCondWaitTask, list);
 		list_del(&task->list);
+		waiter = dynamic_cast<WFTimedWaitTask *>(task);
+		if (waiter)
+			waiter->clear_timer_waiter();
 		task->send(msg);
 	}
 }

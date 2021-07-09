@@ -48,7 +48,7 @@ public:
 
 	WFWaitTask *create(const std::string& name, wait_callback_t&& cb);
 	WFWaitTask *create(const std::string& name,
-					   const struct timespec *abstime,
+					   const struct timespec *value,
 					   wait_callback_t&& cb);
 	WFWaitTask *create_switch(const std::string& name,
 							  wait_callback_t&& cb);
@@ -96,12 +96,12 @@ WFWaitTask *__ConditionMap::create(const std::string& name,
 }
 
 WFWaitTask *__ConditionMap::create(const std::string& name,
-								   const struct timespec *abstime,
+								   const struct timespec *value,
 								   wait_callback_t&& cb)
 {
 	__WFCondition *cond = this->find_condition(name);
 
-	return WFCondTaskFactory::create_timedwait_task(cond, abstime,
+	return WFCondTaskFactory::create_timedwait_task(cond, value,
 													std::move(cb));
 }
 
@@ -196,10 +196,10 @@ WFWaitTask *WFCondTaskFactory::create_swait_task(const std::string& name,
 }
 
 WFWaitTask *WFCondTaskFactory::create_timedwait_task(const std::string& name,
-													 const struct timespec *abstime,
+													 const struct timespec *value,
 													 wait_callback_t callback)
 {
-	return __ConditionMap::get_instance()->create(name, abstime,
+	return __ConditionMap::get_instance()->create(name, value,
 												  std::move(callback));
 }
 
@@ -216,13 +216,12 @@ WFWaitTask *WFCondTaskFactory::create_wait_task(WFCondition *cond,
 }
 
 WFWaitTask *WFCondTaskFactory::create_timedwait_task(WFCondition *cond,
-													 const struct timespec *abstime,
+													 const struct timespec *value,
 													 wait_callback_t callback)
 {
-	WFCondWaitTask *waiter = new WFCondWaitTask(std::move(callback));
-	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &cond->mutex, abstime,
-												WFGlobal::get_scheduler(),
-												nullptr);
+	WFTimedWaitTask *waiter = new WFTimedWaitTask(std::move(callback));
+	__WFWaitTimerTask *task = new __WFWaitTimerTask(waiter, &cond->mutex, value,
+													WFGlobal::get_scheduler());
 	waiter->set_timer(task);
 
 	cond->mutex.lock();

@@ -41,7 +41,7 @@ public:
 										wait_callback_t callback);
 
 	static WFWaitTask *create_timedwait_task(const std::string& name,
-											 const struct timespec *abstime,
+											 const struct timespec *value,
 											 wait_callback_t callback);
 
 	static WFWaitTask *create_swait_task(const std::string& name,
@@ -52,7 +52,7 @@ public:
 										wait_callback_t callback);
 
 	static WFWaitTask *create_timedwait_task(WFCondition *cond,
-											 const struct timespec *abstime,
+											 const struct timespec *value,
 											 wait_callback_t callback);
 
 	static WFWaitTask *create_swait_task(WFCondition *cond,

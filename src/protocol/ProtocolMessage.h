@@ -145,6 +145,26 @@ public:
 		msg->wrapper = this;
 		this->msg = msg;
 	}
+
+public:
+	ProtocolWrapper(ProtocolWrapper&& wrapper)
+	{
+		wrapper.msg->wrapper = this;
+		this->msg = wrapper.msg;
+		wrapper.msg = NULL;
+	}
+
+	ProtocolWrapper& operator = (ProtocolWrapper&& wrapper)
+	{
+		if (&wrapper != this)
+		{
+			wrapper.msg->wrapper = this;
+			this->msg = wrapper.msg;
+			wrapper.msg = NULL;
+		}
+
+		return *this;
+	}
 };
 
 }

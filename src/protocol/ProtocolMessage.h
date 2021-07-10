@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <utility>
 #include "Communicator.h"
 
 /**
@@ -147,7 +148,8 @@ public:
 	}
 
 public:
-	ProtocolWrapper(ProtocolWrapper&& wrapper)
+	ProtocolWrapper(ProtocolWrapper&& wrapper) :
+		ProtocolMessage(std::move(wrapper))
 	{
 		wrapper.msg->wrapper = this;
 		this->msg = wrapper.msg;
@@ -158,6 +160,7 @@ public:
 	{
 		if (&wrapper != this)
 		{
+			*(ProtocolMessage *)this = std::move(wrapper);
 			wrapper.msg->wrapper = this;
 			this->msg = wrapper.msg;
 			wrapper.msg = NULL;

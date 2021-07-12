@@ -16,41 +16,57 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#ifndef _WFCONDTASK_H_
+#define _WFCONDTASK_H_
+
 #include <mutex>
 #include <atomic>
 #include "list.h"
 #include "WFTask.h"
+#include "WFCondition.h"
 #include "WFTaskFactory.h"
+#include "WFCondTaskFactory.h"
 
 class __WFWaitTimerTask;
 
 class WFCondWaitTask : public WFMailboxTask
 {
 public:
-	virtual void count()
-	{
-		if (--this->value == 0)
-		{
-			if (this->state == WFT_STATE_UNDEFINED)
-				this->state = WFT_STATE_SUCCESS;
-			this->subtask_done();
-		}
-	}
+	virtual void clear_locked() { }
+
+public:
+	struct list_head list;
 
 private:
 	void *msg;
 
 public:
-	WFCondWaitTask(mailbox_callback_t&& cb) :
+	WFCondWaitTask(wait_callback_t&& cb) :
 		WFMailboxTask(&this->msg, 1, std::move(cb))
-	{
-		this->list.next = NULL;
-	}
+	{ }
 
 	virtual ~WFCondWaitTask() { }
 
-public:
-	struct list_head list;
 	friend class __WFWaitTimerTask;
+/*
+	friend class WFCondition;
+	friend class WFCondTaskFactory;
+	friend class __WFCondition;
+*/
 };
+
+class WFSemaphoreTask : public WFConditional
+{
+private:
+	struct list_head list;
+
+public:
+	WFSemaphoreTask(SubTask *task, void **psem) :
+		WFConditional(task, psem)
+	{ }
+
+	friend class WFSemaphore;
+};
+
+#endif
 

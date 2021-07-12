@@ -22,62 +22,16 @@
 #include "WFCondTask.h"
 #include "WFCondition.h"
 
-bool WFSemaphore::get(WFConditional *cond)
-{
-	this->mutex.lock();
-	if (--this->concurrency >= 0)
-	{
-		cond->signal(this->resources[--this->index]);
-		this->mutex.unlock();
-		return true;
-	}
-
-	struct WFSemaphore::entry *entry;
-	entry = new WFSemaphore::entry;
-	entry->ptr = cond;
-	entry->list.next = NULL;
-
-	list_add_tail(&entry->list, &this->wait_list);
-	this->mutex.unlock();
-
-	return false;
-}
-
-void WFSemaphore::post(void *msg)
-{
-	struct WFSemaphore::entry *entry;
-	WFConditional *cond = NULL;
-	struct list_head *pos;
-
-	this->mutex.lock();
-
-	if (++this->concurrency <= 0)
-	{
-		pos = this->wait_list.next;
-		entry = list_entry(pos, struct WFSemaphore::entry, list);
-		cond = entry->ptr;
-		list_del(pos);
-		delete entry;
-	}
-	else
-		this->resources[this->index++] = msg;
-
-	this->mutex.unlock();
-	if (cond)
-		cond->signal(msg);
-}
-
 void WFCondition::signal(void *msg)
 {
 	WFCondWaitTask *task = NULL;
-	struct list_head *pos;
 
 	this->mutex->lock();
 	if (!list_empty(&this->wait_list))
 	{
-		pos = this->wait_list.next;
-		task = list_entry(pos, WFCondWaitTask, list);
-		list_del(pos);
+		task = list_entry(this->wait_list.next, WFCondWaitTask, list);
+		list_del(&task->list);
+		task->clear_locked();
 	}
 
 	this->mutex->unlock();
@@ -95,7 +49,11 @@ void WFCondition::broadcast(void *msg)
 	if (!list_empty(&this->wait_list))
 	{
 		list_for_each_safe(pos, tmp, &this->wait_list)
+		{
 			list_move_tail(pos, &tmp_list);
+			task = list_entry(pos, WFCondWaitTask, list);
+			task->clear_locked();
+		}
 	}
 
 	this->mutex->unlock();

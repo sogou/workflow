@@ -29,6 +29,41 @@
 #include "WFGlobal.h"
 #include "WFCondition.h"
 
+class WFSemaphore
+{
+public:
+	WFConditional *get(SubTask *task, void **psem);
+	void post(void *sem);
+
+private:
+	std::mutex mutex;
+	struct list_head wait_list;
+
+	struct entry
+	{
+		struct list_head list;
+		WFConditional *ptr;
+	};
+
+public:
+	WFSemaphore(void **sems, int n)
+	{
+		INIT_LIST_HEAD(&this->wait_list);
+		this->value = n;
+		this->index = n;
+		this->sems = sems;
+	}
+
+	virtual ~WFSemaphore() { }
+
+private:
+	std::atomic<int> value;
+	std::atomic<int> index;
+
+protected:
+	void **sems;
+};
+
 class WFCondTaskFactory
 {
 public:
@@ -41,7 +76,7 @@ public:
 										wait_callback_t callback);
 
 	static WFWaitTask *create_timedwait_task(const std::string& name,
-											 const struct timespec *value,
+											 const struct timespec *timeout,
 											 wait_callback_t callback);
 
 	static WFWaitTask *create_swait_task(const std::string& name,
@@ -52,7 +87,7 @@ public:
 										wait_callback_t callback);
 
 	static WFWaitTask *create_timedwait_task(WFCondition *cond,
-											 const struct timespec *value,
+											 const struct timespec *timeout,
 											 wait_callback_t callback);
 
 	static WFWaitTask *create_swait_task(WFCondition *cond,

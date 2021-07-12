@@ -124,7 +124,7 @@ TEST(condition_unittest, semaphore)
 	int sem_concurrency = 3;
 	int task_concurrency = 10;
 	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
-	WFSemaphore sem(sem_concurrency, (void **)words);
+	WFSemaphore sem((void **)words, sem_concurrency);
 	WFFacilities::WaitGroup wg(task_concurrency);
 
 	for (int i = 0; i < task_concurrency; i++)
@@ -136,8 +136,9 @@ TEST(condition_unittest, semaphore)
 			sem.post(task->user_data);
 			wg.done();
 		});
-		auto *cond = WFTaskFactory::create_conditional(user_task, &user_task->user_data);
-		sem.get(cond);
+
+		auto *cond = sem.get(user_task, &user_task->user_data);
+
 		SeriesWork *series = Workflow::create_series_work(cond, nullptr);
 		series->set_context(reinterpret_cast<uint64_t *>(i));
 		series->start();

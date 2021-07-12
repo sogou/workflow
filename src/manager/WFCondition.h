@@ -16,8 +16,8 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#ifndef _WFSEMAPHORE_H_
-#define _WFSEMAPHORE_H_
+#ifndef _WFCONDITION_H_
+#define _WFCONDITION_H_
 
 #include <mutex>
 #include <time.h>
@@ -30,47 +30,6 @@
 
 using WFWaitTask = WFMailboxTask;
 using wait_callback_t = mailbox_callback_t;
-
-class WFSemaphore
-{
-public:
-	bool get(WFConditional *cond);
-	void post(void *msg);
-
-public:
-	std::mutex mutex;
-	struct list_head wait_list;
-
-private:
-	struct entry
-	{
-		struct list_head list;
-		WFConditional *ptr;
-	};
-
-public:
-	WFSemaphore(int value, void **resources)
-	{
-		if (value <= 0)
-			value = 1;
-
-		INIT_LIST_HEAD(&this->wait_list);
-		this->concurrency = value;
-		this->total = value;
-		this->index = value;
-		this->resources = resources;
-	}
-
-	virtual ~WFSemaphore() { }
-
-private:
-	std::atomic<int> concurrency;
-	int total;
-	int index;
-
-protected:
-	void **resources;
-};
 
 class WFCondition
 {

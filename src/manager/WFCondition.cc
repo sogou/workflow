@@ -70,7 +70,6 @@ void WFSemaphore::post(void *msg)
 void WFCondition::signal(void *msg)
 {
 	WFCondWaitTask *task = NULL;
-	WFTimedWaitTask *waiter;
 	struct list_head *pos;
 
 	this->mutex->lock();
@@ -79,12 +78,6 @@ void WFCondition::signal(void *msg)
 		pos = this->wait_list.next;
 		task = list_entry(pos, WFCondWaitTask, list);
 		list_del(pos);
-		waiter = dynamic_cast<WFTimedWaitTask *>(task);
-		if (waiter)
-		{
-			waiter->clear_timer_waiter();
-			waiter->set_timer(NULL);
-		}
 	}
 
 	this->mutex->unlock();
@@ -95,7 +88,6 @@ void WFCondition::signal(void *msg)
 void WFCondition::broadcast(void *msg)
 {
 	WFCondWaitTask *task;
-	WFTimedWaitTask *waiter;
 	struct list_head *pos, *tmp;
 	LIST_HEAD(tmp_list);
 
@@ -103,16 +95,7 @@ void WFCondition::broadcast(void *msg)
 	if (!list_empty(&this->wait_list))
 	{
 		list_for_each_safe(pos, tmp, &this->wait_list)
-		{
 			list_move_tail(pos, &tmp_list);
-			task = list_entry(pos, WFCondWaitTask, list);
-			waiter = dynamic_cast<WFTimedWaitTask *>(task);
-			if (waiter)
-			{
-				waiter->clear_timer_waiter();
-				waiter->set_timer(NULL);
-			}
-		}
 	}
 
 	this->mutex->unlock();

@@ -22,12 +22,20 @@
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 
+class __WFWaitTimerTask;
+
 class WFCondWaitTask : public WFMailboxTask
 {
 public:
-	void set_state(int state) { this->state = state; }
-	void set_error(int error) { this->error = error; }
-	virtual void count();
+	virtual void count()
+	{
+		if (--this->value == 0)
+		{
+			if (this->state == WFT_STATE_UNDEFINED)
+				this->state = WFT_STATE_SUCCESS;
+			this->subtask_done();
+		}
+	}
 
 private:
 	void *msg;
@@ -43,70 +51,6 @@ public:
 
 public:
 	struct list_head list;
-};
-
-class __WFWaitTimerTask;
-
-class WFTimedWaitTask : public WFCondWaitTask
-{
-public:
-	void set_timer(__WFWaitTimerTask *timer) { this->timer = timer; }
-	void clear_timer_waiter();
-
-protected:
-	virtual void dispatch();
-
-private:
-	__WFWaitTimerTask *timer;
-
-public:
-	WFTimedWaitTask(mailbox_callback_t&& cb) :
-		WFCondWaitTask(std::move(cb))
-	{
-		this->timer = NULL;
-	}
-
-	virtual ~WFTimedWaitTask();
-};
-
-class __WFWaitTimerTask : public __WFTimerTask
-{
-public:
-	void clear_wait_task() // must called within this mutex
-	{
-		this->wait_task = NULL;
-	}
-
-	__WFWaitTimerTask(WFTimedWaitTask *wait_task, const struct timespec *value,
-					  std::mutex *mutex, std::atomic<int> *ref,
-					  CommScheduler *scheduler) :
-		__WFTimerTask(value, scheduler, nullptr)
-	{
-		this->ref = ref;
-		++*this->ref;
-		this->mutex = mutex;
-		this->wait_task = wait_task;
-	}
-
-	virtual ~__WFWaitTimerTask();
-
-protected:
-	virtual SubTask *done();
-
-private:
-	std::mutex *mutex;
-	std::atomic<int> *ref;
-	WFTimedWaitTask *wait_task;
-};
-
-class WFSwitchWaitTask : public WFCondWaitTask
-{
-public:
-	WFSwitchWaitTask(mailbox_callback_t&& cb) :
-		WFCondWaitTask(std::move(cb))
-	{ }
-
-protected:
-	SubTask *done();
+	friend class __WFWaitTimerTask;
 };
 

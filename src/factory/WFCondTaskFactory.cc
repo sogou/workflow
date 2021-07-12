@@ -171,6 +171,135 @@ __WFCondition *__ConditionMap::find_condition(const std::string& name)
 	return cond;
 }
 
+class WFTimedWaitTask : public WFCondWaitTask
+{
+public:
+	void set_timer(__WFWaitTimerTask *timer) { this->timer = timer; }
+	virtual void send(void *msg);
+
+protected:
+	virtual void dispatch();
+
+private:
+	__WFWaitTimerTask *timer;
+
+public:
+	WFTimedWaitTask(mailbox_callback_t&& cb) :
+		WFCondWaitTask(std::move(cb))
+	{
+		this->timer = NULL;
+	}
+
+	virtual ~WFTimedWaitTask();
+};
+
+class __WFWaitTimerTask : public __WFTimerTask
+{
+public:
+	void clear_wait_task() // must called within this mutex
+	{
+		this->wait_task = NULL;
+	}
+
+	__WFWaitTimerTask(WFTimedWaitTask *wait_task, const struct timespec *value,
+					  std::mutex *mutex, std::atomic<int> *ref,
+					  CommScheduler *scheduler) :
+		__WFTimerTask(value, scheduler, nullptr)
+	{
+		this->ref = ref;
+		++*this->ref;
+		this->mutex = mutex;
+		this->wait_task = wait_task;
+	}
+
+	virtual ~__WFWaitTimerTask();
+
+protected:
+	virtual SubTask *done();
+
+private:
+	std::mutex *mutex;
+	std::atomic<int> *ref;
+	WFTimedWaitTask *wait_task;
+};
+
+class WFSwitchWaitTask : public WFCondWaitTask
+{
+public:
+	WFSwitchWaitTask(mailbox_callback_t&& cb) :
+		WFCondWaitTask(std::move(cb))
+	{ }
+
+protected:
+	SubTask *done();
+};
+
+void WFTimedWaitTask::send(void *msg)
+{
+	this->timer->clear_wait_task();
+	this->timer = NULL;
+	this->WFCondWaitTask::send(msg);
+}
+
+void WFTimedWaitTask::dispatch()
+{
+	if (this->timer)
+		timer->dispatch();
+
+	this->WFMailboxTask::count();
+}
+
+WFTimedWaitTask::~WFTimedWaitTask()
+{
+	delete this->timer;
+}
+
+SubTask *WFSwitchWaitTask::done()
+{
+	SeriesWork *series = series_of(this);
+
+	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
+		[this](WFTimerTask *task) {
+			if (this->callback)
+				this->callback(this);
+			delete this;
+	});
+	series->push_front(switch_task);
+
+	return series->pop();
+}
+
+SubTask *__WFWaitTimerTask::done()
+{
+	WFTimedWaitTask *waiter = NULL;
+
+	this->mutex->lock();
+	if (this->wait_task)
+	{
+		list_del(&this->wait_task->list);
+		this->wait_task->state = WFT_STATE_SYS_ERROR;
+		this->wait_task->error = ETIMEDOUT;
+		waiter = this->wait_task;
+		waiter->set_timer(NULL);
+	}
+	this->mutex->unlock();
+
+	if (waiter)
+		waiter->count();
+	delete this;
+	return NULL;
+}
+
+__WFWaitTimerTask::~__WFWaitTimerTask()
+{
+	if (--*this->ref == 0)
+	{
+		delete this->mutex;
+		delete this->ref;
+	}
+}
+
+
 /////////////// factory api ///////////////
 
 void WFCondTaskFactory::signal_by_name(const std::string& name, void *msg)

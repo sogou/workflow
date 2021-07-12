@@ -17,14 +17,10 @@
 */
 
 #include <mutex>
-#include <time.h>
-#include <functional>
 #include "list.h"
 #include "WFTask.h"
-#include "WFTaskFactory.h"
+#include "WFCondTask.h"
 #include "WFCondition.h"
-
-/////////////// Semaphore Impl ///////////////
 
 bool WFSemaphore::get(WFConditional *cond)
 {
@@ -71,76 +67,13 @@ void WFSemaphore::post(void *msg)
 		cond->signal(msg);
 }
 
-/////////////// Wait tasks Impl ///////////////
-
-void WFCondWaitTask::count()
-{
-	if (--this->value == 0)
-	{
-		if (this->state == WFT_STATE_UNDEFINED)
-			this->state = WFT_STATE_SUCCESS;
-		this->subtask_done();
-	}
-}
-
-void WFTimedWaitTask::dispatch()
-{
-	if (this->timer)
-		timer->dispatch();
-
-	this->WFWaitTask::count();
-}
-
-SubTask *WFSwitchWaitTask::done()
-{
-	SeriesWork *series = series_of(this);
-
-	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
-		[this](WFTimerTask *task) {
-			if (this->callback)
-				this->callback(this);
-			delete this;
-	});
-	series->push_front(switch_task);
-
-	return series->pop();
-}
-
-void WFTimedWaitTask::clear_timer_waiter()
-{
-	if (this->timer)
-		timer->clear_wait_task();
-}
-
-SubTask *__WFWaitTimerTask::done()
-{
-	WFTimedWaitTask *waiter = NULL;
-
-	this->mutex->lock();
-	if (this->wait_task)
-	{
-		list_del(&this->wait_task->list);
-		this->wait_task->set_state(WFT_STATE_SYS_ERROR);
-		this->wait_task->set_error(ETIMEDOUT);
-		waiter = this->wait_task;
-	}
-	this->mutex->unlock();
-
-	if (waiter)
-		waiter->count();
-	delete this;
-	return NULL;
-}
-
-/////////////// Condition Impl ///////////////
-
 void WFCondition::signal(void *msg)
 {
 	WFCondWaitTask *task = NULL;
 	WFTimedWaitTask *waiter;
 	struct list_head *pos;
 
-	this->mutex.lock();
+	this->mutex->lock();
 	if (!list_empty(&this->wait_list))
 	{
 		pos = this->wait_list.next;
@@ -148,10 +81,13 @@ void WFCondition::signal(void *msg)
 		list_del(pos);
 		waiter = dynamic_cast<WFTimedWaitTask *>(task);
 		if (waiter)
+		{
 			waiter->clear_timer_waiter();
+			waiter->set_timer(NULL);
+		}
 	}
 
-	this->mutex.unlock();
+	this->mutex->unlock();
 	if (task)
 		task->send(msg);
 }
@@ -163,24 +99,39 @@ void WFCondition::broadcast(void *msg)
 	struct list_head *pos, *tmp;
 	LIST_HEAD(tmp_list);
 
-	this->mutex.lock();
+	this->mutex->lock();
 	if (!list_empty(&this->wait_list))
 	{
 		list_for_each_safe(pos, tmp, &this->wait_list)
 		{
 			list_move_tail(pos, &tmp_list);
+			task = list_entry(pos, WFCondWaitTask, list);
+			waiter = dynamic_cast<WFTimedWaitTask *>(task);
+			if (waiter)
+			{
+				waiter->clear_timer_waiter();
+				waiter->set_timer(NULL);
+			}
 		}
 	}
 
-	this->mutex.unlock();
+	this->mutex->unlock();
 	while (!list_empty(&tmp_list))
 	{
 		task = list_entry(tmp_list.next, WFCondWaitTask, list);
 		list_del(&task->list);
-		waiter = dynamic_cast<WFTimedWaitTask *>(task);
-		if (waiter)
-			waiter->clear_timer_waiter();
 		task->send(msg);
+	}
+}
+
+WFCondition::~WFCondition()
+{
+	this->broadcast(NULL);
+
+	if (--*this->ref == 0)
+	{
+		delete this->mutex;
+		delete this->ref;
 	}
 }
 

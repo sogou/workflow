@@ -16,11 +16,13 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <mutex>
+#include <atomic>
 #include "list.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 
-class WFCondWaitTask : public WFWaitTask
+class WFCondWaitTask : public WFMailboxTask
 {
 public:
 	void set_state(int state) { this->state = state; }
@@ -32,7 +34,7 @@ private:
 
 public:
 	WFCondWaitTask(mailbox_callback_t&& cb) :
-		WFWaitTask(&this->msg, 1, std::move(cb))
+		WFMailboxTask(&this->msg, 1, std::move(cb))
 	{
 		this->list.next = NULL;
 	}
@@ -64,31 +66,36 @@ public:
 		this->timer = NULL;
 	}
 
-	virtual ~WFTimedWaitTask() { }
+	virtual ~WFTimedWaitTask();
 };
 
 class __WFWaitTimerTask : public __WFTimerTask
 {
 public:
-	__WFWaitTimerTask(WFTimedWaitTask *wait_task, std::mutex *mutex,
-					  const struct timespec *value,
-					  CommScheduler *scheduler) :
-		__WFTimerTask(value, scheduler, nullptr)
-	{
-		this->mutex = mutex;
-		this->wait_task = wait_task;
-	}
-
 	void clear_wait_task() // must called within this mutex
 	{
 		this->wait_task = NULL;
 	}
+
+	__WFWaitTimerTask(WFTimedWaitTask *wait_task, const struct timespec *value,
+					  std::mutex *mutex, std::atomic<int> *ref,
+					  CommScheduler *scheduler) :
+		__WFTimerTask(value, scheduler, nullptr)
+	{
+		this->ref = ref;
+		++*this->ref;
+		this->mutex = mutex;
+		this->wait_task = wait_task;
+	}
+
+	virtual ~__WFWaitTimerTask();
 
 protected:
 	virtual SubTask *done();
 
 private:
 	std::mutex *mutex;
+	std::atomic<int> *ref;
 	WFTimedWaitTask *wait_task;
 };
 

@@ -23,9 +23,10 @@
 #include "list.h"
 #include "rbtree.h"
 #include "WFTask.h"
+#include "WFCondTask.h"
 #include "WFTaskFactory.h"
-#include "WFGlobal.h"
 #include "WFCondTaskFactory.h"
+#include "WFGlobal.h"
 
 class __WFCondition : public WFCondition
 {
@@ -208,9 +209,9 @@ WFWaitTask *WFCondTaskFactory::create_wait_task(WFCondition *cond,
 {
 	WFCondWaitTask *task = new WFCondWaitTask(std::move(callback));
 
-	cond->mutex.lock();
+	cond->mutex->lock();
 	list_add_tail(&task->list, &cond->wait_list);
-	cond->mutex.unlock();
+	cond->mutex->unlock();
 
 	return task;
 }
@@ -220,13 +221,14 @@ WFWaitTask *WFCondTaskFactory::create_timedwait_task(WFCondition *cond,
 													 wait_callback_t callback)
 {
 	WFTimedWaitTask *waiter = new WFTimedWaitTask(std::move(callback));
-	__WFWaitTimerTask *task = new __WFWaitTimerTask(waiter, &cond->mutex, value,
+	__WFWaitTimerTask *task = new __WFWaitTimerTask(waiter, value,
+													cond->mutex, cond->ref,
 													WFGlobal::get_scheduler());
 	waiter->set_timer(task);
 
-	cond->mutex.lock();
+	cond->mutex->lock();
 	list_add_tail(&waiter->list, &cond->wait_list);
-	cond->mutex.unlock();
+	cond->mutex->unlock();
 
 	return waiter;
 }
@@ -236,9 +238,9 @@ WFWaitTask *WFCondTaskFactory::create_swait_task(WFCondition *cond,
 {
 	WFSwitchWaitTask *task = new WFSwitchWaitTask(std::move(callback));
 
-	cond->mutex.lock();
+	cond->mutex->lock();
 	list_add_tail(&task->list, &cond->wait_list);
-	cond->mutex.unlock();
+	cond->mutex->unlock();
 
 	return task;
 }

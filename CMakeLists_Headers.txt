@@ -80,7 +80,6 @@ set(INCLUDE_HEADERS
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
 	src/manager/WFCondition.h
-	src/manager/WFCondition.inl
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h
@@ -90,6 +89,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFTask.h
 	src/factory/WFTask.inl
 	src/factory/WFGraphTask.h
+	src/factory/WFCondTask.h
 	src/factory/WFTaskError.h
 	src/factory/WFTaskFactory.h
 	src/factory/WFTaskFactory.inl

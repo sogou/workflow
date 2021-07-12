@@ -79,15 +79,19 @@ public:
 	void broadcast(void *msg);
 
 public:
-	WFCondition() { INIT_LIST_HEAD(&this->wait_list); }
-	virtual ~WFCondition() { }
+	WFCondition()
+	{
+		this->mutex = new std::mutex;
+		this->ref = new std::atomic<int>(1);
+		INIT_LIST_HEAD(&this->wait_list);
+	}
+	virtual ~WFCondition();
 
 public:
-	std::mutex mutex;
+	std::atomic<int> *ref;
+	std::mutex *mutex;
 	struct list_head wait_list;
 };
-
-#include "WFCondition.inl"
 
 #endif
 

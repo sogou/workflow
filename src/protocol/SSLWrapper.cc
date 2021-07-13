@@ -282,7 +282,7 @@ int ServiceSSLWrapper::append(const void *buf, size_t *size)
 		return -1;
 
 	if (len > 0)
-		n = this->feedback(ptr, len);
+		n = this->ProtocolMessage::feedback(ptr, len);
 	else
 		n = 0;
 

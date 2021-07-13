@@ -2,7 +2,7 @@ ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 ALL_TARGETS := all base check install preinstall clean tutorial
 MAKE_FILE := Makefile
 
-DEFAULT_BUILD_DIR := build
+DEFAULT_BUILD_DIR := build.cmake
 BUILD_DIR := $(shell if [ -f $(MAKE_FILE) ]; then echo "."; else echo $(DEFAULT_BUILD_DIR); fi)
 CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake; fi;)
 
@@ -34,9 +34,6 @@ install preinstall: base
 	make -C $(BUILD_DIR) -f Makefile $@
 
 clean:
-ifeq (build, $(wildcard build))
-	-make -C build clean
-endif
 	-make -C test clean
 	-make -C tutorial clean
 	rm -rf $(DEFAULT_BUILD_DIR)

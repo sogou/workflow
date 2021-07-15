@@ -14,43 +14,45 @@
   limitations under the License.
 
   Author: Li Yingxin (liyingxin@sogou-inc.com)
+          Xie Han (xiehan@sogou-inc.com)
 */
 
-#ifndef _WFCONDTASK_H_
-#define _WFCONDTASK_H_
+#ifndef _WFSEMAPHORE_H_
+#define _WFSEMAPHORE_H_
 
 #include <mutex>
 #include <atomic>
 #include "list.h"
 #include "WFTask.h"
 #include "WFCondition.h"
-#include "WFTaskFactory.h"
-#include "WFCondTaskFactory.h"
 
-class __WFWaitTimerTask;
-
-class WFCondWaitTask : public WFMailboxTask
+class WFSemaphore
 {
 public:
-	virtual void clear_locked() { }
-
-private:
-	struct list_head list;
-
-private:
-	void *msg;
+	WFConditional *get(SubTask *task, void **pmsg);
+	void post(void *msg);
 
 public:
-	WFCondWaitTask(wait_callback_t&& cb) :
-		WFMailboxTask(&this->msg, 1, std::move(cb))
-	{ }
+	struct Data
+	{
+		void **sembuf;
+		std::atomic<int> value;
+		std::atomic<int> index;
+		struct list_head wait_list;
+		std::mutex mutex;
+	};
 
-	virtual ~WFCondWaitTask() { }
+private:
+	struct Data data;
 
-	friend class __WFWaitTimerTask;
-	friend class WFCondition;
-	friend class WFCondTaskFactory;
-	friend class __ConditionMap;
+public:
+	WFSemaphore(void **sembuf, int nsems)
+	{
+		this->data.sembuf = sembuf;
+		this->data.value = nsems;
+		this->data.index = 0;
+		INIT_LIST_HEAD(&this->data.wait_list);
+	}
 };
 
 #endif

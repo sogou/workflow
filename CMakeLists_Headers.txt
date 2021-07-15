@@ -96,6 +96,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.h
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/WFCondTaskFactory.h
+	src/factory/WFSemaphore.h
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
 	src/factory/WFChannel.h

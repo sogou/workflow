@@ -309,46 +309,6 @@ __WFWaitTimerTask::~__WFWaitTimerTask()
 	}
 }
 
-/////////////// WFSemaphore impl ///////////////
-
-WFConditional *WFSemaphore::get(SubTask *task, void **psem)
-{
-	WFConditional *cond;
-	WFSemaphoreTask *sem_task;
-
-	if (--this->value >= 0)
-	{
-		cond = new WFConditional(task, psem);
-		cond->signal(this->sems[--this->index]);
-		return cond;
-	}
-
-	sem_task = new WFSemaphoreTask(task, psem);
-	this->mutex.lock();
-	list_add_tail(&sem_task->list, &this->wait_list);
-	this->mutex.unlock();
-
-	return sem_task;
-}
-
-void WFSemaphore::post(void *sem)
-{
-	WFSemaphoreTask *task = NULL;
-
-	if (++this->value <= 0)
-	{
-		this->mutex.lock();
-		task = list_entry(this->wait_list.next, WFSemaphoreTask, list);
-		list_del(&task->list);
-		this->mutex.unlock();
-	}
-	else
-		this->sems[this->index++] = sem;
-
-	if (task)
-		task->signal(sem);
-}
-
 /////////////// factory impl ///////////////
 
 void WFCondTaskFactory::signal_by_name(const std::string& name, void *msg)
@@ -399,10 +359,10 @@ WFWaitTask *WFCondTaskFactory::create_timedwait_task(WFCondition *cond,
 													 wait_callback_t callback)
 {
 	WFTimedWaitTask *waiter = new WFTimedWaitTask(std::move(callback));
-	__WFWaitTimerTask *task = new __WFWaitTimerTask(waiter, timeout,
-													cond->mutex, cond->ref,
-													WFGlobal::get_scheduler());
-	waiter->set_timer(task);
+	__WFWaitTimerTask *timer = new __WFWaitTimerTask(waiter, timeout,
+													 cond->mutex, cond->ref,
+													 WFGlobal::get_scheduler());
+	waiter->set_timer(timer);
 
 	cond->mutex->lock();
 	list_add_tail(&waiter->list, &cond->wait_list);

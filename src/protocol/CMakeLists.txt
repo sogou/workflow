@@ -5,7 +5,6 @@ set(SRC
 	dns_parser.c
 	DnsMessage.cc
 	DnsUtil.cc
-	SSLWrapper.cc
 	http_parser.c
 	HttpMessage.cc
 	HttpUtil.cc

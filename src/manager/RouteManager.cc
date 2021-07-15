@@ -16,7 +16,6 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -77,27 +76,6 @@ private:
 #endif
 };
 
-/* To support TLS SNI. */
-class RouteTargetSNI : public RouteManager::RouteTarget
-{
-private:
-	virtual int init_ssl(SSL *ssl)
-	{
-		if (SSL_set_tlsext_host_name(ssl, this->hostname.c_str()) > 0)
-			return 0;
-		else
-			return -1;
-	}
-
-private:
-	std::string hostname;
-
-public:
-	RouteTargetSNI(const std::string& name) : hostname(name)
-	{
-	}
-};
-
 //  protocol_name\n user\n pass\n dbname\n ai_addr ai_addrlen \n....
 //
 
@@ -106,12 +84,9 @@ struct RouteParams
 	TransportType transport_type;
 	const struct addrinfo *addrinfo;
 	uint64_t md5_16;
-	SSL_CTX *ssl_ctx;
 	int connect_timeout;
-	int ssl_connect_timeout;
 	int response_timeout;
 	size_t max_connections;
-	bool use_tls_sni;
 	const std::string& hostname;
 };
 
@@ -166,18 +141,13 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 
 	switch (params->transport_type)
 	{
-	case TT_TCP_SSL:
-		if (params->use_tls_sni)
-			target = new RouteTargetSNI(params->hostname);
-		else
 	case TT_TCP:
-			target = new RouteTargetTCP();
+		target = new RouteTargetTCP();
 		break;
 	case TT_UDP:
 		target = new RouteTargetUDP();
 		break;
 	case TT_SCTP:
-	case TT_SCTP_SSL:
 		target = new RouteTargetSCTP();
 		break;
 	default:
@@ -185,9 +155,9 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 		return NULL;
 	}
 
-	if (target->init(addr->ai_addr, addr->ai_addrlen, params->ssl_ctx,
-					 params->connect_timeout, params->ssl_connect_timeout,
-					 params->response_timeout, params->max_connections) < 0)
+	if (target->init(addr->ai_addr, addr->ai_addrlen,
+					 params->connect_timeout, params->response_timeout,
+					 params->max_connections) < 0)
 	{
 		delete target;
 		target = NULL;
@@ -400,12 +370,6 @@ static uint64_t __generate_key(TransportType type,
 		str += '\n';
 	}
 
-	if (type == TT_TCP_SSL && endpoint_params->use_tls_sni)
-	{
-		str += hostname;
-		str += '\n';
-	}
-
 	std::vector<const struct addrinfo *> sorted_addr;
 
 	for (const struct addrinfo *p = addrinfo; p; p = p->ai_next)
@@ -474,27 +438,13 @@ int RouteManager::get(TransportType type,
 
 	if (*p == NULL)
 	{
-		int ssl_connect_timeout = 0;
-		SSL_CTX *ssl_ctx = NULL;
-
-		if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
-		{
-			static SSL_CTX *client_ssl_ctx = WFGlobal::get_ssl_client_ctx();
-
-			ssl_ctx = client_ssl_ctx;
-			ssl_connect_timeout = endpoint_params->ssl_connect_timeout;
-		}
-
 		struct RouteParams params = {
 			.transport_type			=	type,
 			.addrinfo 				= 	addrinfo,
 			.md5_16					=	md5_16,
-			.ssl_ctx 				=	ssl_ctx,
 			.connect_timeout		=	endpoint_params->connect_timeout,
-			.ssl_connect_timeout	=	ssl_connect_timeout,
 			.response_timeout		=	endpoint_params->response_timeout,
 			.max_connections		=	endpoint_params->max_connections,
-			.use_tls_sni			=	endpoint_params->use_tls_sni,
 			.hostname				=	hostname,
 		};
 

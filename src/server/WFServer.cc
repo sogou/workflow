@@ -24,7 +24,6 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include <openssl/ssl.h>
 #include "CommScheduler.h"
 #include "WFConnection.h"
 #include "WFGlobal.h"
@@ -49,44 +48,7 @@ private:
 	std::atomic<size_t> *conn_count;
 };
 
-long WFServerBase::ssl_ctx_callback(SSL *ssl, int *al, void *arg)
-{
-	WFServerBase *server = (WFServerBase *)arg;
-	const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-	SSL_CTX *ssl_ctx = server->get_server_ssl_ctx(servername);
-
-	if (!ssl_ctx)
-		return SSL_TLSEXT_ERR_NOACK;
-
-	if (ssl_ctx != server->get_ssl_ctx())
-		SSL_set_SSL_CTX(ssl, ssl_ctx);
-
-	return SSL_TLSEXT_ERR_OK;
-}
-
-int WFServerBase::init_ssl_ctx(const char *cert_file, const char *key_file)
-{
-	SSL_CTX *ssl_ctx = WFGlobal::new_ssl_server_ctx();
-
-	if (!ssl_ctx)
-		return -1;
-
-	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
-	if (SSL_CTX_use_certificate_file(ssl_ctx, cert_file, SSL_FILETYPE_PEM) > 0 &&
-		SSL_CTX_use_PrivateKey_file(ssl_ctx, key_file, SSL_FILETYPE_PEM) > 0 &&
-		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback) > 0 &&
-		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this) > 0)
-	{
-		this->set_ssl(ssl_ctx, this->params.ssl_accept_timeout);
-		return 0;
-	}
-
-	SSL_CTX_free(ssl_ctx);
-	return -1;
-}
-
-int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
-					   const char *cert_file, const char *key_file)
+int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen)
 {
 	int timeout = this->params.peer_response_timeout;
 
@@ -98,15 +60,6 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 
 	if (this->CommService::init(bind_addr, addrlen, -1, timeout) < 0)
 		return -1;
-
-	if (key_file && cert_file)
-	{
-		if (this->init_ssl_ctx(cert_file, key_file) < 0)
-		{
-			this->deinit();
-			return -1;
-		}
-	}
 
 	this->scheduler = WFGlobal::get_scheduler();
 	return 0;
@@ -163,27 +116,20 @@ void WFServerBase::handle_unbound()
 	this->mutex.unlock();
 }
 
-int WFServerBase::start(const struct sockaddr *bind_addr, socklen_t addrlen,
-						const char *cert_file, const char *key_file)
+int WFServerBase::start(const struct sockaddr *bind_addr, socklen_t addrlen)
 {
-	SSL_CTX *ssl_ctx;
-
-	if (this->init(bind_addr, addrlen, cert_file, key_file) >= 0)
+	if (this->init(bind_addr, addrlen) >= 0)
 	{
 		if (this->scheduler->bind(this) >= 0)
 			return 0;
 
-		ssl_ctx = this->get_ssl_ctx();
 		this->deinit();
-		if (ssl_ctx)
-			SSL_CTX_free(ssl_ctx);
 	}
 
 	return -1;
 }
 
-int WFServerBase::start(int family, const char *host, unsigned short port,
-						const char *cert_file, const char *key_file)
+int WFServerBase::start(int family, const char *host, unsigned short port)
 {
 	struct addrinfo hints = {
 		.ai_flags		=	AI_PASSIVE,
@@ -198,8 +144,7 @@ int WFServerBase::start(int family, const char *host, unsigned short port,
 	ret = getaddrinfo(host, port_str, &hints, &addrinfo);
 	if (ret == 0)
 	{
-		ret = start(addrinfo->ai_addr, (socklen_t)addrinfo->ai_addrlen,
-					cert_file, key_file);
+		ret = start(addrinfo->ai_addr, (socklen_t)addrinfo->ai_addrlen);
 		freeaddrinfo(addrinfo);
 	}
 	else
@@ -238,8 +183,7 @@ static int __get_addr_bound(int sockfd, struct sockaddr *addr, socklen_t *len)
 	return 0;
 }
 
-int WFServerBase::serve(int listen_fd,
-						const char *cert_file, const char *key_file)
+int WFServerBase::serve(int listen_fd)
 {
 	struct sockaddr_storage ss;
 	socklen_t len = sizeof ss;
@@ -253,7 +197,7 @@ int WFServerBase::serve(int listen_fd,
 		return -1;
 
 	this->listen_fd = listen_fd;
-	ret = start((struct sockaddr *)&ss, len, cert_file, key_file);
+	ret = start((struct sockaddr *)&ss, len);
 	this->listen_fd = -1;
 	return ret;
 }
@@ -265,7 +209,6 @@ void WFServerBase::shutdown()
 
 void WFServerBase::wait_finish()
 {
-	SSL_CTX *ssl_ctx = this->get_ssl_ctx();
 	std::unique_lock<std::mutex> lock(this->mutex);
 
 	while (!this->unbind_finish)
@@ -274,7 +217,5 @@ void WFServerBase::wait_finish()
 	this->deinit();
 	this->unbind_finish = false;
 	lock.unlock();
-	if (ssl_ctx)
-		SSL_CTX_free(ssl_ctx);
 }
 

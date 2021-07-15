@@ -136,13 +136,7 @@ int ComplexRedisTask::keep_alive_timeout()
 
 bool ComplexRedisTask::init_success()
 {
-	TransportType type;
-
-	if (uri_.scheme && strcasecmp(uri_.scheme, "redis") == 0)
-		type = TT_TCP;
-	else if (uri_.scheme && strcasecmp(uri_.scheme, "rediss") == 0)
-		type = TT_TCP_SSL;
-	else
+	if (!uri_.scheme || strcasecmp(uri_.scheme, "redis") != 0)
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
@@ -167,7 +161,7 @@ bool ComplexRedisTask::init_success()
 	char *info = new char[info_len];
 
 	sprintf(info, "redis|pass:%s|db:%d", password_.c_str(), db_num_);
-	this->WFComplexClientTask::set_transport_type(type);
+	this->WFComplexClientTask::set_transport_type(TT_TCP);
 	this->WFComplexClientTask::set_info(info);
 
 	delete []info;

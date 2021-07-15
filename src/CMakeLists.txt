@@ -66,7 +66,7 @@ else ()
 	set(LIBSO ${LIB_DIR}/libworkflow.so)
 	add_custom_target(
 		SCRIPT_SHARED_LIB ALL
-		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSO}
+		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( libpthread.so libcrypto.so ) ) ' > ${LIBSO}
 	)
 	add_dependencies(SCRIPT_SHARED_LIB ${PROJECT_NAME})
 endif ()
@@ -78,7 +78,7 @@ if (KAFKA STREQUAL "y")
 		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.so)
 		add_custom_target(
 			SCRIPT_SHARED_LIB_KAFKA ALL
-			COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
+			COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
 		)
 		add_dependencies(SCRIPT_SHARED_LIB_KAFKA "wfkafka")
 	endif ()

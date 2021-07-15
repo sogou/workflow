@@ -25,7 +25,6 @@
 #endif
 
 #include <string>
-#include <openssl/ssl.h>
 #include "CommScheduler.h"
 #include "DnsCache.h"
 #include "RouteManager.h"
@@ -114,8 +113,6 @@ public:
 	static CommScheduler *get_scheduler();
 	static DnsCache *get_dns_cache();
 	static RouteManager *get_route_manager();
-	static SSL_CTX *get_ssl_client_ctx();
-	static SSL_CTX *new_ssl_server_ctx();
 	static ExecQueue *get_exec_queue(const std::string& queue_name);
 	static Executor *get_compute_executor();
 	static IOService *get_io_service();

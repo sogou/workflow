@@ -234,19 +234,11 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 
 bool __ComplexKafkaTask::init_success()
 {
-	TransportType type = TT_TCP;
-	if (uri_.scheme)
+	if (!uri_.scheme || strcasecmp(uri_.scheme, "kafka") != 0)
 	{
-		if (strcasecmp(uri_.scheme, "kafka") == 0)
-			type = TT_TCP;
-		//else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
-		//	type = TT_TCP_SSL;
-		else
-		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_URI_SCHEME_INVALID;
-			return false;
-		}
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_URI_SCHEME_INVALID;
+		return false;
 	}
 
 	std::string username, password, sasl;
@@ -281,7 +273,7 @@ bool __ComplexKafkaTask::init_success()
 			 username.c_str(), password.c_str(), sasl.c_str());
 
 	this->WFComplexClientTask::set_info(info);
-	this->WFComplexClientTask::set_transport_type(type);
+	this->WFComplexClientTask::set_transport_type(TT_TCP);
 
 	delete []info;
 	return true;

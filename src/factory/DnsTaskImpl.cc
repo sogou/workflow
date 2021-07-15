@@ -88,13 +88,11 @@ bool ComplexDnsTask::init_success()
 		.max_connections		=	65535,
 		.connect_timeout		=	10 * 1000,
 		.response_timeout		=	10 * 1000,
-		.ssl_connect_timeout	=	10 * 1000,
-		.use_tls_sni			=	false
 	};
 
-	if (uri_.scheme && strcasecmp(uri_.scheme, "dnss") == 0)
-		this->WFComplexClientTask::set_transport_type(TT_TCP_SSL);
-	else if (uri_.scheme && strcasecmp(uri_.scheme, "dns") != 0)
+	if (uri_.scheme && strcasecmp(uri_.scheme, "dns") == 0)
+		this->WFComplexClientTask::set_transport_type(TT_TCP);
+	else
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;

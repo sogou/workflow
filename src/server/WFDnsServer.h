@@ -34,7 +34,6 @@ static constexpr struct WFServerParams DNS_SERVER_PARAMS_DEFAULT =
 	.receive_timeout		=	-1,
 	.keep_alive_timeout		=	300 * 1000,
 	.request_size_limit		=	(size_t)-1,
-	.ssl_accept_timeout		=	5000,
 };
 
 template<>

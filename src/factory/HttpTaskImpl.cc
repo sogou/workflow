@@ -20,8 +20,6 @@
 
 #include <assert.h>
 #include <string>
-#include <openssl/bio.h>
-#include <openssl/ssl.h>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"

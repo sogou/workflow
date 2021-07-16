@@ -142,7 +142,7 @@ int DnsMessage::encode(struct iovec vectors[], int)
 	// if this is a request, it won't exceed the 512 bytes UDP limit
 	// if this is a response and exceed 512 bytes, we need a TrunCation reply
 
-	if (this->has_leading_length())
+	if (!this->is_single_packet())
 	{
 		p->iov_base = &this->msgsize;
 		p->iov_len = sizeof (uint16_t);
@@ -186,7 +186,7 @@ int DnsResponse::append(const void *buf, size_t *size)
 	if (ret >= 1 && (this->request_id != this->get_id() ||
 		strcasecmp(this->request_name.c_str(), qname) != 0))
 	{
-		if (this->has_leading_length())
+		if (!this->is_single_packet())
 		{
 			errno = EBADMSG;
 			ret = -1;

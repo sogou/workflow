@@ -705,7 +705,7 @@ void dns_parser_init(dns_parser_t *parser)
 	parser->msgsize = 0;
 	parser->bufsize = 0;
 	parser->complete = 0;
-	parser->leading_length = 0;
+	parser->single_packet = 0;
 	memset(&parser->header, 0, DNS_HEADER_SIZE);
 	memset(&parser->question, 0, sizeof (struct dns_question));
 	INIT_LIST_HEAD(&parser->answer_list);
@@ -810,7 +810,7 @@ int dns_parser_append_message(const void *buf,
 		return 1;
 	}
 
-	if (parser->leading_length)
+	if (!parser->single_packet)
 	{
 		msgsize_bak = parser->msgsize;
 		if (parser->msgsize + *n > parser->bufsize)

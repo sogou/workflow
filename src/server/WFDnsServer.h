@@ -43,18 +43,5 @@ inline WFDnsServer::WFServer(dns_process_t proc) :
 {
 }
 
-template<>
-inline CommSession *WFDnsServer::new_session(long long seq, CommConnection *conn)
-{
-	WFDnsTask *task;
-
-	task = WFServerTaskFactory::create_dns_task(this, this->process);
-	task->set_keep_alive(this->params.keep_alive_timeout);
-	task->set_receive_timeout(this->params.receive_timeout);
-	task->get_req()->set_size_limit(this->params.request_size_limit);
-
-	return task;
-}
-
 #endif
 

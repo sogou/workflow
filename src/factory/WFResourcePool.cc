@@ -19,22 +19,22 @@
 
 #include "list.h"
 #include "WFTask.h"
-#include "WFSemaphore.h"
+#include "WFResourcePool.h"
 
 class __WFConditional : public WFConditional
 {
 public:
 	struct list_head list;
-	struct WFSemaphore::Data *data;
+	struct WFResourcePool::Data *data;
 
 public:
 	virtual void dispatch();
-	virtual void signal(void *msg) { }
+	virtual void signal(void *res) { }
 
 public:
-	__WFConditional(SubTask *task, void **pmsg,
-					struct WFSemaphore::Data *data) :
-		WFConditional(task, pmsg)
+	__WFConditional(SubTask *task, void **pres,
+					struct WFResourcePool::Data *data) :
+		WFConditional(task, pres)
 	{
 		this->data = data;
 	}
@@ -42,11 +42,11 @@ public:
 
 void __WFConditional::dispatch()
 {
-	struct WFSemaphore::Data *data = this->data;
+	struct WFResourcePool::Data *data = this->data;
 
 	data->mutex.lock();
 	if (--data->value >= 0)
-		this->WFConditional::signal(data->sembuf[data->index++]);
+		this->WFConditional::signal(data->pop());
 	else
 		list_add_tail(&this->list, &data->wait_list);
 
@@ -54,14 +54,14 @@ void __WFConditional::dispatch()
 	this->WFConditional::dispatch();
 }
 
-WFConditional *WFSemaphore::get(SubTask *task, void **pmsg)
+WFConditional *WFResourcePool::get(SubTask *task, void **pres)
 {
-	return new __WFConditional(task, pmsg, &this->data);
+	return new __WFConditional(task, pres, &this->data);
 }
 
-void WFSemaphore::post(void *msg)
+void WFResourcePool::post(void *res)
 {
-	struct WFSemaphore::Data *data = &this->data;
+	struct WFResourcePool::Data *data = &this->data;
 	WFConditional *cond;
 
 	data->mutex.lock();
@@ -73,11 +73,11 @@ void WFSemaphore::post(void *msg)
 	else
 	{
 		cond = NULL;
-		data->sembuf[--data->index] = msg;
+		data->push(res);
 	}
 
 	data->mutex.unlock();
 	if (cond)
-		cond->WFConditional::signal(msg);
+		cond->WFConditional::signal(res);
 }
 

@@ -17,42 +17,67 @@
           Xie Han (xiehan@sogou-inc.com)
 */
 
-#ifndef _WFSEMAPHORE_H_
-#define _WFSEMAPHORE_H_
+#ifndef _WFRESOURCEPOOL_H_
+#define _WFRESOURCEPOOL_H_
 
 #include <mutex>
 #include <atomic>
 #include "list.h"
 #include "WFTask.h"
-#include "WFCondition.h"
 
-class WFSemaphore
+class WFResourcePool
 {
 public:
-	WFConditional *get(SubTask *task, void **pmsg);
-	void post(void *msg);
+	WFConditional *get(SubTask *task, void **pres);
+	void post(void *res);
 
 public:
 	struct Data
 	{
-		void **sembuf;
+		void **res;
 		std::atomic<int> value;
 		std::atomic<int> index;
 		struct list_head wait_list;
 		std::mutex mutex;
+		WFResourcePool *ptr;
+
+		virtual void *pop()
+		{
+			return this->ptr->pop();
+		}
+
+		virtual void push(void *res)
+		{
+			ptr->push(res);
+		}
 	};
+
+private:
+	virtual void *pop()
+	{
+		return this->data.res[this->data.index++];
+	}
+
+	virtual void push(void *res)
+	{
+		this->data.res[--this->data.index] = res;
+	}
 
 private:
 	struct Data data;
 
 public:
-	WFSemaphore(void **sembuf, int nsems)
+	WFResourcePool(void **res, int n)
 	{
-		this->data.sembuf = sembuf;
-		this->data.value = nsems;
+		this->data.ptr = this;
+		this->data.res = new void *[n];
+		memcpy(this->data.res, res, n * sizeof(void *));
+		this->data.value = n;
 		this->data.index = 0;
 		INIT_LIST_HEAD(&this->data.wait_list);
 	}
+
+	virtual ~WFResourcePool() { delete[] this->data.res; }
 };
 
 #endif

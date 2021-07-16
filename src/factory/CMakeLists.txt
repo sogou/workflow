@@ -7,7 +7,7 @@ set(SRC
 	Workflow.cc
 	WFTaskFactory.cc
 	WFCondTaskFactory.cc
-	WFSemaphore.cc
+	WFResourcePool.cc
 	HttpTaskImpl.cc
 	WebSocketTaskImpl.cc
 )

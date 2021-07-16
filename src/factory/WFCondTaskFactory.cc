@@ -193,7 +193,7 @@ public:
 	virtual ~WFTimedWaitTask();
 };
 
-class __WFWaitTimerTask : public __WFTimerTask
+class __WFWaitTimerTask : public WFTimerTask
 {
 public:
 	void clear_wait_task() // must called within this mutex
@@ -201,11 +201,31 @@ public:
 		this->wait_task = NULL;
 	}
 
-	__WFWaitTimerTask(WFTimedWaitTask *wait_task, const struct timespec *timeout,
+protected:
+	virtual int duration(struct timespec *value)
+	{
+		*value = this->timeout;
+		return 0;
+	}
+
+	virtual SubTask *done();
+
+protected:
+	struct timespec timeout;
+
+private:
+	std::mutex *mutex;
+	std::atomic<int> *ref;
+	WFTimedWaitTask *wait_task;
+
+public:
+	__WFWaitTimerTask(WFTimedWaitTask *wait_task,
+					  const struct timespec *timeout,
 					  std::mutex *mutex, std::atomic<int> *ref,
 					  CommScheduler *scheduler) :
-		__WFTimerTask(timeout, scheduler, nullptr)
+		WFTimerTask(scheduler, nullptr)
 	{
+		this->timeout = *timeout;
 		this->ref = ref;
 		++*this->ref;
 		this->mutex = mutex;
@@ -213,14 +233,6 @@ public:
 	}
 
 	virtual ~__WFWaitTimerTask();
-
-protected:
-	virtual SubTask *done();
-
-private:
-	std::mutex *mutex;
-	std::atomic<int> *ref;
-	WFTimedWaitTask *wait_task;
 };
 
 class WFSwitchWaitTask : public WFCondWaitTask

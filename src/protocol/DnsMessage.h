@@ -154,13 +154,13 @@ public:
 	}
 
 	// Inner use only
-	bool has_leading_length() const
+	bool is_single_packet() const
 	{
-		return parser->leading_length;
+		return parser->single_packet;
 	}
-	void set_leading_length(bool leading_length)
+	void set_single_packet(bool single)
 	{
-		parser->leading_length = leading_length;
+		parser->single_packet = single;
 	}
 
 public:

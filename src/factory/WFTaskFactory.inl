@@ -555,8 +555,6 @@ public:
 					std::function<void (WFHttpTask *)>& process);
 	static WFMySQLTask *create_mysql_task(CommService *service,
 					std::function<void (WFMySQLTask *)>& process);
-	static WFDnsTask *create_dns_task(CommService *service,
-					std::function<void (WFDnsTask *)>& process);
 };
 
 /**********Template Thread Task Factory**********/

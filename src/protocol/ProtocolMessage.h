@@ -33,7 +33,7 @@ namespace protocol
 
 class ProtocolMessage : public CommMessageOut, public CommMessageIn
 {
-public:
+protected:
 	virtual int encode(struct iovec vectors[], int max)
 	{
 		errno = ENOSYS;
@@ -72,16 +72,27 @@ public:
 	Attachment *get_attachment() const { return this->attachment; }
 
 protected:
+	virtual int feedback(const void *buf, size_t size)
+	{
+		if (this->wrapper)
+			return this->wrapper->feedback(buf, size);
+		else
+			return this->CommMessageIn::feedback(buf, size);
+	}
+
+protected:
 	size_t size_limit;
 
 private:
 	Attachment *attachment;
+	ProtocolMessage *wrapper;
 
 public:
 	ProtocolMessage()
 	{
 		this->size_limit = (size_t)-1;
 		this->attachment = NULL;
+		this->wrapper = NULL;
 	}
 
 	virtual ~ProtocolMessage() { delete this->attachment; }
@@ -107,6 +118,32 @@ public:
 		}
 
 		return *this;
+	}
+
+	friend class ProtocolWrapper;
+};
+
+class ProtocolWrapper : public ProtocolMessage
+{
+protected:
+	virtual int encode(struct iovec vectors[], int max)
+	{
+		return this->msg->encode(vectors, max);
+	}
+
+	virtual int append(const void *buf, size_t *size)
+	{
+		return this->msg->append(buf, size);
+	}
+
+protected:
+	ProtocolMessage *msg;
+
+public:
+	ProtocolWrapper(ProtocolMessage *msg)
+	{
+		msg->wrapper = this;
+		this->msg = msg;
 	}
 };
 

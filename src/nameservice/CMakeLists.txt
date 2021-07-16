@@ -6,7 +6,7 @@ set(SRC
 	WFDnsResolver.cc
 )
 
-if (UPSTREAM STREQUAL "y")
+if (NOT UPSTREAM STREQUAL "n")
 	set(SRC
 		${SRC}
 		WFServiceGovernance.cc

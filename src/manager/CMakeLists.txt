@@ -8,7 +8,7 @@ set(SRC
 	WFGlobal.cc
 )
 
-if (UPSTREAM STREQUAL "y")
+if (NOT UPSTREAM STREQUAL "n")
 	set(SRC
 		${SRC}
 		UpstreamManager.cc

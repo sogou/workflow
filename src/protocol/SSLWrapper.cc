@@ -145,7 +145,7 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 	if (BIO_reset(wbio) <= 0)
 		return -1;
 
-	ret = this->msg->encode(vectors, max);
+	ret = this->ProtocolWrapper::encode(vectors, max);
 	if ((unsigned int)ret > (unsigned int)max)
 		return ret;
 
@@ -195,7 +195,7 @@ int SSLWrapper::append_message()
 		do
 		{
 			n = nleft;
-			ret = this->msg->append(p, &n);
+			ret = this->ProtocolWrapper::append(p, &n);
 			if (ret == 0)
 			{
 				nleft -= n;
@@ -256,6 +256,35 @@ int ServiceSSLWrapper::append(const void *buf, size_t *size)
 		errno = EAGAIN;
 
 	return -1;
+}
+
+int SSLWrapper::feedback(const void *buf, size_t size)
+{
+	BIO *wbio = SSL_get_wbio(this->ssl);
+	char *ptr;
+	long len;
+	int ret;
+
+	if (size == 0)
+		return 0;
+
+	ret = SSL_write(this->ssl, buf, size);
+	if (ret <= 0)
+	{
+		ret = SSL_get_error(this->ssl, ret);
+		if (ret != SSL_ERROR_SYSCALL)
+			errno = -ret;
+
+		return -1;
+	}
+
+	len = BIO_get_mem_data(wbio, &ptr);
+	if (len > 0)
+		return this->ProtocolWrapper::feedback(ptr, len);
+	else if (len == 0)
+		return 0;
+	else
+		return -1;
 }
 
 }

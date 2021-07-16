@@ -63,7 +63,7 @@ private:
 	{
 		SSL *ssl_;
 		SSLWrapper wrapper_;
-		SSLConnection(SSL *ssl) : wrapper_(NULL, ssl)
+		SSLConnection(SSL *ssl) : wrapper_(&wrapper_, ssl)
 		{
 			ssl_ = ssl;
 		}

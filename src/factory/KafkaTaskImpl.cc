@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include <string>
 #include <set>
+#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include "StringUtil.h"
 #include "KafkaTaskImpl.inl"
 

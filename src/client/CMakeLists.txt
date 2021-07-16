@@ -5,7 +5,7 @@ set(SRC
 	WFDnsClient.cc
 )
 
-if (MYSQL STREQUAL "y")
+if (NOT MYSQL STREQUAL "n")
 	set(SRC
 		${SRC}
 		WFMySQLConnection.cc

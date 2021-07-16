@@ -42,23 +42,24 @@ public:
 	SSLHandshaker& operator = (SSLHandshaker&& handshaker) = default;
 };
 
-class SSLWrapper : public ProtocolMessage
+class SSLWrapper : public ProtocolWrapper
 {
 protected:
 	virtual int encode(struct iovec vectors[], int max);
 	virtual int append(const void *buf, size_t *size);
 
 protected:
+	virtual int feedback(const void *buf, size_t size);
+
+protected:
 	int append_message();
 
 protected:
-	ProtocolMessage *msg;
 	SSL *ssl;
 
 public:
-	SSLWrapper(ProtocolMessage *msg, SSL *ssl)
+	SSLWrapper(ProtocolMessage *msg, SSL *ssl) : ProtocolWrapper(msg)
 	{
-		this->msg = msg;
 		this->ssl = ssl;
 	}
 

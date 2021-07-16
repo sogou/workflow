@@ -567,7 +567,7 @@ void ComplexKafkaTask::kafka_merge_broker_list(KafkaBrokerMap *dst,
 	while ((src_broker = src->get_next()) != NULL)
 	{
 		if (!dst->find_item(src_broker->get_node_id()))
-			dst->add_item(*src_broker);
+			dst->add_item(*src_broker, src_broker->get_node_id());
 	}
 }
 

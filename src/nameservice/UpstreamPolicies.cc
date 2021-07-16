@@ -154,8 +154,8 @@ int UPSGroupPolicy::replace_server(const std::string& address,
 									new UPSAddrParams(params, address));
 
 	pthread_rwlock_wrlock(&this->rwlock);
-	this->add_server_locked(addr);
 	ret = this->remove_server_locked(address);
+	this->add_server_locked(addr);
 	pthread_rwlock_unlock(&this->rwlock);
 	return ret;
 }

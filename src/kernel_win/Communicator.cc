@@ -919,6 +919,7 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 			{
 				ctx = NULL;//reuse context
 				entry->state = CONN_STATE_IDLE;
+				entry->session = NULL;
 				list_add(&entry->list, &target->idle_list);
 				break;
 			}
@@ -1018,6 +1019,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 				{
 					ctx = NULL;//reuse context
 					entry->state = CONN_STATE_IDLE;
+					entry->session = NULL;
 					list_add(&entry->list, &target->idle_list);
 					break;
 				}
@@ -1228,7 +1230,6 @@ void Communicator::handle_request_result(struct poller_result *res)
 	switch (res->state)
 	{
 	case PR_ST_SUCCESS:
-	case PR_ST_FINISHED:
 		do
 		{
 			if (nleft >= buffer->len)
@@ -1298,7 +1299,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 		}
 
 		break;
-
+	case PR_ST_FINISHED:
 	case PR_ST_ERROR:
 	case PR_ST_TIMEOUT:
 		cs_state = CS_STATE_ERROR;

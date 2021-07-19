@@ -919,7 +919,6 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 			{
 				ctx = NULL;//reuse context
 				entry->state = CONN_STATE_IDLE;
-				entry->session = NULL;
 				list_add(&entry->list, &target->idle_list);
 				break;
 			}

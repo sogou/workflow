@@ -122,10 +122,10 @@ TEST(condition_unittest, timedwait)
 
 TEST(condition_unittest, resource_pool)
 {
-	int res__concurrency = 3;
+	int res_concurrency = 3;
 	int task_concurrency = 10;
 	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
-	WFResourcePool res_pool((void **)words, res__concurrency);
+	WFResourcePool res_pool((void **)words, res_concurrency);
 	WFFacilities::WaitGroup wg(task_concurrency);
 
 	for (int i = 0; i < task_concurrency; i++)
@@ -142,6 +142,89 @@ TEST(condition_unittest, resource_pool)
 
 		SeriesWork *series = Workflow::create_series_work(cond, nullptr);
 		series->set_context(reinterpret_cast<uint64_t *>(i));
+		series->start();
+	}
+
+	wg.wait();
+}
+
+class TestResource : public WFCondition::BaseResource
+{
+public:
+	TestResource(std::string msg) : msg(msg) { }
+	void *get() { return &this->msg; }
+	void set(std::string&& msg) { this->msg = std::move(msg);}
+
+private:
+	std::string msg;
+};
+
+TestResource res("");
+
+void wait_callback(WFWaitTask *task)
+{
+	void **msg;
+	size_t n;
+	msg = task->get_mailbox(&n);
+	std::string *str = *msg;
+	fprintf(stderr, "waiter get msg:%s\n", str->c_str());
+	series->set_context(*msg);
+}
+
+void work(std::string *msg, WFFacilities::WaitGroup &wg)
+{
+	fprintf(stderr, "working on message:%s\n", msg->c_str());
+	wg.done();
+}
+
+SubTask *create_router_task(WFCondition *cond, std::function<WFTimerTask *task> cb)
+{
+	auto *router = WFTaskFactory::create_timer_task(100000, std::move(cb));
+	router->user_data = cond;
+}
+
+void router_callback(WFTimerTask *task)
+{
+	fprintf(stderr, "finish routing and should broadcast every one else\n");
+	
+	((WFCondition *)(task->user_data))->broadcast();
+}
+
+TEST(condition_unittest, res_condition)
+{
+	int task_concurrency = 10;
+	WFFacilities::WaitGroup wg(task_concurrency);
+	WFCondition cond((WFCondition::BaseResource *)&res);
+
+	for (int i = 0; i < task_concurrency; i++)
+	{
+		auto *timer = WFTaskFactory::create_timer_task(i * 100000,
+		[&cond](WFTimerTask *task) {
+			std::string *msg;
+			int ret = cond.get(&msg);
+			if (ret == -1)
+			{
+				auto *waiter = cond.create_wait_task(wait_callback);
+				series_of(task)->push_front(waiter);
+				fprintf(stderr, "task-%lu waiting\n", id);
+			}
+			else if (ret == 0)
+			{
+				auto *router = create_router_task(route_callback);
+				series_of(task)->push_front(router);
+				fprintf(stderr, "task-%lu routing\n", id);
+			}
+			else
+			{
+				fprintf(stderr, "task-%lu get [%s]\n", id, (*msg).c_str());
+			}
+		});
+
+		SeriesWork *series = Workflow::create_series_work(timer, nullptr);
+		auto *worker = WFTaskFactory::create_go_task(work,
+													 (std::string *)series->get_context(),
+													 &wg);
+		series->push_back(worker);
 		series->start();
 	}
 

@@ -37,45 +37,6 @@
 #include "EndpointParams.h"
 #include "WFNameService.h"
 
-class __WFTimerTask : public WFTimerTask
-{
-protected:
-	virtual int duration(struct timespec *value)
-	{
-		*value = this->value;
-		return 0;
-	}
-
-protected:
-	struct timespec value;
-
-public:
-	__WFTimerTask(const struct timespec *value, CommScheduler *scheduler,
-				  timer_callback_t&& cb) :
-		WFTimerTask(scheduler, std::move(cb))
-	{
-		this->value = *value;
-	}
-};
-
-inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
-													 timer_callback_t callback)
-{
-	struct timespec value = {
-		.tv_sec		=	(time_t)(microseconds / 1000000),
-		.tv_nsec	=	(long)(microseconds % 1000000 * 1000)
-	};
-	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
-							 std::move(callback));
-}
-
-inline WFTimerTask *WFTaskFactory::create_timer_task(const std::string& name,
-													 unsigned int microseconds,
-													 timer_callback_t callback)
-{
-	return WFTaskFactory::create_timer_task(microseconds, std::move(callback));
-}
-
 class __WFGoTask : public WFGoTask
 {
 protected:
@@ -594,8 +555,6 @@ public:
 					std::function<void (WFHttpTask *)>& process);
 	static WFMySQLTask *create_mysql_task(CommService *service,
 					std::function<void (WFMySQLTask *)>& process);
-	static WFDnsTask *create_dns_task(CommService *service,
-					std::function<void (WFDnsTask *)>& process);
 };
 
 /**********Template Thread Task Factory**********/

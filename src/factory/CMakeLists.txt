@@ -9,14 +9,14 @@ set(SRC
 	HttpTaskImpl.cc
 )
 
-if (MYSQL STREQUAL "y")
+if (NOT MYSQL STREQUAL "n")
 	set(SRC
 		${SRC}
 		MySQLTaskImpl.cc
 	)
 endif ()
 
-if (REDIS STREQUAL "y")
+if (NOT REDIS STREQUAL "n")
 	set(SRC
 		${SRC}
 		RedisTaskImpl.cc

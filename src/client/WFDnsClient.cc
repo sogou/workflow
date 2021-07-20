@@ -16,6 +16,7 @@
   Author: Liu Kai (liukaidx@sogou-inc.com)
 */
 
+#include <string>
 #include <vector>
 #include <atomic>
 #include "URIParser.h"

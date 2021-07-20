@@ -490,8 +490,13 @@ int WinPoller::get_io_result(struct poller_result *res, int timeout)
 	}
 	else if (bytes_transferred == 0)
 	{
-		res->state = PR_ST_FINISHED;
-		res->error = ECONNRESET;
+		res->error = GetLastError();
+		if (res->error == ERROR_OPERATION_ABORTED)
+			res->state = PR_ST_STOPPED;
+		else if (res->error == ERROR_SUCCESS)
+			res->state = PR_ST_SUCCESS;
+		else
+			res->state = PR_ST_FINISHED;
 	}
 	else
 	{

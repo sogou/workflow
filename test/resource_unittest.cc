@@ -30,7 +30,7 @@ TEST(resource_unittest, resource_pool)
 	int res_concurrency = 3;
 	int task_concurrency = 10;
 	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
-	WFResourcePool res_pool((void **)words, res_concurrency);
+	WFResourcePool res_pool((const void **)words, res_concurrency);
 	WFFacilities::WaitGroup wg(task_concurrency);
 
 	for (int i = 0; i < task_concurrency; i++)

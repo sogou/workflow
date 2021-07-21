@@ -48,7 +48,7 @@ public:
 
 		virtual void push(void *res)
 		{
-			ptr->push(res);
+			this->ptr->push(res);
 		}
 	};
 
@@ -67,7 +67,7 @@ private:
 	struct Data data;
 
 public:
-	WFResourcePool(void **res, int n)
+	WFResourcePool(const void **res, int n)
 	{
 		this->data.ptr = this;
 		this->data.res = new void *[n];

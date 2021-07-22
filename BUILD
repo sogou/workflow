@@ -10,6 +10,7 @@ cc_library(
 		'src/client/WFDnsClient.cc',
 		'src/factory/DnsTaskImpl.cc',
 		'src/factory/WFGraphTask.cc',
+		'src/factory/WFResourcePool.cc',
 		'src/factory/WFTaskFactory.cc',
 		'src/factory/Workflow.cc',
 		'src/manager/DnsCache.cc',

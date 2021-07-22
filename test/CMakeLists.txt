@@ -39,6 +39,7 @@ set(TEST_LIST
 	memory_unittest
 	upstream_unittest
 	dns_unittest
+	resource_unittest
 )
 
 if (APPLE)

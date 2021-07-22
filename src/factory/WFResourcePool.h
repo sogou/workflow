@@ -21,35 +21,27 @@
 #define _WFRESOURCEPOOL_H_
 
 #include <mutex>
-#include <atomic>
 #include "list.h"
 #include "WFTask.h"
 
 class WFResourcePool
 {
 public:
-	WFConditional *get(SubTask *task, void **pres);
+	WFConditional *get(SubTask *task, void **resbuf);
 	void post(void *res);
 
 public:
 	struct Data
 	{
+		void *pop() { return this->pool->pop(); }
+		void push(void *res) { this->pool->push(res); }
+
 		void **res;
-		std::atomic<int> value;
-		std::atomic<int> index;
+		long value;
+		size_t index;
 		struct list_head wait_list;
 		std::mutex mutex;
-		WFResourcePool *ptr;
-
-		virtual void *pop()
-		{
-			return this->ptr->pop();
-		}
-
-		virtual void push(void *res)
-		{
-			this->ptr->push(res);
-		}
+		WFResourcePool *pool;
 	};
 
 private:
@@ -67,17 +59,8 @@ private:
 	struct Data data;
 
 public:
-	WFResourcePool(const void **res, int n)
-	{
-		this->data.ptr = this;
-		this->data.res = new void *[n];
-		memcpy(this->data.res, res, n * sizeof(void *));
-		this->data.value = n;
-		this->data.index = 0;
-		INIT_LIST_HEAD(&this->data.wait_list);
-	}
-
-	virtual ~WFResourcePool() { delete[] this->data.res; }
+	WFResourcePool(void *const *res, size_t n);
+	virtual ~WFResourcePool() { delete []this->data.res; }
 };
 
 #endif

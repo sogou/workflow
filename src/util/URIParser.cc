@@ -5,7 +5,7 @@
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
 
-      http://www.apache.org/licenses/LICENSE-2.0
+	  http://www.apache.org/licenses/LICENSE-2.0
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -437,6 +437,13 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 
 	for (int i = cur; str[i]; i++)
 	{
+		if (str[i] == '/' || str[i] == '?' || str[i] == '#')
+		{
+			// break on end of host
+			st[1] = cur;
+			ed[1] = cur;
+			break;
+		}
 		if (str[i] == '@')
 		{
 			st[1] = cur;
@@ -514,7 +521,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 	}
 
 	//check valid, skip scheme because of already checked
-	for (int i = 1; i < 7; i++)
+	for (int i = 1; i < 5; i++)
 	{
 		for (int j = st[i]; j < ed[i]; j++)
 			if (!valid_char[i][(unsigned char)str[j]])

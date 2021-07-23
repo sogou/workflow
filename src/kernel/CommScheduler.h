@@ -54,7 +54,7 @@ public:
 
 private:
 	virtual CommTarget *acquire(int wait_timeout); /* final */
-	virtual void release(); /* final */
+	virtual void release(int keep_alive); /* final */
 
 private:
 	CommSchedGroup *group;
@@ -87,7 +87,7 @@ private:
 private:
 	static int target_cmp(CommSchedTarget *target1, CommSchedTarget *target2);
 	void heapify(int top);
-	void heap_adjust(int from);
+	void heap_adjust(int index, int swap_on_equal);
 	int heap_insert(CommSchedTarget *target);
 	void heap_remove(int index);
 	friend class CommSchedTarget;
@@ -117,7 +117,7 @@ public:
 		{
 			ret = this->comm.request(session, *target);
 			if (ret < 0)
-				(*target)->release();
+				(*target)->release(0);
 		}
 
 		return ret;

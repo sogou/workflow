@@ -61,7 +61,7 @@ private:
 	}
 
 public:
-	virtual void release() { }
+	virtual void release(int keep_alive) { }
 
 private:
 	struct sockaddr *addr;

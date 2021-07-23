@@ -688,7 +688,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 	{
 		if (session)
 		{
-			target->release();
+			target->release(entry->state == CONN_STATE_IDLE);
 			session->handle(state, res->error);
 		}
 
@@ -810,7 +810,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
-		entry->target->release();
+		entry->target->release(0);
 		session->handle(state, res->error);
 		pthread_mutex_lock(&entry->mutex);
 		/* do nothing */
@@ -994,7 +994,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
-		target->release();
+		target->release(0);
 		session->handle(state, res->error);
 		this->release_conn(entry);
 		break;

@@ -416,7 +416,7 @@ void Communicator::handle_event_result(struct poller_result *res)
 	switch (ctx->event)
 	{
 	case EVENT_CLIENT_REQUEST_FAILED:
-		target->release();
+		target->release(0);
 		entry->session->handle(CS_STATE_ERROR, ctx->error);
 		if (--entry->ref == 0)
 			this->release_conn(entry);
@@ -1046,7 +1046,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 	}
 
 	delete ctx;
-	target->release();
+	target->release(entry->state == CONN_STATE_IDLE);
 	session->handle(cs_state, res->error);
 	if (--entry->ref == 0)
 		this->release_conn(entry);
@@ -1315,7 +1315,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 
 	//delete entry->writebufs;
 	delete ctx;
-	entry->target->release();
+	entry->target->release(0);
 	session->handle(cs_state, res->error);
 	if (--entry->ref == 0)
 		this->release_conn(entry);
@@ -1553,7 +1553,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 		break;
 	}
 
-	target->release();
+	target->release(0);
 	session->handle(cs_state, res->error);
 	this->poller->unbind_socket(entry->sockfd);
 	this->release_conn(entry);

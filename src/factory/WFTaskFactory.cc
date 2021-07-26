@@ -30,30 +30,31 @@ class __WFTimerTask : public WFTimerTask
 protected:
 	virtual int duration(struct timespec *value)
 	{
-		*value = this->value;
+		value->tv_sec = this->seconds;
+		value->tv_nsec = this->nanoseconds;
 		return 0;
 	}
 
 protected:
-	struct timespec value;
+	time_t seconds;
+	long nanoseconds;
 
 public:
-	__WFTimerTask(const struct timespec *value, CommScheduler *scheduler,
+	__WFTimerTask(time_t seconds, long nanoseconds, CommScheduler *scheduler,
 				  timer_callback_t&& cb) :
 		WFTimerTask(scheduler, std::move(cb))
 	{
-		this->value = *value;
+		this->seconds = seconds;
+		this->nanoseconds = nanoseconds;
 	}
 };
 
 WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 											  timer_callback_t callback)
 {
-	struct timespec value = {
-		.tv_sec		=	(time_t)(microseconds / 1000000),
-		.tv_nsec	=	(long)(microseconds % 1000000 * 1000)
-	};
-	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
+	return new __WFTimerTask((time_t)(microseconds / 1000000),
+							 (long)(microseconds % 1000000 * 1000),
+							 WFGlobal::get_scheduler(),
 							 std::move(callback));
 }
 
@@ -62,6 +63,13 @@ WFTimerTask *WFTaskFactory::create_timer_task(const std::string& name,
 											  timer_callback_t callback)
 {
 	return WFTaskFactory::create_timer_task(microseconds, std::move(callback));
+}
+
+WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
+											  timer_callback_t callback)
+{
+	return new __WFTimerTask(seconds, nanoseconds, WFGlobal::get_scheduler(),
+							 std::move(callback));
 }
 
 class __WFCounterTask;

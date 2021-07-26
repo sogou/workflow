@@ -1487,7 +1487,8 @@ SubTask *WFKafkaTask::done()
 	{
 		if (this->state == WFT_STATE_TASK_ERROR)
 		{
-			WFTimerTask *timer = WFTaskFactory::create_timer_task(0, std::move(cb));
+			WFTimerTask *timer;
+			timer = WFTaskFactory::create_timer_task(0, 0, std::move(cb));
 			timer->user_data = this;
 			series->push_front(timer);
 		}

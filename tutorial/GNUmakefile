@@ -6,10 +6,6 @@ DEFAULT_BUILD_DIR := build.cmake
 BUILD_DIR := $(shell if [ -f $(MAKE_FILE) ]; then echo "."; else echo $(DEFAULT_BUILD_DIR); fi)
 CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake; fi;)
 
-KAFKA 		?= n
-MYSQL 		?= y
-REDIS 		?= y
-
 .PHONY: $(ALL_TARGETS)
 
 all:

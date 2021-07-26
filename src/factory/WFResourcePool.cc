@@ -17,6 +17,7 @@
           Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <string.h>
 #include "list.h"
 #include "WFTask.h"
 #include "WFResourcePool.h"
@@ -32,9 +33,9 @@ public:
 	virtual void signal(void *res) { }
 
 public:
-	__WFConditional(SubTask *task, void **pres,
+	__WFConditional(SubTask *task, void **resbuf,
 					struct WFResourcePool::Data *data) :
-		WFConditional(task, pres)
+		WFConditional(task, resbuf)
 	{
 		this->data = data;
 	}
@@ -54,9 +55,19 @@ void __WFConditional::dispatch()
 	this->WFConditional::dispatch();
 }
 
-WFConditional *WFResourcePool::get(SubTask *task, void **pres)
+WFConditional *WFResourcePool::get(SubTask *task, void **resbuf)
 {
-	return new __WFConditional(task, pres, &this->data);
+	return new __WFConditional(task, resbuf, &this->data);
+}
+
+WFResourcePool::WFResourcePool(void *const *res, size_t n)
+{
+	this->data.res = new void *[n];
+	memcpy(this->data.res, res, n * sizeof (void *));
+	this->data.value = n;
+	this->data.index = 0;
+	INIT_LIST_HEAD(&this->data.wait_list);
+	this->data.pool = this;
 }
 
 void WFResourcePool::post(void *res)
@@ -73,7 +84,7 @@ void WFResourcePool::post(void *res)
 	else
 	{
 		cond = NULL;
-		data->push(res);
+		this->push(res);
 	}
 
 	data->mutex.unlock();

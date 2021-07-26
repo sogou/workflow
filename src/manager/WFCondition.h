@@ -84,6 +84,7 @@ public:
 		INIT_LIST_HEAD(&this->get_list);
 		INIT_LIST_HEAD(&this->wait_list);
 	}
+
 	virtual ~WFCondition();
 };
 

@@ -50,8 +50,6 @@ public:
 	WFWaitTask *create(const std::string& name,
 					   const struct timespec *timeout,
 					   wait_callback_t&& cb);
-	WFWaitTask *create_switch(const std::string& name,
-							  wait_callback_t&& cb);
 
 public:
 	static __ConditionMap *get_instance()
@@ -103,14 +101,6 @@ WFWaitTask *__ConditionMap::create(const std::string& name,
 
 	return WFCondTaskFactory::create_timedwait_task(cond, timeout,
 													std::move(cb));
-}
-
-WFWaitTask *__ConditionMap::create_switch(const std::string& name,
-										  wait_callback_t&& cb)
-{
-	__WFCondition *cond = this->find_condition(name);
-
-	return WFCondTaskFactory::create_swait_task(cond, std::move(cb));
 }
 
 __ConditionMap::~__ConditionMap()
@@ -235,16 +225,20 @@ public:
 	virtual ~__WFWaitTimerTask();
 };
 
-class WFSwitchWaitTask : public WFCondWaitTask
+SubTask *WFCondWaitTask::done()
 {
-public:
-	WFSwitchWaitTask(wait_callback_t&& cb) :
-		WFCondWaitTask(std::move(cb))
-	{ }
+	SeriesWork *series = series_of(this);
 
-protected:
-	SubTask *done();
-};
+	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
+		[this](WFTimerTask *task) {
+			if (this->callback)
+				this->callback(this);
+			delete this;
+	});
+	series->push_front(switch_task);
+
+	return series->pop();
+}
 
 void WFTimedWaitTask::clear_locked()
 {
@@ -274,21 +268,6 @@ WFTimedWaitTask::~WFTimedWaitTask()
 {
 	if (this->state != WFT_STATE_SUCCESS)
 		delete this->timer;
-}
-
-SubTask *WFSwitchWaitTask::done()
-{
-	SeriesWork *series = series_of(this);
-
-	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
-		[this](WFTimerTask *task) {
-			if (this->callback)
-				this->callback(this);
-			delete this;
-	});
-	series->push_front(switch_task);
-
-	return series->pop();
 }
 
 SubTask *__WFWaitTimerTask::done()
@@ -339,13 +318,6 @@ WFWaitTask *WFCondTaskFactory::create_wait_task(const std::string& name,
 	return __ConditionMap::get_instance()->create(name, std::move(callback));
 }
 
-WFWaitTask *WFCondTaskFactory::create_swait_task(const std::string& name,
-												 wait_callback_t callback)
-{
-	return __ConditionMap::get_instance()->create_switch(name,
-														 std::move(callback));
-}
-
 WFWaitTask *WFCondTaskFactory::create_timedwait_task(const std::string& name,
 													 const struct timespec *timeout,
 													 wait_callback_t callback)
@@ -381,17 +353,5 @@ WFWaitTask *WFCondTaskFactory::create_timedwait_task(WFCondition *cond,
 	cond->mutex->unlock();
 
 	return waiter;
-}
-
-WFWaitTask *WFCondTaskFactory::create_swait_task(WFCondition *cond,
-												 wait_callback_t callback)
-{
-	WFSwitchWaitTask *task = new WFSwitchWaitTask(std::move(callback));
-
-	cond->mutex->lock();
-	list_add_tail(&task->list, &cond->wait_list);
-	cond->mutex->unlock();
-
-	return task;
 }
 

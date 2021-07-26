@@ -34,6 +34,9 @@ class WFCondWaitTask : public WFMailboxTask
 public:
 	virtual void clear_locked() { }
 
+protected:
+	virtual SubTask *done();
+
 private:
 	struct list_head list;
 

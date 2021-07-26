@@ -20,6 +20,7 @@
 #ifndef _WFTASKFACTORY_H_
 #define _WFTASKFACTORY_H_
 
+#include <time.h>
 #include <functional>
 #include "PlatformSocket.h"
 #include "URIParser.h"
@@ -185,6 +186,9 @@ public:
 	/* timer_name has no use currently. */
 	static WFTimerTask *create_timer_task(const std::string& timer_name,
 										  unsigned int microseconds,
+										  timer_callback_t callback);
+
+	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
 										  timer_callback_t callback);
 
 	/* Counter is like semaphore. The callback of counter is called when

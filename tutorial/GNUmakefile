@@ -20,7 +20,7 @@ endif
 clean:
 ifeq ($(MAKE_FILE), $(wildcard $(MAKE_FILE)))
 	-make -f Makefile clean
-else
+else ifeq ($(DEFAULT_BUILD_DIR), $(wildcard $(DEFAULT_BUILD_DIR)))
 	-make -C $(DEFAULT_BUILD_DIR) clean
 endif
 	rm -rf $(DEFAULT_BUILD_DIR)

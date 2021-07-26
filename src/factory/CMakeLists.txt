@@ -9,6 +9,7 @@ set(SRC
 	WFCondTaskFactory.cc
 	WFResourcePool.cc
 	HttpTaskImpl.cc
+	WFResourcePool.cc
 	WebSocketTaskImpl.cc
 )
 

@@ -74,7 +74,7 @@ private:
 	virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
-	virtual void release() { }
+	virtual void release(int keep_alive) { }
 
 private:
 	struct sockaddr *addr;

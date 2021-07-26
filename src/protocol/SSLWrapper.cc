@@ -235,29 +235,6 @@ int SSLWrapper::append(const void *buf, size_t *size)
 	return this->append_message();
 }
 
-int ServiceSSLWrapper::append(const void *buf, size_t *size)
-{
-	char *ptr;
-	long len;
-	long n;
-
-	if (__ssl_handshake(buf, size, this->ssl, &ptr, &len) < 0)
-		return -1;
-
-	if (len > 0)
-		n = this->feedback(ptr, len);
-	else
-		n = 0;
-
-	if (n == len)
-		return this->append_message();
-
-	if (n >= 0)
-		errno = EAGAIN;
-
-	return -1;
-}
-
 int SSLWrapper::feedback(const void *buf, size_t size)
 {
 	BIO *wbio = SSL_get_wbio(this->ssl);
@@ -267,6 +244,9 @@ int SSLWrapper::feedback(const void *buf, size_t size)
 
 	if (size == 0)
 		return 0;
+
+	if (BIO_reset(wbio) <= 0)
+		return -1;
 
 	ret = SSL_write(this->ssl, buf, size);
 	if (ret <= 0)
@@ -279,12 +259,40 @@ int SSLWrapper::feedback(const void *buf, size_t size)
 	}
 
 	len = BIO_get_mem_data(wbio, &ptr);
-	if (len > 0)
-		return this->ProtocolWrapper::feedback(ptr, len);
-	else if (len == 0)
-		return 0;
-	else
+	if (len >= 0)
+	{
+		ret = this->ProtocolWrapper::feedback(ptr, len);
+		if (ret == len)
+			return size;
+
+		if (ret > 0)
+			errno = ENOBUFS;
+	}
+
+	return -1;
+}
+
+int ServiceSSLWrapper::append(const void *buf, size_t *size)
+{
+	char *ptr;
+	long len;
+	long n;
+
+	if (__ssl_handshake(buf, size, this->ssl, &ptr, &len) < 0)
 		return -1;
+
+	if (len > 0)
+		n = this->ProtocolMessage::feedback(ptr, len);
+	else
+		n = 0;
+
+	if (n == len)
+		return this->append_message();
+
+	if (n >= 0)
+		errno = EAGAIN;
+
+	return -1;
 }
 
 }

@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <utility>
 #include "Communicator.h"
 
 /**
@@ -144,6 +145,28 @@ public:
 	{
 		msg->wrapper = this;
 		this->msg = msg;
+	}
+
+public:
+	ProtocolWrapper(ProtocolWrapper&& wrapper) :
+		ProtocolMessage(std::move(wrapper))
+	{
+		wrapper.msg->wrapper = this;
+		this->msg = wrapper.msg;
+		wrapper.msg = NULL;
+	}
+
+	ProtocolWrapper& operator = (ProtocolWrapper&& wrapper)
+	{
+		if (&wrapper != this)
+		{
+			*(ProtocolMessage *)this = std::move(wrapper);
+			wrapper.msg->wrapper = this;
+			this->msg = wrapper.msg;
+			wrapper.msg = NULL;
+		}
+
+		return *this;
 	}
 };
 

@@ -19,8 +19,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <chrono>
-#include <mutex>
 #include <gtest/gtest.h>
 #include "workflow/WFTask.h"
 #include "workflow/WFTaskFactory.h"
@@ -28,6 +26,34 @@
 #include "workflow/WFCondition.h"
 #include "workflow/WFCondTaskFactory.h"
 #include "workflow/WFFacilities.h"
+
+TEST(resource_unittest, resource_pool)
+{
+	int res_concurrency = 3;
+	int task_concurrency = 10;
+	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
+	WFResourcePool res_pool((void * const*)words, res_concurrency);
+	WFFacilities::WaitGroup wg(task_concurrency);
+
+	for (int i = 0; i < task_concurrency; i++)
+	{
+		auto *user_task = WFTaskFactory::create_timer_task(0,
+		[&wg, &res_pool](WFTimerTask *task) {
+			uint64_t id = (uint64_t)series_of(task)->get_context();
+			printf("task-%lu get [%s]\n", id, (char *)task->user_data);
+			res_pool.post(task->user_data);
+			wg.done();
+		});
+
+		auto *cond = res_pool.get(user_task, &user_task->user_data);
+
+		SeriesWork *series = Workflow::create_series_work(cond, nullptr);
+		series->set_context(reinterpret_cast<uint64_t *>(i));
+		series->start();
+	}
+
+	wg.wait();
+}
 
 TEST(condition_unittest, signal)
 {
@@ -118,33 +144,5 @@ TEST(condition_unittest, timedwait)
 	char msg[10] = "wake up!!";
 	WFCondTaskFactory::signal_by_name("timedwait2", msg);
 	wait_group.wait();
-}
-
-TEST(condition_unittest, resource_pool)
-{
-	int res_concurrency = 3;
-	int task_concurrency = 10;
-	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
-	WFResourcePool res_pool((void *const *)words, res_concurrency);
-	WFFacilities::WaitGroup wg(task_concurrency);
-
-	for (int i = 0; i < task_concurrency; i++)
-	{
-		auto *user_task = WFTaskFactory::create_timer_task(0,
-		[&wg, &res_pool](WFTimerTask *task) {
-			uint64_t id = (uint64_t)series_of(task)->get_context();
-			printf("task-%lu get [%s]\n", id, (char *)task->user_data);
-			res_pool.post(task->user_data);
-			wg.done();
-		});
-
-		auto *cond = res_pool.get(user_task, &user_task->user_data);
-
-		SeriesWork *series = Workflow::create_series_work(cond, nullptr);
-		series->set_context(reinterpret_cast<uint64_t *>(i));
-		series->start();
-	}
-
-	wg.wait();
 }
 

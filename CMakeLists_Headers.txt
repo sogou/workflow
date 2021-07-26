@@ -99,6 +99,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFResourcePool.h
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFResourcePool.h
 	src/factory/WFChannel.h
 	src/factory/WFChannel.inl
 	src/nameservice/WFNameService.h

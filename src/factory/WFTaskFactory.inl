@@ -19,7 +19,6 @@
 */
 
 #include <stdio.h>
-#include <time.h>
 #include <errno.h>
 #include <string>
 #include <new>
@@ -472,7 +471,8 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		auto&& cb = std::bind(&WFComplexClientTask::switch_callback,
 							  this,
 							  std::placeholders::_1);
-		WFTimerTask *timer = WFTaskFactory::create_timer_task(0, std::move(cb));
+		WFTimerTask *timer;
+		timer = WFTaskFactory::create_timer_task(0, 0, std::move(cb));
 		series->push_front(timer);
 	}
 	else

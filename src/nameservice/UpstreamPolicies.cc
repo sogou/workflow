@@ -52,12 +52,6 @@ public:
 	int weight;
 };
 
-UPSAddrParams::UPSAddrParams() :
-	PolicyAddrParams(&ADDRESS_PARAMS_DEFAULT)
-{
-	UPSAddrParams(&ADDRESS_PARAMS_DEFAULT, "");
-}
-
 UPSAddrParams::UPSAddrParams(const struct AddressParams *params,
 							 const std::string& address) :
 	PolicyAddrParams(params)

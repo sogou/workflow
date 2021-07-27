@@ -306,7 +306,7 @@ CommSession::~CommSession()
 
 inline int Communicator::first_timeout(CommSession *session)
 {
-	int timeout = session->target->response_timeout;
+	int timeout = session->response_timeout();
 
 	if (timeout < 0 || (unsigned int)session->timeout <= (unsigned int)timeout)
 	{
@@ -322,7 +322,7 @@ inline int Communicator::first_timeout(CommSession *session)
 
 int Communicator::next_timeout(CommSession *session)
 {
-	int timeout = session->target->response_timeout;
+	int timeout = session->response_timeout();
 	struct timespec cur_time;
 	int time_used, time_left;
 

@@ -50,6 +50,9 @@ public:
 		*addrlen = this->addrlen;
 	}
 
+	int get_connect_timeout() const { return this->connect_timeout; }
+	int get_response_timeout() const { return this->response_timeout; }
+
 protected:
 	void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
 	{
@@ -133,6 +136,7 @@ private:
 	virtual int send_timeout() { return -1; }
 	virtual int receive_timeout() { return -1; }
 	virtual int keep_alive_timeout() { return 0; }
+	virtual int response_timeout() { return this->target->response_timeout; }
 	virtual int first_timeout() { return 0; }	/* for client session only. */
 	virtual void handle(int state, int error) = 0;
 

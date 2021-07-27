@@ -259,7 +259,7 @@ CommSession::~CommSession()
 
 inline int Communicator::first_timeout(CommSession *session)
 {
-	int timeout = session->target->response_timeout;
+	int timeout = session->response_timeout();
 
 	if (timeout < 0 || (unsigned int)session->timeout <= (unsigned int)timeout)
 	{
@@ -275,7 +275,7 @@ inline int Communicator::first_timeout(CommSession *session)
 
 int Communicator::next_timeout(CommSession *session)
 {
-	int timeout = session->target->response_timeout;
+	int timeout = session->response_timeout();
 	struct timespec cur_time;
 	int time_used, time_left;
 
@@ -1374,6 +1374,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 	struct CommConnEntry *entry;
 	struct poller_data data;
 	int errno_bak;
+	int timeout;
 	int ret;
 
 	if (session->passive)
@@ -1397,7 +1398,8 @@ int Communicator::request(CommSession *session, CommTarget *target)
 			data.operation = PD_OP_CONNECT;
 			data.fd = entry->sockfd;
 			data.context = entry;
-			if (mpoller_add(&data, target->connect_timeout, this->mpoller) >= 0)
+			timeout = session->connect_timeout();
+			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
 				break;
 
 			this->release_conn(entry);

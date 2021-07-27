@@ -10,6 +10,8 @@ CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake;
 
 all:
 	mkdir -p $(BUILD_DIR)
+	rm -rf $(DEFAULT_BUILD_DIR)/CMakeCache.txt
+
 ifeq ($(DEBUG),y)
 	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug $(ROOT_DIR)
 else

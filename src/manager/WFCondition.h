@@ -38,9 +38,10 @@ public:
 	void broadcast(void *msg);
 	// 1: existed; 0: should get; -1: should wait;
 	int get(void **pmsg);
-	WFWaitTask *get_wait_task(wait_callback_t callback);
+	WFWaitTask *create_wait_task(wait_callback_t callback);
 
 public:
+	bool flag;
 	std::atomic<int> *ref;
 	std::mutex *mutex;
 	struct list_head get_list;
@@ -50,25 +51,18 @@ public:
 	class BaseResource
 	{
 	public:
-		virtual void *get() = 0;
-		virtual void set() { this->ptr->empty = 0; }
-		void clear() { this->ptr->empty = 1; }
-
-	private:
-		WFCondition *ptr;
-		friend WFCondition;
+		virtual void *get() const = 0;
+		virtual bool empty() const = 0;
 	};
 
 private:
-	BaseResource *res;
-	int empty;
+	const BaseResource *res;
 
 public:
-	WFCondition(BaseResource *res)
+	WFCondition(const BaseResource *res)
 	{
-		this->empty = 1;
 		this->res = res;
-		this->res->ptr = this;
+		this->flag = false;
 		this->mutex = new std::mutex;
 		this->ref = new std::atomic<int>(1);
 		INIT_LIST_HEAD(&this->get_list);
@@ -77,8 +71,8 @@ public:
 
 	WFCondition()
 	{
-		this->empty = 0;
 		this->res = NULL;
+		this->flag = false;
 		this->mutex = new std::mutex;
 		this->ref = new std::atomic<int>(1);
 		INIT_LIST_HEAD(&this->get_list);

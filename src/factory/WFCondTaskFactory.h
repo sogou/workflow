@@ -32,10 +32,6 @@
 class WFCondTaskFactory
 {
 public:
-	// simple timedwait task
-//	static WFWaitTask *create_timedwait_task(const struct timespec *timeout,
-//											 wait_callback_t callback);
-
 	// use condition by name
 	static void signal_by_name(const std::string& name, void *msg);
 

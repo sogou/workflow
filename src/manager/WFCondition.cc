@@ -29,14 +29,15 @@ int WFCondition::get(void **pmsg)
 	int ret;
 
 	this->mutex->lock();
-	if (this->empty == 1)
+	if (this->res->empty() == false)
 	{
 		*pmsg = this->res->get();
-		ret = 1;
-	}
-	else if (--this->empty == 0)
-	{
 		ret = 0;
+	}
+	else if (this->flag == false)
+	{
+		this->flag = true;
+		ret = 1;
 	}
 	else
 	{
@@ -49,7 +50,7 @@ int WFCondition::get(void **pmsg)
 	return ret;
 }
 
-WFWaitTask *WFCondition::get_wait_task(wait_callback_t callback)
+WFWaitTask *WFCondition::create_wait_task(wait_callback_t callback)
 {
 	WFCondWaitTask *task = NULL;
  	struct list_head *pos;
@@ -96,6 +97,8 @@ void WFCondition::broadcast(void *msg)
 	LIST_HEAD(tmp_list);
 
 	this->mutex->lock();
+	this->flag = false;
+
 	if (!list_empty(&this->wait_list))
 	{
 		list_for_each_safe(pos, tmp, &this->wait_list)

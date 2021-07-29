@@ -70,8 +70,8 @@ CommMessageOut *ComplexDnsTask::message_out()
 	/* Set these field every time, in case of reconstruct on redirect */
 	resp->set_request_id(req->get_id());
 	resp->set_request_name(req->get_question_name());
-	req->set_leading_length(type != TT_UDP);
-	resp->set_leading_length(type != TT_UDP);
+	req->set_single_packet(type == TT_UDP);
+	resp->set_single_packet(type == TT_UDP);
 
 	return this->WFClientTask::message_out();
 }
@@ -196,39 +196,5 @@ WFDnsTask *WFTaskFactory::create_dns_task(const ParsedURI& uri,
 	task->init(uri);
 	task->set_keep_alive(DNS_KEEPALIVE_DEFAULT);
 	return task;
-}
-
-/**********Server**********/
-
-class WFDnsServerTask : public WFServerTask<DnsRequest, DnsResponse>
-{
-public:
-	WFDnsServerTask(CommService *service,
-					 std::function<void (WFDnsTask *)>& process):
-		WFServerTask(service, WFGlobal::get_scheduler(), process)
-	{ }
-
-protected:
-	virtual CommMessageOut *message_out()
-	{
-		DnsResponse *resp = this->get_resp();
-		resp->set_leading_length(true);
-		return this->WFServerTask::message_out();
-	}
-
-	virtual CommMessageIn *message_in()
-	{
-		DnsRequest *req = this->get_req();
-		req->set_leading_length(true);
-		return this->WFServerTask::message_in();
-	}
-};
-
-/**********Server Factory**********/
-
-WFDnsTask *WFServerTaskFactory::create_dns_task(CommService *service,
-							std::function<void (WFDnsTask *)>& process)
-{
-	return new WFDnsServerTask(service, process);
 }
 

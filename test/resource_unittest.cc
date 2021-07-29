@@ -1,0 +1,256 @@
+/*
+  Copyright (c) 2021 Sogou, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  Author: Li Yingxin (liyingxin@sogou-inc.com)
+*/
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <gtest/gtest.h>
+#include "workflow/WFTask.h"
+#include "workflow/WFTaskFactory.h"
+#include "workflow/WFResourcePool.h"
+#include "workflow/WFCondition.h"
+#include "workflow/WFCondTaskFactory.h"
+#include "workflow/WFFacilities.h"
+
+TEST(resource_unittest, resource_pool)
+{
+	int res_concurrency = 3;
+	int task_concurrency = 10;
+	const char *words[3] = {"workflow", "srpc", "pyworkflow"};
+	WFResourcePool res_pool((void * const*)words, res_concurrency);
+	WFFacilities::WaitGroup wg(task_concurrency);
+
+	for (int i = 0; i < task_concurrency; i++)
+	{
+		auto *user_task = WFTaskFactory::create_timer_task(0,
+		[&wg, &res_pool](WFTimerTask *task) {
+			uint64_t id = (uint64_t)series_of(task)->get_context();
+			printf("task-%lu get [%s]\n", id, (char *)task->user_data);
+			res_pool.post(task->user_data);
+			wg.done();
+		});
+
+		auto *cond = res_pool.get(user_task, &user_task->user_data);
+
+		SeriesWork *series = Workflow::create_series_work(cond, nullptr);
+		series->set_context(reinterpret_cast<uint64_t *>(i));
+		series->start();
+	}
+
+	wg.wait();
+}
+
+TEST(condition_unittest, signal)
+{
+	WFCondition cond;
+	std::mutex mutex;
+	WFFacilities::WaitGroup wg(1);
+	int ret = 3;
+	int *ptr = &ret;
+
+	auto *task1 = WFCondTaskFactory::create_wait_task(&cond, [&wg, &ptr](WFMailboxTask *) {
+		*ptr = 1;
+		wg.done();
+	});
+
+	auto *task2 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+		*ptr = 2;
+	});
+
+	SeriesWork *series1 = Workflow::create_series_work(task1, nullptr);
+	SeriesWork *series2 = Workflow::create_series_work(task2, nullptr);
+
+	series1->start();
+	series2->start();
+
+	mutex.lock();
+	cond.signal(NULL);
+	mutex.unlock();
+	wg.wait();
+	EXPECT_EQ(ret, 1);
+	cond.signal(NULL);
+	usleep(1000);
+	EXPECT_EQ(ret, 2);
+}
+
+TEST(condition_unittest, broadcast)
+{
+	WFCondition cond;
+	std::mutex mutex;
+	int ret = 0;
+	int *ptr = &ret;
+
+	auto *task1 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+		(*ptr)++;
+	});
+	SeriesWork *series1 = Workflow::create_series_work(task1, nullptr);
+
+	auto *task2 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+		(*ptr)++;
+	});
+	SeriesWork *series2 = Workflow::create_series_work(task2, nullptr);
+
+	series1->start();
+	series2->start();
+
+	cond.broadcast(NULL);
+	usleep(1000);
+	EXPECT_EQ(ret, 2);
+}
+
+TEST(condition_unittest, timedwait)
+{
+	WFFacilities::WaitGroup wait_group(2);
+	struct timespec ts;
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+
+	auto *task1 = WFCondTaskFactory::create_timedwait_task("timedwait1", &ts,
+		[&wait_group](WFMailboxTask *task) {
+		EXPECT_EQ(task->get_error(), ETIMEDOUT);
+		wait_group.done();
+	});
+
+	auto *task2 = WFCondTaskFactory::create_timedwait_task("timedwait2", &ts,
+		[&wait_group](WFMailboxTask *task) {
+		EXPECT_EQ(task->get_error(), 0);
+		void **msg;
+		size_t n;
+		msg = task->get_mailbox(&n);
+		EXPECT_EQ(n, 1);
+		EXPECT_TRUE(strcmp((char *)*msg, "wake up!!") == 0);
+		wait_group.done();
+	});
+
+	Workflow::start_series_work(task1, nullptr);
+	Workflow::start_series_work(task2, nullptr);
+
+	usleep(1000);
+	char msg[10] = "wake up!!";
+	WFCondTaskFactory::signal_by_name("timedwait2", msg);
+	wait_group.wait();
+}
+
+///////////// condition with resource /////////////
+
+class TestResource : public WFCondition::BaseResource
+{
+public:
+	TestResource() { this->res = NULL; }
+	void *get() const override { return (void *)this->res; }
+	bool empty() const override { return this->res == NULL; }
+	void set(const char *res) { this->res = res; }
+
+private:
+	const char *res;
+};
+
+struct series_ctx_t
+{
+	int id;
+	char *info;
+	TestResource *res;
+	WFCondition *cond;
+};
+
+char global_info[50] = "ResourceConditionInfo";
+
+SubTask *create_router_task(std::function<void (WFTimerTask *task)> cb)
+{
+	return WFTaskFactory::create_timer_task(500000, std::move(cb));
+}
+
+void router_callback(WFTimerTask *task)
+{
+	struct series_ctx_t *ctx;
+	ctx = (struct series_ctx_t *)series_of(task)->get_context();
+	ctx->res->set(global_info);
+	fprintf(stderr, "task-%d finish routing and broadcast.\n", ctx->id);
+	ctx->cond->broadcast(global_info);
+	ctx->info = global_info;
+}
+
+void wait_callback(WFWaitTask *task)
+{
+	void **msg;
+	size_t n;
+	struct series_ctx_t *ctx;
+	ctx = (struct series_ctx_t *)series_of(task)->get_context();
+
+	msg = task->get_mailbox(&n);
+	EXPECT_EQ(n, 1);
+	fprintf(stderr, "task-%d waiter get msg:%s\n", ctx->id, (char *)*msg);
+	ctx->info = (char *)*msg;
+}
+
+void work(struct series_ctx_t *ctx, WFFacilities::WaitGroup *wg)
+{
+	EXPECT_TRUE(strcmp(ctx->info, global_info) == 0);
+	wg->done();
+}
+
+#define task_concurrency 10
+
+TEST(condition_unittest, res_condition)
+{
+	WFFacilities::WaitGroup wg(task_concurrency);
+	TestResource res;
+	WFCondition cond((WFCondition::BaseResource *)&res);
+	struct series_ctx_t ctx[task_concurrency];
+
+	for (int i = 0; i < task_concurrency; i++)
+	{
+		auto *timer = WFTaskFactory::create_timer_task(i * 100000,
+		[](WFTimerTask *task) {
+			struct series_ctx_t *ctx;
+			ctx = (struct series_ctx_t *)series_of(task)->get_context();
+			char *info;
+			int ret = ctx->cond->get((void **)&info);
+
+			if (ret == -1)
+			{
+				auto *waiter = ctx->cond->create_wait_task(wait_callback);
+				series_of(task)->push_front(waiter);
+				fprintf(stderr, "task-%d waiting\n", ctx->id);
+			}
+			else if (ret == 1)
+			{
+				auto *router = create_router_task(router_callback);
+				series_of(task)->push_front(router);
+				fprintf(stderr, "task-%d routing\n", ctx->id);
+			}
+			else
+			{
+				fprintf(stderr, "task-%d get [%s]\n", ctx->id, info);
+				ctx->info = info;
+			}
+		});
+
+		SeriesWork *series = Workflow::create_series_work(timer, nullptr);
+		auto *worker = WFTaskFactory::create_go_task("w", work, &ctx[i], &wg);
+		ctx[i].id = i;
+		ctx[i].cond = &cond;
+		ctx[i].res = &res;
+		series->set_context(&ctx[i]);
+		series->push_back(worker);
+		series->start();
+	}
+
+	wg.wait();
+}
+

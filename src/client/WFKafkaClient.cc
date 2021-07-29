@@ -567,7 +567,7 @@ void ComplexKafkaTask::kafka_merge_broker_list(KafkaBrokerMap *dst,
 	while ((src_broker = src->get_next()) != NULL)
 	{
 		if (!dst->find_item(src_broker->get_node_id()))
-			dst->add_item(*src_broker);
+			dst->add_item(*src_broker, src_broker->get_node_id());
 	}
 }
 
@@ -1487,7 +1487,8 @@ SubTask *WFKafkaTask::done()
 	{
 		if (this->state == WFT_STATE_TASK_ERROR)
 		{
-			WFTimerTask *timer = WFTaskFactory::create_timer_task(0, std::move(cb));
+			WFTimerTask *timer;
+			timer = WFTaskFactory::create_timer_task(0, 0, std::move(cb));
 			timer->user_data = this;
 			series->push_front(timer);
 		}

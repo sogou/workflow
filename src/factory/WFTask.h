@@ -634,7 +634,7 @@ protected:
 class WFConditional : public WFGenericTask
 {
 public:
-	void signal(void *msg)
+	virtual void signal(void *msg)
 	{
 		*this->msgbuf = msg;
 		if (this->flag.exchange(true))

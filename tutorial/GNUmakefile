@@ -2,13 +2,9 @@ ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 ALL_TARGETS := all clean
 MAKE_FILE := Makefile
 
-DEFAULT_BUILD_DIR := build
+DEFAULT_BUILD_DIR := build.cmake
 BUILD_DIR := $(shell if [ -f $(MAKE_FILE) ]; then echo "."; else echo $(DEFAULT_BUILD_DIR); fi)
 CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake; fi;)
-
-KAFKA 		?= n
-MYSQL 		?= y
-REDIS 		?= y
 
 .PHONY: $(ALL_TARGETS)
 
@@ -25,7 +21,7 @@ endif
 clean:
 ifeq ($(MAKE_FILE), $(wildcard $(MAKE_FILE)))
 	-make -f Makefile clean
-else ifeq (build, $(wildcard build))
-	-make -C build clean
+else
+	-make -C $(DEFAULT_BUILD_DIR) clean
 endif
-	rm -rf build
+	rm -rf $(DEFAULT_BUILD_DIR)

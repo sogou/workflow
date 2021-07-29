@@ -74,7 +74,7 @@ private:
 	virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
-	virtual void release() { }
+	virtual void release(int keep_alive) { }
 
 private:
 	struct sockaddr *addr;
@@ -111,7 +111,7 @@ private:
 
 protected:
 	/* Send small packet while receiving. Call only in append(). */
-	int feedback(const void *buf, size_t size);
+	virtual int feedback(const void *buf, size_t size);
 
 private:
 	struct CommConnEntry *entry;

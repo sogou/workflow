@@ -429,7 +429,7 @@ SubTask *ComplexChannelOutTask<MSG>::done()
 template<class MSG>
 SubTask *ComplexChannelOutTask<MSG>::upgrade()
 {
-	WFCounterTask *counter =  new WFCounterTask(0, [this](WFCounterTask *task)
+	WFCounterTask *counter = new WFCounterTask(0, [this](WFCounterTask *task)
 	{
 		auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
 

@@ -92,7 +92,7 @@ CommMessageOut *ComplexRedisTask::message_out()
 			return auth_req;
 		}
 
-		if (db_num_ > 0)
+		if (db_num_ > 0 && (seqid == 0 || !password_.empty()))
 		{
 			succ_ = false;
 			is_user_request_ = false;

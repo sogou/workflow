@@ -23,17 +23,17 @@
 #include "list.h"
 #include "rbtree.h"
 #include "WFTask.h"
+#include "WFCondTask.h"
 #include "WFTaskFactory.h"
-#include "WFGlobal.h"
 #include "WFCondTaskFactory.h"
+#include "WFGlobal.h"
 
 class __WFCondition : public WFCondition
 {
 public:
 	__WFCondition(const std::string& str) :
 		name(str)
-	{
-	}
+	{ }
 
 public:
 	struct rb_node rb;
@@ -48,7 +48,7 @@ public:
 
 	WFWaitTask *create(const std::string& name, wait_callback_t&& cb);
 	WFWaitTask *create(const std::string& name,
-					   const struct timespec *abstime,
+					   const struct timespec *timeout,
 					   wait_callback_t&& cb);
 
 public:
@@ -94,12 +94,12 @@ WFWaitTask *__ConditionMap::create(const std::string& name,
 }
 
 WFWaitTask *__ConditionMap::create(const std::string& name,
-								   const struct timespec *abstime,
+								   const struct timespec *timeout,
 								   wait_callback_t&& cb)
 {
 	__WFCondition *cond = this->find_condition(name);
 
-	return WFCondTaskFactory::create_timedwait_task(cond, abstime,
+	return WFCondTaskFactory::create_timedwait_task(cond, timeout,
 													std::move(cb));
 }
 
@@ -160,7 +160,147 @@ __WFCondition *__ConditionMap::find_condition(const std::string& name)
 	return cond;
 }
 
-/////////////// factory api ///////////////
+class WFTimedWaitTask : public WFCondWaitTask
+{
+public:
+	void set_timer(__WFWaitTimerTask *timer) { this->timer = timer; }
+	virtual void count();
+	virtual void clear_locked();
+
+protected:
+	virtual void dispatch();
+
+private:
+	__WFWaitTimerTask *timer;
+
+public:
+	WFTimedWaitTask(wait_callback_t&& cb) :
+		WFCondWaitTask(std::move(cb))
+	{
+		this->timer = NULL;
+	}
+
+	virtual ~WFTimedWaitTask();
+};
+
+class __WFWaitTimerTask : public WFTimerTask
+{
+public:
+	void clear_wait_task() // must called within this mutex
+	{
+		this->wait_task = NULL;
+	}
+
+protected:
+	virtual int duration(struct timespec *value)
+	{
+		*value = this->timeout;
+		return 0;
+	}
+
+	virtual SubTask *done();
+
+protected:
+	struct timespec timeout;
+
+private:
+	std::mutex *mutex;
+	std::atomic<int> *ref;
+	WFTimedWaitTask *wait_task;
+
+public:
+	__WFWaitTimerTask(WFTimedWaitTask *wait_task,
+					  const struct timespec *timeout,
+					  std::mutex *mutex, std::atomic<int> *ref,
+					  CommScheduler *scheduler) :
+		WFTimerTask(scheduler, nullptr)
+	{
+		this->timeout = *timeout;
+		this->ref = ref;
+		++*this->ref;
+		this->mutex = mutex;
+		this->wait_task = wait_task;
+	}
+
+	virtual ~__WFWaitTimerTask();
+};
+
+SubTask *WFCondWaitTask::done()
+{
+	SeriesWork *series = series_of(this);
+
+	WFTimerTask *switch_task = WFTaskFactory::create_timer_task(0,
+		[this](WFTimerTask *task) {
+			if (this->callback)
+				this->callback(this);
+			delete this;
+	});
+	series->push_front(switch_task);
+
+	return series->pop();
+}
+
+void WFTimedWaitTask::clear_locked()
+{
+	this->timer->clear_wait_task();
+	this->timer = NULL;
+}
+
+void WFTimedWaitTask::count()
+{
+	if (--this->value == 0)
+	{
+		if (this->state == WFT_STATE_UNDEFINED)
+			this->state = WFT_STATE_SUCCESS;
+		this->subtask_done();
+	}
+}
+
+void WFTimedWaitTask::dispatch()
+{
+	if (this->timer)
+		timer->dispatch();
+
+	this->WFMailboxTask::count();
+}
+
+WFTimedWaitTask::~WFTimedWaitTask()
+{
+	if (this->state != WFT_STATE_SUCCESS)
+		delete this->timer;
+}
+
+SubTask *__WFWaitTimerTask::done()
+{
+	WFTimedWaitTask *waiter = NULL;
+
+	this->mutex->lock();
+	if (this->wait_task)
+	{
+		list_del(&this->wait_task->list);
+		this->wait_task->state = WFT_STATE_SYS_ERROR;
+		this->wait_task->error = ETIMEDOUT;
+		waiter = this->wait_task;
+		waiter->set_timer(NULL);
+	}
+	this->mutex->unlock();
+
+	if (waiter)
+		waiter->count();
+	delete this;
+	return NULL;
+}
+
+__WFWaitTimerTask::~__WFWaitTimerTask()
+{
+	if (--*this->ref == 0)
+	{
+		delete this->mutex;
+		delete this->ref;
+	}
+}
+
+/////////////// factory impl ///////////////
 
 void WFCondTaskFactory::signal_by_name(const std::string& name, void *msg)
 {
@@ -179,10 +319,10 @@ WFWaitTask *WFCondTaskFactory::create_wait_task(const std::string& name,
 }
 
 WFWaitTask *WFCondTaskFactory::create_timedwait_task(const std::string& name,
-													 const struct timespec *abstime,
+													 const struct timespec *timeout,
 													 wait_callback_t callback)
 {
-	return __ConditionMap::get_instance()->create(name, abstime,
+	return __ConditionMap::get_instance()->create(name, timeout,
 												  std::move(callback));
 }
 
@@ -191,26 +331,26 @@ WFWaitTask *WFCondTaskFactory::create_wait_task(WFCondition *cond,
 {
 	WFCondWaitTask *task = new WFCondWaitTask(std::move(callback));
 
-	cond->mutex.lock();
+	cond->mutex->lock();
 	list_add_tail(&task->list, &cond->wait_list);
-	cond->mutex.unlock();
+	cond->mutex->unlock();
 
 	return task;
 }
 
 WFWaitTask *WFCondTaskFactory::create_timedwait_task(WFCondition *cond,
-													 const struct timespec *abstime,
+													 const struct timespec *timeout,
 													 wait_callback_t callback)
 {
-	WFCondWaitTask *waiter = new WFCondWaitTask(std::move(callback));
-	WFTimedWaitTask *task = new WFTimedWaitTask(waiter, &cond->mutex, abstime,
-												WFGlobal::get_scheduler(),
-												nullptr);
-	waiter->set_timer(task);
+	WFTimedWaitTask *waiter = new WFTimedWaitTask(std::move(callback));
+	__WFWaitTimerTask *timer = new __WFWaitTimerTask(waiter, timeout,
+													 cond->mutex, cond->ref,
+													 WFGlobal::get_scheduler());
+	waiter->set_timer(timer);
 
-	cond->mutex.lock();
+	cond->mutex->lock();
 	list_add_tail(&waiter->list, &cond->wait_list);
-	cond->mutex.unlock();
+	cond->mutex->unlock();
 
 	return waiter;
 }

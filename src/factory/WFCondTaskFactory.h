@@ -41,7 +41,7 @@ public:
 										wait_callback_t callback);
 
 	static WFWaitTask *create_timedwait_task(const std::string& name,
-											 const struct timespec *abstime,
+											 const struct timespec *timeout,
 											 wait_callback_t callback);
 
 	// use condition by ptr
@@ -49,7 +49,7 @@ public:
 										wait_callback_t callback);
 
 	static WFWaitTask *create_timedwait_task(WFCondition *cond,
-											 const struct timespec *abstime,
+											 const struct timespec *timeout,
 											 wait_callback_t callback);
 
 };

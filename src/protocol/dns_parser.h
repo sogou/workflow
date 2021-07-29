@@ -163,7 +163,7 @@ typedef struct __dns_parser
 	size_t msgsize;
 	size_t bufsize;
 	char complete;				// Whether parse completed
-	char leading_length;		// Response has leading length When TCP
+	char single_packet;			// Response without leading length When UDP
 	struct dns_header header;
 	struct dns_question question;
 	struct list_head answer_list;

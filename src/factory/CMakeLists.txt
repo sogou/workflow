@@ -7,18 +7,20 @@ set(SRC
 	Workflow.cc
 	WFTaskFactory.cc
 	WFCondTaskFactory.cc
+	WFResourcePool.cc
 	HttpTaskImpl.cc
+	WFResourcePool.cc
 	WebSocketTaskImpl.cc
 )
 
-if (MYSQL STREQUAL "y")
+if (NOT MYSQL STREQUAL "n")
 	set(SRC
 		${SRC}
 		MySQLTaskImpl.cc
 	)
 endif ()
 
-if (REDIS STREQUAL "y")
+if (NOT REDIS STREQUAL "n")
 	set(SRC
 		${SRC}
 		RedisTaskImpl.cc

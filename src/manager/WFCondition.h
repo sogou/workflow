@@ -16,8 +16,8 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#ifndef _WFSEMAPHORE_H_
-#define _WFSEMAPHORE_H_
+#ifndef _WFCONDITION_H_
+#define _WFCONDITION_H_
 
 #include <mutex>
 #include <time.h>
@@ -31,63 +31,56 @@
 using WFWaitTask = WFMailboxTask;
 using wait_callback_t = mailbox_callback_t;
 
-class WFSemaphore
-{
-public:
-	bool get(WFConditional *cond);
-	void post(void *msg);
-
-public:
-	std::mutex mutex;
-	struct list_head wait_list;
-
-private:
-	struct entry
-	{
-		struct list_head list;
-		WFConditional *ptr;
-	};
-
-public:
-	WFSemaphore(int value, void **resources)
-	{
-		if (value <= 0)
-			value = 1;
-
-		INIT_LIST_HEAD(&this->wait_list);
-		this->concurrency = value;
-		this->total = value;
-		this->index = value;
-		this->resources = resources;
-	}
-
-	virtual ~WFSemaphore() { }
-
-private:
-	std::atomic<int> concurrency;
-	int total;
-	int index;
-
-protected:
-	void **resources;
-};
-
 class WFCondition
 {
 public:
 	void signal(void *msg);
 	void broadcast(void *msg);
+	// 1: existed; 0: should get; -1: should wait;
+	int get(void **pmsg);
+	WFWaitTask *create_wait_task(wait_callback_t callback);
 
 public:
-	WFCondition() { INIT_LIST_HEAD(&this->wait_list); }
-	virtual ~WFCondition() { }
-
-public:
-	std::mutex mutex;
+	bool flag;
+	std::atomic<int> *ref;
+	std::mutex *mutex;
+	struct list_head get_list;
 	struct list_head wait_list;
-};
 
-#include "WFCondition.inl"
+public:
+	class BaseResource
+	{
+	public:
+		virtual void *get() const = 0;
+		virtual bool empty() const = 0;
+	};
+
+private:
+	const BaseResource *res;
+
+public:
+	WFCondition(const BaseResource *res)
+	{
+		this->res = res;
+		this->flag = false;
+		this->mutex = new std::mutex;
+		this->ref = new std::atomic<int>(1);
+		INIT_LIST_HEAD(&this->get_list);
+		INIT_LIST_HEAD(&this->wait_list);
+	}
+
+	WFCondition()
+	{
+		this->res = NULL;
+		this->flag = false;
+		this->mutex = new std::mutex;
+		this->ref = new std::atomic<int>(1);
+		INIT_LIST_HEAD(&this->get_list);
+		INIT_LIST_HEAD(&this->wait_list);
+	}
+
+	virtual ~WFCondition();
+};
 
 #endif
 

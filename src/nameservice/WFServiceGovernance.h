@@ -102,7 +102,7 @@ public:
 	virtual ~EndpointAddress() { delete this->params; }
 };
 
-class WFServiceGovernance : public WFDnsResolver
+class WFServiceGovernance : public WFNSPolicy
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,

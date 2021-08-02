@@ -1,6 +1,6 @@
 [Workflow Introduction](https://github.com/sogou/workflow/blob/master/README.md)
 
-[Windows下Workflow编译指南](Readme_cn.md)
+[Windows下Workflow编译指南](/README_cn.md)
 
 [![license MIT](https://img.shields.io/badge/License-Apache-yellow.svg)](https://git.sogou-inc.com/wujiaxu/Filter/blob/master/LICENSE)
 [![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)

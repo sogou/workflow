@@ -83,13 +83,6 @@ CommMessageIn *ComplexDnsTask::message_in()
 
 bool ComplexDnsTask::init_success()
 {
-	static constexpr struct EndpointParams ep =
-	{
-		.max_connections		=	65535,
-		.connect_timeout		=	10 * 1000,
-		.response_timeout		=	10 * 1000,
-	};
-
 	if (uri_.scheme && strcasecmp(uri_.scheme, "dns") == 0)
 		this->WFComplexClientTask::set_transport_type(TT_TCP);
 	else
@@ -113,7 +106,8 @@ bool ComplexDnsTask::init_success()
 			return false;
 		}
 
-		ret = WFGlobal::get_route_manager()->get(type, addr, info_, &ep,
+		auto *ep = &WFGlobal::get_global_settings()->dns_server_params;
+		ret = WFGlobal::get_route_manager()->get(type, addr, info_, ep,
 												 uri_.host, route_result_);
 		freeaddrinfo(addr);
 		if (ret < 0)

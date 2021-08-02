@@ -231,7 +231,7 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 	this->recover_server_from_breaker(server);
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFNSPolicy::success(result, tracing, target);
+	this->WFNSPolicy::success(result, tracing, target);
 }
 
 void WFServiceGovernance::failed(RouteManager::RouteResult *result,
@@ -254,7 +254,7 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 
 	pthread_rwlock_unlock(&this->rwlock);
 
-	WFNSPolicy::failed(result, tracing, target);
+	this->WFNSPolicy::failed(result, tracing, target);
 }
 
 void WFServiceGovernance::check_breaker()

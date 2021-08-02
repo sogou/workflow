@@ -1,6 +1,6 @@
 [Workflow 中文介绍](https://github.com/sogou/workflow/blob/master/README_cn.md)
 
-[Windows Build Guide in English](Readme.md)
+[Windows Build Guide in English](/README.md)
 
 [![license MIT](https://img.shields.io/badge/License-Apache-yellow.svg)](https://git.sogou-inc.com/wujiaxu/Filter/blob/master/LICENSE)
 [![C++](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)

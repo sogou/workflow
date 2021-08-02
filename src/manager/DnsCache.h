@@ -159,7 +159,7 @@ private:
 		{
 			struct addrinfo *ai = value.addrinfo;
 
-			if (ai && (ai->ai_flags | AI_PASSIVE))
+			if (ai && (ai->ai_flags & AI_PASSIVE))
 				freeaddrinfo(ai);
 			else
 				DnsUtil::freeaddrinfo(ai);

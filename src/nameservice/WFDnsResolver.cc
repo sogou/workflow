@@ -13,9 +13,9 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
            Liu Kai (liukaidx@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #include <sys/types.h>
@@ -34,6 +34,7 @@
 #include "WFGlobal.h"
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
+#include "WFResourcePool.h"
 #include "WFNameService.h"
 #include "DnsUtil.h"
 #include "WFDnsClient.h"
@@ -265,24 +266,22 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 
 class WFResolverTask : public WFRouterTask
 {
-	static void dns_partial_callback(WFDnsTask *dns_task);
-
 public:
 	WFResolverTask(const struct WFNSParams *params, int dns_cache_level,
 				   unsigned int dns_ttl_default, unsigned int dns_ttl_min,
 				   const struct EndpointParams *endpoint_params,
 				   router_callback_t&& cb) :
-		WFRouterTask(std::move(cb)),
-		type_(params->type),
-		host_(params->uri.host ? params->uri.host : ""),
-		port_(params->uri.port ? atoi(params->uri.port) : 0),
-		info_(params->info),
-		dns_cache_level_(dns_cache_level),
-		dns_ttl_default_(dns_ttl_default),
-		dns_ttl_min_(dns_ttl_min),
-		endpoint_params_(*endpoint_params),
-		first_addr_only_(params->fixed_addr)
+		WFRouterTask(std::move(cb))
 	{
+		type_ = params->type;
+		host_ = params->uri.host ? params->uri.host : "";
+		port_ = params->uri.port ? atoi(params->uri.port) : 0;
+		info_ = params->info;
+		dns_cache_level_ = dns_cache_level;
+		dns_ttl_default_ = dns_ttl_default;
+		dns_ttl_min_ = dns_ttl_min;
+		endpoint_params_ = *endpoint_params;
+		first_addr_only_ = params->fixed_addr;
 	}
 
 private:
@@ -290,6 +289,7 @@ private:
 	virtual SubTask *done();
 	void thread_dns_callback(ThreadDnsTask *dns_task);
 	void dns_single_callback(WFDnsTask *dns_task);
+	void dns_partial_callback(WFDnsTask *dns_task);
 	void dns_parallel_callback(const ParallelWork *pwork);
 	void dns_callback_internal(DnsOutput *dns_task,
 							   unsigned int ttl_default,
@@ -298,14 +298,14 @@ private:
 private:
 	TransportType type_;
 	std::string host_;
-	unsigned short port_;
 	std::string info_;
+	unsigned short port_;
+	bool first_addr_only_;
+	bool insert_dns_;
 	int dns_cache_level_;
 	unsigned int dns_ttl_default_;
 	unsigned int dns_ttl_min_;
 	struct EndpointParams endpoint_params_;
-	bool first_addr_only_;
-	bool insert_dns_;
 };
 
 void WFResolverTask::dispatch()
@@ -420,6 +420,8 @@ void WFResolverTask::dispatch()
 	}
 	else if (insert_dns_)
 	{
+		WFDnsResolver *resolver = WFGlobal::get_dns_resolver();
+
 		if (family == AF_INET || family == AF_INET6)
 		{
 			auto&& cb = std::bind(&WFResolverTask::dns_single_callback,
@@ -430,10 +432,17 @@ void WFResolverTask::dispatch()
 			if (family == AF_INET6)
 				dns_task->get_req()->set_question_type(DNS_TYPE_AAAA);
 
-			series_of(this)->push_front(dns_task);
+			WFConditional *cond = resolver->get_cond(dns_task);
+			series_of(this)->push_front(cond);
 		}
 		else
 		{
+			auto&& cb_v4 = std::bind(&WFResolverTask::dns_partial_callback,
+									 this,
+									 std::placeholders::_1);
+			auto&& cb_v6 = std::bind(&WFResolverTask::dns_partial_callback,
+									 this,
+									 std::placeholders::_1);
 			struct DnsContext *dctx = new struct DnsContext[2];
 			WFDnsTask *task_v4;
 			WFDnsTask *task_v6;
@@ -444,10 +453,10 @@ void WFResolverTask::dispatch()
 			dctx[0].port = port_;
 			dctx[1].port = port_;
 
-			task_v4 = client->create_dns_task(host_, dns_partial_callback);
+			task_v4 = client->create_dns_task(host_, std::move(cb_v4));
 			task_v4->user_data = dctx;
 
-			task_v6 = client->create_dns_task(host_, dns_partial_callback);
+			task_v6 = client->create_dns_task(host_, std::move(cb_v6));
 			task_v6->get_req()->set_question_type(DNS_TYPE_AAAA);
 			task_v6->user_data = dctx + 1;
 
@@ -457,8 +466,11 @@ void WFResolverTask::dispatch()
 
 			pwork = Workflow::create_parallel_work(std::move(cb));
 			pwork->set_context(dctx);
-			pwork->add_series(Workflow::create_series_work(task_v4, nullptr));
-			pwork->add_series(Workflow::create_series_work(task_v6, nullptr));
+
+			WFConditional *cond_v4 = resolver->get_cond(task_v4);
+			WFConditional *cond_v6 = resolver->get_cond(task_v6);
+			pwork->add_series(Workflow::create_series_work(cond_v4, nullptr));
+			pwork->add_series(Workflow::create_series_work(cond_v6, nullptr));
 
 			series_of(this)->push_front(pwork);
 		}
@@ -526,6 +538,8 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 
 void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 {
+	WFGlobal::get_dns_resolver()->post_cond();
+
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		struct addrinfo *ai = NULL;
@@ -548,8 +562,9 @@ void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 
 void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
 {
-	struct DnsContext *ctx = (struct DnsContext *)dns_task->user_data;
+	WFGlobal::get_dns_resolver()->post_cond();
 
+	struct DnsContext *ctx = (struct DnsContext *)dns_task->user_data;
 	ctx->state = dns_task->get_state();
 	ctx->error = dns_task->get_error();
 	if (ctx->state == WFT_STATE_SUCCESS)
@@ -634,9 +649,9 @@ WFDnsResolver::create(const struct WFNSParams *params, int dns_cache_level,
 					  const struct EndpointParams *endpoint_params,
 					  router_callback_t&& callback)
 {
-	return new WFResolverTask(params, dns_cache_level,
-							  dns_ttl_default, dns_ttl_min,
-							  endpoint_params, std::move(callback));
+	return new WFResolverTask(params, dns_cache_level, dns_ttl_default,
+							  dns_ttl_min, endpoint_params,
+							  std::move(callback));
 }
 
 WFRouterTask *WFDnsResolver::create_router_task(const struct WFNSParams *params,
@@ -650,5 +665,10 @@ WFRouterTask *WFDnsResolver::create_router_task(const struct WFNSParams *params,
 													 DNS_CACHE_LEVEL_1;
 	return create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 				  endpoint_params, std::move(callback));
+}
+
+WFDnsResolver::WFDnsResolver() :
+	respool(WFGlobal::get_global_settings()->dns_server_params.max_connections)
+{
 }
 

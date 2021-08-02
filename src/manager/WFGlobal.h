@@ -34,6 +34,7 @@
 #include "Executor.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
+#include "WFDNSResolver.h"
 
 /**
  * @file    WFGlobal.h
@@ -119,9 +120,12 @@ public:
 	static IOService *get_io_service();
 	static ExecQueue *get_dns_queue();
 	static Executor *get_dns_executor();
+	static WFNameService *get_name_service();
+	static WFDNSResolver *get_dns_resolver();
+
+public:
 	static void sync_operation_begin();
 	static void sync_operation_end();
-	static WFNameService *get_name_service();
 };
 
 #endif

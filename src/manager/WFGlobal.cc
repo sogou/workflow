@@ -553,17 +553,17 @@ public:
 	}
 
 public:
+	WFDNSResolver *get_dns_resolver() { return &resolver_; }
 	WFNameService *get_name_service() { return &service_; }
 
 private:
-	static WFDNSResolver resolver_;
+	WFDNSResolver resolver_;
 	WFNameService service_;
 
 public:
-	__NameServiceManager() : service_(&__NameServiceManager::resolver_) { }
+	__NameServiceManager() : service_(&resolver_) { }
 };
 
-WFDNSResolver __NameServiceManager::resolver_;
 
 CommScheduler *WFGlobal::get_scheduler()
 {
@@ -618,6 +618,11 @@ Executor *WFGlobal::get_dns_executor()
 WFNameService *WFGlobal::get_name_service()
 {
 	return __NameServiceManager::get_instance()->get_name_service();
+}
+
+WFDNSResolver *WFGlobal::get_dns_resolver()
+{
+	return __NameServiceManager::get_instance()->get_dns_resolver();
 }
 
 const char *WFGlobal::get_default_port(const std::string& scheme)

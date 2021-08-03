@@ -289,7 +289,7 @@ private:
 	virtual SubTask *done();
 	void thread_dns_callback(ThreadDnsTask *dns_task);
 	void dns_single_callback(WFDnsTask *dns_task);
-	void dns_partial_callback(WFDnsTask *dns_task);
+	static void dns_partial_callback(WFDnsTask *dns_task);
 	void dns_parallel_callback(const ParallelWork *pwork);
 	void dns_callback_internal(DnsOutput *dns_task,
 							   unsigned int ttl_default,
@@ -437,12 +437,6 @@ void WFResolverTask::dispatch()
 		}
 		else
 		{
-			auto&& cb_v4 = std::bind(&WFResolverTask::dns_partial_callback,
-									 this,
-									 std::placeholders::_1);
-			auto&& cb_v6 = std::bind(&WFResolverTask::dns_partial_callback,
-									 this,
-									 std::placeholders::_1);
 			struct DnsContext *dctx = new struct DnsContext[2];
 			WFDnsTask *task_v4;
 			WFDnsTask *task_v6;
@@ -453,10 +447,10 @@ void WFResolverTask::dispatch()
 			dctx[0].port = port_;
 			dctx[1].port = port_;
 
-			task_v4 = client->create_dns_task(host_, std::move(cb_v4));
+			task_v4 = client->create_dns_task(host_, dns_partial_callback);
 			task_v4->user_data = dctx;
 
-			task_v6 = client->create_dns_task(host_, std::move(cb_v6));
+			task_v6 = client->create_dns_task(host_, dns_partial_callback);
 			task_v6->get_req()->set_question_type(DNS_TYPE_AAAA);
 			task_v6->user_data = dctx + 1;
 

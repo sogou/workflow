@@ -543,17 +543,16 @@ public:
 	}
 
 public:
+	WFDnsResolver *get_dns_resolver() { return &resolver_; }
 	WFNameService *get_name_service() { return &service_; }
 
 private:
-	static WFDnsResolver resolver_;
+	WFDnsResolver resolver_;
 	WFNameService service_;
 
 public:
-	__NameServiceManager() : service_(&__NameServiceManager::resolver_) { }
+	__NameServiceManager() : service_(&resolver_) { }
 };
-
-WFDnsResolver __NameServiceManager::resolver_;
 
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
 #define HOSTS_LINEBUF_INIT_SIZE	128
@@ -803,6 +802,11 @@ Executor *WFGlobal::get_dns_executor()
 WFNameService *WFGlobal::get_name_service()
 {
 	return __NameServiceManager::get_instance()->get_name_service();
+}
+
+WFDnsResolver *WFGlobal::get_dns_resolver()
+{
+	return __NameServiceManager::get_instance()->get_dns_resolver();
 }
 
 const char *WFGlobal::get_default_port(const std::string& scheme)

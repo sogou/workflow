@@ -44,7 +44,6 @@ public:
 	EndpointGroup *group;
 	unsigned int consistent_hash[VIRTUAL_GROUP_SIZE];
 
-	UPSAddrParams();
 	UPSAddrParams(const struct AddressParams *params,
 				  const std::string& address);
 };

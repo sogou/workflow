@@ -158,7 +158,19 @@ public:
 										   off_t offset,
 										   fio_callback_t callback);
 
+	static WFFileIOTask *create_pread_task(const std::string& filepath,
+										   void *buf,
+										   size_t count,
+										   off_t offset,
+										   fio_callback_t callback);
+
 	static WFFileIOTask *create_pwrite_task(int fd,
+											const void *buf,
+											size_t count,
+											off_t offset,
+											fio_callback_t callback);
+
+	static WFFileIOTask *create_pwrite_task(const std::string& filepath,
 											const void *buf,
 											size_t count,
 											off_t offset,
@@ -173,7 +185,19 @@ public:
 											 off_t offset,
 											 fvio_callback_t callback);
 
+	static WFFileVIOTask *create_preadv_task(const std::string& filepath,
+											 const struct iovec *iov,
+											 int iovcnt,
+											 off_t offset,
+											 fvio_callback_t callback);
+
 	static WFFileVIOTask *create_pwritev_task(int fd,
+											  const struct iovec *iov,
+											  int iovcnt,
+											  off_t offset,
+											  fvio_callback_t callback);
+
+	static WFFileVIOTask *create_pwritev_task(const std::string& filepath,
 											  const struct iovec *iov,
 											  int iovcnt,
 											  off_t offset,
@@ -182,9 +206,15 @@ public:
 	static WFFileSyncTask *create_fsync_task(int fd,
 											 fsync_callback_t callback);
 
+	static WFFileSyncTask *create_fsync_task(const std::string& filepath,
+											 fsync_callback_t callback);
+
 	/* On systems that do not support fdatasync(), like macOS,
 	 * fdsync task is equal to fsync task. */
 	static WFFileSyncTask *create_fdsync_task(int fd,
+											  fsync_callback_t callback);
+
+	static WFFileSyncTask *create_fdsync_task(const std::string& filepath,
 											  fsync_callback_t callback);
 
 public:

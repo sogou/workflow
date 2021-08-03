@@ -32,6 +32,9 @@ set(TUTORIAL_LIST
 	tutorial-08-matrix_multiply
 	tutorial-09-http_file_server
 	tutorial-11-graph_task
+	tutorial-14-file_task
+	tutorial-15-filev_task
+	tutorial-16-file_sync
 )
 
 if (APPLE)

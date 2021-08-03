@@ -36,50 +36,20 @@ class WFCondition
 public:
 	void signal(void *msg);
 	void broadcast(void *msg);
-	// 1: existed; 0: should get; -1: should wait;
-	int get(void **pmsg);
-	WFWaitTask *create_wait_task(wait_callback_t callback);
 
 public:
-	bool flag;
-	std::atomic<int> *ref;
-	std::mutex *mutex;
-	struct list_head get_list;
-	struct list_head wait_list;
-
-public:
-	class BaseResource
-	{
-	public:
-		virtual void *get() const = 0;
-		virtual bool empty() const = 0;
-	};
-
-private:
-	const BaseResource *res;
-
-public:
-	WFCondition(const BaseResource *res)
-	{
-		this->res = res;
-		this->flag = false;
-		this->mutex = new std::mutex;
-		this->ref = new std::atomic<int>(1);
-		INIT_LIST_HEAD(&this->get_list);
-		INIT_LIST_HEAD(&this->wait_list);
-	}
-
 	WFCondition()
 	{
-		this->res = NULL;
-		this->flag = false;
 		this->mutex = new std::mutex;
 		this->ref = new std::atomic<int>(1);
-		INIT_LIST_HEAD(&this->get_list);
 		INIT_LIST_HEAD(&this->wait_list);
 	}
-
 	virtual ~WFCondition();
+
+public:
+	std::atomic<int> *ref;
+	std::mutex *mutex;
+	struct list_head wait_list;
 };
 
 #endif

@@ -487,3 +487,22 @@ public:
 	}
 };
 
+/**********WFChannelFactory impl**********/
+
+template<class MSG>
+WFComplexChannel<MSG> *
+WFChannelFactory<MSG>::create_channel(std::function<void (WFChannelTask<MSG> *)> process)
+{
+	return new WFComplexChannel<MSG>(NULL, WFGlobal::get_scheduler(),
+									 std::move(process));
+}
+
+template<class MSG>
+WFChannelTask<MSG> *
+WFChannelFactory<MSG>::create_out_task(WFComplexChannel<MSG> *channel,
+									   std::function<void (WFChannelTask<MSG> *)> cb)
+{
+	return new ComplexChannelOutTask<MSG>(channel, WFGlobal::get_scheduler(),
+										  std::move(cb));
+}
+

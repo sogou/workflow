@@ -14,6 +14,8 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <assert.h>
@@ -21,6 +23,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <string.h>
+#include <stdio.h>
 #include <string>
 #include <unordered_map>
 #include <atomic>
@@ -557,48 +560,6 @@ public:
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
 #define HOSTS_LINEBUF_INIT_SIZE	128
 
-static int __read_line(FILE *fp, void **buf, size_t *bufsize)
-{
-	char *p = (char *)*buf;
-	size_t offset = 0;
-	size_t newsize;
-	void *newbase;
-	int nleft;
-
-	while (1)
-	{
-		if (offset + 1 >= *bufsize)
-		{
-			newsize = MAX(HOSTS_LINEBUF_INIT_SIZE, *bufsize * 2);
-			newbase = realloc(*buf, newsize);
-			if (!newbase)
-				return -1;
-
-			*buf = newbase;
-			*bufsize = newsize;
-			p = (char *)*buf;
-		}
-
-		nleft = *bufsize - offset;
-		if (!fgets(&p[offset], nleft, fp))
-		{
-			if (offset != 0 && !ferror(fp))
-				break;
-
-			return ferror(fp) ? -1 : 1;
-		}
-
-		offset += strlen(&p[offset]);
-		if (p[offset - 1] == '\n')
-		{
-			p[offset - 1] = '\0';
-			break;
-		}
-	}
-
-	return 0;
-}
-
 static void __split_merge_str(const char *p, std::string& result)
 {
 	const char *start;
@@ -663,7 +624,9 @@ static void __set_options(const char *p,
 	}
 }
 
-static int __parse_resolv_conf(const char *filename,
+extern int __dns_resolver_read_line(FILE *fp, void **buf, size_t *bufsize);
+
+static int __parse_resolv_conf(const char *path,
 							   std::string& url, std::string& search_list,
 							   int *ndots, int *attempts, bool *rotate)
 {
@@ -672,11 +635,11 @@ static int __parse_resolv_conf(const char *filename,
 	FILE *fp;
 	int ret;
 
-	fp = fopen(filename, "r");
+	fp = fopen(path, "r");
 	if (!fp)
 		return -1;
 
-	while ((ret = __read_line(fp, &line, &bufsize)) == 0)
+	while ((ret = __dns_resolver_read_line(fp, &line, &bufsize)) == 0)
 	{
 		const char *p = (const char *)line;
 		if (strncmp(p, "nameserver", 10) == 0)

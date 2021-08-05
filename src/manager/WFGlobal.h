@@ -70,8 +70,8 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 	.poller_threads		=	4,
 	.handler_threads	=	20,
 	.compute_threads	=	-1,
-	.resolv_conf_path	=	NULL,			// use thread dns task for default
-	.hosts_path			=	NULL,
+	.resolv_conf_path	=	"/etc/resolv.conf",
+	.hosts_path			=	"/etc/hosts",
 };
 
 /**

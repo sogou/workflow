@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <ctype.h>
 #include <utility>
 #include <string>
@@ -93,7 +94,7 @@ static int __default_family()
 	bool v4 = false;
 	bool v6 = false;
 
-	if (getaddrinfo(NULL, "0", &__ai_hints, &res) == 0)
+	if (getaddrinfo(NULL, "1", &__ai_hints, &res) == 0)
 	{
 		for(cur = res; cur; cur = cur->ai_next)
 		{
@@ -111,7 +112,7 @@ static int __default_family()
 	return family;
 }
 
-static int __read_line(FILE *fp, void **buf, size_t *bufsize)
+int __dns_resolver_read_line(FILE *fp, void **buf, size_t *bufsize)
 {
 	char *p = (char *)*buf;
 	size_t offset = 0;
@@ -142,11 +143,14 @@ static int __read_line(FILE *fp, void **buf, size_t *bufsize)
 			return ferror(fp) ? -1 : 1;
 		}
 
-		offset += strlen(&p[offset]);
-		if (p[offset - 1] == '\n')
+		if (p[offset])
 		{
-			p[offset - 1] = '\0';
-			break;
+			offset += strlen(&p[offset]);
+			if (p[offset - 1] == '\n')
+			{
+				p[offset - 1] = '\0';
+				break;
+			}
 		}
 	}
 
@@ -197,7 +201,7 @@ static int __readaddrinfo_line(char *p, const char *name, const char *port,
 	return 1;
 }
 
-static int __readaddrinfo(const char *filename,
+static int __readaddrinfo(const char *path,
 						  const char *name, unsigned short port,
 						  const struct addrinfo *hints,
 						  struct addrinfo **res)
@@ -211,7 +215,7 @@ static int __readaddrinfo(const char *filename,
 	FILE *fp;
 	int ret;
 
-	fp = fopen(filename, "r");
+	fp = fopen(path, "r");
 	if (!fp)
 		return EAI_SYSTEM;
 
@@ -220,12 +224,12 @@ static int __readaddrinfo(const char *filename,
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", port);
 
 	errno_bak = errno;
-	while ((ret = __read_line(fp, &line, &bufsize)) == 0)
+	while ((ret = __dns_resolver_read_line(fp, &line, &bufsize)) == 0)
 	{
 		if (__readaddrinfo_line((char*)line, name, port_str, &h, res) == 0)
 		{
 			count++;
-			res = &((*res)->ai_next);
+			res = &(*res)->ai_next;
 		}
 	}
 

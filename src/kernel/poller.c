@@ -131,7 +131,7 @@ static inline int __poller_create_timerfd()
 static inline int __poller_add_timerfd(int fd, poller_t *poller)
 {
 	struct epoll_event ev = {
-		.events		=	EPOLLIN,
+		.events		=	EPOLLIN | EPOLLET,
 		.data		=	{
 			.ptr	=	NULL
 		}

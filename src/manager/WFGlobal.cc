@@ -193,6 +193,7 @@ public:
 	}
 
 	SSL_CTX *get_ssl_client_ctx() { return ssl_client_ctx_; }
+	SSL_CTX *new_ssl_client_ctx() { return SSL_CTX_new(SSLv23_server_method()); }
 	SSL_CTX *new_ssl_server_ctx() { return SSL_CTX_new(SSLv23_server_method()); }
 
 private:

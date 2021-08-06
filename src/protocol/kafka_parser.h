@@ -202,6 +202,22 @@ enum
 	KAFKA_BROKER_INITED,
 };
 
+enum
+{
+	KAFKA_CERT_PUBLIC_KEY,
+	KAFKA_CERT_PRIVATE_KEY,
+	KAFKA_CERT_CA,
+	KAFKA_CERT_NUMS,
+};
+
+enum
+{
+	KAFKA_CERT_ENC_PKCS12,
+	KAFKA_CERT_ENC_DER,
+	KAFKA_CERT_ENC_PEM,
+	KAFKA_CERT_ENC_NUMS,
+};
+
 typedef struct __kafka_api_version
 {
 	short api_key;
@@ -251,6 +267,38 @@ typedef struct __kafka_sasl
 	int status;
 } kafka_sasl_t;
 
+typedef struct __kafka_cert
+{
+	int type;
+	int encoding;
+	void *x509;
+	void *pkey;
+	void *store;
+} kafka_cert_t;
+
+typedef struct __kafka_ssl
+{
+	void *ctx;
+	char *cipher_suites;
+	char *curves_list;
+	char *sigalgs_list;
+	char *key_location;
+	char *key_pem;
+	kafka_cert_t *key;
+	char *key_password;
+	char *cert_location;
+	char *cert_pem;
+	kafka_cert_t *cert;
+	char *ca_location;
+	kafka_cert_t *ca;
+
+	char *ca_cert_stores;
+	char *crl_location;
+
+	char *keystore_location;
+	char *keystore_password;
+} kafka_ssl_t;
+
 typedef struct __kafka_config
 {
 	int produce_timeout;
@@ -282,6 +330,8 @@ typedef struct __kafka_config
 	char *password;
 	int (*client_new)(void *conf, kafka_sasl_t *sasl);
 	int (*recv)(const char *buf, size_t len, void *conf, void *sasl);
+
+	void *ssl_ctx;
 } kafka_config_t;
 
 typedef struct __kafka_broker
@@ -452,6 +502,12 @@ void kafka_api_deinit(kafka_api_t *api);
 void kafka_sasl_init(kafka_sasl_t *sasl);
 void kafka_sasl_deinit(kafka_sasl_t *sasl);
 
+void kafka_ssl_init(kafka_ssl_t *ssl);
+void kafka_ssl_deinit(kafka_ssl_t *ssl);
+
+void kafka_cert_init(kafka_cert_t *cert);
+void kafka_cert_deinit(kafka_cert_t *cert);
+
 int kafka_topic_partition_set_tp(const char *topic_name, int partition,
 								 kafka_topic_partition_t *toppar);
 
@@ -481,6 +537,9 @@ int kafka_api_version_is_queryable(const char *broker_version,
 int kafka_sasl_set_mechanisms(kafka_config_t *conf);
 int kafka_sasl_set_username(const char *username, kafka_config_t *conf);
 int kafka_sasl_set_password(const char *passwd, kafka_config_t *conf);
+
+kafka_cert_t *kafka_ssl_cert_new(kafka_ssl_t *ssl, int type, int encoding,
+								 const void *buffer, size_t size);
 
 #ifdef __cplusplus
 }

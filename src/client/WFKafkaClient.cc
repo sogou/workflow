@@ -21,6 +21,10 @@
 #include <stdint.h>
 #include <cstddef>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <openssl/x509.h>
+#include <openssl/pkcs12.h>
 #include <set>
 #include "WFKafkaClient.h"
 
@@ -126,6 +130,7 @@ public:
 		this->lock_status = new KafkaLockStatus;
 		this->broker_map = new KafkaBrokerMap;
 		this->meta_map = new std::map<std::string, MetaStatus>;
+		this->ssl = NULL;
 	}
 
 	~KafkaMember()
@@ -140,6 +145,7 @@ public:
 			delete this->broker_map;
 			delete this->lock_status;
 			delete this->meta_map;
+			delete this->ssl;
 		}
 	}
 
@@ -149,6 +155,7 @@ public:
 	KafkaBrokerList *broker_list;
 	KafkaBrokerMap *broker_map;
 	KafkaLockStatus *lock_status;
+	KafkaSSL *ssl;
 	std::map<std::string, MetaStatus> *meta_map;
 
 private:
@@ -328,6 +335,8 @@ private:
 	MetaStatus get_meta_status();
 
 	std::string get_userinfo() { return this->userinfo; }
+
+	bool init_ssl_ctx();
 
 private:
 	WFKafkaClient *client;
@@ -809,13 +818,280 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 	return ret;
 }
 
+static int __ssl_set_default_location(const kafka_ssl_t *ssl, SSL_CTX *ctx)
+{
+	static const char *paths[] = {
+		"/etc/pki/tls/certs/ca-bundle.crt",
+		"/etc/ssl/certs/ca-bundle.crt",
+		"/etc/pki/tls/certs/ca-bundle.trust.crt",
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+
+		"/etc/ssl/ca-bundle.pem",
+		"/etc/pki/tls/cacert.pem",
+		"/etc/ssl/cert.pem",
+		"/etc/ssl/cacert.pem",
+
+		"/etc/certs/ca-certificates.crt",
+		"/etc/ssl/certs/ca-certificates.crt",
+
+		"/etc/ssl/certs",
+
+		"/usr/local/etc/ssl/cert.pem",
+		"/usr/local/etc/ssl/cacert.pem",
+
+		"/usr/local/etc/ssl/certs/cert.pem",
+		"/usr/local/etc/ssl/certs/cacert.pem",
+
+		/* BSD */
+		"/usr/local/share/certs/ca-root-nss.crt",
+		"/etc/openssl/certs/ca-certificates.crt",
+#ifdef __APPLE__
+		"/private/etc/ssl/cert.pem",
+		"/private/etc/ssl/certs",
+		"/usr/local/etc/openssl@1.1/cert.pem",
+		"/usr/local/etc/openssl@1.0/cert.pem",
+		"/usr/local/etc/openssl/certs",
+		"/System/Library/OpenSSL",
+#endif
+#ifdef _AIX
+		"/var/ssl/certs/ca-bundle.crt",
+#endif
+		NULL,
+	};
+
+	for (int i = 0; const char *path = paths[i]; i++)
+	{
+		struct stat st;
+		if (stat(path, &st) != 0)
+			continue;
+
+		if (S_ISDIR(st.st_mode))
+		{
+			if (1 == SSL_CTX_load_verify_locations(ctx, NULL, ssl->ca_location))
+				return true;
+		}
+		else
+		{
+			if (1 == SSL_CTX_load_verify_locations(ctx, ssl->ca_location, NULL))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool ComplexKafkaTask::init_ssl_ctx()
+{
+	if (!this->client->member->ssl)
+		return true;
+
+	if (this->client->member->ssl->get_ctx())
+	{
+		this->config.set_ssl_ctx(this->client->member->ssl->get_ctx());
+		return true;
+	}
+
+	kafka_ssl_t *ssl = this->client->member->ssl->get_raw_ptr();
+	SSL_CTX *ctx = WFGlobal::new_ssl_client_ctx();
+
+	auto passwd_cb = [](char *buf, int size, int rwflag, void *userdata)->int {
+		kafka_ssl_t *ssl = (kafka_ssl_t *)userdata;
+		if (!ssl->key_password)
+			return -1;
+
+		int pwlen = (int) strlen(ssl->key_password);
+		memcpy(buf, ssl->key_password, std::min(pwlen, size));
+		return pwlen;
+	};
+
+	SSL_CTX_set_default_passwd_cb(ctx, passwd_cb);
+	SSL_CTX_set_default_passwd_cb_userdata(ctx, this->client->member->ssl);
+
+	if (ssl->cipher_suites)
+	{
+		if (!SSL_CTX_set_cipher_list(ctx, ssl->cipher_suites))
+			return false;
+	}
+
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000200fL
+	if (ssl->curves_list) {
+		if (!SSL_CTX_set1_curves_list(ctx, ssl->curves_list))
+			return false;
+	}
+
+	if (ssl->sigalgs_list) {
+		if (!SSL_CTX_set1_sigalgs_list(ctx, ssl->sigalgs_list))
+			return false;
+	}
+#endif
+
+	if (ssl->ca)
+	{
+		SSL_CTX_set_cert_store(ctx, (X509_STORE *)ssl->ca->store);
+		ssl->ca->store = NULL;
+	}
+	else if (ssl->ca_location && strcmp(ssl->ca_location, "probe"))
+	{
+		if (!__ssl_set_default_location(ssl, ctx))
+			return false;
+	}
+	else
+	{
+		SSL_CTX_set_default_verify_paths(ctx);
+		if (ssl->crl_location)
+		{
+			if (1 != SSL_CTX_load_verify_locations(ctx, ssl->crl_location, NULL))
+				return false;
+
+			X509_STORE_set_flags(SSL_CTX_get_cert_store(ctx),
+								 X509_V_FLAG_CRL_CHECK);
+		}
+
+		if (ssl->cert)
+		{
+			if (!ssl->cert || !ssl->cert->x509)
+				return false;
+
+			if (1 != SSL_CTX_use_certificate(ctx, (X509 *)ssl->cert->x509))
+				return false;
+		}
+
+        if (ssl->cert_location)
+		{
+			if (1 != SSL_CTX_use_certificate_chain_file(ctx, ssl->cert_location))
+				return false;
+        }
+
+		if (ssl->cert_pem)
+		{
+			BIO *bio = BIO_new_mem_buf((void *)ssl->cert_pem, -1);
+			if (!bio)
+				return false;
+
+			X509 *x509 = PEM_read_bio_X509(bio, NULL, passwd_cb,
+										   this->client->member->ssl);
+			BIO_free(bio);
+
+			if (!x509)
+				return false;
+
+			int r = SSL_CTX_use_certificate(ctx, x509);
+			X509_free(x509);
+
+			if (r != 1)
+				return false;
+		}
+
+		if (ssl->key)
+		{
+			if (!ssl->key || !ssl->key->pkey)
+				return false;
+
+			if (1 != SSL_CTX_use_PrivateKey(ctx, (EVP_PKEY *)ssl->key->pkey))
+				return false;
+		}
+
+		if (ssl->key_location)
+		{
+			if (1 != SSL_CTX_use_PrivateKey_file(ctx, ssl->key_location,
+												 SSL_FILETYPE_PEM))
+			{
+				return false;
+			}
+		}
+
+		if (ssl->key_pem)
+		{
+			BIO *bio = BIO_new_mem_buf((void *)ssl->key_pem, -1);
+			if (!bio)
+				return false;
+
+			EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, NULL, passwd_cb,
+													 this->client->member->ssl);
+			BIO_free(bio);
+
+			if (!pkey)
+				return false;
+
+			int r = SSL_CTX_use_PrivateKey(ctx, pkey);
+			EVP_PKEY_free(pkey);
+
+			if (r != 1)
+				return false;
+
+			//desensitize
+			memset(ssl->key_pem, 0, strlen(ssl->key_pem));
+		}
+
+		if (ssl->keystore_location)
+		{
+			STACK_OF(X509) *ca = NULL;
+			PKCS12 *p12;
+
+			FILE *fp = fopen(ssl->keystore_location, "rb");
+			if (!fp)
+				return false;
+
+			p12 = d2i_PKCS12_fp(fp, NULL);
+			fclose(fp);
+			if (!p12)
+				return false;
+
+			EVP_PKEY *pkey = EVP_PKEY_new();
+			X509 *cert = X509_new();
+			if (!PKCS12_parse(p12, ssl->keystore_password, &pkey, &cert, &ca))
+			{
+				EVP_PKEY_free(pkey);
+				X509_free(cert);
+				PKCS12_free(p12);
+				if (ca != NULL)
+					sk_X509_pop_free(ca, X509_free);
+				return false;
+			}
+
+			if (ca != NULL)
+				sk_X509_pop_free(ca, X509_free);
+
+			PKCS12_free(p12);
+
+			if (1 != SSL_CTX_use_certificate(ctx, cert))
+			{
+				X509_free(cert);
+				return false;
+			}
+
+			X509_free(cert);
+
+			if (1 != SSL_CTX_use_PrivateKey(ctx, pkey))
+			{
+				EVP_PKEY_free(pkey);
+				return false;
+			}
+
+			EVP_PKEY_free(pkey);
+		}
+
+		if (SSL_CTX_check_private_key(ctx) != 1)
+			return false;
+	}
+
+	SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
+
+	ssl->ctx = ctx;
+
+	this->config.set_ssl_ctx(ctx);
+	return true;
+}
+
 void ComplexKafkaTask::dispatch()
 {
 	__WFKafkaTask *task;
 	WFCounterTask *counter;
 	ParallelWork *parallel;
 
-	if (this->finish)
+	if (this->finish || !this->init_ssl_ctx())
 	{
 		this->subtask_done();
 		return;
@@ -1608,3 +1884,7 @@ KafkaBrokerList *WFKafkaClient::get_broker_list()
 	return this->member->broker_list;
 }
 
+void WFKafkaClient::set_ssl(KafkaSSL&& ssl)
+{
+	this->member->ssl = new KafkaSSL(std::move(ssl));
+}

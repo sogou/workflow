@@ -16,14 +16,18 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-#include <openssl/sha.h>
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <arpa/inet.h>
+#include <openssl/ssl.h>
+#include <openssl/sha.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#include <openssl/pkcs12.h>
 #include "kafka_parser.h"
 
 static kafka_api_version_t kafka_api_version_queryable[] = {
@@ -349,6 +353,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->password = NULL;
 	conf->recv = NULL;
 	conf->client_new = NULL;
+	conf->ssl_ctx = NULL;
 }
 
 void kafka_config_deinit(kafka_config_t *conf)
@@ -1211,6 +1216,76 @@ void kafka_sasl_deinit(kafka_sasl_t *sasl)
 	free(sasl->scram.server_signature_b64.iov_base);
 }
 
+void kafka_ssl_init(kafka_ssl_t *ssl)
+{
+	ssl->ctx = NULL;
+	ssl->cipher_suites = NULL;
+	ssl->curves_list = NULL;
+	ssl->sigalgs_list = NULL;
+	ssl->key_location = NULL;
+	ssl->key_pem = NULL;
+	ssl->key = NULL;
+	ssl->key_password = NULL;
+	ssl->cert_location = NULL;
+	ssl->cert_pem = NULL;
+	ssl->cert = NULL;
+	ssl->ca_location = NULL;
+	ssl->ca = NULL;
+
+	ssl->ca_cert_stores = NULL;
+	ssl->crl_location = NULL;
+
+	ssl->keystore_location = NULL;
+	ssl->keystore_password = NULL;
+}
+
+void kafka_ssl_deinit(kafka_ssl_t *ssl)
+{
+	SSL_CTX_free((SSL_CTX *)ssl->ctx);
+	free(ssl->cipher_suites);
+	free(ssl->curves_list);
+	free(ssl->sigalgs_list);
+	free(ssl->key_location);
+	free(ssl->key_pem);
+
+	kafka_cert_deinit(ssl->key);
+	free(ssl->key);
+
+	free(ssl->key_password);
+	free(ssl->cert_location);
+	free(ssl->cert_pem);
+
+	kafka_cert_deinit(ssl->cert);
+	free(ssl->cert);
+
+	free(ssl->ca_location);
+
+	kafka_cert_deinit(ssl->ca);
+	free(ssl->ca);
+
+	free(ssl->ca_cert_stores);
+	free(ssl->crl_location);
+
+	free(ssl->keystore_location);
+	free(ssl->keystore_password);
+}
+
+void kafka_cert_init(kafka_cert_t *cert)
+{
+    cert->type = 0;
+    cert->encoding = 0;
+	cert->x509 = NULL;
+	cert->pkey = NULL;
+	cert->store = NULL;
+}
+
+void kafka_cert_deinit(kafka_cert_t *cert)
+{
+	X509_free((X509 *)cert->x509);
+	EVP_PKEY_free((EVP_PKEY *)cert->pkey);
+	X509_STORE_free((X509_STORE *)cert->store);
+}
+
 int kafka_sasl_set_username(const char *username, kafka_config_t *conf)
 {
 	char *t = strdup(username);
@@ -1235,3 +1310,244 @@ int kafka_sasl_set_password(const char *password, kafka_config_t *conf)
 	return 0;
 }
 
+static int __ssl_passwd_cb (char *buf, int size, int rwflag, void *userdata)
+{
+	const kafka_ssl_t *ssl = userdata;
+	int pwlen;
+
+	if (!ssl->key_password)
+		return -1;
+
+	pwlen = (int) strlen(ssl->key_password);
+	memcpy(buf, ssl->key_password, pwlen < size ? pwlen : size);
+
+	return pwlen;
+}
+
+#define FAIL if (cert)							\
+		kafka_cert_deinit(cert);				\
+	if (bio)									\
+		BIO_free(bio);							\
+	if (p12)									\
+		PKCS12_free(p12);						\
+	if (x509)									\
+		X509_free(x509)
+
+kafka_cert_t *kafka_ssl_cert_new(kafka_ssl_t *ssl, int type, int encoding,
+								 const void *buffer, size_t size)
+{
+	BIO *bio;
+	kafka_cert_t *cert = NULL;
+	PKCS12 *p12 = NULL;
+	EVP_PKEY *ign_pkey;
+	EVP_PKEY *pkey_cert = NULL;
+	X509 *ign_cert;
+	X509 *x509 = NULL;
+	X509 *x509_cert = NULL;
+	X509_STORE *store_cert = NULL;
+	STACK_OF(X509) *cas = NULL;
+	int i, cnt = 0;
+
+	if (type < 0 || type >= KAFKA_CERT_NUMS)
+		return NULL;
+
+	if (encoding < 0 || encoding >= KAFKA_CERT_ENC_NUMS)
+		return NULL;
+
+	bio = BIO_new_mem_buf((void *)buffer, (long)size);
+	if (!bio)
+		return NULL;
+
+	if (encoding == KAFKA_CERT_ENC_PKCS12)
+	{
+		p12 = d2i_PKCS12_bio(bio, NULL);
+		if (!p12)
+			return NULL;
+	}
+
+	cert = malloc(sizeof(*cert));
+	if (!cert)
+		return NULL;
+
+	kafka_cert_init(cert);
+	cert->type = type;
+	cert->encoding = encoding;
+
+	switch(type)
+	{
+	case KAFKA_CERT_CA:
+		store_cert = X509_STORE_new();
+		if (!store_cert)
+			return NULL;
+
+		switch(encoding)
+		{
+		case KAFKA_CERT_ENC_PKCS12:
+			if (!PKCS12_parse(p12, ssl->key_password, &ign_pkey, &ign_cert,
+							  &cas))
+			{
+				FAIL;
+				return NULL;
+			}
+
+			EVP_PKEY_free(ign_pkey);
+			X509_free(ign_cert);
+
+			if (!cas || sk_X509_num(cas) < 1)
+			{
+				if (cas)
+					sk_X509_pop_free(cas, X509_free);
+
+				FAIL;
+				return NULL;
+			}
+
+			for (i = 0; i < sk_X509_num(cas); i++)
+			{
+				if (!X509_STORE_add_cert(store_cert, sk_X509_value(cas, i)))
+				{
+					sk_X509_pop_free(cas, X509_free);
+
+					FAIL;
+					return NULL;
+				}
+			}
+
+			sk_X509_pop_free(cas, X509_free);
+			break;
+
+		case KAFKA_CERT_ENC_DER:
+			if (!(x509 = d2i_X509_bio(bio, NULL)))
+			{
+				FAIL;
+				return NULL;
+			}
+
+			if (!X509_STORE_add_cert(store_cert, x509))
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+
+		case KAFKA_CERT_ENC_PEM:
+			cnt = 0;
+			while ((x509 =
+					PEM_read_bio_X509(bio, NULL, __ssl_passwd_cb, (void *)ssl)))
+			{
+				if (!X509_STORE_add_cert(store_cert, x509))
+				{
+					FAIL;
+					return NULL;
+				}
+				else
+					cnt++;
+			}
+
+			if (!BIO_eof(bio)) {
+				FAIL;
+				return NULL;
+			}
+
+			if (!cnt)
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+		}
+		break;
+
+	case KAFKA_CERT_PUBLIC_KEY:
+		switch(encoding)
+		{
+		case KAFKA_CERT_ENC_PKCS12:
+			if (!PKCS12_parse(p12, ssl->key_password, &ign_pkey, &x509_cert,
+							  NULL))
+			{
+				FAIL;
+				return NULL;
+			}
+
+			EVP_PKEY_free(ign_pkey);
+
+			if (!x509_cert)
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+
+		case KAFKA_CERT_ENC_DER:
+			x509_cert = d2i_X509_bio(bio, NULL);
+			if (!x509_cert)
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+
+		case KAFKA_CERT_ENC_PEM:
+			x509_cert = PEM_read_bio_X509(bio, NULL, __ssl_passwd_cb,
+										   (void *)ssl);
+			if (!x509_cert)
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+		}
+		break;
+
+	case KAFKA_CERT_PRIVATE_KEY:
+		switch(encoding)
+		{
+		case KAFKA_CERT_ENC_PKCS12:
+			if (!PKCS12_parse(p12, ssl->key_password, &pkey_cert, &x509, NULL))
+			{
+				FAIL;
+				return NULL;
+			}
+
+			X509_free(x509);
+
+			if (!pkey_cert)
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+
+		case KAFKA_CERT_ENC_DER:
+			pkey_cert = d2i_PrivateKey_bio(bio, NULL);
+			if (!pkey_cert)
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+
+		case KAFKA_CERT_ENC_PEM:
+			pkey_cert = (void *)PEM_read_bio_PrivateKey(bio, NULL,
+														 __ssl_passwd_cb,
+														 (void *)ssl);
+			if (!pkey_cert)
+			{
+				FAIL;
+				return NULL;
+			}
+			break;
+		}
+		break;
+	}
+
+	if (bio)
+		BIO_free(bio);
+	if (p12)
+		PKCS12_free(p12);
+
+	cert->x509 = x509_cert;
+	cert->pkey = pkey_cert;
+	cert->store = store_cert;
+	return cert;
+}

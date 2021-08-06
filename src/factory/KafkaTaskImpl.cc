@@ -22,6 +22,7 @@
 #include <set>
 #include <openssl/sha.h>
 #include <openssl/evp.h>
+#include "SSLWrapper.h"
 #include "StringUtil.h"
 #include "KafkaTaskImpl.inl"
 
@@ -41,11 +42,13 @@ public:
 		update_metadata_ = false;
 		is_user_request_ = true;
 		is_redirect_ = false;
+		is_ssl_ = false;
 	}
 
 protected:
 	virtual CommMessageOut *message_out();
 	virtual CommMessageIn *message_in();
+	virtual int keep_alive_timeout();
 	virtual bool init_success();
 	virtual bool finish_once();
 
@@ -56,16 +59,38 @@ private:
 		kafka_sasl_t sasl;
 		std::string mechanisms;
 
+		struct SSLConnection
+		{
+			SSL *ssl;
+			SSLHandshaker handshaker;
+			SSLWrapper wrapper;
+
+			SSLConnection(SSL *ptr) : ssl(ptr),
+									  handshaker(ptr),
+									  wrapper(&wrapper, ptr) {}
+		} *ssl_conn;
+
 		KafkaConnectionInfo()
 		{
 			kafka_api_init(&this->api);
 			kafka_sasl_init(&this->sasl);
+			this->ssl_conn = NULL;
 		}
 
 		~KafkaConnectionInfo()
 		{
 			kafka_api_deinit(&this->api);
 			kafka_sasl_deinit(&this->sasl);
+
+			if (this->ssl_conn)
+				SSL_free(this->ssl_conn->ssl);
+
+			delete this->ssl_conn;
+		}
+
+		void init_ssl(SSL *ssl)
+		{
+			this->ssl_conn = new SSLConnection(ssl);
 		}
 
 		bool init(const char *mechanisms)
@@ -100,14 +125,91 @@ private:
 		}
 	};
 
+	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
+	{
+		auto *ctx = (KafkaConnectionInfo *)this->get_connection()->get_context();
+		ctx->ssl_conn->wrapper = SSLWrapper(msg, ctx->ssl_conn->ssl);
+		return &ctx->ssl_conn->wrapper;
+	}
+
+	SSLHandshaker *get_ssl_handshaker() const
+	{
+		auto *ctx = (KafkaConnectionInfo *)this->get_connection()->get_context();
+		return &ctx->ssl_conn->handshaker;
+	}
+
 	virtual int first_timeout();
 	bool has_next();
 	bool check_redirect();
+	int init_ssl_connection();
 
 	bool update_metadata_;
 	bool is_user_request_;
 	bool is_redirect_;
+	bool is_ssl_;
 };
+
+static SSL *__create_ssl(SSL_CTX *ssl_ctx)
+{
+	BIO *wbio;
+	BIO *rbio;
+	SSL *ssl;
+
+	rbio = BIO_new(BIO_s_mem());
+	if (rbio)
+	{
+		wbio = BIO_new(BIO_s_mem());
+		if (wbio)
+		{
+			ssl = SSL_new(ssl_ctx);
+			if (ssl)
+			{
+				SSL_set_bio(ssl, rbio, wbio);
+				return ssl;
+			}
+
+			BIO_free(wbio);
+		}
+
+		BIO_free(rbio);
+	}
+
+	return NULL;
+}
+
+int __ComplexKafkaTask::init_ssl_connection()
+{
+	SSL *ssl = __create_ssl((SSL_CTX *)this->get_req()->get_config()->get_ssl_ctx());
+	if (!ssl)
+		return -1;
+
+	KafkaConnectionInfo *conn_info =
+		(KafkaConnectionInfo *)this->get_connection()->get_context();
+	conn_info->init_ssl(ssl);
+	return 0;
+}
+
+int __ComplexKafkaTask::keep_alive_timeout()
+{
+	long long seqid = this->get_seq();
+
+	if (seqid == 0)
+	{
+		if (is_ssl_)
+		{
+			if (init_ssl_connection() < 0)
+			{
+				this->state = WFT_STATE_SYS_ERROR;
+				this->error = errno;
+				return 0;
+			}
+		}
+	}
+	else
+		return this->keep_alive_timeo;
+
+	return KAFKA_KEEPALIVE_DEFAULT;
+}
 
 CommMessageOut *__ComplexKafkaTask::message_out()
 {
@@ -155,7 +257,13 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	if (seqid == 1)
+	if (is_ssl_ && seqid == 1)
+	{
+		is_user_request_ = false;
+		return get_ssl_handshaker();
+	}
+
+	if ((!is_ssl_ && seqid == 1) || (is_ssl_ && seqid == 2))
 	{
 		const char *sasl_mech = this->get_req()->get_config()->get_sasl_mech();
 		KafkaConnectionInfo *conn_info =
@@ -175,7 +283,9 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			else
 				req->set_api_type(Kafka_SaslAuthenticate);
 			is_user_request_ = false;
-			return req;
+
+			auto *msg = (ProtocolMessage *)req;
+			return is_ssl_ ? get_ssl_wrapper(msg) : msg;
 		}
 	}
 
@@ -213,11 +323,14 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			new_req->set_config(*req->get_config());
 			new_req->set_api_type(Kafka_ListOffsets);
 			is_user_request_ = false;
-			return new_req;
+
+			auto *msg = (ProtocolMessage *)new_req;
+			return is_ssl_ ? get_ssl_wrapper(msg) : msg;
 		}
 	}
 
-	return this->WFClientTask::message_out();
+	auto *msg = (ProtocolMessage *)this->WFClientTask::message_out();
+	return is_ssl_ ? get_ssl_wrapper(msg) : msg;
 }
 
 CommMessageIn *__ComplexKafkaTask::message_in()
@@ -238,9 +351,9 @@ bool __ComplexKafkaTask::init_success()
 	if (uri_.scheme)
 	{
 		if (strcasecmp(uri_.scheme, "kafka") == 0)
-			type = TT_TCP;
-		//else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
-		//	type = TT_TCP_SSL;
+			is_ssl_ = false;
+		else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
+			is_ssl_ = true;
 		else
 		{
 			this->state = WFT_STATE_TASK_ERROR;

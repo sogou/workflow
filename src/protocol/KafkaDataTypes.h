@@ -562,6 +562,15 @@ public:
 		return this->ptr->client_new(this->ptr, sasl) == 0;
 	}
 
+	void *get_ssl_ctx() const
+	{
+		return this->ptr->ssl_ctx;
+	}
+	void set_ssl_ctx(void *ctx)
+	{
+		this->ptr->ssl_ctx = ctx;
+	}
+
 public:
 	KafkaConfig()
 	{
@@ -618,7 +627,290 @@ public:
 private:
 	kafka_config_t *ptr;
 	std::atomic<int> *ref;
-	std::string sasl_buf;
+};
+
+class KafkaSSL
+{
+public:
+	void *get_ctx() const { return this->ptr->ctx; }
+	void set_ctx(void *ctx) { this->ptr->ctx = ctx; }
+
+	const char *get_cipher_suites() const { return this->ptr->cipher_suites; }
+	bool set_cipher_suites(const char *cipher_suites)
+	{
+		char *p = strdup(cipher_suites);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->cipher_suites);
+		this->ptr->cipher_suites = p;
+		return true;
+	}
+
+	const char *get_curves_list() const { return this->ptr->curves_list; }
+	bool set_curves_list(const char *curves_list)
+	{
+		char *p = strdup(curves_list);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->curves_list);
+		this->ptr->curves_list = p;
+		return true;
+	}
+
+	const char *get_sigalgs_list() const { return this->ptr->sigalgs_list; }
+	bool set_sigalgs_list(const char *sigalgs_list)
+	{
+		char *p = strdup(sigalgs_list);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->sigalgs_list);
+		this->ptr->sigalgs_list = p;
+		return true;
+	}
+
+	const char *get_key_location() const { return this->ptr->key_location; }
+	bool set_key_location(const char *key_location)
+	{
+		char *p = strdup(key_location);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->key_location);
+		this->ptr->key_location = p;
+		return true;
+	}
+
+	const char *get_key_pem() const { return this->ptr->key_pem; }
+	bool set_key_pem(const char *key_pem)
+	{
+		char *p = strdup(key_pem);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->key_pem);
+		this->ptr->key_pem = p;
+		return true;
+	}
+
+	const char *get_key_password() const { return this->ptr->key_password; }
+	bool set_key_password(const char *key_password)
+	{
+		char *p = strdup(key_password);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->key_password);
+		this->ptr->key_password = p;
+		return true;
+	}
+
+	const char *get_cert_location() const { return this->ptr->cert_location; }
+	bool set_cert_location(const char *cert_location)
+	{
+		char *p = strdup(cert_location);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->cert_location);
+		this->ptr->cert_location = p;
+		return true;
+	}
+
+	const char *get_cert_pem() const { return this->ptr->cert_pem; }
+	bool set_cert_pem(const char *cert_pem)
+	{
+		char *p = strdup(cert_pem);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->cert_pem);
+		this->ptr->cert_pem = p;
+		return true;
+	}
+
+	const char *get_ca_location() const { return this->ptr->ca_location; }
+	bool set_ca_location(const char *ca_location)
+	{
+		char *p = strdup(ca_location);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->ca_location);
+		this->ptr->ca_location = p;
+		return true;
+	}
+
+	const char *get_ca_cert_stores() const { return this->ptr->ca_cert_stores; }
+	bool set_ca_cert_stores(const char *keystore_location)
+	{
+		char *p = strdup(keystore_location);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->keystore_location);
+		this->ptr->keystore_location = p;
+		return true;
+	}
+
+	const char *get_crl_location() const { return this->ptr->crl_location; }
+	bool set_crl_location(const char *crl_location)
+	{
+		char *p = strdup(crl_location);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->crl_location);
+		this->ptr->crl_location = p;
+		return true;
+	}
+
+	const char *get_keystore_location() const { return this->ptr->keystore_location; }
+	bool set_keystore_location(const char *keystore_location)
+	{
+		char *p = strdup(keystore_location);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->keystore_location);
+		this->ptr->keystore_location = p;
+		return true;
+	}
+
+	const char *get_keystore_password() const { return this->ptr->keystore_password; }
+	bool set_keystore_password(const char *keystore_password)
+	{
+		char *p = strdup(keystore_password);
+
+		if (!p)
+			return false;
+
+		free(this->ptr->keystore_password);
+		this->ptr->keystore_password = p;
+		return true;
+	}
+
+	bool set_cert_key(int type, int encoding, const void *buffer, size_t size)
+	{
+		std::string buf;
+		buf.resize(size);
+
+		kafka_cert_t *cert = kafka_ssl_cert_new(this->ptr, type, encoding,
+												(void *)buf.c_str(), size);
+
+		if (!cert)
+			return false;
+
+		kafka_cert_deinit(this->ptr->key);
+		free(this->ptr->key);
+		this->ptr->key = cert;
+		this->buffers.emplace_back(buf);
+		return true;
+	}
+
+	bool set_cert_cert(int type, int encoding, const void *buffer, size_t size)
+	{
+		std::string buf;
+		buf.resize(size);
+
+		kafka_cert_t *cert = kafka_ssl_cert_new(this->ptr, type, encoding,
+												(void *)buf.c_str(), size);
+
+		if (!cert)
+			return false;
+
+		kafka_cert_deinit(this->ptr->cert);
+		free(this->ptr->key);
+		this->ptr->cert = cert;
+		this->buffers.emplace_back(buf);
+		return true;
+	}
+
+	bool set_cert_ca(int type, int encoding, const void *buffer, size_t size)
+	{
+		std::string buf;
+		buf.resize(size);
+
+		kafka_cert_t *cert = kafka_ssl_cert_new(this->ptr, type, encoding,
+												(void *)buf.c_str(), size);
+
+		if (!cert)
+			return false;
+
+		kafka_cert_deinit(this->ptr->ca);
+		free(this->ptr->ca);
+		this->ptr->cert = cert;
+		this->buffers.emplace_back(buf);
+		return true;
+	}
+
+public:
+	KafkaSSL()
+	{
+		this->ptr = new kafka_ssl_t;
+		kafka_ssl_init(this->ptr);
+		this->ref = new std::atomic<int>(1);
+	}
+
+	virtual ~KafkaSSL()
+	{
+		if (--*this->ref == 0)
+		{
+			kafka_ssl_deinit(this->ptr);
+			delete this->ptr;
+			delete this->ref;
+		}
+	}
+
+	KafkaSSL(KafkaSSL&& move)
+	{
+		this->ptr = move.ptr;
+		this->ref = move.ref;
+		move.ptr = new kafka_ssl_t;
+		kafka_ssl_init(move.ptr);
+		move.ref = new std::atomic<int>(1);
+		this->buffers = std::move(move.buffers);
+	}
+
+	KafkaSSL& operator= (KafkaSSL&& move)
+	{
+		if (this != &move)
+		{
+			this->~KafkaSSL();
+			this->ptr = move.ptr;
+			this->ref = move.ref;
+			move.ptr = new kafka_ssl_t;
+			kafka_ssl_init(move.ptr);
+			move.ref = new std::atomic<int>(1);
+			this->buffers = std::move(move.buffers);
+		}
+
+		return *this;
+	}
+
+	KafkaSSL& operator= (KafkaSSL& copy) = delete;
+
+	kafka_ssl_t *get_raw_ptr() { return this->ptr; }
+
+private:
+	kafka_ssl_t *ptr;
+	std::atomic<int> *ref;
+	std::vector<std::string> buffers;
+	bool inited;
 };
 
 class KafkaRecord

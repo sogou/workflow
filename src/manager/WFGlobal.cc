@@ -770,6 +770,11 @@ SSL_CTX *WFGlobal::get_ssl_client_ctx()
 	return __SSLManager::get_instance()->get_ssl_client_ctx();
 }
 
+SSL_CTX *WFGlobal::new_ssl_client_ctx()
+{
+	return __SSLManager::get_instance()->new_ssl_client_ctx();
+}
+
 SSL_CTX *WFGlobal::new_ssl_server_ctx()
 {
 	return __SSLManager::get_instance()->new_ssl_server_ctx();

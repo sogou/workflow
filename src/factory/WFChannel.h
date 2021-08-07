@@ -91,6 +91,22 @@ using WFWebSocketTask = WFChannelTask<protocol::WebSocketFrame>;
 using websocket_callback_t = std::function<void (WFWebSocketTask *)>;
 using websocket_process_t = std::function<void (WFWebSocketTask *)>;
 
+template<class MSG>
+class WFComplexChannel;
+
+template<class MSG>
+class WFChannelFactory
+{
+private:
+	using CH = WFComplexChannel<MSG>;
+	using T = WFChannelTask<MSG>;
+
+public:
+	static CH *create_channel(std::function<void (T *)> process);
+	static T *create_out_task(CH *channel,
+							  std::function<void (T *)> callback);
+};
+
 #include "WFChannel.inl"
 
 #endif

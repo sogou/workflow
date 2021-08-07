@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Author: Li Yingxin (liyingxin@sogou-inc.com)
-          Xie Han (xiehan@sogou-inc.com)
+  Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <string.h>
@@ -60,14 +60,25 @@ WFConditional *WFResourcePool::get(SubTask *task, void **resbuf)
 	return new __WFConditional(task, resbuf, &this->data);
 }
 
-WFResourcePool::WFResourcePool(void *const *res, size_t n)
+void WFResourcePool::create(size_t n)
 {
 	this->data.res = new void *[n];
-	memcpy(this->data.res, res, n * sizeof (void *));
 	this->data.value = n;
 	this->data.index = 0;
 	INIT_LIST_HEAD(&this->data.wait_list);
 	this->data.pool = this;
+}
+
+WFResourcePool::WFResourcePool(void *const *res, size_t n)
+{
+	this->create(n);
+	memcpy(this->data.res, res, n * sizeof (void *));
+}
+
+WFResourcePool::WFResourcePool(size_t n)
+{
+	this->create(n);
+	memset(this->data.res, 0, n * sizeof (void *));
 }
 
 void WFResourcePool::post(void *res)

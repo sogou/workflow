@@ -16,6 +16,7 @@
   Author: Liu Kai (liukaidx@sogou-inc.com)
 */
 
+#include <arpa/inet.h>
 #include <string>
 #include <vector>
 #include <atomic>
@@ -191,6 +192,7 @@ int WFDnsClient::init(const std::string& url, const std::string& search_list,
 {
 	std::vector<std::string> hosts;
 	std::vector<ParsedURI> uris;
+	struct in6_addr addr;
 	std::string host;
 	ParsedURI uri;
 
@@ -203,7 +205,10 @@ int WFDnsClient::init(const std::string& url, const std::string& search_list,
 		if (strncasecmp(host.c_str(), "dns://", 6) != 0 &&
 			strncasecmp(host.c_str(), "dnss://", 7) != 0)
 		{
-			host = "dns://" + host;
+			if(inet_pton(AF_INET6, host.c_str(), &addr) == 1)
+				host = "dns://[" + host + "]";
+			else
+				host = "dns://" + host;
 		}
 
 		if (URIParser::parse(host, uri) != 0)

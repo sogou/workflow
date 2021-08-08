@@ -24,6 +24,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdio.h>
+#include <arpa/inet.h>
 #include <string>
 #include <unordered_map>
 #include <atomic>
@@ -473,7 +474,8 @@ public:
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
 #define HOSTS_LINEBUF_INIT_SIZE	128
 
-static void __split_merge_str(const char *p, std::string& result)
+static void __split_merge_str(const char *p, bool is_nameserver,
+							  std::string& result)
 {
 	const char *start;
 
@@ -494,7 +496,16 @@ static void __split_merge_str(const char *p, std::string& result)
 
 		if (!result.empty())
 			result.push_back(',');
-		result.append(start, p);
+
+		std::string str(start, p);
+		if (is_nameserver)
+		{
+			struct in6_addr buf;
+			if (inet_pton(AF_INET6, str.c_str(), &buf) > 0)
+				str = "[" + str + "]";
+		}
+
+		result.append(str);
 	}
 }
 
@@ -556,9 +567,9 @@ static int __parse_resolv_conf(const char *path,
 	{
 		const char *p = (const char *)line;
 		if (strncmp(p, "nameserver", 10) == 0)
-			__split_merge_str(p + 10, url);
+			__split_merge_str(p + 10, true, url);
 		else if (strncmp(p, "search", 6) == 0)
-			__split_merge_str(p + 6, search_list);
+			__split_merge_str(p + 6, false, search_list);
 		else if (strncmp(p, "options", 7) == 0)
 			__set_options(p + 7, ndots, attempts, rotate);
 	}

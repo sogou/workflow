@@ -9,6 +9,7 @@ cc_library(
 		'src/algorithm/DnsRoutine.cc',
 		'src/client/WFDnsClient.cc',
 		'src/factory/DnsTaskImpl.cc',
+		'src/factory/FileTaskImpl.cc',
 		'src/factory/WFGraphTask.cc',
 		'src/factory/WFResourcePool.cc',
 		'src/factory/WFTaskFactory.cc',

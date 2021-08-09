@@ -14,7 +14,6 @@
   limitations under the License.
 
   Authors: Xie Han (xiehan@sogou-inc.com)
-           Li Yingxin (liyingxin@sogou-inc.com)
            Li Jinghao (lijinghao@sogou-inc.com)
 */
 
@@ -37,44 +36,13 @@ public:
 		this->args.offset = offset;
 	}
 
+protected:
 	virtual int prepare()
 	{
 		this->prep_pread(this->args.fd, this->args.buf, this->args.count,
 						 this->args.offset);
 		return 0;
 	}
-};
-
-class __WFFilepreadTask : public WFFilepreadTask
-{
-public:
-	__WFFilepreadTask(const std::string& filepath, void *buf, size_t count,
-					  off_t offset, IOService *service, fio_callback_t&& cb):
-		WFFilepreadTask(-1, buf, count, offset, service, std::move(cb)),
-		filepath(filepath) {}
-
-	virtual int prepare()
-	{
-		this->args.fd = open(this->filepath.c_str(), O_RDONLY);
-		if (this->args.fd >= 0)
-			return WFFilepreadTask::prepare();
-
-		return -1;
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		if (this->args.fd >= 0)
-		{
-			close(this->args.fd);
-			this->args.fd = -1;
-		}
-		return WFFileTask::done();
-	}
-
-protected:
-	std::string filepath;
 };
 
 class WFFilepwriteTask : public WFFileIOTask
@@ -90,44 +58,13 @@ public:
 		this->args.offset = offset;
 	}
 
+protected:
 	virtual int prepare()
 	{
 		this->prep_pwrite(this->args.fd, this->args.buf, this->args.count,
 						  this->args.offset);
 		return 0;
 	}
-};
-
-class __WFFilepwriteTask : public WFFilepwriteTask
-{
-public:
-	__WFFilepwriteTask(const std::string& filepath, const void *buf, size_t count,
-					  off_t offset, IOService *service, fio_callback_t&& cb):
-		WFFilepwriteTask(-1, buf, count, offset, service, std::move(cb)),
-		filepath(filepath) {}
-
-	virtual int prepare()
-	{
-		this->args.fd = open(this->filepath.c_str(), O_WRONLY | O_CREAT, 0644);
-		if (this->args.fd >= 0)
-			return WFFilepwriteTask::prepare();
-
-		return -1;
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		if (this->args.fd >= 0)
-		{
-			close(this->args.fd);
-			this->args.fd = -1;
-		}
-		return WFFileTask::done();
-	}
-
-protected:
-	std::string filepath;
 };
 
 class WFFilepreadvTask : public WFFileVIOTask
@@ -143,44 +80,13 @@ public:
 		this->args.offset = offset;
 	}
 
+protected:
 	virtual int prepare()
 	{
 		this->prep_preadv(this->args.fd, this->args.iov, this->args.iovcnt,
 						  this->args.offset);
 		return 0;
 	}
-};
-
-class __WFFilepreadvTask : public WFFilepreadvTask
-{
-public:
-	__WFFilepreadvTask(const std::string& filepath, const struct iovec *iov, int iovcnt,
-					   off_t offset, IOService *service, fvio_callback_t&& cb) :
-		WFFilepreadvTask(-1, iov, iovcnt, offset, service, std::move(cb)),
-		filepath(filepath) {}
-
-	virtual int prepare()
-	{
-		this->args.fd = open(this->filepath.c_str(), O_RDONLY);
-		if (this->args.fd >= 0)
-			return WFFilepreadvTask::prepare();
-
-		return -1;
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		if (this->args.fd >= 0)
-		{
-			close(this->args.fd);
-			this->args.fd = -1;
-		}
-		return WFFileTask::done();
-	}
-
-protected:
-	std::string filepath;
 };
 
 class WFFilepwritevTask : public WFFileVIOTask
@@ -196,44 +102,13 @@ public:
 		this->args.offset = offset;
 	}
 
+protected:
 	virtual int prepare()
 	{
 		this->prep_pwritev(this->args.fd, this->args.iov, this->args.iovcnt,
 						   this->args.offset);
 		return 0;
 	}
-};
-
-class __WFFilepwritevTask : public WFFilepwritevTask
-{
-public:
-	__WFFilepwritevTask(const std::string& filepath, const struct iovec *iov, int iovcnt,
-						off_t offset, IOService *service, fvio_callback_t&& cb) :
-		WFFilepwritevTask(-1, iov, iovcnt, offset, service, std::move(cb)),
-		filepath(filepath) {}
-
-	virtual int prepare()
-	{
-		this->args.fd = open(this->filepath.c_str(), O_WRONLY | O_CREAT, 0644);
-		if (this->args.fd >= 0)
-			return WFFilepwritevTask::prepare();
-
-		return -1;
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		if (this->args.fd >= 0)
-		{
-			close(this->args.fd);
-			this->args.fd = -1;
-		}
-		return WFFileTask::done();
-	}
-
-protected:
-	std::string filepath;
 };
 
 class WFFilefsyncTask : public WFFileSyncTask
@@ -245,42 +120,12 @@ public:
 		this->args.fd = fd;
 	}
 
+protected:
 	virtual int prepare()
 	{
 		this->prep_fsync(this->args.fd);
 		return 0;
 	}
-};
-
-class __WFFilefsyncTask : public WFFilefsyncTask
-{
-public:
-	__WFFilefsyncTask(const std::string& filepath, IOService *service,
-					  fsync_callback_t&& cb) :
-		WFFilefsyncTask(-1, service, std::move(cb)), filepath(filepath) {}
-
-	virtual int prepare()
-	{
-		this->args.fd = open(this->filepath.c_str(), O_WRONLY);
-		if (this->args.fd >= 0)
-			return WFFilefsyncTask::prepare();
-
-		return -1;
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		if (this->args.fd >= 0)
-		{
-			close(this->args.fd);
-			this->args.fd = -1;
-		}
-		return WFFileTask::done();
-	}
-
-protected:
-	std::string filepath;
 };
 
 class WFFilefdsyncTask : public WFFileSyncTask
@@ -292,6 +137,7 @@ public:
 		this->args.fd = fd;
 	}
 
+protected:
 	virtual int prepare()
 	{
 		this->prep_fdsync(this->args.fd);
@@ -299,20 +145,133 @@ public:
 	}
 };
 
-class __WFFilefdsyncTask : public WFFilefdsyncTask
+/* File tasks created with path name. */
+
+class __WFFilepreadTask : public WFFilepreadTask
 {
 public:
-	__WFFilefdsyncTask(const std::string& filepath, IOService *service,
-					   fsync_callback_t&& cb) :
-		WFFilefdsyncTask(-1, service, std::move(cb)), filepath(filepath) {}
+	__WFFilepreadTask(const std::string& path, void *buf, size_t count,
+					  off_t offset, IOService *service, fio_callback_t&& cb):
+		WFFilepreadTask(-1, buf, count, offset, service, std::move(cb)),
+		pathname(path)
+	{
+	}
 
+protected:
 	virtual int prepare()
 	{
-		this->args.fd = open(this->filepath.c_str(), O_WRONLY);
-		if (this->args.fd >= 0)
-			return WFFilefdsyncTask::prepare();
+		this->args.fd = open(this->pathname.c_str(), O_RDONLY);
+		if (this->args.fd < 0)
+			return -1;
 
-		return -1;
+		return WFFilepreadTask::prepare();
+	}
+
+	virtual SubTask *done()
+	{
+		if (this->args.fd >= 0)
+		{
+			close(this->args.fd);
+			this->args.fd = -1;
+		}
+
+		return WFFilepreadTask::done();
+	}
+
+protected:
+	std::string pathname;
+};
+
+class __WFFilepwriteTask : public WFFilepwriteTask
+{
+public:
+	__WFFilepwriteTask(const std::string& path, const void *buf, size_t count,
+					  off_t offset, IOService *service, fio_callback_t&& cb):
+		WFFilepwriteTask(-1, buf, count, offset, service, std::move(cb)),
+		pathname(path)
+	{
+	}
+
+protected:
+	virtual int prepare()
+	{
+		this->args.fd = open(this->pathname.c_str(), O_WRONLY | O_CREAT, 0644);
+		if (this->args.fd < 0)
+			return -1;
+
+		return WFFilepwriteTask::prepare();
+	}
+
+	virtual SubTask *done()
+	{
+		if (this->args.fd >= 0)
+		{
+			close(this->args.fd);
+			this->args.fd = -1;
+		}
+
+		return WFFilepwriteTask::done();
+	}
+
+protected:
+	std::string pathname;
+};
+
+class __WFFilepreadvTask : public WFFilepreadvTask
+{
+public:
+	__WFFilepreadvTask(const std::string& path, const struct iovec *iov,
+					   int iovcnt, off_t offset, IOService *service,
+					   fvio_callback_t&& cb) :
+		WFFilepreadvTask(-1, iov, iovcnt, offset, service, std::move(cb)),
+		pathname(path)
+	{
+	}
+
+protected:
+	virtual int prepare()
+	{
+		this->args.fd = open(this->pathname.c_str(), O_RDONLY);
+		if (this->args.fd < 0)
+			return -1;
+
+		return WFFilepreadvTask::prepare();
+	}
+
+	virtual SubTask *done()
+	{
+		if (this->args.fd >= 0)
+		{
+			close(this->args.fd);
+			this->args.fd = -1;
+		}
+
+		return WFFilepreadvTask::done();
+	}
+
+protected:
+	std::string pathname;
+};
+
+class __WFFilepwritevTask : public WFFilepwritevTask
+{
+public:
+	__WFFilepwritevTask(const std::string& path, const struct iovec *iov,
+						int iovcnt, off_t offset, IOService *service,
+						fvio_callback_t&& cb) :
+		WFFilepwritevTask(-1, iov, iovcnt, offset, service, std::move(cb)),
+		pathname(path)
+	{
+	}
+
+protected:
+	virtual int prepare()
+	{
+		this->args.fd = open(this->pathname.c_str(), O_WRONLY | O_CREAT, 0644);
+		if (this->args.fd < 0)
+			return -1;
+
+		return WFFilepwritevTask::prepare();
 	}
 
 protected:
@@ -323,14 +282,15 @@ protected:
 			close(this->args.fd);
 			this->args.fd = -1;
 		}
-		return WFFileTask::done();
+
+		return WFFilepwritevTask::done();
 	}
 
 protected:
-	std::string filepath;
+	std::string pathname;
 };
 
-/********FileIOTask*************/
+/* Factory functions with fd. */
 
 WFFileIOTask *WFTaskFactory::create_pread_task(int fd,
 											   void *buf,
@@ -341,17 +301,6 @@ WFFileIOTask *WFTaskFactory::create_pread_task(int fd,
 	return new WFFilepreadTask(fd, buf, count, offset,
 							   WFGlobal::get_io_service(),
 							   std::move(callback));
-}
-
-WFFileIOTask *WFTaskFactory::create_pread_task(const std::string& filepath,
-											   void *buf,
-											   size_t count,
-											   off_t offset,
-											   fio_callback_t callback)
-{
-	return new __WFFilepreadTask(filepath, buf, count, offset,
-								 WFGlobal::get_io_service(),
-								 std::move(callback));
 }
 
 WFFileIOTask *WFTaskFactory::create_pwrite_task(int fd,
@@ -365,17 +314,6 @@ WFFileIOTask *WFTaskFactory::create_pwrite_task(int fd,
 								std::move(callback));
 }
 
-WFFileIOTask *WFTaskFactory::create_pwrite_task(const std::string& filepath,
-												const void *buf,
-												size_t count,
-												off_t offset,
-												fio_callback_t callback)
-{
-	return new __WFFilepwriteTask(filepath, buf, count, offset,
-								  WFGlobal::get_io_service(),
-								  std::move(callback));
-}
-
 WFFileVIOTask *WFTaskFactory::create_preadv_task(int fd,
 												 const struct iovec *iovec,
 												 int iovcnt,
@@ -383,17 +321,6 @@ WFFileVIOTask *WFTaskFactory::create_preadv_task(int fd,
 												 fvio_callback_t callback)
 {
 	return new WFFilepreadvTask(fd, iovec, iovcnt, offset,
-								WFGlobal::get_io_service(),
-								std::move(callback));
-}
-
-WFFileVIOTask *WFTaskFactory::create_preadv_task(const std::string& filepath,
-												 const struct iovec *iovec,
-												 int iovcnt,
-												 off_t offset,
-												 fvio_callback_t callback)
-{
-	return new __WFFilepreadvTask(filepath, iovec, iovcnt, offset,
 								WFGlobal::get_io_service(),
 								std::move(callback));
 }
@@ -409,32 +336,12 @@ WFFileVIOTask *WFTaskFactory::create_pwritev_task(int fd,
 								 std::move(callback));
 }
 
-WFFileVIOTask *WFTaskFactory::create_pwritev_task(const std::string& filepath,
-												  const struct iovec *iovec,
-												  int iovcnt,
-												  off_t offset,
-												  fvio_callback_t callback)
-{
-	return new __WFFilepwritevTask(filepath, iovec, iovcnt, offset,
-								 WFGlobal::get_io_service(),
-								 std::move(callback));
-}
-
-
 WFFileSyncTask *WFTaskFactory::create_fsync_task(int fd,
 												 fsync_callback_t callback)
 {
 	return new WFFilefsyncTask(fd,
 							   WFGlobal::get_io_service(),
 							   std::move(callback));
-}
-
-WFFileSyncTask *WFTaskFactory::create_fsync_task(const std::string& filepath,
-												 fsync_callback_t callback)
-{
-	return new __WFFilefsyncTask(filepath,
-								 WFGlobal::get_io_service(),
-								 std::move(callback));
 }
 
 WFFileSyncTask *WFTaskFactory::create_fdsync_task(int fd,
@@ -445,10 +352,49 @@ WFFileSyncTask *WFTaskFactory::create_fdsync_task(int fd,
 								std::move(callback));
 }
 
-WFFileSyncTask *WFTaskFactory::create_fdsync_task(const std::string& filepath,
-												  fsync_callback_t callback)
+/* Factory functions with path name. */
+
+WFFileIOTask *WFTaskFactory::create_pread_task(const std::string& pathname,
+											   void *buf,
+											   size_t count,
+											   off_t offset,
+											   fio_callback_t callback)
 {
-	return new __WFFilefdsyncTask(filepath,
+	return new __WFFilepreadTask(pathname, buf, count, offset,
+								 WFGlobal::get_io_service(),
+								 std::move(callback));
+}
+
+WFFileIOTask *WFTaskFactory::create_pwrite_task(const std::string& pathname,
+												const void *buf,
+												size_t count,
+												off_t offset,
+												fio_callback_t callback)
+{
+	return new __WFFilepwriteTask(pathname, buf, count, offset,
 								  WFGlobal::get_io_service(),
 								  std::move(callback));
 }
+
+WFFileVIOTask *WFTaskFactory::create_preadv_task(const std::string& pathname,
+												 const struct iovec *iovec,
+												 int iovcnt,
+												 off_t offset,
+												 fvio_callback_t callback)
+{
+	return new __WFFilepreadvTask(pathname, iovec, iovcnt, offset,
+								  WFGlobal::get_io_service(),
+								  std::move(callback));
+}
+
+WFFileVIOTask *WFTaskFactory::create_pwritev_task(const std::string& pathname,
+												  const struct iovec *iovec,
+												  int iovcnt,
+												  off_t offset,
+												  fvio_callback_t callback)
+{
+	return new __WFFilepwritevTask(pathname, iovec, iovcnt, offset,
+								   WFGlobal::get_io_service(),
+								   std::move(callback));
+}
+

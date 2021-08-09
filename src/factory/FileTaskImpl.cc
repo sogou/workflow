@@ -252,37 +252,6 @@ public:
 	}
 };
 
-class __WFFilefsyncTask : public WFFilefsyncTask
-{
-public:
-	__WFFilefsyncTask(const std::string& filepath, IOService *service,
-					  fsync_callback_t&& cb) :
-		WFFilefsyncTask(-1, service, std::move(cb)), filepath(filepath) {}
-
-	virtual int prepare()
-	{
-		this->args.fd = open(this->filepath.c_str(), O_WRONLY);
-		if (this->args.fd >= 0)
-			return WFFilefsyncTask::prepare();
-
-		return -1;
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		if (this->args.fd >= 0)
-		{
-			close(this->args.fd);
-			this->args.fd = -1;
-		}
-		return WFFileTask::done();
-	}
-
-protected:
-	std::string filepath;
-};
-
 class WFFilefdsyncTask : public WFFileSyncTask
 {
 public:
@@ -297,37 +266,6 @@ public:
 		this->prep_fdsync(this->args.fd);
 		return 0;
 	}
-};
-
-class __WFFilefdsyncTask : public WFFilefdsyncTask
-{
-public:
-	__WFFilefdsyncTask(const std::string& filepath, IOService *service,
-					   fsync_callback_t&& cb) :
-		WFFilefdsyncTask(-1, service, std::move(cb)), filepath(filepath) {}
-
-	virtual int prepare()
-	{
-		this->args.fd = open(this->filepath.c_str(), O_WRONLY);
-		if (this->args.fd >= 0)
-			return WFFilefdsyncTask::prepare();
-
-		return -1;
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		if (this->args.fd >= 0)
-		{
-			close(this->args.fd);
-			this->args.fd = -1;
-		}
-		return WFFileTask::done();
-	}
-
-protected:
-	std::string filepath;
 };
 
 /********FileIOTask*************/
@@ -429,26 +367,10 @@ WFFileSyncTask *WFTaskFactory::create_fsync_task(int fd,
 							   std::move(callback));
 }
 
-WFFileSyncTask *WFTaskFactory::create_fsync_task(const std::string& filepath,
-												 fsync_callback_t callback)
-{
-	return new __WFFilefsyncTask(filepath,
-								 WFGlobal::get_io_service(),
-								 std::move(callback));
-}
-
 WFFileSyncTask *WFTaskFactory::create_fdsync_task(int fd,
 												  fsync_callback_t callback)
 {
 	return new WFFilefdsyncTask(fd,
 								WFGlobal::get_io_service(),
 								std::move(callback));
-}
-
-WFFileSyncTask *WFTaskFactory::create_fdsync_task(const std::string& filepath,
-												  fsync_callback_t callback)
-{
-	return new __WFFilefdsyncTask(filepath,
-								  WFGlobal::get_io_service(),
-								  std::move(callback));
 }

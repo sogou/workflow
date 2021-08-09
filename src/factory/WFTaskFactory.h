@@ -206,15 +206,9 @@ public:
 	static WFFileSyncTask *create_fsync_task(int fd,
 											 fsync_callback_t callback);
 
-	static WFFileSyncTask *create_fsync_task(const std::string& filepath,
-											 fsync_callback_t callback);
-
 	/* On systems that do not support fdatasync(), like macOS,
 	 * fdsync task is equal to fsync task. */
 	static WFFileSyncTask *create_fdsync_task(int fd,
-											  fsync_callback_t callback);
-
-	static WFFileSyncTask *create_fdsync_task(const std::string& filepath,
 											  fsync_callback_t callback);
 
 public:

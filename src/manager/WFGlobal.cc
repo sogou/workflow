@@ -548,14 +548,12 @@ static void __set_options(const char *p,
 	}
 }
 
-extern int __dns_resolver_read_line(FILE *fp, void **buf, size_t *bufsize);
-
 static int __parse_resolv_conf(const char *path,
 							   std::string& url, std::string& search_list,
 							   int *ndots, int *attempts, bool *rotate)
 {
 	size_t bufsize = 0;
-	void *line = NULL;
+	char *line = NULL;
 	FILE *fp;
 	int ret;
 
@@ -563,20 +561,19 @@ static int __parse_resolv_conf(const char *path,
 	if (!fp)
 		return -1;
 
-	while ((ret = __dns_resolver_read_line(fp, &line, &bufsize)) == 0)
+	while ((ret = getline(&line, &bufsize, fp)) > 0)
 	{
-		const char *p = (const char *)line;
-		if (strncmp(p, "nameserver", 10) == 0)
-			__split_merge_str(p + 10, true, url);
-		else if (strncmp(p, "search", 6) == 0)
-			__split_merge_str(p + 6, false, search_list);
-		else if (strncmp(p, "options", 7) == 0)
-			__set_options(p + 7, ndots, attempts, rotate);
+		if (strncmp(line, "nameserver", 10) == 0)
+			__split_merge_str(line + 10, true, url);
+		else if (strncmp(line, "search", 6) == 0)
+			__split_merge_str(line + 6, false, search_list);
+		else if (strncmp(line, "options", 7) == 0)
+			__set_options(line + 7, ndots, attempts, rotate);
 	}
 
+	ret = ferror(fp) ? -1 : 0;
 	free(line);
 	fclose(fp);
-
 	return ret;
 }
 
@@ -606,15 +603,17 @@ private:
 			std::string url;
 			std::string search;
 
-			client = new WFDnsClient;
 			if (__parse_resolv_conf(path, url, search, &ndots, &attempts,
 									&rotate) >= 0)
 			{
+				client = new WFDnsClient;
 				if (client->init(url, search, ndots, attempts, rotate) >= 0)
 					return;
+
+				delete client;
+				client = NULL;
 			}
 
-			delete client;
 			abort();
 		}
 	}

@@ -218,8 +218,7 @@ inline void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 void WFServiceGovernance::remove_server_from_breaker(EndpointAddress *addr)
 {
 	pthread_mutex_lock(&this->breaker_lock);
-	if (addr->entry.list.next)
-		list_del(&addr->entry.list);
+	list_del(&addr->entry.list);
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
@@ -303,15 +302,15 @@ void WFServiceGovernance::check_breaker()
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-const EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri,
-														   WFNSTracing *tracing)
+EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri,
+													 WFNSTracing *tracing)
 {
 	unsigned int idx = rand() % this->servers.size();
 	return this->servers[idx];
 }
 
-const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri,
-															 WFNSTracing *tracing)
+EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri,
+													   WFNSTracing *tracing)
 {
 	return this->first_strategy(uri, tracing);
 }
@@ -336,7 +335,7 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_strategy(uri, tracing);
+	EndpointAddress *select_addr = this->first_strategy(uri, tracing);
 
 	if (!select_addr ||
 		select_addr->fail_count >= select_addr->params->max_fails)
@@ -347,14 +346,12 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 	if (select_addr)
 	{
-		*addr = (EndpointAddress *)select_addr;
+		*addr = select_addr;
 		++(*addr)->ref;
-		pthread_rwlock_unlock(&this->rwlock);
-		return true;
 	}
 
 	pthread_rwlock_unlock(&this->rwlock);
-	return false;
+	return !!select_addr;
 }
 
 void WFServiceGovernance::add_server_locked(EndpointAddress *addr)

@@ -171,15 +171,15 @@ private:
 	unsigned int mttr_second;
 
 protected:
-	virtual const EndpointAddress *first_strategy(const ParsedURI& uri,
-												  WFNSTracing *tracing);
-	virtual const EndpointAddress *another_strategy(const ParsedURI& uri,
-													WFNSTracing *tracing);
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
+	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
+											  WFNSTracing *tracing);
 	void check_breaker();
 	void remove_server_from_breaker(EndpointAddress *addr);
 	static void tracing_deleter(void *data);
 
-	std::vector<EndpointAddress *> servers; // current servers
+	std::vector<EndpointAddress *> servers;
 	std::unordered_map<std::string,
 					   std::vector<EndpointAddress *>> server_map;
 	pthread_rwlock_t rwlock;

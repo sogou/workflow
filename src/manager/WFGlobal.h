@@ -32,6 +32,7 @@
 #include "Executor.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
+#include "WFDnsResolver.h"
 
 /**
  * @file    WFGlobal.h
@@ -46,6 +47,7 @@
 struct WFGlobalSettings
 {
 	struct EndpointParams endpoint_params;
+	struct EndpointParams dns_server_params;
 	unsigned int dns_ttl_default;	///< in seconds, DNS TTL when network request success
 	unsigned int dns_ttl_min;		///< in seconds, DNS TTL when network request fail
 	int dns_threads;
@@ -62,14 +64,15 @@ struct WFGlobalSettings
 static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 {
 	.endpoint_params	=	ENDPOINT_PARAMS_DEFAULT,
+	.dns_server_params	=	ENDPOINT_PARAMS_DEFAULT,
 	.dns_ttl_default	=	12 * 3600,
 	.dns_ttl_min		=	180,
 	.dns_threads		=	4,
 	.poller_threads		=	4,
 	.handler_threads	=	20,
 	.compute_threads	=	-1,
-	.resolv_conf_path	=	NULL,			// use thread dns task for default
-	.hosts_path			=	NULL,
+	.resolv_conf_path	=	"/etc/resolv.conf",
+	.hosts_path			=	"/etc/hosts",
 };
 
 /**
@@ -109,8 +112,8 @@ public:
 
 	static const char *get_error_string(int state, int error);
 
-public:
 	// Internal usage only
+public:
 	static CommScheduler *get_scheduler();
 	static DnsCache *get_dns_cache();
 	static RouteManager *get_route_manager();
@@ -122,7 +125,10 @@ public:
 	static ExecQueue *get_dns_queue();
 	static Executor *get_dns_executor();
 	static WFNameService *get_name_service();
+	static WFDnsResolver *get_dns_resolver();
 	static class WFDnsClient *get_dns_client();
+
+public:
 	static void sync_operation_begin();
 	static void sync_operation_end();
 };

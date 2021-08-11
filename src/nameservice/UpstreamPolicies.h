@@ -17,7 +17,7 @@
 */
 
 #ifndef _UPSTREAM_POLICIES_H_
-#define _UPSTREAM_POLICIES_H_ 
+#define _UPSTREAM_POLICIES_H_
 
 #include "RWLock.h"
 #include <vector>
@@ -74,11 +74,11 @@ protected:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	const EndpointAddress *consistent_hash_with_group(unsigned int hash);
-	const EndpointAddress *check_and_get(const EndpointAddress *addr,
-										 bool flag, WFNSTracing *tracing);
+	EndpointAddress *consistent_hash_with_group(unsigned int hash);
+	EndpointAddress *check_and_get(EndpointAddress *addr,
+								   bool flag, WFNSTracing *tracing);
 
-	bool is_alive_or_group_alive(const EndpointAddress *addr) const;
+	bool is_alive(const EndpointAddress *addr) const;
 };
 
 class UPSWeightedRandomPolicy : public UPSGroupPolicy
@@ -90,21 +90,42 @@ public:
 		this->available_weight = 0;
 		this->try_another = try_another;
 	}
-	const EndpointAddress *first_strategy(const ParsedURI& uri,
-										  WFNSTracing *tracing);
-	const EndpointAddress *another_strategy(const ParsedURI& uri,
-											WFNSTracing *tracing);
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
+	EndpointAddress *another_strategy(const ParsedURI& uri,
+									  WFNSTracing *tracing);
 
 protected:
+	virtual void add_server_locked(EndpointAddress *addr);
+	virtual int remove_server_locked(const std::string& address);
 	int total_weight;
 	int available_weight;
 
 private:
 	virtual void recover_one_server(const EndpointAddress *addr);
 	virtual void fuse_one_server(const EndpointAddress *addr);
+	static int select_history_weight(WFNSTracing *tracing);
+};
+
+class UPSVNSWRRPolicy : public UPSWeightedRandomPolicy
+{
+public:
+	UPSVNSWRRPolicy() : UPSWeightedRandomPolicy(false)
+	{
+		this->cur_idx = 0;
+		this->try_another = false;
+	};
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
+
+private:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
-	static int select_history_weight(WFNSTracing *tracing);
+	void init();
+	void init_virtual_nodes();
+	std::vector<size_t> pre_generated_vec;
+	std::vector<size_t> current_weight_vec;
+	size_t cur_idx;
 };
 
 class UPSConsistentHashPolicy : public UPSGroupPolicy
@@ -121,8 +142,8 @@ public:
 	}
 
 protected:
-	const EndpointAddress *first_strategy(const ParsedURI& uri,
-										  WFNSTracing *tracing);
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
 
 private:
 	upstream_route_t consistent_hash;
@@ -151,11 +172,11 @@ public:
 	{
 		this->try_another = try_another;
 	}
-	
-	const EndpointAddress *first_strategy(const ParsedURI& uri,
-										  WFNSTracing *tracing);
-	const EndpointAddress *another_strategy(const ParsedURI& uri,
-											WFNSTracing *tracing);
+
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
+	EndpointAddress *another_strategy(const ParsedURI& uri,
+									  WFNSTracing *tracing);
 
 private:
 	upstream_route_t manual_select;

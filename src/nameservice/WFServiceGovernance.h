@@ -88,7 +88,8 @@ public:
 	std::string address;
 	std::string host;
 	std::string port;
-	std::atomic<unsigned int> fail_count;
+	unsigned int fail_count;
+	unsigned int ref;
 	long long broken_timeout;
 	PolicyAddrParams *params;
 
@@ -140,7 +141,7 @@ public:
 
 	virtual ~WFServiceGovernance()
 	{
-		for (EndpointAddress *addr : this->addresses)
+		for (EndpointAddress *addr : this->servers)
 			delete addr;
 	}
 
@@ -169,15 +170,15 @@ private:
 	unsigned int mttr_second;
 
 protected:
-	virtual const EndpointAddress *first_strategy(const ParsedURI& uri,
-												  WFNSTracing *tracing);
-	virtual const EndpointAddress *another_strategy(const ParsedURI& uri,
-													WFNSTracing *tracing);
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
+	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
+											  WFNSTracing *tracing);
 	void check_breaker();
+	void remove_server_from_breaker(EndpointAddress *addr);
 	static void tracing_deleter(void *data);
 
-	std::vector<EndpointAddress *> servers; // current servers
-	std::vector<EndpointAddress *> addresses; // memory management
+	std::vector<EndpointAddress *> servers;
 	std::unordered_map<std::string,
 					   std::vector<EndpointAddress *>> server_map;
 	RWLock rwlock;

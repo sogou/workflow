@@ -106,7 +106,7 @@ UPSGroupPolicy::~UPSGroupPolicy()
 	}
 }
 
-inline bool UPSGroupPolicy::is_alive_or_group_alive(const EndpointAddress *addr) const
+inline bool UPSGroupPolicy::is_alive(const EndpointAddress *addr) const
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
 	return ((params->group_id < 0 &&
@@ -203,9 +203,9 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
  *      false: means addr maybe group-alive.
  *      	   If addr is not available, get one from addr->group.
  */
-inline EndpointAddress *UPSGroupPolicy::check_and_get(EndpointAddress *addr,
-													  bool flag,
-													  WFNSTracing *tracing)
+EndpointAddress *UPSGroupPolicy::check_and_get(EndpointAddress *addr,
+											   bool flag,
+											   WFNSTracing *tracing)
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
 
@@ -365,6 +365,11 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 
 			//std::lock_guard<std::mutex> lock(group->mutex);
 			pthread_mutex_lock(&group->mutex);
+			if (addr->fail_count < params->max_fails)
+				this->fuse_one_server(addr);
+			else
+				this->remove_server_from_breaker(addr);
+
 			if (params->server_type == 0)
 				group->weight -= params->weight;
 
@@ -376,11 +381,6 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 					break;
 				}
 			}
-
-			if (addr->fail_count < params->max_fails)
-				this->fuse_one_server(addr);
-			else
-				this->remove_server_from_breaker(addr);
 
 			this->server_list_change(addr, REMOVE_SERVER);
 			remove_list.push_back(addr);
@@ -428,7 +428,7 @@ EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash)
 
 	for (EndpointAddress *server : this->servers)
 	{
-		if (this->is_alive_or_group_alive(server))
+		if (this->is_alive(server))
 		{
 			params = static_cast<UPSAddrParams *>(server->params);
 
@@ -550,7 +550,7 @@ EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri,
 
 	for (EndpointAddress *server : this->servers)
 	{
-		if (this->is_alive_or_group_alive(server))
+		if (this->is_alive(server))
 		{
 			addr = server;
 			params = static_cast<UPSAddrParams *>(server->params);

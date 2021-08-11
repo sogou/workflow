@@ -78,7 +78,7 @@ protected:
 	EndpointAddress *check_and_get(EndpointAddress *addr,
 								   bool flag, WFNSTracing *tracing);
 
-	bool is_alive_or_group_alive(const EndpointAddress *addr) const;
+	bool is_alive(const EndpointAddress *addr) const;
 };
 
 class UPSWeightedRandomPolicy : public UPSGroupPolicy

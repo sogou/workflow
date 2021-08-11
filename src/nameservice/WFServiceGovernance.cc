@@ -258,15 +258,12 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 		server = (EndpointAddress *)tracing->data;
 
 	pthread_rwlock_wrlock(&this->rwlock);
-	size_t fail_count = ++server->fail_count;
-
 	if (--server->ref == 0)
 		delete server;
-	else if (fail_count == server->params->max_fails)
+	else if (++server->fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
 
 	pthread_rwlock_unlock(&this->rwlock);
-
 	this->WFNSPolicy::failed(result, tracing, target);
 }
 

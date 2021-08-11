@@ -188,14 +188,15 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 	if (!select_addr)
 		select_addr = this->default_group->get_one_backup(tracing);
 
-	pthread_rwlock_unlock(&this->rwlock);
-
 	if (select_addr)
 	{
 		*addr = (EndpointAddress *)select_addr;
+		++(*addr)->ref;
+		pthread_rwlock_unlock(&this->rwlock);
 		return true;
 	}
 
+	pthread_rwlock_unlock(&this->rwlock);
 	return false;
 }
 
@@ -303,7 +304,6 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 	rb_node *parent = NULL;
 	EndpointGroup *group;
 
-	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
 
 	if (params->server_type == 0)
@@ -340,6 +340,7 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 	else
 		group->backups.push_back(addr);
 	pthread_mutex_unlock(&group->mutex);
+	this->server_list_change(addr, ADD_SERVER);
 
 	return;
 }
@@ -347,6 +348,8 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 int UPSGroupPolicy::remove_server_locked(const std::string& address)
 {
 	UPSAddrParams *params;
+	std::vector<EndpointAddress *> remove_list;
+
 	const auto map_it = this->server_map.find(address);
 
 	if (map_it != this->server_map.cend())
@@ -364,9 +367,6 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 
 			//std::lock_guard<std::mutex> lock(group->mutex);
 			pthread_mutex_lock(&group->mutex);
-			if (addr->fail_count < params->max_fails)
-				this->fuse_one_server(addr);
-
 			if (params->server_type == 0)
 				group->weight -= params->weight;
 
@@ -378,6 +378,14 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 					break;
 				}
 			}
+
+			if (addr->fail_count < params->max_fails)
+				this->fuse_one_server(addr);
+			else
+				this->remove_server_from_breaker(addr);
+
+			this->server_list_change(addr, REMOVE_SERVER);
+			remove_list.push_back(addr);
 			pthread_mutex_unlock(&group->mutex);
 		}
 
@@ -403,6 +411,12 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 	{
 		this->servers.resize(new_n);
 		ret = n - new_n;
+	}
+
+	for (EndpointAddress *server : remove_list)
+	{
+		if (--server->ref == 0)
+			delete server;
 	}
 
 	return ret;

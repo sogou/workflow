@@ -103,6 +103,7 @@ EndpointAddress::EndpointAddress(const std::string& address,
 
 	this->address = address;
 	this->fail_count = 0;
+	this->ref = 1;
 	this->entry.list.next = NULL;
 	this->entry.ptr = this;
 
@@ -214,6 +215,14 @@ inline void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
+void WFServiceGovernance::remove_server_from_breaker(EndpointAddress *addr)
+{
+	pthread_mutex_lock(&this->breaker_lock);
+	if (addr->entry.list.next)
+		list_del(&addr->entry.list);
+	pthread_mutex_unlock(&this->breaker_lock);
+}
+
 void WFServiceGovernance::success(RouteManager::RouteResult *result,
 								  WFNSTracing *tracing,
 								  CommTarget *target)
@@ -229,6 +238,8 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 
 	pthread_rwlock_wrlock(&this->rwlock);
 	this->recover_server_from_breaker(server);
+	if (--server->ref == 0)
+		delete server;
 	pthread_rwlock_unlock(&this->rwlock);
 
 	this->WFNSPolicy::success(result, tracing, target);
@@ -249,7 +260,10 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 
 	pthread_rwlock_wrlock(&this->rwlock);
 	size_t fail_count = ++server->fail_count;
-	if (fail_count == server->params->max_fails)
+
+	if (--server->ref == 0)
+		delete server;
+	else if (fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
 
 	pthread_rwlock_unlock(&this->rwlock);
@@ -331,20 +345,20 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 			select_addr = this->another_strategy(uri, tracing);
 	}
 
-	pthread_rwlock_unlock(&this->rwlock);
-
 	if (select_addr)
 	{
 		*addr = (EndpointAddress *)select_addr;
+		++(*addr)->ref;
+		pthread_rwlock_unlock(&this->rwlock);
 		return true;
 	}
 
+	pthread_rwlock_unlock(&this->rwlock);
 	return false;
 }
 
 void WFServiceGovernance::add_server_locked(EndpointAddress *addr)
 {
-	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
 	this->servers.push_back(addr);
 	this->recover_one_server(addr);
@@ -353,6 +367,8 @@ void WFServiceGovernance::add_server_locked(EndpointAddress *addr)
 
 int WFServiceGovernance::remove_server_locked(const std::string& address)
 {
+	std::vector<EndpointAddress *> remove_list;
+
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
 	{
@@ -360,10 +376,12 @@ int WFServiceGovernance::remove_server_locked(const std::string& address)
 		{
 			// or not: it has already been -- in nalives
 			if (addr->fail_count < addr->params->max_fails)
-			{
 				this->fuse_one_server(addr);
-				this->server_list_change(addr, REMOVE_SERVER);
-			}
+			else
+				this->remove_server_from_breaker(addr);
+
+			this->server_list_change(addr, REMOVE_SERVER);
+			remove_list.push_back(addr);
 		}
 
 		this->server_map.erase(map_it);
@@ -388,6 +406,12 @@ int WFServiceGovernance::remove_server_locked(const std::string& address)
 	{
 		this->servers.resize(new_n);
 		ret = n - new_n;
+	}
+
+	for (EndpointAddress *server : remove_list)
+	{
+		if (--server->ref == 0)
+			delete server;
 	}
 
 	return ret;

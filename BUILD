@@ -2,6 +2,7 @@ cc_library(
 	name = 'workflow_hdrs',
 	hdrs = glob(['src/include/workflow/*']),
 	includes = ['src/include'],
+	visibility = ["//visibility:public"],
 )
 cc_library(
 	name = 'common',

@@ -135,7 +135,7 @@ public:
 
 	WFKafkaTask *create_kafka_task(int retry_max, kafka_callback_t cb);
 
-	void set_ssl(protocol::KafkaSSL&& ssl);
+	void set_ssl(protocol::KafkaSSL ssl);
 
 public:
 	/* If you don't leavegroup manually, rebalance would be triggered */

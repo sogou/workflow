@@ -690,18 +690,16 @@ private:
 			std::string url;
 			std::string search;
 
-			if (__parse_resolv_conf(path, url, search, &ndots, &attempts,
-									&rotate) >= 0)
-			{
-				client = new WFDnsClient;
-				if (client->init(url, search, ndots, attempts, rotate) >= 0)
-					return;
+			__parse_resolv_conf(path, url, search, &ndots, &attempts, &rotate);
+			if (url.size() == 0)
+				url = "8.8.8.8";
 
-				delete client;
-				client = NULL;
-			}
+			client = new WFDnsClient;
+			if (client->init(url, search, ndots, attempts, rotate) >= 0)
+				return;
 
-			abort();
+			delete client;
+			client = NULL;
 		}
 	}
 

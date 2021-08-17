@@ -700,7 +700,6 @@ private:
 
 			delete client;
 			client = NULL;
-			abort();
 		}
 	}
 

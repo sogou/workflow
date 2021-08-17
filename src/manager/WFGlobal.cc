@@ -690,8 +690,7 @@ private:
 			std::string url;
 			std::string search;
 
-			__parse_resolv_conf(path, url, search, &ndots, &attempts,
-								&rotate);
+			__parse_resolv_conf(path, url, search, &ndots, &attempts, &rotate);
 			if (url.size() == 0)
 				url = "8.8.8.8";
 

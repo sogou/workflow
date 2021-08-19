@@ -88,4 +88,4 @@ poller\_threads and handler\_threads are the two parameters for tuning network p
 * poller\_threads is mainly used for epoll (kqueue) and message deserialization.
 * handler\_threads is the number of threads for the callback and the process of a network task.
 
-All resources required by the framework are applied for when they are used for the first time. For example, if a user task does not involve DNS resolution, the DNS thread will not be created.
+All resources required by the framework are applied for when they are used for the first time. For example, if a user task does not involve DNS resolution, the asynchronous DNS resolver or DNS threads will not be created.

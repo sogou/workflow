@@ -10,6 +10,7 @@ Global configuration is used to configure default global parameters to meet the 
 struct WFGlobalSettings
 {
     struct EndpointParams endpoint_params;
+    struct EndpointParams dns_server_params;
     unsigned int dns_ttl_default;   ///< in seconds, DNS TTL when network request success
     unsigned int dns_ttl_min;       ///< in seconds, DNS TTL when network request fail
     int dns_threads;
@@ -24,14 +25,15 @@ struct WFGlobalSettings
 static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 {
     .endpoint_params    =   ENDPOINT_PARAMS_DEFAULT,
+    .dns_server_params  =   ENDPOINT_PARAMS_DEFAULT,
     .dns_ttl_default    =   12 * 3600,
     .dns_ttl_min        =   180,
     .dns_threads        =   4,
     .poller_threads     =   4,
     .handler_threads    =   20,
     .compute_threads    =   -1,
-    .resolv_conf_path   =   NULL,   // use thread dns task for default
-    .hosts_path         =   NULL,
+    .resolv_conf_path   =   "/etc/resolv.conf",
+    .hosts_path         =   "/etc/hosts",
 };
 ~~~
 
@@ -58,7 +60,7 @@ static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
 };
 ~~~
 
-If you want to change the default connection timeout to 5 seconds, the default TTL for DNS to 1 hour and increase the number of poller threads for message deserialization to 10, you can follow the example below:
+If you want to change the default connecting timeout to 5 seconds, the default TTL for DNS to 1 hour and increase the number of poller threads for message deserialization to 10, you can follow the example below:
 
 ~~~cpp
 #include "workflow/WFGlobal.h"
@@ -78,7 +80,8 @@ int main()
 ~~~
 
 Most of the parameters are self-explanatory. Note: the ttl and related parameters in DNS configuration are in **seconds**. The timeout for endpoint is in **milliseconds**, and -1 indicates an infinite timeout.   
-dns\_threads indicates the total number of threads accessing DNS in parallel. Currently, you may access DNS through the system function **getaddrinfo**. If you want to tune the parallel performance of DNS, you can increase this value.   
+dns\_threads indicates the total number of threads accessing DNS in parallel, but by default, we use asynchronous DNS resolving and don't create any dns threads.  
+dns\_server\_params indicates parameters that we access DNS server, including the maximum cocurrent connections, and the DNS server's connecting and response timeout.  
 compute\_threads indicates the number of threads used for computation. The default value is -1, meaning the number of threads is the same as the number of CPU cores in the current node.   
 poller\_threads and handler\_threads are the two parameters for tuning network performance:
 

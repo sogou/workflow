@@ -41,6 +41,7 @@ int main()
 * To realize any **high-performance** and **high-concurrency** back-end service with a very complex relationship between computing and networking.
 * To build a **micro service** system.
   * This project has built-in **service governance** and **load balancing** features.
+  * The [workflow-k8s](https://github.com/sogou/workflow-k8s) plugin enables using name service with kubernetes automated deployment.
 
 #### Compiling and running environment
 

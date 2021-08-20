@@ -51,6 +51,7 @@ cc_library(
 	],
 	deps = ['workflow_hdrs'],
 	visibility = ["//visibility:public"],
+	copts = ['-std=gnu90'],
 )
 cc_library(
 	name = 'http',

@@ -257,3 +257,58 @@ TEST(task_unittest, WFFileIOTask)
 	remove(file_path.c_str());
 }
 
+TEST(task_unittest, WFFilePathIOTask)
+{
+	srand(time(NULL));
+	std::mutex mutex;
+	std::condition_variable cond;
+	bool done = false;
+	std::string file_path = "./" + std::to_string(time(NULL)) +
+							"__" + std::to_string(rand() % 4096);
+
+	char writebuf[] = "testtest";
+	char readbuf[16];
+
+	auto *write = WFTaskFactory::create_pwrite_task(file_path, writebuf, 8, 80, [](WFFileIOTask *task) {
+		auto state = task->get_state();
+
+		EXPECT_EQ(state, WFT_STATE_SUCCESS);
+		if (state == WFT_STATE_SUCCESS)
+		{
+			auto *args = task->get_args();
+			EXPECT_EQ(args->count, 8);
+			EXPECT_EQ(args->offset, 80);
+			EXPECT_TRUE(strncmp("testtest", (char *)args->buf, 8) == 0);
+		}
+	});
+
+	auto *read = WFTaskFactory::create_pread_task(file_path, readbuf, 8, 80, [](WFFileIOTask *task) {
+		auto state = task->get_state();
+
+		EXPECT_EQ(state, WFT_STATE_SUCCESS);
+		if (state == WFT_STATE_SUCCESS)
+		{
+			auto *args = task->get_args();
+			EXPECT_EQ(args->count, 8);
+			EXPECT_EQ(args->offset, 80);
+			EXPECT_TRUE(strncmp("testtest", (char *)args->buf, 8) == 0);
+		}
+	});
+
+	auto *series = Workflow::create_series_work(write, [&mutex, &cond, &done](const SeriesWork *series) {
+		mutex.lock();
+		done = true;
+		mutex.unlock();
+		cond.notify_one();
+	});
+
+	series->push_back(read);
+	series->start();
+	std::unique_lock<std::mutex> lock(mutex);
+	while (!done)
+		cond.wait(lock);
+
+	lock.unlock();
+
+	remove(file_path.c_str());
+}

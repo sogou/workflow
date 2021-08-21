@@ -14,6 +14,8 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <assert.h>
@@ -21,6 +23,8 @@
 #include <signal.h>
 #include <pthread.h>
 #include <string.h>
+#include <stdio.h>
+#include <arpa/inet.h>
 #include <string>
 #include <unordered_map>
 #include <atomic>
@@ -558,49 +562,8 @@ public:
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
 #define HOSTS_LINEBUF_INIT_SIZE	128
 
-static int __read_line(FILE *fp, void **buf, size_t *bufsize)
-{
-	char *p = (char *)*buf;
-	size_t offset = 0;
-	size_t newsize;
-	void *newbase;
-	int nleft;
-
-	while (1)
-	{
-		if (offset + 1 >= *bufsize)
-		{
-			newsize = MAX(HOSTS_LINEBUF_INIT_SIZE, *bufsize * 2);
-			newbase = realloc(*buf, newsize);
-			if (!newbase)
-				return -1;
-
-			*buf = newbase;
-			*bufsize = newsize;
-			p = (char *)*buf;
-		}
-
-		nleft = *bufsize - offset;
-		if (!fgets(&p[offset], nleft, fp))
-		{
-			if (offset != 0 && !ferror(fp))
-				break;
-
-			return ferror(fp) ? -1 : 1;
-		}
-
-		offset += strlen(&p[offset]);
-		if (p[offset - 1] == '\n')
-		{
-			p[offset - 1] = '\0';
-			break;
-		}
-	}
-
-	return 0;
-}
-
-static void __split_merge_str(const char *p, std::string& result)
+static void __split_merge_str(const char *p, bool is_nameserver,
+							  std::string& result)
 {
 	const char *start;
 
@@ -621,7 +584,16 @@ static void __split_merge_str(const char *p, std::string& result)
 
 		if (!result.empty())
 			result.push_back(',');
-		result.append(start, p);
+
+		std::string str(start, p);
+		if (is_nameserver)
+		{
+			struct in6_addr buf;
+			if (inet_pton(AF_INET6, str.c_str(), &buf) > 0)
+				str = "[" + str + "]";
+		}
+
+		result.append(str);
 	}
 }
 
@@ -664,33 +636,32 @@ static void __set_options(const char *p,
 	}
 }
 
-static int __parse_resolv_conf(const char *filename,
+static int __parse_resolv_conf(const char *path,
 							   std::string& url, std::string& search_list,
 							   int *ndots, int *attempts, bool *rotate)
 {
 	size_t bufsize = 0;
-	void *line = NULL;
+	char *line = NULL;
 	FILE *fp;
 	int ret;
 
-	fp = fopen(filename, "r");
+	fp = fopen(path, "r");
 	if (!fp)
 		return -1;
 
-	while ((ret = __read_line(fp, &line, &bufsize)) == 0)
+	while ((ret = getline(&line, &bufsize, fp)) > 0)
 	{
-		const char *p = (const char *)line;
-		if (strncmp(p, "nameserver", 10) == 0)
-			__split_merge_str(p + 10, url);
-		else if (strncmp(p, "search", 6) == 0)
-			__split_merge_str(p + 6, search_list);
-		else if (strncmp(p, "options", 7) == 0)
-			__set_options(p + 7, ndots, attempts, rotate);
+		if (strncmp(line, "nameserver", 10) == 0)
+			__split_merge_str(line + 10, true, url);
+		else if (strncmp(line, "search", 6) == 0)
+			__split_merge_str(line + 6, false, search_list);
+		else if (strncmp(line, "options", 7) == 0)
+			__set_options(line + 7, ndots, attempts, rotate);
 	}
 
+	ret = ferror(fp) ? -1 : 0;
 	free(line);
 	fclose(fp);
-
 	return ret;
 }
 
@@ -720,16 +691,16 @@ private:
 			std::string url;
 			std::string search;
 
+			__parse_resolv_conf(path, url, search, &ndots, &attempts, &rotate);
+			if (url.size() == 0)
+				url = "8.8.8.8";
+
 			client = new WFDnsClient;
-			if (__parse_resolv_conf(path, url, search, &ndots, &attempts,
-									&rotate) >= 0)
-			{
-				if (client->init(url, search, ndots, attempts, rotate) >= 0)
-					return;
-			}
+			if (client->init(url, search, ndots, attempts, rotate) >= 0)
+				return;
 
 			delete client;
-			abort();
+			client = NULL;
 		}
 	}
 

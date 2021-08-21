@@ -2,6 +2,7 @@ cc_library(
 	name = 'workflow_hdrs',
 	hdrs = glob(['src/include/workflow/*']),
 	includes = ['src/include'],
+	visibility = ["//visibility:public"],
 )
 cc_library(
 	name = 'common',
@@ -9,6 +10,7 @@ cc_library(
 		'src/algorithm/DnsRoutine.cc',
 		'src/client/WFDnsClient.cc',
 		'src/factory/DnsTaskImpl.cc',
+		'src/factory/FileTaskImpl.cc',
 		'src/factory/WFGraphTask.cc',
 		'src/factory/WFResourcePool.cc',
 		'src/factory/WFTaskFactory.cc',
@@ -49,6 +51,7 @@ cc_library(
 	],
 	deps = ['workflow_hdrs'],
 	visibility = ["//visibility:public"],
+	copts = ['-std=gnu90'],
 )
 cc_library(
 	name = 'http',

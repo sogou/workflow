@@ -197,7 +197,7 @@ int WFDnsClient::init(const std::string& url, const std::string& search_list,
 	id = 0;
 	hosts = StringUtil::split_filter_empty(url, ',');
 
-	for(size_t i = 0; i < hosts.size(); i++)
+	for (size_t i = 0; i < hosts.size(); i++)
 	{
 		host = hosts[i];
 		if (strncasecmp(host.c_str(), "dns://", 6) != 0 &&

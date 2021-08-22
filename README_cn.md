@@ -38,7 +38,7 @@ int main()
 * 构建微服务系统。
   * 项目内置服务治理与负载均衡等功能。
   * 使用[workflow-k8s](https://github.com/sogou/workflow-k8s)插件，可将服务治理与kubernetes的自动部署融合。
-* Wiki链接 : [Workflow PaaS 架构图](https://github.com/sogou/workflow/wiki)
+* Wiki链接 : [PaaS 架构图](https://github.com/sogou/workflow/wiki)
 
 #### 编译和运行环境
 * 项目支持``Linux``，``macOS``，``Windows``，``Android``等操作系统。

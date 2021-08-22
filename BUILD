@@ -5,6 +5,24 @@ cc_library(
 	visibility = ["//visibility:public"],
 )
 cc_library(
+	name = 'common_c',
+	srcs = [
+		'src/kernel/mpoller.c',
+		'src/kernel/msgqueue.c',
+		'src/kernel/poller.c',
+		'src/kernel/rbtree.c',
+		'src/kernel/thrdpool.c',
+		'src/util/crc32c.c',
+	],
+	hdrs = glob(['src/*/*.h']) + glob(['src/*/*.inl']),
+	includes = [
+		'src/kernel',
+		'src/util',
+	],
+	copts = ['-std=gnu90'],
+	visibility = ["//visibility:public"],
+)
+cc_library(
 	name = 'common',
 	srcs = [
 		'src/algorithm/DnsRoutine.cc',
@@ -31,12 +49,7 @@ cc_library(
 		'src/kernel/Executor.cc',
 		'src/kernel/IOService_linux.cc',
 		'src/kernel/SubTask.cc',
-		'src/kernel/mpoller.c',
-		'src/kernel/msgqueue.c',
-		'src/kernel/poller.c',
-		'src/kernel/rbtree.c',
-		'src/kernel/thrdpool.c',
-	] + glob(['src/util/*.c']) + glob(['src/util/*.cc']),
+	] + glob(['src/util/*.cc']),
 	hdrs = glob(['src/*/*.h']) + glob(['src/*/*.inl']),
 	includes = [
 		'src/algorithm',
@@ -49,9 +62,8 @@ cc_library(
 		'src/server',
 		'src/util',
 	],
-	deps = ['workflow_hdrs'],
+	deps = ['workflow_hdrs', 'common_c'],
 	visibility = ["//visibility:public"],
-	copts = ['-std=gnu90'],
 )
 cc_library(
 	name = 'http',

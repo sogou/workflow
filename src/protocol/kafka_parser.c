@@ -1111,7 +1111,7 @@ static int kafka_sasl_scram_recv(const char *buf, size_t len, void *p, void *q)
 
 	case KAFKA_SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE:
 		ret = scram_handle_server_final_message(buf, len, conf, sasl);
-		sasl->scram.state = -1;
+		sasl->scram.state = KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED;
 		break;
 
 	default:

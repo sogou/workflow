@@ -115,10 +115,11 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	if (seqid == 0)
 	{
 		KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
-		this->get_connection()->set_context(conn_info, std::move([](void *ctx) {
-					delete (KafkaConnectionInfo *)ctx;
-				}));
+
 		this->get_req()->set_api(&conn_info->api);
+		this->get_connection()->set_context(conn_info, [](void *ctx) {
+			delete (KafkaConnectionInfo *)ctx;
+		});
 
 		if (!this->get_req()->get_config()->get_broker_version())
 		{

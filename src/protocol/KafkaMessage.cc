@@ -3819,7 +3819,8 @@ int KafkaResponse::append(const void *buf, size_t *size)
 				if (strncasecmp(this->config.get_sasl_mech(), "SCRAM", 5) == 0)
 				{
 					this->clear_buf();
-					if (this->sasl->scram.state != -1)
+					if (this->sasl->scram.state !=
+							KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED)
 						ret = this->handle_sasl_continue();
 					else
 						this->sasl->status = 1;

@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <ctype.h>
 #include <utility>
 #include <string>
@@ -93,7 +94,7 @@ static int __default_family()
 	bool v4 = false;
 	bool v6 = false;
 
-	if (getaddrinfo(NULL, "0", &__ai_hints, &res) == 0)
+	if (getaddrinfo(NULL, "1", &__ai_hints, &res) == 0)
 	{
 		for(cur = res; cur; cur = cur->ai_next)
 		{
@@ -109,48 +110,6 @@ static int __default_family()
 	}
 
 	return family;
-}
-
-static int __read_line(FILE *fp, void **buf, size_t *bufsize)
-{
-	char *p = (char *)*buf;
-	size_t offset = 0;
-	size_t newsize;
-	void *newbase;
-	int nleft;
-
-	while (1)
-	{
-		if (offset + 1 >= *bufsize)
-		{
-			newsize = MAX(HOSTS_LINEBUF_INIT_SIZE, *bufsize * 2);
-			newbase = realloc(*buf, newsize);
-			if (!newbase)
-				return -1;
-
-			*buf = newbase;
-			*bufsize = newsize;
-			p = (char *)*buf;
-		}
-
-		nleft = *bufsize - offset;
-		if (!fgets(&p[offset], nleft, fp))
-		{
-			if (offset != 0 && !ferror(fp))
-				break;
-
-			return ferror(fp) ? -1 : 1;
-		}
-
-		offset += strlen(&p[offset]);
-		if (p[offset - 1] == '\n')
-		{
-			p[offset - 1] = '\0';
-			break;
-		}
-	}
-
-	return 0;
 }
 
 // hosts line format: IP canonical_name [aliases...] [# Comment]
@@ -197,21 +156,21 @@ static int __readaddrinfo_line(char *p, const char *name, const char *port,
 	return 1;
 }
 
-static int __readaddrinfo(const char *filename,
+static int __readaddrinfo(const char *path,
 						  const char *name, unsigned short port,
 						  const struct addrinfo *hints,
 						  struct addrinfo **res)
 {
 	char port_str[PORT_STR_MAX + 1];
 	size_t bufsize = 0;
-	void *line = NULL;
+	char *line = NULL;
 	int count = 0;
 	struct addrinfo h;
 	int errno_bak;
 	FILE *fp;
 	int ret;
 
-	fp = fopen(filename, "r");
+	fp = fopen(path, "r");
 	if (!fp)
 		return EAI_SYSTEM;
 
@@ -220,15 +179,16 @@ static int __readaddrinfo(const char *filename,
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", port);
 
 	errno_bak = errno;
-	while ((ret = __read_line(fp, &line, &bufsize)) == 0)
+	while ((ret = getline(&line, &bufsize, fp)) > 0)
 	{
-		if (__readaddrinfo_line((char*)line, name, port_str, &h, res) == 0)
+		if (__readaddrinfo_line(line, name, port_str, &h, res) == 0)
 		{
 			count++;
-			res = &((*res)->ai_next);
+			res = &(*res)->ai_next;
 		}
 	}
 
+	ret = ferror(fp) ? EAI_SYSTEM : EAI_NONAME;
 	free(line);
 	fclose(fp);
 	if (count != 0)
@@ -237,7 +197,7 @@ static int __readaddrinfo(const char *filename,
 		return 0;
 	}
 
-	return ret < 0 ? EAI_SYSTEM : EAI_NONAME;
+	return ret;
 }
 
 // Add AI_PASSIVE to point that this addrinfo is alloced by getaddrinfo

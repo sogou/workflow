@@ -40,6 +40,7 @@ set(TEST_LIST
 	upstream_unittest
 	dns_unittest
 	resource_unittest
+	uriparser_unittest
 )
 
 if (APPLE)
@@ -53,6 +54,7 @@ foreach(src ${TEST_LIST})
 	target_link_libraries(${src} ${WORKFLOW_LIB} GTest::GTest GTest::Main)
 	add_test(${src} ${src})
 	add_dependencies(check ${src})
+	set_property(SOURCE ${src} APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endforeach()
 
 foreach(src ${TEST_LIST})

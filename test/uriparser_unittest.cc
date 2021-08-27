@@ -34,57 +34,57 @@ TEST(uriparser_unittest, parse)
 
 	EXPECT_EQ(URIParser::parse("ldap://[2001:db8::7]/c=GB?objectClass?one", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
-    EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(uri.userinfo, nullptr);
 	EXPECT_EQ(strcmp(uri.host, "2001:db8::7"), 0);
-    EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(uri.port, nullptr);
 	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
 	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
-    EXPECT_EQ(uri.fragment, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 
 	EXPECT_EQ(URIParser::parse("mailto:John.Doe@example.com", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "mailto"), 0);
-    EXPECT_EQ(uri.userinfo, nullptr);
-    EXPECT_EQ(uri.host, nullptr);
-    EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(uri.host, nullptr);
+	EXPECT_EQ(uri.port, nullptr);
 	EXPECT_EQ(strcmp(uri.path, "John.Doe@example.com"), 0);
-    EXPECT_EQ(uri.query, nullptr);
-    EXPECT_EQ(uri.fragment, nullptr);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 
 	EXPECT_EQ(URIParser::parse("news:comp.infosystems.www.servers.unix", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "news"), 0);
-    EXPECT_EQ(uri.userinfo, nullptr);
-    EXPECT_EQ(uri.host, nullptr);
-    EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(uri.host, nullptr);
+	EXPECT_EQ(uri.port, nullptr);
 	EXPECT_EQ(strcmp(uri.path, "comp.infosystems.www.servers.unix"), 0);
-    EXPECT_EQ(uri.query, nullptr);
-    EXPECT_EQ(uri.fragment, nullptr);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 
 	EXPECT_EQ(URIParser::parse("tel:+1-816-555-1212", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "tel"), 0);
-    EXPECT_EQ(uri.userinfo, nullptr);
-    EXPECT_EQ(uri.host, nullptr);
-    EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(uri.host, nullptr);
+	EXPECT_EQ(uri.port, nullptr);
 	EXPECT_EQ(strcmp(uri.path, "+1-816-555-1212"), 0);
-    EXPECT_EQ(uri.query, nullptr);
-    EXPECT_EQ(uri.fragment, nullptr);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 
 	EXPECT_EQ(URIParser::parse("telnet://192.0.2.16:80/", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "telnet"), 0);
-    EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(uri.userinfo, nullptr);
 	EXPECT_EQ(strcmp(uri.host, "192.0.2.16"), 0);
 	EXPECT_EQ(strcmp(uri.port, "80"), 0);
 	EXPECT_EQ(strcmp(uri.path, "/"), 0);
-    EXPECT_EQ(uri.query, nullptr);
-    EXPECT_EQ(uri.fragment, nullptr);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 
 	EXPECT_EQ(URIParser::parse("urn:oasis:names:specification:docbook:dtd:xml:4.1.2", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "urn"), 0);
-    EXPECT_EQ(uri.userinfo, nullptr);
-    EXPECT_EQ(uri.host, nullptr);
-    EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(uri.host, nullptr);
+	EXPECT_EQ(uri.port, nullptr);
 	EXPECT_EQ(strcmp(uri.path, "oasis:names:specification:docbook:dtd:xml:4.1.2"), 0);
-    EXPECT_EQ(uri.query, nullptr);
-    EXPECT_EQ(uri.fragment, nullptr);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 
 	EXPECT_EQ(URIParser::parse("https://www.example.com:123/forum/questions/?tag=networking&order=newest#top", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "https"), 0);

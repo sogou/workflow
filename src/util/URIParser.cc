@@ -546,7 +546,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 				else
 				{
 					state = URI_PATH;
-					st[URI_HOST] = i + 1;
+					st[URI_PATH] = i;
 				}
 			}
 			else if (state == URI_HOST)

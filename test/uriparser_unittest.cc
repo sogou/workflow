@@ -103,5 +103,14 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(strcmp(uri.path, "/forum/questions/"), 0);
 	EXPECT_EQ(strcmp(uri.query, "tag=networking&order=newest"), 0);
 	EXPECT_EQ(strcmp(uri.fragment, "top"), 0);
+
+    EXPECT_EQ(URIParser::parse("foo:/index.html", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "foo"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(uri.host, nullptr);
+	EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(strcmp(uri.path, "/index.html"), 0);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 }
 

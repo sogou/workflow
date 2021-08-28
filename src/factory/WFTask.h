@@ -209,7 +209,7 @@ template<class REQ, class RESP>
 class WFNetworkTask : public CommRequest
 {
 public:
-	/* start(), dismiss() for client task only. */
+	/* start(), dismiss() for client tasks only. */
 	void start()
 	{
 		assert(!series_of(this));
@@ -222,11 +222,16 @@ public:
 		delete this;
 	}
 
-	/* noreply() for server task only. */
+	/* noreply(), push() for server tasks only. */
 	void noreply()
 	{
 		if (this->state == WFT_STATE_TOREPLY)
 			this->state = WFT_STATE_NOREPLY;
+	}
+
+	int push(const void *buf, size_t size)
+	{
+		return this->scheduler->push(buf, size, this);
 	}
 
 public:

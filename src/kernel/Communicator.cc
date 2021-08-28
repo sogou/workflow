@@ -157,7 +157,6 @@ void CommTarget::deinit()
 int CommMessageIn::feedback(const void *buf, size_t size)
 {
 	struct CommConnEntry *entry = this->entry;
-	int error;
 	int ret;
 
 	if (!entry->ssl)
@@ -169,9 +168,9 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	ret = SSL_write(entry->ssl, buf, size);
 	if (ret <= 0)
 	{
-		error = SSL_get_error(entry->ssl, ret);
-		if (error != SSL_ERROR_SYSCALL)
-			errno = -error;
+		ret = SSL_get_error(entry->ssl, ret);
+		if (ret != SSL_ERROR_SYSCALL)
+			errno = -ret;
 
 		ret = -1;
 	}
@@ -1657,6 +1656,49 @@ int Communicator::reply(CommSession *session)
 
 	errno = errno_bak;
 	return 0;
+}
+
+int Communicator::push(const void *buf, size_t size, CommSession *session)
+{
+	CommTarget *target = session->target;
+	struct CommConnEntry *entry;
+	int ret;
+
+	if (session->passive != 1)
+	{
+		errno = session->passive ? ENOENT : EINVAL;
+		return -1;
+	}
+
+	pthread_mutex_lock(&target->mutex);
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		if (!entry->ssl)
+			ret = write(entry->sockfd, buf, size);
+		else if (size == 0)
+			ret = 0;
+		else
+		{
+			ret = SSL_write(entry->ssl, buf, size);
+			if (ret <= 0)
+			{
+				ret = SSL_get_error(entry->ssl, ret);
+				if (ret != SSL_ERROR_SYSCALL)
+					errno = -ret;
+
+				ret = -1;
+			}
+		}
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	pthread_mutex_unlock(&target->mutex);
+	return ret;
 }
 
 int Communicator::sleep(SleepSession *session)

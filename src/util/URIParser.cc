@@ -479,7 +479,13 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 				return -1;
 			}
 
-			memcpy(*dst[i], str + start_idx[i], len);
+			if (i == URI_HOST && str[start_idx[i]] == '[')
+			{
+				len -= 2;
+				memcpy(*dst[i], str + start_idx[i] + 1, len);
+			}
+			else
+				memcpy(*dst[i], str + start_idx[i], len);
 			(*dst[i])[len] = '\0';
 
 			if (i == URI_HOST && len >= 3 && 

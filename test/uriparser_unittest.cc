@@ -35,7 +35,7 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(URIParser::parse("ldap://[2001:db8::7]/c=GB?objectClass?one", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
 	EXPECT_EQ(uri.userinfo, nullptr);
-	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
+	EXPECT_EQ(strcmp(uri.host, "2001:db8::7"), 0);
 	EXPECT_EQ(uri.port, nullptr);
 	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
 	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
@@ -44,7 +44,7 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(URIParser::parse("ldap://user@[2001:db8::7]/c=GB?objectClass?one", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
 	EXPECT_EQ(strcmp(uri.userinfo, "user"), 0);
-	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
+	EXPECT_EQ(strcmp(uri.host, "2001:db8::7"), 0);
 	EXPECT_EQ(uri.port, nullptr);
 	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
 	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
@@ -53,7 +53,7 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(URIParser::parse("ldap://user@[2001:db8::7]:12345/c=GB?objectClass?one", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
 	EXPECT_EQ(strcmp(uri.userinfo, "user"), 0);
-	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
+	EXPECT_EQ(strcmp(uri.host, "2001:db8::7"), 0);
 	EXPECT_EQ(strcmp(uri.port, "12345"), 0);
 	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
 	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
@@ -62,7 +62,7 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(URIParser::parse("ldap://[2001:db8::7]:12345/c=GB?objectClass?one", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
 	EXPECT_EQ(uri.userinfo, nullptr);
-	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
+	EXPECT_EQ(strcmp(uri.host, "2001:db8::7"), 0);
 	EXPECT_EQ(strcmp(uri.port, "12345"), 0);
 	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
 	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);

@@ -35,8 +35,35 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(URIParser::parse("ldap://[2001:db8::7]/c=GB?objectClass?one", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
 	EXPECT_EQ(uri.userinfo, nullptr);
-	EXPECT_EQ(strcmp(uri.host, "2001:db8::7"), 0);
+	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
 	EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
+	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
+	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("ldap://user@[2001:db8::7]/c=GB?objectClass?one", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
+	EXPECT_EQ(strcmp(uri.userinfo, "user"), 0);
+	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
+	EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
+	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
+	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("ldap://user@[2001:db8::7]:12345/c=GB?objectClass?one", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
+	EXPECT_EQ(strcmp(uri.userinfo, "user"), 0);
+	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
+	EXPECT_EQ(strcmp(uri.port, "12345"), 0);
+	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
+	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
+	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("ldap://[2001:db8::7]:12345/c=GB?objectClass?one", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "ldap"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(strcmp(uri.host, "[2001:db8::7]"), 0);
+	EXPECT_EQ(strcmp(uri.port, "12345"), 0);
 	EXPECT_EQ(strcmp(uri.path, "/c=GB"), 0);
 	EXPECT_EQ(strcmp(uri.query, "objectClass?one"), 0);
 	EXPECT_EQ(uri.fragment, nullptr);
@@ -104,7 +131,7 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(strcmp(uri.query, "tag=networking&order=newest"), 0);
 	EXPECT_EQ(strcmp(uri.fragment, "top"), 0);
 
-    EXPECT_EQ(URIParser::parse("foo:/index.html", uri), 0);
+	EXPECT_EQ(URIParser::parse("foo:/index.html", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "foo"), 0);
 	EXPECT_EQ(uri.userinfo, nullptr);
 	EXPECT_EQ(uri.host, nullptr);
@@ -112,5 +139,59 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(strcmp(uri.path, "/index.html"), 0);
 	EXPECT_EQ(uri.query, nullptr);
 	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("http://www.itcast.cn/subject/phonejavaeezly/index.html?sogouqt-chuanzhi-Java-yd-javapeixunkechengbiao", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "http"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(strcmp(uri.host, "www.itcast.cn"), 0);
+	EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(strcmp(uri.path, "/subject/phonejavaeezly/index.html"), 0);
+	EXPECT_EQ(strcmp(uri.query, "sogouqt-chuanzhi-Java-yd-javapeixunkechengbiao"), 0);
+	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("http://sg.sxrayxbyye.com/zt/zz/#银屑治疗方法", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "http"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(strcmp(uri.host, "sg.sxrayxbyye.com"), 0);
+	EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(strcmp(uri.path, "/zt/zz/"), 0);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(strcmp(uri.fragment, "银屑治疗方法"), 0);
+
+	EXPECT_EQ(URIParser::parse("http://www.huahaimiaomu.com?sg_vid=R_3qHh9H471Ry8OtW5J9R10vc_QR6EQqgA6HHLO6666666qe0Co66666666", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "http"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(strcmp(uri.host, "www.huahaimiaomu.com"), 0);
+	EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(uri.path, nullptr);
+	EXPECT_EQ(strcmp(uri.query, "sg_vid=R_3qHh9H471Ry8OtW5J9R10vc_QR6EQqgA6HHLO6666666qe0Co66666666"), 0);
+	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("https://sgsares.sogoucdn.com/apks/搜狗免费小说_4115.apk", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "https"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(strcmp(uri.host, "sgsares.sogoucdn.com"), 0);
+	EXPECT_EQ(uri.port, nullptr);
+	EXPECT_EQ(strcmp(uri.path, "/apks/搜狗免费小说_4115.apk"), 0);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("http://vip4.gyhrhs.com:84?sg_vid=Rucnk5BKG81RcIVk7XySNhQtBODR6mKXA06PpWA66666663MTAfR6666666", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "http"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(strcmp(uri.host, "vip4.gyhrhs.com"), 0);
+	EXPECT_EQ(strcmp(uri.port, "84"), 0);
+	EXPECT_EQ(uri.path, nullptr);
+	EXPECT_EQ(strcmp(uri.query, "sg_vid=Rucnk5BKG81RcIVk7XySNhQtBODR6mKXA06PpWA66666663MTAfR6666666"), 0);
+	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("http://vip4.gyhrhs.com:84/abc#frag", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "http"), 0);
+	EXPECT_EQ(uri.userinfo, nullptr);
+	EXPECT_EQ(strcmp(uri.host, "vip4.gyhrhs.com"), 0);
+	EXPECT_EQ(strcmp(uri.port, "84"), 0);
+	EXPECT_EQ(strcmp(uri.path, "/abc"), 0);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(strcmp(uri.fragment, "frag"), 0);
 }
 

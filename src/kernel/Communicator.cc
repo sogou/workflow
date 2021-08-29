@@ -1632,7 +1632,7 @@ int Communicator::reply(CommSession *session)
 
 	if (session->passive != 1)
 	{
-		errno = session->passive ? ENOENT : EINVAL;
+		errno = session->passive ? ENOENT : EPERM;
 		return -1;
 	}
 
@@ -1666,7 +1666,7 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 
 	if (session->passive != 1)
 	{
-		errno = session->passive ? ENOENT : EINVAL;
+		errno = session->passive ? ENOENT : EPERM;
 		return -1;
 	}
 

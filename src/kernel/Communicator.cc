@@ -1510,7 +1510,7 @@ int Communicator::reply(CommSession *session)
 
 	if (session->passive != 1)
 	{
-		errno = session->passive ? ENOENT : EINVAL;
+		errno = session->passive ? ENOENT : EPERM;
 		return -1;
 	}
 
@@ -1534,6 +1534,34 @@ int Communicator::reply(CommSession *session)
 
 	errno = errno_bak;
 	return 0;
+}
+
+int Communicator::push(const void *buf, size_t size, CommSession *session)
+{
+	CommTarget *target = session->target;
+	struct CommConnEntry *entry;
+	int ret;
+
+	if (session->passive != 1)
+	{
+		errno = session->passive ? ENOENT : EPERM;
+		return -1;
+	}
+
+	pthread_mutex_lock(&target->mutex);
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		ret = write(entry->sockfd, buf, size);
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	pthread_mutex_unlock(&target->mutex);
+	return ret;
 }
 
 int Communicator::sleep(SleepSession *session)

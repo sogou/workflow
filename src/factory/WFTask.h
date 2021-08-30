@@ -209,7 +209,7 @@ template<class REQ, class RESP>
 class WFNetworkTask : public CommRequest
 {
 public:
-	/* start(), dismiss() for client task only. */
+	/* start(), dismiss() are for client tasks only. */
 	void start()
 	{
 		assert(!series_of(this));
@@ -220,13 +220,6 @@ public:
 	{
 		assert(!series_of(this));
 		delete this;
-	}
-
-	/* noreply() for server task only. */
-	void noreply()
-	{
-		if (this->state == WFT_STATE_TOREPLY)
-			this->state = WFT_STATE_NOREPLY;
 	}
 
 public:
@@ -267,6 +260,19 @@ public:
 	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
 	void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
 	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
+
+public:
+	/* noreply(), push() are for server tasks only. */
+	void noreply()
+	{
+		if (this->state == WFT_STATE_TOREPLY)
+			this->state = WFT_STATE_NOREPLY;
+	}
+
+	virtual int push(const void *buf, size_t size)
+	{
+		return this->scheduler->push(buf, size, this);
+	}
 
 public:
 	void set_callback(std::function<void (WFNetworkTask<REQ, RESP> *)> cb)

@@ -79,6 +79,7 @@ struct __poller
 	int stopped;
 	struct rb_root timeo_tree;
 	struct rb_node *tree_first;
+	struct rb_node *tree_last;
 	struct list_head timeo_list;
 	struct list_head no_timeo_list;
 	struct __poller_node **nodes;
@@ -264,23 +265,34 @@ static void __poller_tree_insert(struct __poller_node *node, poller_t *poller)
 	struct rb_node **p = &poller->timeo_tree.rb_node;
 	struct rb_node *parent = NULL;
 	struct __poller_node *entry;
-	int first = 1;
 
-	while (*p)
+	entry = rb_entry(poller->tree_last, struct __poller_node, rb);
+	if (!*p)
 	{
-		parent = *p;
-		entry = rb_entry(*p, struct __poller_node, rb);
-		if (__timeout_cmp(node, entry) < 0)
-			p = &(*p)->rb_left;
-		else
-		{
-			p = &(*p)->rb_right;
-			first = 0;
-		}
-	}
-
-	if (first)
 		poller->tree_first = &node->rb;
+		poller->tree_last = &node->rb;
+	}
+	else if (__timeout_cmp(node, entry) >= 0)
+	{
+		parent = poller->tree_last;
+		p = &parent->rb_right;
+		poller->tree_last = &node->rb;
+	}
+	else
+	{
+		do
+		{
+			parent = *p;
+			entry = rb_entry(*p, struct __poller_node, rb);
+			if (__timeout_cmp(node, entry) < 0)
+				p = &(*p)->rb_left;
+			else
+				p = &(*p)->rb_right;
+		} while (*p);
+
+		if (p == &poller->tree_first->rb_left)
+			poller->tree_first = &node->rb;
+	}
 
 	node->in_rbtree = 1;
 	rb_link_node(&node->rb, parent, p);
@@ -292,6 +304,9 @@ static inline void __poller_tree_erase(struct __poller_node *node,
 {
 	if (&node->rb == poller->tree_first)
 		poller->tree_first = rb_next(&node->rb);
+
+	if (&node->rb == poller->tree_last)
+		poller->tree_last = rb_prev(&node->rb);
 
 	rb_erase(&node->rb, &poller->timeo_tree);
 	node->in_rbtree = 0;
@@ -723,23 +738,30 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 			break;
 	}
 
-	while (poller->tree_first)
+	if (poller->tree_first)
 	{
-		node = rb_entry(poller->tree_first, struct __poller_node, rb);
-		if (__timeout_cmp(node, time_node) < 0)
+		while (1)
 		{
-			if (node->data.fd >= 0)
+			node = rb_entry(poller->tree_first, struct __poller_node, rb);
+			if (__timeout_cmp(node, time_node) < 0)
 			{
-				poller->nodes[node->data.fd] = NULL;
-				__poller_del_fd(node->data.fd, node->event, poller);
+				if (node->data.fd >= 0)
+				{
+					poller->nodes[node->data.fd] = NULL;
+					__poller_del_fd(node->data.fd, node->event, poller);
+				}
+
+				poller->tree_first = rb_next(poller->tree_first);
+				rb_erase(&node->rb, &poller->timeo_tree);
+				list_add_tail(&node->list, &timeo_list);
+				if (poller->tree_first)
+					continue;
+
+				poller->tree_last = NULL;
 			}
 
-			poller->tree_first = rb_next(poller->tree_first);
-			rb_erase(&node->rb, &poller->timeo_tree);
-			list_add_tail(&node->list, &timeo_list);
-		}
-		else
 			break;
+		}
 	}
 
 	pthread_mutex_unlock(&poller->mutex);
@@ -913,6 +935,7 @@ poller_t *poller_create(const struct poller_params *params)
 
 					poller->timeo_tree.rb_node = NULL;
 					poller->tree_first = NULL;
+					poller->tree_last = NULL;
 					INIT_LIST_HEAD(&poller->timeo_list);
 					INIT_LIST_HEAD(&poller->no_timeo_list);
 					poller->nodes[poller->timerfd] = POLLER_NODE_ERROR;
@@ -978,24 +1001,26 @@ static void __poller_insert_node(struct __poller_node *node,
 	struct __poller_node *end;
 
 	end = list_entry(poller->timeo_list.prev, struct __poller_node, list);
-	if (list_empty(&poller->timeo_list) || __timeout_cmp(node, end) >= 0)
-		list_add_tail(&node->list, &poller->timeo_list);
-	else
-		__poller_tree_insert(node, poller);
-
-	if (&node->list == poller->timeo_list.next)
+	if (list_empty(&poller->timeo_list))
 	{
-		if (poller->tree_first)
-			end = rb_entry(poller->tree_first, struct __poller_node, rb);
-		else
-			end = NULL;
+		list_add(&node->list, &poller->timeo_list);
+		end = rb_entry(poller->tree_first, struct __poller_node, rb);
 	}
-	else if (&node->rb == poller->tree_first)
-		end = list_entry(poller->timeo_list.next, struct __poller_node, list);
-	else
+	else if (__timeout_cmp(node, end) >= 0)
+	{
+		list_add_tail(&node->list, &poller->timeo_list);
 		return;
+	}
+	else
+	{
+		__poller_tree_insert(node, poller);
+		if (&node->rb != poller->tree_first)
+			return;
 
-	if (!end || __timeout_cmp(node, end) < 0)
+		end = list_entry(poller->timeo_list.next, struct __poller_node, list);
+	}
+
+	if (!poller->tree_first || __timeout_cmp(node, end) < 0)
 		__poller_set_timerfd(poller->timerfd, &node->timeout, poller);
 }
 
@@ -1322,6 +1347,7 @@ void poller_stop(poller_t *poller)
 	close(poller->pipe_rd);
 
 	poller->tree_first = NULL;
+	poller->tree_last = NULL;
 	while (poller->timeo_tree.rb_node)
 	{
 		node = rb_entry(poller->timeo_tree.rb_node, struct __poller_node, rb);

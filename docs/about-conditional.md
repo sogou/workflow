@@ -77,6 +77,8 @@ int f()
     WFConditional *c2 = pool.get(t2, &t2->user_data);
 
     c2->start();
+    // wait for t2 finish here.
+    ...
     c1->start();
     ...
 }

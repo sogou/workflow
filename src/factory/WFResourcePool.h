@@ -44,7 +44,7 @@ public:
 		WFResourcePool *pool;
 	};
 
-private:
+protected:
 	virtual void *pop()
 	{
 		return this->data.res[this->data.index++];
@@ -55,7 +55,7 @@ private:
 		this->data.res[--this->data.index] = res;
 	}
 
-private:
+protected:
 	struct Data data;
 
 private:

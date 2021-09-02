@@ -82,9 +82,10 @@ make
     * [异步IO的http server：http_file_server](docs/tutorial-09-http_file_server.md)
   * 用户定义协议基础
     * [简单的用户自定义协议client/server](docs/tutorial-10-user_defined_protocol.md)
-  * 定时与计数任务
+  * 其它一些重要任务与组件
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
+    * [条件任务与资源池](docs/about-conditional.md)
   * 服务治理
     * [关于服务治理](docs/about-service-management.md)
     * [Upstream更多文档](docs/about-upstream.md)

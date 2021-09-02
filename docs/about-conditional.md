@@ -1,6 +1,6 @@
 # 条件任务与资源池
 
-在我们用workflow与异步程序时经常会遇到这样一些场景：
+在我们用workflow写异步程序时经常会遇到这样一些场景：
 * 任务运行时需要先从某个池子里获得一个资源。任务运行结束，则会把资源放回池子，让下一个需要资源的任务运行。
 * 网络通信时需要对某一个或一些通信目标做总的并发度限制，但又不希望占用线程等待。
 * 我们有许多随机到达的任务，处在不同的series里。但这些任务必须**串行**的运行。
@@ -70,13 +70,15 @@ WFResourcePool pool(1);
 
 int f()
 {
-    WFHttpTask *t1 = WFTaskFactory::create_http_task(...., [](void *){pool.post(nullptr);});
-    WFHttpTask *t2 = WFTaskFactory::create_http_task(...., [](void *){pool.post(nullptr);});
+    WFHttpTask *t1 = WFTaskFactory::create_http_task(..., [](void *){pool.post(nullptr);});
+    WFHttpTask *t2 = WFTaskFactory::create_http_task(..., [](void *){pool.post(nullptr);});
 
     WFConditional *c1 = pool.get(t1, &t1->user_data);  // user_data是public成员的优点被体现。
     WFConditional *c2 = pool.get(t2, &t2->user_data);
 
     c2->start();
+    // wait for t2 finish here.
+    ...
     c1->start();
     ...
 }

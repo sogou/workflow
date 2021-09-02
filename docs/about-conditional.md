@@ -104,10 +104,10 @@ int fetch_with_max(std::vector<std::string>& url_list, size_t max_p)
         WFHttpTask *task = WFTaskFactory::create_http_task(url, [&pool](WFHttpTask *task) {
             pool.post(nullptr);
         });
-        WFConditional *cond = pool->get(task, &buf_no_use);
+        WFConditional *cond = pool.get(task, &buf_no_use);
         cond->start();
     }
 
-	// wait_here...
+    // wait_here...
 }
 ~~~

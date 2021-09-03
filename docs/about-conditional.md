@@ -14,6 +14,7 @@ class WFResourcePool
 {
 public:
     WFConditional *get(SubTask *task, void **resbuf);
+    WFConditional *get(SubTask *task);
     void post(void *res);
     ...
 
@@ -27,7 +28,7 @@ protected:
     {
         this->data.res[--this->data.index] = res;
     }
-	...
+    ...
 
 public:
     WFResourcePool(void *const *res, size_t n);
@@ -61,8 +62,8 @@ WFResourcePool::WFResourcePool(size_t n)
 ~~~
 
 #### 使用接口
-用户使用get()接口，把任务打包成一个conditional。conditional是一个条件任务，条件满足时运行其包装的任务。    
-get()接口的第二个参数是一个void \*\*resbuf，用于保存所获得的资源。  
+用户使用get()接口，把任务打包成一个conditional。conditional是一个条件任务，条件满足时运行其包装的任务。  
+get()接口可包含第二个参数是一个void \*\*resbuf，用于保存所获得的资源。  
 接下来，用户只需要用这个conditional取代原来的任务使用就好了，可以start或串进任务流。  
 注意conditional是在它被执行时去尝试获得资源的，而不是在它被创建的时候。要不然的话，以下代码就会被卡死：
 ~~~cpp
@@ -73,7 +74,7 @@ int f()
     WFHttpTask *t1 = WFTaskFactory::create_http_task(..., [](void *){pool.post(nullptr);});
     WFHttpTask *t2 = WFTaskFactory::create_http_task(..., [](void *){pool.post(nullptr);});
 
-    WFConditional *c1 = pool.get(t1, &t1->user_data);  // user_data是public成员的优点被体现。
+    WFConditional *c1 = pool.get(t1, &t1->user_data);  // 用user_data来保存res是一种实用方法。
     WFConditional *c2 = pool.get(t2, &t2->user_data);
 
     c2->start();
@@ -83,7 +84,7 @@ int f()
     ...
 }
 ~~~
-以上代码实现了两个http任务的串行运行。c1先创建后运行，并不会出现卡死。因为conditional是在执行时才获得资源的。  
+以上代码c1先创建，等待t2结束后才运行。这里并不会出现c2卡死，因为conditional是在执行时才获得资源的。  
 当用户对资源使用完毕（一般在任务callback里），需要通过post()接口把资源放回池子。  
 post()时的res参数，**无需**与get()得到res的一致。  
 
@@ -98,7 +99,6 @@ post()时的res参数，**无需**与get()得到res的一致。
 ~~~cpp
 int fetch_with_max(std::vector<std::string>& url_list, size_t max_p)
 {
-    static void *buf_no_use;
     WFResourcePool pool(max_p);
 
     for (std::string& url : url_list)
@@ -106,7 +106,7 @@ int fetch_with_max(std::vector<std::string>& url_list, size_t max_p)
         WFHttpTask *task = WFTaskFactory::create_http_task(url, [&pool](WFHttpTask *task) {
             pool.post(nullptr);
         });
-        WFConditional *cond = pool.get(task, &buf_no_use);
+        WFConditional *cond = pool.get(task);  // 无需保存res，可以不传resbuf参数。
         cond->start();
     }
 

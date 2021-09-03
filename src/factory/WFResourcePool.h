@@ -28,6 +28,7 @@ class WFResourcePool
 {
 public:
 	WFConditional *get(SubTask *task, void **resbuf);
+	WFConditional *get(SubTask *task);
 	void post(void *res);
 
 public:

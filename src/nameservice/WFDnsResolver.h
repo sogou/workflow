@@ -38,15 +38,6 @@ public:
 private:
 	WFResourcePool respool;
 
-private:
-	WFConditional *get_cond(SubTask *task)
-	{
-		static void *buf;
-		return this->respool.get(task, &buf);
-	}
-
-	void post_cond() { this->respool.post(NULL); }
-
 public:
 	WFDnsResolver();
 	friend class WFResolverTask;

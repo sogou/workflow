@@ -392,7 +392,7 @@ void WFResolverTask::dispatch()
 			if (family == AF_INET6)
 				dns_task->get_req()->set_question_type(DNS_TYPE_AAAA);
 
-			WFConditional *cond = resolver->get_cond(dns_task);
+			WFConditional *cond = resolver->respool.get(dns_task);
 			series_of(this)->push_front(cond);
 		}
 		else
@@ -421,8 +421,8 @@ void WFResolverTask::dispatch()
 			pwork = Workflow::create_parallel_work(std::move(cb));
 			pwork->set_context(dctx);
 
-			WFConditional *cond_v4 = resolver->get_cond(task_v4);
-			WFConditional *cond_v6 = resolver->get_cond(task_v6);
+			WFConditional *cond_v4 = resolver->respool.get(task_v4);
+			WFConditional *cond_v6 = resolver->respool.get(task_v6);
 			pwork->add_series(Workflow::create_series_work(cond_v4, nullptr));
 			pwork->add_series(Workflow::create_series_work(cond_v6, nullptr));
 
@@ -492,7 +492,7 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 
 void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 {
-	WFGlobal::get_dns_resolver()->post_cond();
+	WFGlobal::get_dns_resolver()->respool.post(NULL);
 
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
@@ -516,7 +516,7 @@ void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 
 void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
 {
-	WFGlobal::get_dns_resolver()->post_cond();
+	WFGlobal::get_dns_resolver()->respool.post(NULL);
 
 	struct DnsContext *ctx = (struct DnsContext *)dns_task->user_data;
 	ctx->state = dns_task->get_state();

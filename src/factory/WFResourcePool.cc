@@ -39,6 +39,13 @@ public:
 	{
 		this->data = data;
 	}
+
+	__WFConditional(SubTask *task,
+					struct WFResourcePool::Data *data) :
+		WFConditional(task)
+	{
+		this->data = data;
+	}
 };
 
 void __WFConditional::dispatch()
@@ -58,6 +65,11 @@ void __WFConditional::dispatch()
 WFConditional *WFResourcePool::get(SubTask *task, void **resbuf)
 {
 	return new __WFConditional(task, resbuf, &this->data);
+}
+
+WFConditional *WFResourcePool::get(SubTask *task)
+{
+	return new __WFConditional(task, &this->data);
 }
 
 void WFResourcePool::create(size_t n)

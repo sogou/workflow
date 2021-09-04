@@ -797,6 +797,7 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 
 		case META_INITED:
 			this->meta_list.del_cur();
+			delete meta;
 			break;
 
 		case META_UNINIT:

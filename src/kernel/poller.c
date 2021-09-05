@@ -1120,7 +1120,6 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller)
 				node = NULL;
 			}
 		}
-			errno = EEXIST;
 
 		pthread_mutex_unlock(&poller->mutex);
 		if (node == NULL)

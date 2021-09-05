@@ -41,6 +41,7 @@ void mpoller_destroy(mpoller_t *mpoller);
 
 struct __mpoller
 {
+	void **nodes_buf;
 	unsigned int nthreads;
 	poller_t *poller[1];
 };

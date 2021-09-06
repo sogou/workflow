@@ -224,7 +224,7 @@ CommMessageIn *ComplexMySQLTask::message_in()
 	else if (seqid == 2 && !is_user_request_)
 		return new MySQLResponse;
 
-	return this->WFClientTask::message_in();
+	return this->WFComplexClientTask::message_in();
 }
 
 int ComplexMySQLTask::keep_alive_timeout()

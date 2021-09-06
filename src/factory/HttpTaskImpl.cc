@@ -163,7 +163,7 @@ CommMessageOut *ComplexHttpTask::message_out()
 	}
 
 	//req->set_header_pair("Accept", "*/*");
-	return this->WFClientTask::message_out();
+	return this->WFComplexClientTask::message_out();
 }
 
 CommMessageIn *ComplexHttpTask::message_in()
@@ -173,7 +173,7 @@ CommMessageIn *ComplexHttpTask::message_in()
 	if (strcmp(this->get_req()->get_method(), HttpMethodHead) == 0)
 		resp->parse_zero_body();
 
-	return this->WFClientTask::message_in();
+	return this->WFComplexClientTask::message_in();
 }
 
 int ComplexHttpTask::keep_alive_timeout()

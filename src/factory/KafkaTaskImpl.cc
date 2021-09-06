@@ -218,7 +218,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	return this->WFClientTask::message_out();
+	return this->WFComplexClientTask::message_out();
 }
 
 CommMessageIn *__ComplexKafkaTask::message_in()
@@ -230,7 +230,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	resp->set_api_version(req->get_api_version());
 	resp->duplicate(*req);
 
-	return this->WFClientTask::message_in();
+	return this->WFComplexClientTask::message_in();
 }
 
 bool __ComplexKafkaTask::init_success()

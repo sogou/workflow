@@ -351,7 +351,7 @@ CommMessageIn *ComplexMySQLTask::message_in()
 	else if (seqid == 2 && !is_user_request_)
 		resp = new MySQLResponse;
 	else
-		resp = (ProtocolMessage *)this->WFClientTask::message_in();
+		resp = (ProtocolMessage *)this->WFComplexClientTask::message_in();
 
 	if (!is_ssl_)
 		return resp;

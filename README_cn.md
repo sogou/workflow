@@ -87,7 +87,7 @@ make
     * [关于计数器](docs/about-counter.md)
     * [条件任务与资源池](docs/about-conditional.md)
   * 服务治理
-    * [关于服务治理](docs/about-service-management.md)
+    * [关于服务治理](docs/about-service-governance.md)
     * [Upstream更多文档](docs/about-upstream.md)
   * 连接上下文的使用
     * [关于连接上下文](docs/about-connection-context.md)

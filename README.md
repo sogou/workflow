@@ -90,7 +90,7 @@ make
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
 * Service governance
-  * [About service governance](docs/en/about-service-management.md)
+  * [About service governance](docs/en/about-service-governance.md)
   * [More documents about upstream](docs/en/about-upstream.md)
 * Connection context
   * [About connection context](docs/en/about-connection-context.md)

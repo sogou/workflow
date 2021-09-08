@@ -20,10 +20,11 @@
 #ifndef _URIPARSER_H_
 #define _URIPARSER_H_
 
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <vector>
 #include <map>
-#include <string.h>
 
 #define URI_STATE_INIT		0
 #define URI_STATE_SUCCESS	1

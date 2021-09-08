@@ -38,7 +38,7 @@ enum
 
 //scheme://[userinfo@]host[:port][/path][?query][#fragment]
 //0-6 (scheme, userinfo, host, port, path, query, fragment)
-static constexpr unsigned char valid_char[URI_PART_ELEMENTS][256] = {
+static constexpr unsigned char valid_char[4][256] = {
 	{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -111,60 +111,6 @@ static constexpr unsigned char valid_char[URI_PART_ELEMENTS][256] = {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	},
-	{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
-		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-	},
-	{
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-	},
-	{
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-	},
 };
 
 static unsigned char authority_map[256] = {
@@ -205,62 +151,96 @@ static unsigned char path_map[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-void ParsedURI::__copy(const ParsedURI& copy)
+ParsedURI::ParsedURI(ParsedURI&& uri)
+{
+	scheme = uri.scheme;
+	userinfo = uri.userinfo;
+	host = uri.host;
+	port = uri.port;
+	path = uri.path;
+	query = uri.query;
+	fragment = uri.fragment;
+	state = uri.state;
+	error = uri.error;
+	uri.init();
+}
+
+ParsedURI& ParsedURI::operator= (ParsedURI&& uri)
+{
+	if (this != &uri)
+	{
+		deinit();
+		scheme = uri.scheme;
+		userinfo = uri.userinfo;
+		host = uri.host;
+		port = uri.port;
+		path = uri.path;
+		query = uri.query;
+		fragment = uri.fragment;
+		state = uri.state;
+		error = uri.error;
+		uri.init();
+	}
+
+	return *this;
+}
+
+void ParsedURI::copy(const ParsedURI& uri)
 {
 	init();
-	state = copy.state;
-	error = copy.error;
+	state = uri.state;
+	error = uri.error;
 	if (state == URI_STATE_SUCCESS)
 	{
 		bool succ = false;
 
 		do
 		{
-			if (copy.scheme)
+			if (uri.scheme)
 			{
-				scheme = strdup(copy.scheme);
+				scheme = strdup(uri.scheme);
 				if (!scheme)
 					break;
 			}
 
-			if (copy.userinfo)
+			if (uri.userinfo)
 			{
-				userinfo = strdup(copy.userinfo);
+				userinfo = strdup(uri.userinfo);
 				if (!userinfo)
 					break;
 			}
 
-			if (copy.host)
+			if (uri.host)
 			{
-				host = strdup(copy.host);
+				host = strdup(uri.host);
 				if (!host)
 					break;
 			}
 
-			if (copy.port)
+			if (uri.port)
 			{
-				port = strdup(copy.port);
+				port = strdup(uri.port);
 				if (!port)
 					break;
 			}
 
-			if (copy.path)
+			if (uri.path)
 			{
-				path = strdup(copy.path);
+				path = strdup(uri.path);
 				if (!path)
 					break;
 			}
 
-			if (copy.query)
+			if (uri.query)
 			{
-				query = strdup(copy.query);
+				query = strdup(uri.query);
 				if (!query)
 					break;
 			}
 
-			if (copy.fragment)
+			if (uri.fragment)
 			{
-				fragment = strdup(copy.fragment);
+				fragment = strdup(uri.fragment);
 				if (!fragment)
 					break;
 			}
@@ -367,9 +347,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 					break;
 
 				default:
-					if (pre_state != URI_QUERY &&
-							!valid_char[pre_state][(unsigned char)str[i]])
-						return -1;//invalid char
+					break;
 			}
 
 			if (state >= URI_FRAGMENT)
@@ -402,6 +380,13 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 			}
 		}
 		end_idx[pre_state] = i + strlen(str + i);
+	}
+
+	for (int i = 0; i < URI_QUERY; i++)
+	{
+		for (int j = start_idx[i]; j < end_idx[i]; j++)
+			if (!valid_char[i][(unsigned char)str[j]])
+				return -1;//invalid char
 	}
 
 	char **dst[URI_PART_ELEMENTS] = {&uri.scheme, &uri.userinfo, &uri.host, &uri.port,

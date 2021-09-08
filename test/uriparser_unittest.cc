@@ -23,6 +23,15 @@ TEST(uriparser_unittest, parse)
 {
 	ParsedURI uri;
 
+	EXPECT_EQ(URIParser::parse("https://john.doe:pass@www.example.com:123/forum/questions/?tag=networking&order=newest#top", uri), 0);
+	EXPECT_EQ(strcmp(uri.scheme, "https"), 0);
+	EXPECT_EQ(strcmp(uri.userinfo, "john.doe:pass"), 0);
+	EXPECT_EQ(strcmp(uri.host, "www.example.com"), 0);
+	EXPECT_EQ(strcmp(uri.port, "123"), 0);
+	EXPECT_EQ(strcmp(uri.path, "/forum/questions/"), 0);
+	EXPECT_EQ(strcmp(uri.query, "tag=networking&order=newest"), 0);
+	EXPECT_EQ(strcmp(uri.fragment, "top"), 0);
+
 	EXPECT_EQ(URIParser::parse("https://john.doe@www.example.com:123/forum/questions/?tag=networking&order=newest#top", uri), 0);
 	EXPECT_EQ(strcmp(uri.scheme, "https"), 0);
 	EXPECT_EQ(strcmp(uri.userinfo, "john.doe"), 0);

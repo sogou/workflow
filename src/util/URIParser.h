@@ -14,7 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-	       Wang Zhulei (wangzhulei@sogou-inc.com)
+           Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
 #ifndef _URIPARSER_H_
@@ -53,53 +53,23 @@ public:
 	virtual ~ParsedURI() { deinit(); }
 
 	//copy constructor
-	ParsedURI(const ParsedURI& copy) { __copy(copy); }
+	ParsedURI(const ParsedURI& uri) { copy(uri); }
 	//copy operator
-	ParsedURI& operator= (const ParsedURI& copy)
+	ParsedURI& operator= (const ParsedURI& uri)
 	{
-		if (this != &copy)
+		if (this != &uri)
 		{
 			deinit();
-			__copy(copy);
+			copy(uri);
 		}
 
 		return *this;
 	}
 
 	//move constructor
-	ParsedURI(ParsedURI&& move)
-	{
-		scheme = move.scheme;
-		userinfo = move.userinfo;
-		host = move.host;
-		port = move.port;
-		path = move.path;
-		query = move.query;
-		fragment = move.fragment;
-		state = move.state;
-		error = move.error;
-		move.init();
-	}
+	ParsedURI(ParsedURI&& uri);
 	//move operator
-	ParsedURI& operator= (ParsedURI&& move)
-	{
-		if (this != &move)
-		{
-			deinit();
-			scheme = move.scheme;
-			userinfo = move.userinfo;
-			host = move.host;
-			port = move.port;
-			path = move.path;
-			query = move.query;
-			fragment = move.fragment;
-			state = move.state;
-			error = move.error;
-			move.init();
-		}
-
-		return *this;
-	}
+	ParsedURI& operator= (ParsedURI&& uri);
 
 private:
 	void init()
@@ -126,7 +96,7 @@ private:
 		free(fragment);
 	}
 
-	void __copy(const ParsedURI& copy);
+	void copy(const ParsedURI& uri);
 };
 
 // static class

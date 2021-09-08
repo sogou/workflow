@@ -292,7 +292,7 @@ static int __parse_start_line(const char *ptr, size_t len,
 			return 1;
 		}
 
-		if ((signed char)start_line[i] <= 0)
+		if (start_line[i] == 0)
 			return -2;
 	}
 

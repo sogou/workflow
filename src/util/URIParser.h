@@ -21,7 +21,6 @@
 #define _URIPARSER_H_
 
 #include <stdlib.h>
-#include <string.h>
 #include <string>
 #include <vector>
 #include <map>

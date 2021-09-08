@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+	       Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
 #ifndef _URIPARSER_H_
@@ -52,20 +53,80 @@ public:
 	virtual ~ParsedURI() { deinit(); }
 
 	//copy constructor
-	ParsedURI(const ParsedURI& copy);
+	ParsedURI(const ParsedURI& copy) { __copy(copy); }
 	//copy operator
-	ParsedURI& operator= (const ParsedURI& copy);
+	ParsedURI& operator= (const ParsedURI& copy)
+	{
+		if (this != &copy)
+		{
+			deinit();
+			__copy(copy);
+		}
+
+		return *this;
+	}
+
 	//move constructor
-	ParsedURI(ParsedURI&& move);
+	ParsedURI(ParsedURI&& move)
+	{
+		scheme = move.scheme;
+		userinfo = move.userinfo;
+		host = move.host;
+		port = move.port;
+		path = move.path;
+		query = move.query;
+		fragment = move.fragment;
+		state = move.state;
+		error = move.error;
+		move.init();
+	}
 	//move operator
-	ParsedURI& operator= (ParsedURI&& move);
+	ParsedURI& operator= (ParsedURI&& move)
+	{
+		if (this != &move)
+		{
+			deinit();
+			scheme = move.scheme;
+			userinfo = move.userinfo;
+			host = move.host;
+			port = move.port;
+			path = move.path;
+			query = move.query;
+			fragment = move.fragment;
+			state = move.state;
+			error = move.error;
+			move.init();
+		}
+
+		return *this;
+	}
 
 private:
-	void init();
-	void deinit();
+	void init()
+	{
+		scheme = NULL;
+		userinfo = NULL;
+		host = NULL;
+		port = NULL;
+		path = NULL;
+		query = NULL;
+		fragment = NULL;
+		state = URI_STATE_INIT;
+		error = 0;
+	}
+
+	void deinit()
+	{
+		free(scheme);
+		free(userinfo);
+		free(host);
+		free(port);
+		free(path);
+		free(query);
+		free(fragment);
+	}
 
 	void __copy(const ParsedURI& copy);
-	void __move(ParsedURI&& move);
 };
 
 // static class
@@ -74,7 +135,10 @@ class URIParser
 public:
 	// return 0 mean succ, -1 mean fail
 	static int parse(const char *str, ParsedURI& uri);
-	static int parse(const std::string& str, ParsedURI& uri);
+	static int parse(const std::string& str, ParsedURI& uri)
+	{
+		return parse(str.c_str(), uri);
+	}
 
 	static std::map<std::string, std::vector<std::string>>
 	split_query_strict(const std::string &query);
@@ -84,58 +148,6 @@ public:
 
 	static std::vector<std::string> split_path(const std::string &path);
 };
-
-////////////////////
-
-inline void ParsedURI::init()
-{
-	scheme = NULL;
-	userinfo = NULL;
-	host = NULL;
-	port = NULL;
-	path = NULL;
-	query = NULL;
-	fragment = NULL;
-	state = URI_STATE_INIT;
-	error = 0;
-}
-
-inline ParsedURI::ParsedURI(const ParsedURI& copy)
-{
-	__copy(copy);
-}
-
-inline ParsedURI::ParsedURI(ParsedURI&& move)
-{
-	__move(std::move(move));
-}
-
-inline ParsedURI& ParsedURI::operator= (const ParsedURI& copy)
-{
-	if (this != &copy)
-	{
-		deinit();
-		__copy(copy);
-	}
-
-	return *this;
-}
-
-inline ParsedURI& ParsedURI::operator= (ParsedURI&& move)
-{
-	if (this != &move)
-	{
-		deinit();
-		__move(std::move(move));
-	}
-
-	return *this;
-}
-
-inline int URIParser::parse(const std::string& str, ParsedURI& uri)
-{
-	return parse(str.c_str(), uri);
-}
 
 #endif
 

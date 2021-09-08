@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
 #include <string.h>
@@ -22,131 +23,22 @@
 #include <utility>
 #include "StringUtil.h"
 #include "URIParser.h"
-/*
-static bool is_unreserved[256];
-static bool is_sub_delims[256];
-static bool is_pchar[256];
-static constexpr char sep[4] = {':', '/', '?', '#'};
-static bool valid_char[7][256];
 
-class __Init
+enum
 {
-public:
-	__Init()
-	{
-		is_unreserved[(unsigned char)'-'] =
-		is_unreserved[(unsigned char)'.'] =
-		is_unreserved[(unsigned char)'_'] =
-		is_unreserved[(unsigned char)'~'] = true;
-		for (int i = 0; i < 256; i++)
-		{
-			if (isalnum(i))
-				is_unreserved[i] = true;
-		}
-
-		is_sub_delims[(unsigned char)'!'] =
-		is_sub_delims[(unsigned char)'$'] =
-		is_sub_delims[(unsigned char)'&'] =
-		is_sub_delims[(unsigned char)'\''] =
-		is_sub_delims[(unsigned char)'('] =
-		is_sub_delims[(unsigned char)')'] =
-		is_sub_delims[(unsigned char)'*'] =
-		is_sub_delims[(unsigned char)'+'] =
-		is_sub_delims[(unsigned char)','] =
-		is_sub_delims[(unsigned char)';'] =
-		is_sub_delims[(unsigned char)'='] = true;
-
-		is_pchar[(unsigned char)'%'] =
-		is_pchar[(unsigned char)':'] =
-		is_pchar[(unsigned char)'@'] = true;
-		for (int i = 0; i < 256; i++)
-		{
-			if (is_unreserved[i] || is_sub_delims[i])
-				is_pchar[i] = true;
-		}
-
-		for (int i = 0; i < 7; i++)
-		{
-			bool *arr = valid_char[i];
-			switch (i)
-			{
-			case 0://scheme
-				arr[(unsigned char)'+'] =
-				arr[(unsigned char)'-'] =
-				arr[(unsigned char)'.'] = true;
-				for (int i = 0; i < 256; i++)
-				{
-					if (isalnum(i))
-						arr[i] = true;
-				}
-
-				break;
-
-			case 1://userinfo
-				arr[(unsigned char)':'] =
-				arr[(unsigned char)'%'] = true;
-				for (int i = 0; i < 256; i++)
-				{
-					if (is_unreserved[i] || is_sub_delims[i])
-						arr[i] = true;
-				}
-
-				break;
-
-			case 2://host
-				arr[(unsigned char)'%'] = true;
-				for (int i = 0; i < 256; i++)
-				{
-					if (is_unreserved[i] || is_sub_delims[i])
-						arr[i] = true;
-				}
-
-				break;
-
-			case 3://port
-				for (int i = 0; i < 256; i++)
-				{
-					if (isdigit(i))
-						arr[i] = true;
-				}
-
-				break;
-
-			case 4://path
-				arr[(unsigned char)'/'] = true;
-				for (int i = 0; i < 256; i++)
-				{
-					if (is_pchar[i])
-						arr[i] = true;
-				}
-
-				break;
-
-			case 5://query
-			case 6://fragment
-				arr[(unsigned char)'/'] =
-				arr[(unsigned char)'?'] = true;
-				for (int i = 0; i < 256; i++)
-				{
-					if (is_pchar[i])
-						arr[i] = true;
-				}
-				break;
-
-			default:
-				break;
-			}
-		}
-	}
+	URI_SCHEME,
+	URI_USERINFO,
+	URI_HOST,
+	URI_PORT,
+	URI_QUERY,
+	URI_FRAGMENT,
+	URI_PATH,
+	URI_PART_ELEMENTS,
 };
 
-static __Init g_init;
-*/
-static constexpr char sep[4] = {':', '/', '?', '#'};
 //scheme://[userinfo@]host[:port][/path][?query][#fragment]
 //0-6 (scheme, userinfo, host, port, path, query, fragment)
-
-static constexpr bool valid_char[7][256] = {
+static constexpr unsigned char valid_char[URI_PART_ELEMENTS][256] = {
 	{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -189,7 +81,7 @@ static constexpr bool valid_char[7][256] = {
 		0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0,
 		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
 		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -219,7 +111,6 @@ static constexpr bool valid_char[7][256] = {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	},
-
 	{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -239,87 +130,80 @@ static constexpr bool valid_char[7][256] = {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	},
 	{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
-		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 	},
 	{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
-		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-	}
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+	},
 };
 
-void ParsedURI::deinit()
-{
-	if (scheme)
-	{
-		free(scheme);
-		scheme = NULL;
-	}
+static unsigned char authority_map[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, URI_FRAGMENT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, URI_PATH,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, URI_HOST, 0, 0, 0, 0, URI_QUERY,
+	URI_USERINFO, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
 
-	if (host)
-	{
-		free(host);
-		host = NULL;
-	}
-
-	if (path)
-	{
-		free(path);
-		path = NULL;
-	}
-
-	if (userinfo)
-	{
-		free(userinfo);
-		userinfo = NULL;
-	}
-
-	if (port)
-	{
-		free(port);
-		port = NULL;
-	}
-
-	if (query)
-	{
-		free(query);
-		query = NULL;
-	}
-
-	if (fragment)
-	{
-		free(fragment);
-		fragment = NULL;
-	}
-}
+static unsigned char path_map[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, URI_FRAGMENT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, URI_QUERY,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
 
 void ParsedURI::__copy(const ParsedURI& copy)
 {
@@ -394,148 +278,140 @@ void ParsedURI::__copy(const ParsedURI& copy)
 	}
 }
 
-void ParsedURI::__move(ParsedURI&& move)
-{
-	scheme = move.scheme;
-	userinfo = move.userinfo;
-	host = move.host;
-	port = move.port;
-	path = move.path;
-	query = move.query;
-	fragment = move.fragment;
-	state = move.state;
-	error = move.error;
-
-	move.init();
-}
-
 int URIParser::parse(const char *str, ParsedURI& uri)
 {
 	uri.state = URI_STATE_INVALID;
-	if (!str[0])
-		return -1;//uri empty
 
-	if (!isalpha((unsigned char)str[0]))
-		return -1;//uri first char must be alpha
+	int start_idx[URI_PART_ELEMENTS] = {0};
+	int end_idx[URI_PART_ELEMENTS] = {0};
+	int state = URI_SCHEME;
+	int pre_state = URI_SCHEME;;
+	int i;
+	bool in_ipv6 = false;
 
-	int st[7] = {0};
-	int ed[7] = {0};
-	int cur = 1;
-	while (valid_char[0][(unsigned char)str[cur]])
-		cur++;
-
-	ed[0] = cur;
-	if (str[cur] && str[cur + 1] && str[cur + 2]
-		&& str[cur] == ':' && str[cur + 1] =='/' && str[cur + 2] =='/')
-		cur += 3;
-	else
-		return -1;//not match with ://
-
-	int last = cur;
-	int idx = 0;
-	bool is_ipv6 = false;
-
-	for (int i = cur; str[i]; i++)
+	for (i = 0; str[i]; i++)
 	{
-		if (str[i] == '/' || str[i] == '?' || str[i] == '#')
+		if (str[i] == ':')
 		{
-			// break on end of host
-			st[1] = cur;
-			ed[1] = cur;
-			break;
-		}
-		if (str[i] == '@')
-		{
-			st[1] = cur;
-			ed[1] = i;
-			cur = i + 1;
+			end_idx[URI_SCHEME] = i++;
 			break;
 		}
 	}
 
-	if (str[cur] == '[')
+	if (end_idx[URI_SCHEME] == 0)
+		return -1;
+
+	if (str[i] == '/' && str[i + 1] == '/')
 	{
-		st[2] = ++cur;
-		while (str[cur] && str[cur] != ']')
-			cur++;
+		pre_state = URI_HOST;
+		i += 2;
+		if (str[i] == '[')
+			in_ipv6= true;
+		else
+			start_idx[URI_USERINFO] = i;
 
-		if (str[cur] != ']')
-			return -1;
+		start_idx[URI_HOST] = i;
+	}
+	else
+	{
+		pre_state = URI_PATH;
+		start_idx[URI_PATH] = i;
+	}
 
-		is_ipv6 = true;
-		ed[2] = cur++;
-		if (str[cur])
+	bool skip_path = false;
+	if (start_idx[URI_PATH] == 0)
+	{
+		for (; str[i]; i++)
 		{
-			bool is_sep = false;
-
-			for (int i = 0; i < 4; i++)
+			state = authority_map[(unsigned char)str[i]];
+			switch (state)
 			{
-				if (str[cur] == sep[i])
-				{
-					is_sep = true;
+				case URI_USERINFO:
+					if (str[i + 1] == '[')
+						in_ipv6 = true;
+
+					end_idx[URI_USERINFO] = i;
+					start_idx[URI_HOST] = i + 1;
+					pre_state = URI_HOST;
 					break;
-				}
-			}
 
-			if (!is_sep)
-				return -1;
-		}
-	}
-	else
-		last = cur;
+				case URI_HOST:
+					if (str[i - 1] == ']')
+						in_ipv6 = false;
 
-	//userinfo@host:port/path?query#fragment
-	//host[:port][/path][?query][#fragment]
-	for (; str[cur]; cur++)
-	{
-		if (idx < 4)
-		{
-			for (int i = idx; i < 4; i++)
-			{
-				if (str[cur] == sep[i])
-				{
-					if (is_ipv6)
-						is_ipv6 = false;
-					else
+					if (!in_ipv6)
 					{
-						st[idx + 2] = last;
-						ed[idx + 2] = cur;
+						end_idx[URI_HOST] = i;
+						start_idx[URI_PORT] = i + 1;
+						pre_state = URI_PORT;
 					}
-
-					idx = i + 1;
-					if (sep[i] == '/')
-						last = cur;
-					else
-						last = cur + 1;
-
 					break;
-				}
+
+				case URI_QUERY:
+					end_idx[pre_state] = i;
+					start_idx[URI_QUERY] = i + 1;
+					pre_state = URI_QUERY;
+					skip_path = true;
+					break;
+
+				case URI_FRAGMENT:
+					end_idx[pre_state] = i;
+					start_idx[URI_FRAGMENT] = i + 1;
+					end_idx[URI_FRAGMENT] = i + strlen(str + i);
+					pre_state = URI_PART_ELEMENTS;
+					skip_path = true;
+					break;
+
+				case URI_PATH:
+					start_idx[URI_PATH] = i;
+					break;
+
+				default:
+					if (pre_state != URI_QUERY &&
+							!valid_char[pre_state][(unsigned char)str[i]])
+						return -1;//invalid char
 			}
+
+			if (state >= URI_FRAGMENT)
+				break;
 		}
 	}
+	if (pre_state != URI_PART_ELEMENTS)
+		end_idx[pre_state] = i;
 
-	if (cur > last && !is_ipv6)
+	if (!skip_path)
 	{
-		st[idx + 2] = last;
-		ed[idx + 2] = cur;
-	}
-
-	//check valid, skip scheme because of already checked
-	for (int i = 1; i < 5; i++)
-	{
-		for (int j = st[i]; j < ed[i]; j++)
-			if (!valid_char[i][(unsigned char)str[j]])
-				return -1;//invalid char
-	}
-
-	char **dst[7] = {&uri.scheme, &uri.userinfo, &uri.host, &uri.port,
-					 &uri.path, &uri.query, &uri.fragment};
-
-	for (int i = 0; i < 7; i++)
-	{
-		if (ed[i] > st[i])
+		bool has_query = false;
+		pre_state = URI_PATH;
+		for (; str[i]; i++)
 		{
-			size_t len = ed[i] - st[i];
+			state = path_map[(unsigned char)str[i]];
+			if (state == URI_QUERY && !has_query)
+			{
+				has_query = true;
+				end_idx[URI_PATH] = i;
+				start_idx[URI_QUERY] = i + 1;
+				pre_state = URI_QUERY;
+			}
+			else if (state == URI_FRAGMENT)
+			{
+				end_idx[pre_state] = i;
+				start_idx[URI_FRAGMENT] = i + 1;
+				pre_state = URI_FRAGMENT;
+				break;
+			}
+		}
+		end_idx[pre_state] = i + strlen(str + i);
+	}
+
+	char **dst[URI_PART_ELEMENTS] = {&uri.scheme, &uri.userinfo, &uri.host, &uri.port,
+					 &uri.query, &uri.fragment, &uri.path};
+
+	for (int i = 0; i < URI_PART_ELEMENTS; i++)
+	{
+		if (end_idx[i] > start_idx[i])
+		{
+			size_t len = end_idx[i] - start_idx[i];
 
 			*dst[i] = (char *)realloc(*dst[i], len + 1);
 			if (*dst[i] == NULL)
@@ -545,14 +421,14 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 				return -1;
 			}
 
-			memcpy(*dst[i], str + st[i], len);
-			(*dst[i])[len] = '\0';
-
-			if (i == 2 && len >= 3 && (*dst[2])[0] == '%' && (*dst[2])[1] == '2' && ((*dst[2])[2] == 'F' || (*dst[2])[2] == 'f'))
+			if (i == URI_HOST && str[start_idx[i]] == '[')
 			{
-				len = StringUtil::url_decode(*dst[2], len);
-				(*dst[i])[len] = '\0';
+				len -= 2;
+				memcpy(*dst[i], str + start_idx[i] + 1, len);
 			}
+			else
+				memcpy(*dst[i], str + start_idx[i], len);
+			(*dst[i])[len] = '\0';
 		}
 		else
 		{

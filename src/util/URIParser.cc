@@ -15,6 +15,7 @@
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Wang Zhulei (wangzhulei@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <string.h>
@@ -114,30 +115,11 @@ static constexpr unsigned char valid_char[4][256] = {
 };
 
 static unsigned char authority_map[256] = {
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	URI_PART_ELEMENTS, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, URI_FRAGMENT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, URI_PATH,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, URI_HOST, 0, 0, 0, 0, URI_QUERY,
 	URI_USERINFO, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-};
-
-static unsigned char path_map[256] = {
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, URI_FRAGMENT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, URI_QUERY,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -264,7 +246,6 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 
 	int start_idx[URI_PART_ELEMENTS] = {0};
 	int end_idx[URI_PART_ELEMENTS] = {0};
-	int state = URI_SCHEME;
 	int pre_state = URI_SCHEME;;
 	int i;
 	bool in_ipv6 = false;
@@ -301,11 +282,13 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 	bool skip_path = false;
 	if (start_idx[URI_PATH] == 0)
 	{
-		for (; str[i]; i++)
+		for (; ; i++)
 		{
-			state = authority_map[(unsigned char)str[i]];
-			switch (state)
+			switch (authority_map[(unsigned char)str[i]])
 			{
+				case 0:
+					continue;
+
 				case URI_USERINFO:
 					if (str[i + 1] == '[')
 						in_ipv6 = true;
@@ -313,7 +296,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 					end_idx[URI_USERINFO] = i;
 					start_idx[URI_HOST] = i + 1;
 					pre_state = URI_HOST;
-					break;
+					continue;
 
 				case URI_HOST:
 					if (str[i - 1] == ']')
@@ -325,14 +308,14 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 						start_idx[URI_PORT] = i + 1;
 						pre_state = URI_PORT;
 					}
-					break;
+					continue;
 
 				case URI_QUERY:
 					end_idx[pre_state] = i;
 					start_idx[URI_QUERY] = i + 1;
 					pre_state = URI_QUERY;
 					skip_path = true;
-					break;
+					continue;
 
 				case URI_FRAGMENT:
 					end_idx[pre_state] = i;
@@ -346,12 +329,11 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 					start_idx[URI_PATH] = i;
 					break;
 
-				default:
+				case URI_PART_ELEMENTS:
 					break;
 			}
 
-			if (state >= URI_FRAGMENT)
-				break;
+			break;
 		}
 	}
 	if (pre_state != URI_PART_ELEMENTS)
@@ -359,19 +341,22 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 
 	if (!skip_path)
 	{
-		bool has_query = false;
 		pre_state = URI_PATH;
 		for (; str[i]; i++)
 		{
-			state = path_map[(unsigned char)str[i]];
-			if (state == URI_QUERY && !has_query)
+			if (str[i] == '?')
 			{
-				has_query = true;
 				end_idx[URI_PATH] = i;
 				start_idx[URI_QUERY] = i + 1;
 				pre_state = URI_QUERY;
+				while (str[i + 1])
+				{
+					if (str[++i] == '#')
+						break;
+				}
 			}
-			else if (state == URI_FRAGMENT)
+
+			if (str[i] == '#')
 			{
 				end_idx[pre_state] = i;
 				start_idx[URI_FRAGMENT] = i + 1;
@@ -385,8 +370,10 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 	for (int i = 0; i < URI_QUERY; i++)
 	{
 		for (int j = start_idx[i]; j < end_idx[i]; j++)
+		{
 			if (!valid_char[i][(unsigned char)str[j]])
 				return -1;//invalid char
+		}
 	}
 
 	char **dst[URI_PART_ELEMENTS] = {&uri.scheme, &uri.userinfo, &uri.host, &uri.port,

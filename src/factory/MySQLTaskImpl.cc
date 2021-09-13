@@ -137,10 +137,24 @@ static inline bool is_trans_begin(const std::string& cmd)
 		   strncasecmp(cmd.c_str(), "START TRANSACTION", 17) == 0;
 }
 
-static inline bool is_trans_end(const std::string& cmd)
+static bool is_trans_end(const std::string& cmd)
 {
-	return strncasecmp(cmd.c_str(), "ROLLBACK", 8) == 0 ||
-		   strncasecmp(cmd.c_str(), "COMMIT", 6) == 0;
+	size_t len = cmd.size();
+	const char *end = cmd.c_str() + len;
+
+	while (len > 0 && (*(end - 1) == ';' || *(end - 1) == ' '))
+	{
+		len--;
+		end--;
+	}
+
+	if (len >= 6 && strncasecmp(end - 6, "COMMIT", 6) == 0)
+		return true;
+
+	if (len >= 8 && strncasecmp(end - 8, "ROLLBACK", 8) == 0)
+		return true;
+
+	return false;
 }
 
 static inline bool is_prepare(const std::string& cmd)
@@ -308,7 +322,8 @@ CommMessageOut *ComplexMySQLTask::message_out()
 					need_update = true;
 				}
 			}
-			else if (transaction_state_ == TRANSACTION_IN) // already begin
+
+			if (transaction_state_ == TRANSACTION_IN) // already begin
 			{
 				if (is_trans_end(this->req.get_query()))
 				{

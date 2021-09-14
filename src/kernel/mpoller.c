@@ -21,23 +21,35 @@
 #include "poller.h"
 #include "mpoller.h"
 
+extern poller_t *__poller_create(void **, const struct poller_params *);
+extern void __poller_destroy(poller_t *);
+
 static int __mpoller_create(const struct poller_params *params,
 							mpoller_t *mpoller)
 {
+	void **nodes_buf = (void **)calloc(params->max_open_files, sizeof (void *));
 	unsigned int i;
 
-	for (i = 0; i < mpoller->nthreads; i++)
+	if (nodes_buf)
 	{
-		mpoller->poller[i] = poller_create(params);
-		if (!mpoller->poller[i])
-			break;
+		for (i = 0; i < mpoller->nthreads; i++)
+		{
+			mpoller->poller[i] = __poller_create(nodes_buf, params);
+			if (!mpoller->poller[i])
+				break;
+		}
+
+		if (i == mpoller->nthreads)
+		{
+			mpoller->nodes_buf = nodes_buf;
+			return 0;
+		}
+
+		while (i > 0)
+			poller_destroy(mpoller->poller[--i]);
+
+		free(nodes_buf);
 	}
-
-	if (i == mpoller->nthreads)
-		return 0;
-
-	while (i > 0)
-		poller_destroy(mpoller->poller[--i]);
 
 	return -1;
 }
@@ -96,8 +108,9 @@ void mpoller_destroy(mpoller_t *mpoller)
 	size_t i;
 
 	for (i = 0; i < mpoller->nthreads; i++)
-		poller_destroy(mpoller->poller[i]);
+		__poller_destroy(mpoller->poller[i]);
 
+	free(mpoller->nodes_buf);
 	free(mpoller);
 }
 

@@ -42,9 +42,7 @@
 #include "poller.h"
 
 #define POLLER_BUFSIZE			(256 * 1024)
-#define POLLER_NODES_MAX		65536
 #define POLLER_EVENTS_MAX		256
-#define POLLER_NODE_ERROR		((struct __poller_node *)-1)
 
 struct __poller_node
 {
@@ -1075,68 +1073,79 @@ static int __poller_create_timer(poller_t *poller)
 	return -1;
 }
 
-poller_t *poller_create(const struct poller_params *params)
+poller_t *__poller_create(void **nodes_buf, const struct poller_params *params)
 {
 	poller_t *poller = (poller_t *)malloc(sizeof (poller_t));
-	size_t n;
 	int ret;
 
 	if (!poller)
 		return NULL;
 
-	n = params->max_open_files;
-	if (n == 0)
-		n = POLLER_NODES_MAX;
-
-	poller->nodes = (struct __poller_node **)calloc(n, sizeof (void *));
-	if (poller->nodes)
+	poller->pfd = __poller_create_pfd();
+	if (poller->pfd >= 0)
 	{
-		poller->pfd = __poller_create_pfd();
-		if (poller->pfd >= 0)
+		if (__poller_create_timer(poller) >= 0)
 		{
-			if (__poller_create_timer(poller) >= 0)
+			ret = pthread_mutex_init(&poller->mutex, NULL);
+			if (ret == 0)
 			{
-				ret = pthread_mutex_init(&poller->mutex, NULL);
-				if (ret == 0)
-				{
-					poller->max_open_files = n;
-					poller->create_message = params->create_message;
-					poller->partial_written = params->partial_written;
-					poller->cb = params->callback;
-					poller->ctx = params->context;
+				poller->nodes = (struct __poller_node **)nodes_buf;
+				poller->max_open_files = params->max_open_files;
+				poller->create_message = params->create_message;
+				poller->partial_written = params->partial_written;
+				poller->cb = params->callback;
+				poller->ctx = params->context;
 
-					poller->timeo_tree.rb_node = NULL;
-					poller->tree_first = NULL;
-					poller->tree_last = NULL;
-					INIT_LIST_HEAD(&poller->timeo_list);
-					INIT_LIST_HEAD(&poller->no_timeo_list);
-					poller->nodes[poller->timerfd] = POLLER_NODE_ERROR;
-					poller->nodes[poller->pfd] = POLLER_NODE_ERROR;
-					poller->stopped = 1;
-					return poller;
-				}
+				poller->timeo_tree.rb_node = NULL;
+				poller->tree_first = NULL;
+				poller->tree_last = NULL;
+				INIT_LIST_HEAD(&poller->timeo_list);
+				INIT_LIST_HEAD(&poller->no_timeo_list);
 
-				errno = ret;
-				close(poller->timerfd);
+				poller->stopped = 1;
+				return poller;
 			}
 
-			close(poller->pfd);
+			errno = ret;
+			close(poller->timerfd);
 		}
 
-		free(poller->nodes);
+		close(poller->pfd);
 	}
 
 	free(poller);
 	return NULL;
 }
 
-void poller_destroy(poller_t *poller)
+poller_t *poller_create(const struct poller_params *params)
+{
+	void **nodes_buf = (void **)calloc(params->max_open_files, sizeof (void *));
+	poller_t *poller;
+
+	if (nodes_buf)
+	{
+		poller = __poller_create(nodes_buf, params);
+		if (poller)
+			return poller;
+
+		free(nodes_buf);
+	}
+
+	return NULL;
+}
+
+void __poller_destroy(poller_t *poller)
 {
 	pthread_mutex_destroy(&poller->mutex);
 	close(poller->timerfd);
 	close(poller->pfd);
-	free(poller->nodes);
 	free(poller);
+}
+
+void poller_destroy(poller_t *poller)
+{
+	free(poller->nodes);
+	__poller_destroy(poller);
 }
 
 int poller_start(poller_t *poller)
@@ -1151,8 +1160,6 @@ int poller_start(poller_t *poller)
 		if (ret == 0)
 		{
 			poller->tid = tid;
-			poller->nodes[poller->pipe_rd] = POLLER_NODE_ERROR;
-			poller->nodes[poller->pipe_wr] = POLLER_NODE_ERROR;
 			poller->stopped = 0;
 		}
 		else
@@ -1294,10 +1301,6 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller)
 				node = NULL;
 			}
 		}
-		else if (poller->nodes[data->fd] == POLLER_NODE_ERROR)
-			errno = EINVAL;
-		else
-			errno = EEXIST;
 
 		pthread_mutex_unlock(&poller->mutex);
 		if (node == NULL)
@@ -1391,7 +1394,7 @@ int poller_mod(const struct poller_data *data, int timeout, poller_t *poller)
 
 		pthread_mutex_lock(&poller->mutex);
 		old = poller->nodes[data->fd];
-		if (old && old != POLLER_NODE_ERROR)
+		if (old)
 		{
 			if (__poller_mod_fd(data->fd, old->event, event, node, poller) >= 0)
 			{
@@ -1422,8 +1425,6 @@ int poller_mod(const struct poller_data *data, int timeout, poller_t *poller)
 				node = NULL;
 			}
 		}
-		else if (old == POLLER_NODE_ERROR)
-			errno = EINVAL;
 		else
 			errno = ENOENT;
 

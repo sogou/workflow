@@ -131,16 +131,79 @@ public:
 	{}
 };
 
-static inline bool is_trans_begin(const std::string& cmd)
+static bool find_substr(const char **pos, const char *end, const char *substr)
 {
-	return strncasecmp(cmd.c_str(), "BEGIN", 5) == 0 ||
-		   strncasecmp(cmd.c_str(), "START TRANSACTION", 17) == 0;
+	size_t len = strlen(substr);
+	const char *ptr = *pos;
+	char upper = substr[0];
+	char lower;
+
+	if (upper < 'A' || (upper > 'Z' && upper < 'a') || upper > 'z')
+		return false;
+
+	if (upper >= 'a')
+	{
+		lower = upper;
+		upper = upper + 'A' - 'a';
+	}
+	else
+		lower = upper + 'a' - 'A';
+
+	if ((*ptr == lower || *ptr == upper))
+	{
+		if (ptr + len <= end)
+		{
+			if (strncasecmp(ptr, substr, len) == 0)
+			{
+				*pos = ptr + len;
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
-static inline bool is_trans_end(const std::string& cmd)
+// find BEGIN_STR till the end of the query
+static bool find_trans_begin(const char **pos, const char *end)
 {
-	return strncasecmp(cmd.c_str(), "ROLLBACK", 8) == 0 ||
-		   strncasecmp(cmd.c_str(), "COMMIT", 6) == 0;
+	const char *ptr = *pos;
+	bool ret = false;
+
+	while (ptr < end)
+	{
+		ret = find_substr(&ptr, end, "BEGIN");
+		if (ret)
+			break;
+		ret = find_substr(&ptr, end, "START TRANSACTION");
+		if (ret)
+			break;
+		ptr++;
+	}
+	*pos = ptr;
+
+	return ret;
+}
+
+// find END_STR till the end of the query
+static bool find_trans_end(const char **pos, const char *end)
+{
+	const char *ptr = *pos;
+	bool ret = false;
+
+	while (ptr < end)
+	{
+		ret = find_substr(&ptr, end, "COMMIT");
+		if (ret)
+			break;
+		ret = find_substr(&ptr, end, "ROLLBACK");
+		if (ret)
+			break;
+		ptr++;
+	}
+	*pos = ptr;
+
+	return ret;
 }
 
 static inline bool is_prepare(const std::string& cmd)
@@ -300,23 +363,31 @@ CommMessageOut *ComplexMySQLTask::message_out()
 				need_update = true;
 			}
 
-			if (transaction_state_ == TRANSACTION_OUT) // not begin
+			const char *pos = this->req.get_query().c_str();
+			const char *end = pos + this->req.get_query().size();
+			while (pos != end)
 			{
-				if (is_trans_begin(this->req.get_query()))
+				if (transaction_state_ == TRANSACTION_OUT) // not begin
 				{
-					transaction_state_ = TRANSACTION_IN;
-					need_update = true;
+					if (find_trans_begin(&pos, end))
+					{
+						transaction_state_ = TRANSACTION_IN;
+						need_update = true;
+					}
+					else
+						pos = end;
+				}
+				if (transaction_state_ == TRANSACTION_IN) // already begin
+				{
+					if (find_trans_end(&pos, end))
+					{
+						transaction_state_ = TRANSACTION_OUT;
+						need_update = true;
+					}
+					else
+						pos = end;
 				}
 			}
-			else if (transaction_state_ == TRANSACTION_IN) // already begin
-			{
-				if (is_trans_end(this->req.get_query()))
-				{
-					transaction_state_ = TRANSACTION_OUT;
-					need_update = true;
-				}
-			}
-
 			if (need_update)
 			{
 				target->state = transaction_state_;

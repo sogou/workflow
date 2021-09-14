@@ -135,36 +135,25 @@ static bool find_substr(const char **pos, const char *end, const char *substr)
 {
 	size_t len = strlen(substr);
 	const char *ptr = *pos;
-	char upper = substr[0];
-	char lower;
+	char upper, lower;
 
-	if (upper < 'A' || (upper > 'Z' && upper < 'a') || upper > 'z')
+	if (*ptr < 'A' || (*ptr > 'Z' && *ptr < 'a') || *ptr > 'z')
 		return false;
 
-	if (upper >= 'a')
-	{
-		lower = upper;
-		upper = upper + 'A' - 'a';
-	}
-	else
-		lower = upper + 'a' - 'A';
+	upper = substr[0];
+	lower = substr[0] + 'a' - 'A';
 
-	if ((*ptr == lower || *ptr == upper))
+	if ((*ptr == lower || *ptr == upper) &&
+		ptr + len <= end &&
+		strncasecmp(ptr, substr, len) == 0)
 	{
-		if (ptr + len <= end)
-		{
-			if (strncasecmp(ptr, substr, len) == 0)
-			{
-				*pos = ptr + len;
-				return true;
-			}
-		}
+		*pos = ptr + len;
+		return true;
 	}
 
 	return false;
 }
 
-// find BEGIN_STR till the end of the query
 static bool find_trans_begin(const char **pos, const char *end)
 {
 	const char *ptr = *pos;
@@ -185,7 +174,6 @@ static bool find_trans_begin(const char **pos, const char *end)
 	return ret;
 }
 
-// find END_STR till the end of the query
 static bool find_trans_end(const char **pos, const char *end)
 {
 	const char *ptr = *pos;
@@ -388,6 +376,7 @@ CommMessageOut *ComplexMySQLTask::message_out()
 						pos = end;
 				}
 			}
+
 			if (need_update)
 			{
 				target->state = transaction_state_;

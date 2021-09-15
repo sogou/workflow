@@ -30,7 +30,7 @@
 
 using namespace protocol;
 
-#define MYSQL_KEEPALIVE_DEFAULT		(180 * 1000)
+#define MYSQL_KEEPALIVE_DEFAULT		(60 * 1000)
 #define MYSQL_KEEPALIVE_TRANSACTION	(3600 * 1000)
 
 /**********Client**********/
@@ -56,47 +56,17 @@ private:
 	std::string password_;
 	std::string db_;
 	std::string res_charset_;
-	int character_set_;
-#define NO_TRANSACTION          -1
-#define TRANSACTION_OUT         0
-#define TRANSACTION_IN          1
-#define TRANSACTION_CONN_RESET  -2
-	int transaction_state_;
-#define PREPARE_IN              2
+	short character_set_;
 	bool succ_;
 	bool is_user_request_;
 
 public:
-	bool is_transaction() const
-	{
-		return transaction_state_ == TRANSACTION_IN ||
-			   transaction_state_ == TRANSACTION_OUT;
-	}
-
 	ComplexMySQLTask(int retry_max, mysql_callback_t&& callback):
 		WFComplexClientTask(retry_max, std::move(callback)),
 		character_set_(33),
-		transaction_state_(NO_TRANSACTION),
 		is_user_request_(true)
 	{}
 };
-
-static inline bool is_trans_begin(const std::string& cmd)
-{
-	return strncasecmp(cmd.c_str(), "BEGIN", 5) == 0 ||
-		   strncasecmp(cmd.c_str(), "START TRANSACTION", 17) == 0;
-}
-
-static inline bool is_trans_end(const std::string& cmd)
-{
-	return strncasecmp(cmd.c_str(), "ROLLBACK", 8) == 0 ||
-		   strncasecmp(cmd.c_str(), "COMMIT", 6) == 0;
-}
-
-static inline bool is_prepare(const std::string& cmd)
-{
-	return strncasecmp(cmd.c_str(), "PREPARE", 7) == 0;
-}
 
 bool ComplexMySQLTask::check_request()
 {
@@ -159,54 +129,22 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		return req;
 	}
 
-	if (is_transaction())
+	is_user_request_ = true;
+	if (this->is_fixed_addr())
 	{
 		auto *target = static_cast<RouteManager::RouteTarget *>(this->get_target());
 
-		if (seqid <= 3 && (seqid == 2 || res_charset_.size() != 0) &&
-			(target->state & (TRANSACTION_IN | PREPARE_IN)))
+		/* If it's a transaction task, generate a ECONNRESET error when
+		 * the target was reconnected. */
+		if (seqid <= 3 && (seqid == 2 || res_charset_.size() != 0))
 		{
-			target->state = TRANSACTION_OUT;
-			transaction_state_ = TRANSACTION_CONN_RESET;
-			errno = ECONNRESET;
-			return NULL;
-		}
-		else
-		{
-			bool need_update = false;
-
-			transaction_state_ = (target->state & 1);
-			bool in_prepare = ((target->state & 2) != 0);
-
-			if (!in_prepare && is_prepare(this->req.get_query()))
+			if (target->state)
 			{
-				in_prepare = true;
-				need_update = true;
+				errno = ECONNRESET;
+				return NULL;
 			}
-
-			if (transaction_state_ == TRANSACTION_OUT) // not begin
-			{
-				if (is_trans_begin(this->req.get_query()))
-				{
-					transaction_state_ = TRANSACTION_IN;
-					need_update = true;
-				}
-			}
-			else if (transaction_state_ == TRANSACTION_IN) // already begin
-			{
-				if (is_trans_end(this->req.get_query()))
-				{
-					transaction_state_ = TRANSACTION_OUT;
-					need_update = true;
-				}
-			}
-
-			if (need_update)
-			{
-				target->state = transaction_state_;
-				if (in_prepare)
-					target->state |= PREPARE_IN;
-			}
+			else
+				target->state = 1;
 		}
 	}
 
@@ -462,16 +400,14 @@ bool ComplexMySQLTask::init_success()
 
 	if (!transaction.empty())
 	{
-		transaction_state_ = TRANSACTION_OUT;
 		this->WFComplexClientTask::set_info(std::string("?maxconn=1&") +
 											info + "|txn:" + transaction);
-		this->fixed_addr_ = true;
+		this->set_fixed_addr(true);
 	}
 	else
 	{
-		transaction_state_ = NO_TRANSACTION;
 		this->WFComplexClientTask::set_info(info);
-		this->fixed_addr_ = false;
+		this->set_fixed_addr(false);
 	}
 
 	delete []info;
@@ -504,6 +440,13 @@ bool ComplexMySQLTask::finish_once()
 		return false;
 	}
 
+	if (this->is_fixed_addr() && this->state != WFT_STATE_SUCCESS)
+	{
+		auto *target = (RouteManager::RouteTarget *)this->get_target();
+		if (target)
+			target->state = 0;
+	}
+
 	return true;
 }
 
@@ -521,7 +464,7 @@ WFMySQLTask *WFTaskFactory::create_mysql_task(const std::string& url,
 
 	URIParser::parse(url, uri);
 	task->init(std::move(uri));
-	if (task->is_transaction())
+	if (task->is_fixed_addr())
 		task->set_keep_alive(MYSQL_KEEPALIVE_TRANSACTION);
 	else
 		task->set_keep_alive(MYSQL_KEEPALIVE_DEFAULT);
@@ -536,7 +479,7 @@ WFMySQLTask *WFTaskFactory::create_mysql_task(const ParsedURI& uri,
 	auto *task = new ComplexMySQLTask(retry_max, std::move(callback));
 
 	task->init(uri);
-	if (task->is_transaction())
+	if (task->is_fixed_addr())
 		task->set_keep_alive(MYSQL_KEEPALIVE_TRANSACTION);
 	else
 		task->set_keep_alive(MYSQL_KEEPALIVE_DEFAULT);

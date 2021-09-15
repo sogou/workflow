@@ -250,12 +250,11 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		auto *target = (RouteManager::RouteTarget *)this->get_target();
 
 		/* If it's a transaction task, generate a ECONNRESET error when
-		 * the target is reconnected. */
+		 * the target was reconnected. */
 		if (seqid <= 3 && (seqid == 2 || res_charset_.size() != 0))
 		{
 			if (target->state)
 			{
-				target->state = 0;
 				errno = ECONNRESET;
 				return NULL;
 			}
@@ -602,6 +601,13 @@ bool ComplexMySQLTask::finish_once()
 
 		is_user_request_ = true;
 		return false;
+	}
+
+	if (this->is_fixed_addr() && this->state != WFT_STATE_SUCCESS)
+	{
+		auto *target = (RouteManager::RouteTarget *)this->get_target();
+		if (target)
+			target->state = 0;
 	}
 
 	return true;

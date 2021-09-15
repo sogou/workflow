@@ -158,7 +158,11 @@ public:
 		init(type, addr, addrlen, info);
 	}
 
+	bool is_fixed_addr() const { return this->fixed_addr_; }
+
 protected:
+	void set_fixed_addr(int fixed) { this->fixed_addr_ = fixed; }
+
 	void set_info(const std::string& info)
 	{
 		info_.assign(info);

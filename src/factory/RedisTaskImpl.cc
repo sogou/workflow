@@ -26,7 +26,7 @@
 
 using namespace protocol;
 
-#define REDIS_KEEPALIVE_DEFAULT		(180 * 1000)
+#define REDIS_KEEPALIVE_DEFAULT		(60 * 1000)
 #define REDIS_REDIRECT_MAX			3
 
 /**********Client**********/

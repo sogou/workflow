@@ -603,11 +603,14 @@ bool ComplexMySQLTask::finish_once()
 		return false;
 	}
 
-	if (this->is_fixed_addr() && this->state != WFT_STATE_SUCCESS)
+	if (this->is_fixed_addr())
 	{
-		auto *target = (RouteManager::RouteTarget *)this->get_target();
-		if (target)
-			target->state = 0;
+		if (this->state != WFT_STATE_SUCCESS || this->keep_alive_timeo == 0)
+		{
+			auto *target = (RouteManager::RouteTarget *)this->get_target();
+			if (target)
+				target->state = 0;
+		}
 	}
 
 	return true;

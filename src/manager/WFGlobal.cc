@@ -380,39 +380,34 @@ public:
 	ExecQueue *get_exec_queue(const std::string& queue_name)
 	{
 		ExecQueue *queue = NULL;
+		ExecQueueMap::const_iterator iter;
 
 		pthread_rwlock_rdlock(&rwlock_);
-		const auto iter = queue_map_.find(queue_name);
-
+		iter = queue_map_.find(queue_name);
 		if (iter != queue_map_.cend())
 			queue = iter->second;
 
 		pthread_rwlock_unlock(&rwlock_);
+		if (queue)
+			return queue;
 
-		if (!queue)
+		pthread_rwlock_wrlock(&rwlock_);
+		iter = queue_map_.find(queue_name);
+		if (iter == queue_map_.cend())
 		{
 			queue = new ExecQueue();
-			if (queue->init() < 0)
+			if (queue->init() >= 0)
+				queue_map_.emplace(queue_name, queue);
+			else
 			{
 				delete queue;
 				queue = NULL;
 			}
-			else
-			{
-				pthread_rwlock_wrlock(&rwlock_);
-				const auto ret = queue_map_.emplace(queue_name, queue);
-
-				if (!ret.second)
-				{
-					queue->deinit();
-					delete queue;
-					queue = ret.first->second;
-				}
-
-				pthread_rwlock_unlock(&rwlock_);
-			}
 		}
+		else
+			queue = iter->second;
 
+		pthread_rwlock_unlock(&rwlock_);
 		return queue;
 	}
 

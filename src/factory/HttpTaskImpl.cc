@@ -529,27 +529,22 @@ CommMessageOut *WFHttpServerTask::message_out()
 
 	}
 
-	if (this->keep_alive_timeo == 0)
+	if (!resp_has_connection)
 	{
-		if (!resp_has_connection)
+		header.name = "Connection";
+		header.name_len = 10;
+		if (this->keep_alive_timeo == 0)
 		{
-			header.name = "Connection";
-			header.name_len = 10;
 			header.value = "close";
 			header.value_len = 5;
-			resp->add_header(&header);
 		}
-	}
-	else
-	{
-		if (!resp_has_connection)
+		else
 		{
-			header.name = "Connection";
-			header.name_len = 10;
 			header.value = "Keep-Alive";
 			header.value_len = 10;
-			resp->add_header(&header);
 		}
+
+		resp->add_header(&header);
 	}
 
 	return this->WFServerTask::message_out();

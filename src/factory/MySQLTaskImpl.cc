@@ -405,10 +405,7 @@ bool ComplexMySQLTask::init_success()
 		this->set_fixed_addr(true);
 	}
 	else
-	{
 		this->WFComplexClientTask::set_info(info);
-		this->set_fixed_addr(false);
-	}
 
 	delete []info;
 	return true;

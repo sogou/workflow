@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 project(factory)
 
 set(SRC
+	WFResourcePool.cc
 	WFGraphTask.cc
 	HttpTaskImpl.cc
 	RedisTaskImpl.cc

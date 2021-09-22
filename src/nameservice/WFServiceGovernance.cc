@@ -103,6 +103,7 @@ EndpointAddress::EndpointAddress(const std::string& address,
 
 	this->address = address;
 	this->fail_count = 0;
+	this->ref = 1;
 	this->entry.list.next = NULL;
 	this->entry.ptr = this;
 
@@ -214,6 +215,13 @@ inline void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 	this->breaker_lock.unlock();
 }
 
+void WFServiceGovernance::remove_server_from_breaker(EndpointAddress *addr)
+{
+	this->breaker_lock.lock();
+	list_del(&addr->entry.list);
+	this->breaker_lock.unlock();
+}
+
 void WFServiceGovernance::success(RouteManager::RouteResult *result,
 								  WFNSTracing *tracing,
 								  CommTarget *target)
@@ -229,6 +237,8 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 
 	this->rwlock.wlock();
 	this->recover_server_from_breaker(server);
+	if (--server->ref == 0)
+		delete server;
 	this->rwlock.unlock();
 
 	this->WFNSPolicy::success(result, tracing, target);
@@ -248,12 +258,12 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 		server = (EndpointAddress *)tracing->data;
 
 	this->rwlock.wlock();
-	size_t fail_count = ++server->fail_count;
-	if (fail_count == server->params->max_fails)
+	if (--server->ref == 0)
+		delete server;
+	else if (++server->fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
 
 	this->rwlock.unlock();
-
 	this->WFNSPolicy::failed(result, tracing, target);
 }
 
@@ -289,15 +299,15 @@ void WFServiceGovernance::check_breaker()
 	this->breaker_lock.unlock();
 }
 
-const EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri,
-														   WFNSTracing *tracing)
+EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri,
+													 WFNSTracing *tracing)
 {
 	unsigned int idx = rand() % this->servers.size();
 	return this->servers[idx];
 }
 
-const EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri,
-															 WFNSTracing *tracing)
+EndpointAddress *WFServiceGovernance::another_strategy(const ParsedURI& uri,
+													   WFNSTracing *tracing)
 {
 	return this->first_strategy(uri, tracing);
 }
@@ -322,7 +332,7 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 	}
 
 	// select_addr == NULL will only happened in consistent_hash
-	const EndpointAddress *select_addr = this->first_strategy(uri, tracing);
+	EndpointAddress *select_addr = this->first_strategy(uri, tracing);
 
 	if (!select_addr ||
 		select_addr->fail_count >= select_addr->params->max_fails)
@@ -331,20 +341,18 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 			select_addr = this->another_strategy(uri, tracing);
 	}
 
-	this->rwlock.unlock();
-
 	if (select_addr)
 	{
-		*addr = (EndpointAddress *)select_addr;
-		return true;
+		*addr = select_addr;
+		++(*addr)->ref;
 	}
 
-	return false;
+	this->rwlock.unlock();
+	return !!select_addr;
 }
 
 void WFServiceGovernance::add_server_locked(EndpointAddress *addr)
 {
-	this->addresses.push_back(addr);
 	this->server_map[addr->address].push_back(addr);
 	this->servers.push_back(addr);
 	this->recover_one_server(addr);
@@ -353,6 +361,8 @@ void WFServiceGovernance::add_server_locked(EndpointAddress *addr)
 
 int WFServiceGovernance::remove_server_locked(const std::string& address)
 {
+	std::vector<EndpointAddress *> remove_list;
+
 	const auto map_it = this->server_map.find(address);
 	if (map_it != this->server_map.cend())
 	{
@@ -360,10 +370,12 @@ int WFServiceGovernance::remove_server_locked(const std::string& address)
 		{
 			// or not: it has already been -- in nalives
 			if (addr->fail_count < addr->params->max_fails)
-			{
 				this->fuse_one_server(addr);
-				this->server_list_change(addr, REMOVE_SERVER);
-			}
+			else
+				this->remove_server_from_breaker(addr);
+
+			this->server_list_change(addr, REMOVE_SERVER);
+			remove_list.push_back(addr);
 		}
 
 		this->server_map.erase(map_it);
@@ -388,6 +400,12 @@ int WFServiceGovernance::remove_server_locked(const std::string& address)
 	{
 		this->servers.resize(new_n);
 		ret = n - new_n;
+	}
+
+	for (EndpointAddress *server : remove_list)
+	{
+		if (--server->ref == 0)
+			delete server;
 	}
 
 	return ret;

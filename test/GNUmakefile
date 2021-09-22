@@ -25,8 +25,6 @@ check:
 clean:
 ifeq ($(MAKE_FILE), $(wildcard $(MAKE_FILE)))
 	-make -f Makefile clean
-else ifeq (build, $(wildcard build))
-	-make -C build clean
 endif
-	rm -rf build
+	rm -rf $(DEFAULT_BUILD_DIR)
 

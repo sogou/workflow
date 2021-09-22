@@ -14,8 +14,9 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Li Yingxin (liyingxin@sogou-inc.com)
            Liu Kai (liukaidx@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
+           Li Yingxin (liyingxin@sogou-inc.com)
 */
 
 #include <assert.h>
@@ -72,73 +73,58 @@ private:
 
 CommMessageOut *ComplexHttpTask::message_out()
 {
-	auto *req = this->get_req();
-	bool is_alive;
-	HttpHeaderCursor req_cursor(req);
+	HttpRequest *req = this->get_req();
 	struct HttpMessageHeader header;
-	bool chunked = false;
+	bool is_alive;
 
-	header.name = "Transfer-Encoding";
-	header.name_len = 17;
-	if (req_cursor.find(&header) && header.value_len > 0)
-	{
-		chunked = !(header.value_len == 8 &&
-			strncasecmp((const char *)header.value, "identity", 8) == 0);
-	}
-
-	if (!chunked)
+	if (!req->is_chunked() && !req->has_content_length_header())
 	{
 		size_t body_size = req->get_output_body_size();
 		const char *method = req->get_method();
 
-		if (body_size != 0 || strcmp(method, "POST") == 0 || strcmp(method, "PUT") == 0)
+		if (body_size != 0 || strcmp(method, "POST") == 0 ||
+							  strcmp(method, "PUT") == 0)
 		{
+			char buf[32];
 			header.name = "Content-Length";
-			header.name_len = 14;
-			req_cursor.rewind();
-			if (!req_cursor.find(&header))
-			{
-				char buf[32];
-				header.value = buf;
-				header.value_len = sprintf(buf, "%zu", body_size);
-				req->add_header(&header);
-			}
+			header.name_len = strlen("Content-Length");
+			header.value = buf;
+			header.value_len = sprintf(buf, "%zu", body_size);
+			req->add_header(&header);
 		}
 	}
 
-	header.name = "Connection";
-	header.name_len = 10;
-	req_cursor.rewind();
-	if (req_cursor.find(&header))
-	{
-		is_alive = (header.value_len == 10 &&
-				strncasecmp((const char *)header.value, "Keep-Alive", 10) == 0);
-	}
-	else if (this->keep_alive_timeo != 0)
-	{
-		is_alive = true;
-		header.value = "Keep-Alive";
-		header.value_len = 10;
-		req->add_header(&header);
-	}
+	if (req->has_connection_header())
+		is_alive = req->is_keep_alive();
 	else
 	{
-		is_alive = false;
-		header.value = "close";
-		header.value_len = 5;
+		header.name = "Connection";
+		header.name_len = strlen("Connection");
+		is_alive = (this->keep_alive_timeo != 0);
+		if (is_alive)
+		{
+			header.value = "Keep-Alive";
+			header.value_len = strlen("Keep-Alive");
+		}
+		else
+		{
+			header.value = "close";
+			header.value_len = strlen("close");
+		}
+	
 		req->add_header(&header);
 	}
 
 	if (!is_alive)
 		this->keep_alive_timeo = 0;
-	else
+	else if (req->has_keep_alive_header())
 	{
+		HttpHeaderCursor req_cursor(req);
+
 		//req---Connection: Keep-Alive
 		//req---Keep-Alive: timeout=0,max=100
-
 		header.name = "Keep-Alive";
-		header.name_len = 10;
-		req_cursor.rewind();
+		header.name_len = strlen("Keep-Alive");
 		if (req_cursor.find(&header))
 		{
 			std::string keep_alive((const char *)header.value, header.value_len);
@@ -166,7 +152,7 @@ CommMessageOut *ComplexHttpTask::message_out()
 	}
 
 	//req->set_header_pair("Accept", "*/*");
-	return this->WFClientTask::message_out();
+	return this->WFComplexClientTask::message_out();
 }
 
 CommMessageIn *ComplexHttpTask::message_in()
@@ -176,7 +162,7 @@ CommMessageIn *ComplexHttpTask::message_in()
 	if (strcmp(this->get_req()->get_method(), HttpMethodHead) == 0)
 		resp->parse_zero_body();
 
-	return this->WFClientTask::message_in();
+	return this->WFComplexClientTask::message_in();
 }
 
 int ComplexHttpTask::keep_alive_timeout()
@@ -831,7 +817,7 @@ public:
 					 std::function<void (WFHttpTask *)>& process):
 		WFServerTask(service, WFGlobal::get_scheduler(), process),
 		req_is_alive_(false),
-		req_header_has_keep_alive_(false)
+		req_has_keep_alive_header_(false)
 	{}
 
 protected:
@@ -840,17 +826,19 @@ protected:
 		if (state == WFT_STATE_TOREPLY)
 		{
 			req_is_alive_ = this->req.is_keep_alive();
-			if (req_is_alive_)
+			if (req_is_alive_ && this->req.has_keep_alive_header())
 			{
 				HttpHeaderCursor req_cursor(&this->req);
 				struct HttpMessageHeader header;
 
 				header.name = "Keep-Alive";
-				header.name_len = 10;
-				req_header_has_keep_alive_ = req_cursor.find(&header);
-				if (req_header_has_keep_alive_)
+				header.name_len = strlen("Keep-Alive");
+				req_has_keep_alive_header_ = req_cursor.find(&header);
+				if (req_has_keep_alive_header_)
+				{
 					req_keep_alive_.assign((const char *)header.value,
 											header.value_len);
+				}
 			}
 		}
 
@@ -861,13 +849,14 @@ protected:
 
 private:
 	bool req_is_alive_;
-	bool req_header_has_keep_alive_;
+	bool req_has_keep_alive_header_;
 	std::string req_keep_alive_;
 };
 
 CommMessageOut *WFHttpServerTask::message_out()
 {
-	auto *resp = this->get_resp();
+	HttpResponse *resp = this->get_resp();
+	struct HttpMessageHeader header;
 
 	if (!resp->get_http_version())
 		resp->set_http_version("HTTP/1.1");
@@ -885,46 +874,20 @@ CommMessageOut *WFHttpServerTask::message_out()
 		HttpUtil::set_response_status(resp, status_code);
 	}
 
-	HttpHeaderCursor resp_cursor(resp);
-	struct HttpMessageHeader header;
-	bool chunked = false;
-
-	header.name = "Transfer-Encoding";
-	header.name_len = 17;
-	if (resp_cursor.find(&header) && header.value_len > 0)
+	if (!resp->is_chunked() && !resp->has_content_length_header())
 	{
-		chunked = !(header.value_len == 8 &&
-			strncasecmp((const char *)header.value, "identity", 8) == 0);
-	}
-
-	size_t body_size = resp->get_output_body_size();
-
-	if (!chunked)
-	{
+		char buf[32];
 		header.name = "Content-Length";
-		header.name_len = 14;
-		resp_cursor.rewind();
-		if (!resp_cursor.find(&header))
-		{
-			char buf[32];
-			header.value = buf;
-			header.value_len = sprintf(buf, "%zu", body_size);
-			resp->add_header(&header);
-		}
+		header.name_len = strlen("Content-Length");
+		header.value = buf;
+		header.value_len = sprintf(buf, "%zu", resp->get_output_body_size());
+		resp->add_header(&header);
 	}
 
 	bool is_alive;
-	bool resp_has_connection;
 
-	header.name = "Connection";
-	header.name_len = 10;
-	resp_cursor.rewind();
-	resp_has_connection = resp_cursor.find(&header);
-	if (resp_has_connection)
-	{
-		is_alive = (header.value_len == 10 &&
-				strncasecmp((const char *)header.value, "Keep-Alive", 10) == 0);
-	}
+	if (resp->has_connection_header())
+		is_alive = resp->is_keep_alive();
 	else
 		is_alive = req_is_alive_;
 
@@ -935,7 +898,7 @@ CommMessageOut *WFHttpServerTask::message_out()
 		//req---Connection: Keep-Alive
 		//req---Keep-Alive: timeout=5,max=100
 
-		if (req_header_has_keep_alive_)
+		if (req_has_keep_alive_header_)
 		{
 			int flag = 0;
 			std::vector<std::string> params = StringUtil::split(req_keep_alive_, ',');
@@ -977,27 +940,22 @@ CommMessageOut *WFHttpServerTask::message_out()
 
 	}
 
-	if (this->keep_alive_timeo == 0)
+	if (!resp->has_connection_header())
 	{
-		if (!resp_has_connection)
+		header.name = "Connection";
+		header.name_len = 10;
+		if (this->keep_alive_timeo == 0)
 		{
-			header.name = "Connection";
-			header.name_len = 10;
 			header.value = "close";
 			header.value_len = 5;
-			resp->add_header(&header);
 		}
-	}
-	else
-	{
-		if (!resp_has_connection)
+		else
 		{
-			header.name = "Connection";
-			header.name_len = 10;
 			header.value = "Keep-Alive";
 			header.value_len = 10;
-			resp->add_header(&header);
 		}
+
+		resp->add_header(&header);
 	}
 
 	return this->WFServerTask::message_out();

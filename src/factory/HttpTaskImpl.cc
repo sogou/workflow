@@ -19,6 +19,9 @@
            Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <assert.h>
 #include <string>
 #include <openssl/bio.h>

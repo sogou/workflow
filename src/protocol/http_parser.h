@@ -42,6 +42,9 @@ typedef struct __http_parser
 	void *msgbuf;
 	size_t msgsize;
 	size_t bufsize;
+	char has_connection;
+	char has_content_length;
+	char has_keep_alive;
 	char expect_continue;
 	char keep_alive;
 	char chunked;
@@ -90,16 +93,6 @@ int http_header_cursor_find(const void *name, size_t name_len,
 }
 #endif
 
-static inline int http_parser_chunked(http_parser_t *parser)
-{
-	return parser->chunked;
-}
-
-static inline int http_parser_keep_alive(http_parser_t *parser)
-{
-	return parser->keep_alive;
-}
-
 static inline const char *http_parser_get_method(http_parser_t *parser)
 {
 	return parser->method;
@@ -123,6 +116,31 @@ static inline const char *http_parser_get_code(http_parser_t *parser)
 static inline const char *http_parser_get_phrase(http_parser_t *parser)
 {
 	return parser->phrase;
+}
+
+static inline int http_parser_chunked(http_parser_t *parser)
+{
+	return parser->chunked;
+}
+
+static inline int http_parser_keep_alive(http_parser_t *parser)
+{
+	return parser->keep_alive;
+}
+
+static inline int http_parser_has_connection(http_parser_t *parser)
+{
+	return parser->has_connection;
+}
+
+static inline int http_parser_has_content_length(http_parser_t *parser)
+{
+	return parser->has_content_length;
+}
+
+static inline int http_parser_has_keep_alive(http_parser_t *parser)
+{
+	return parser->has_keep_alive;
 }
 
 static inline void http_parser_close_message(http_parser_t *parser)

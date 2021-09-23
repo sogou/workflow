@@ -194,7 +194,7 @@ int WFDnsClient::init(const std::string& url, const std::string& search_list,
 	std::string host;
 	ParsedURI uri;
 
-	id = 0;
+	this->id = 0;
 	hosts = StringUtil::split_filter_empty(url, ',');
 
 	for (size_t i = 0; i < hosts.size(); i++)
@@ -219,7 +219,7 @@ int WFDnsClient::init(const std::string& url, const std::string& search_list,
 	}
 
 	this->params = new DnsParams;
-	DnsParams::dns_params *q = ((DnsParams *)(this->params))->get_params();
+	DnsParams::dns_params *q = ((DnsParams *)this->params)->get_params();
 	q->uris = std::move(uris);
 	q->search_list = StringUtil::split_filter_empty(search_list, ',');
 	q->ndots = ndots > 15 ? 15 : ndots;
@@ -231,14 +231,14 @@ int WFDnsClient::init(const std::string& url, const std::string& search_list,
 
 void WFDnsClient::deinit()
 {
-	delete (DnsParams *)(this->params);
+	delete (DnsParams *)this->params;
 	this->params = NULL;
 }
 
 WFDnsTask *WFDnsClient::create_dns_task(const std::string& name,
 										dns_callback_t callback)
 {
-	DnsParams::dns_params *p = ((DnsParams *)(this->params))->get_params();
+	DnsParams::dns_params *p = ((DnsParams *)this->params)->get_params();
 	struct DnsStatus status;
 	size_t next_server;
 	WFDnsTask *task;

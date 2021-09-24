@@ -3,6 +3,11 @@ cc_library(
 	hdrs = glob(['src/include/workflow/*']),
 	includes = ['src/include'],
 	visibility = ["//visibility:public"],
+	linkopts = [
+	    '-lpthread',
+	    '-lssl',
+	    '-lcrypto',
+	],
 )
 cc_library(
 	name = 'common_c',
@@ -191,114 +196,70 @@ cc_library(
 		':common',
 	],
 	visibility = ["//visibility:public"],
+	linkopts = [
+	    '-lsnappy',
+	    '-llz4',
+	    '-lz',
+	    '-lzstd',
+	],
 )
 
 cc_binary(
 	 name = 'helloworld',
 	 srcs = ['tutorial/tutorial-00-helloworld.cc'],
 	 deps = [':http'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	],
 )
 cc_binary(
 	 name = 'wget',
 	 srcs = ['tutorial/tutorial-01-wget.cc'],
 	 deps = [':http'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 cc_binary(
 	 name = 'redis_cli',
 	 srcs = ['tutorial/tutorial-02-redis_cli.cc'],
 	 deps = [':redis'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'wget_to_redis',
 	 srcs = ['tutorial/tutorial-03-wget_to_redis.cc'],
 	 deps = [':http', 'redis'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'http_echo_server',
 	 srcs = ['tutorial/tutorial-04-http_echo_server.cc'],
 	 deps = [':http'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'http_proxy',
 	 srcs = ['tutorial/tutorial-05-http_proxy.cc'],
 	 deps = [':http'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'parallel_wget',
 	 srcs = ['tutorial/tutorial-06-parallel_wget.cc'],
 	 deps = [':http'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'sort_task',
 	 srcs = ['tutorial/tutorial-07-sort_task.cc'],
 	 deps = [':common'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'matrix_multiply',
 	 srcs = ['tutorial/tutorial-08-matrix_multiply.cc'],
 	 deps = [':common'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'http_file_server',
 	 srcs = ['tutorial/tutorial-09-http_file_server.cc'],
 	 deps = [':http'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_library(
@@ -314,11 +275,6 @@ cc_binary(
 		  'tutorial/tutorial-10-user_defined_protocol/message.cc',
 	 ],
 	 deps = [':common', ':user_hdrs'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
@@ -328,33 +284,18 @@ cc_binary(
 		  'tutorial/tutorial-10-user_defined_protocol/message.cc',
 	 ],
 	 deps = [':common', ':user_hdrs'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'graph_task',
 	 srcs = ['tutorial/tutorial-11-graph_task.cc'],
 	 deps = [':http'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
 	 name = 'mysql_cli',
 	 srcs = ['tutorial/tutorial-12-mysql_cli.cc'],
 	 deps = [':mysql'],
-	 linkopts = [
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-	 ],
 )
 
 cc_binary(
@@ -362,15 +303,4 @@ cc_binary(
 	 srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
 	 deps = [':kafka', ':workflow_hdrs'],
 	 copts = ['-fno-rtti'],
-	 linkopts = [
-		 '-L/usr/local/lib',
-		 '-L/usr/local/lib64',
-		 '-lpthread',
-		 '-lssl',
-		 '-lcrypto',
-		 '-lsnappy',
-		 '-llz4',
-		 '-lz',
-		 '-lzstd',
-	 ],
 )

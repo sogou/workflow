@@ -52,11 +52,13 @@ public:
 	// release handle by get/put
 	void release(DnsHandle *handle)
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		cache_pool_.release(handle);
 	}
 
 	void release(const DnsHandle *handle)
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		cache_pool_.release(handle);
 	}
 

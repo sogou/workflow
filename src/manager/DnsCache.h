@@ -65,6 +65,7 @@ public:
 	//Handle *get(const KEY &key);
 	const DnsHandle *get(const HostPort& host_port)
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		return cache_pool_.get(host_port);
 	}
 
@@ -134,6 +135,7 @@ public:
 	// delete from cache, deleter delay called when all inuse-handle release.
 	void del(const HostPort& key)
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		cache_pool_.del(key);
 	}
 

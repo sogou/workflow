@@ -19,7 +19,6 @@
 #ifndef _MD5UTIL_H_
 #define _MD5UTIL_H_
 
-#include <stdint.h>
 #include <string>
 #include <utility>
 

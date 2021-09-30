@@ -16,12 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <assert.h>
 #include <algorithm>
-#include <vector>
-#include <functional>
-#include <utility>
-#include "Workflow.h"
 #include "WFGlobal.h"
 
 /********** Classes without CMP **********/

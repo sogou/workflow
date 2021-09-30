@@ -20,6 +20,8 @@
 #include "mysql_byteorder.h"
 #include "mysql_parser.h"
 
+#include <stdlib.h>
+
 static int parse_base_packet(const void *buf, size_t len, mysql_parser_t *parser);
 
 static int parse_error_packet(const void *buf, size_t len, mysql_parser_t *parser);

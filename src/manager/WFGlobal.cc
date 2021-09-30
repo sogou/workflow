@@ -21,8 +21,6 @@
 #include <assert.h>
 #include <unistd.h>
 #include <signal.h>
-#include <pthread.h>
-#include <string.h>
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <string>
@@ -31,19 +29,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <openssl/ssl.h>
-#include <openssl/err.h>
 #include <openssl/engine.h>
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
-#include "WFGlobal.h"
-#include "EndpointParams.h"
-#include "CommScheduler.h"
 #include "DnsCache.h"
-#include "RouteManager.h"
-#include "Executor.h"
-#include "WFTask.h"
 #include "WFTaskError.h"
-#include "WFNameService.h"
 #include "WFDnsResolver.h"
 #include "WFDnsClient.h"
 

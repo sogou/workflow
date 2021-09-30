@@ -18,7 +18,6 @@
 
 #include <string>
 #include <vector>
-#include <atomic>
 #include "URIParser.h"
 #include "StringUtil.h"
 #include "WFDnsClient.h"

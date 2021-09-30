@@ -17,7 +17,6 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/types.h>
 #include <string>
 #include <mutex>
 #include "list.h"

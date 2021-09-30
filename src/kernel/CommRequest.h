@@ -19,10 +19,11 @@
 #ifndef _COMMREQUEST_H_
 #define _COMMREQUEST_H_
 
-#include <stddef.h>
 #include "SubTask.h"
 #include "Communicator.h"
-#include "CommScheduler.h"
+
+class CommSchedObject;
+class CommScheduler;
 
 class CommRequest : public SubTask, public CommSession
 {

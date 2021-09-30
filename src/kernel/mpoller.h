@@ -19,8 +19,6 @@
 #ifndef _MPOLLER_H_
 #define _MPOLLER_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include "poller.h"
 
 typedef struct __mpoller mpoller_t;

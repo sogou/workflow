@@ -18,7 +18,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
+#include <netinet/in.h>
 #include "dns_parser.h"
 
 #define DNS_LABELS_MAX			63

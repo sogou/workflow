@@ -19,9 +19,10 @@
 #ifndef _MYSQL_BYTEORDER_H_
 #define _MYSQL_BYTEORDER_H_
 
-#include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
+#include <endian.h>
+#include <bits/stdint-uintn.h>
+#include <bits/stdint-intn.h>
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 

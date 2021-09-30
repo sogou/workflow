@@ -16,10 +16,8 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <utility>
 #include "HttpMessage.h"
 
 namespace protocol

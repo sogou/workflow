@@ -23,8 +23,8 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include "MySQLMessage.h"
-#include "mysql_types.h"
+#include "mysql_parser.h"
+
 
 /**
  * @file   MySQLResult.h
@@ -33,7 +33,7 @@
 
 namespace protocol
 {
-
+class MySQLResponse;
 class MySQLCell
 {
 public:

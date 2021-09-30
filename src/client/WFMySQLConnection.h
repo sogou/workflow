@@ -19,8 +19,6 @@
 #ifndef _WFMYSQLCONNECTION_H_
 #define _WFMYSQLCONNECTION_H_
 
-#include <string>
-#include <utility>
 #include <functional>
 #include "URIParser.h"
 #include "WFTaskFactory.h"

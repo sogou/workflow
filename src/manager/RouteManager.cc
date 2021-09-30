@@ -17,21 +17,17 @@
 */
 
 #include <openssl/ssl.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <stdint.h>
 #include <string.h>
-#include <errno.h>
 #include <chrono>
 #include <mutex>
-#include <vector>
-#include <string>
 #include <algorithm>
+#include <memory>
+#include <stdlib.h>
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
-#include "WFConnection.h"
 #include "MD5Util.h"
 #include "CommScheduler.h"
 #include "EndpointParams.h"

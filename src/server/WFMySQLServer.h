@@ -19,11 +19,9 @@
 #ifndef _WFMYSQLSERVER_H_
 #define _WFMYSQLSERVER_H_
 
-#include <utility>
 #include "MySQLMessage.h"
 #include "WFServer.h"
 #include "WFTaskFactory.h"
-#include "WFConnection.h"
 
 using mysql_process_t = std::function<void (WFMySQLTask *)>;
 class MySQLServer;

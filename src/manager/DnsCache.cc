@@ -17,7 +17,6 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <stdint.h>
 #include <chrono>
 #include "DnsCache.h"
 

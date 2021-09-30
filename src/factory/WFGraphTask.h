@@ -21,8 +21,6 @@
 
 #include <vector>
 #include <utility>
-#include <functional>
-#include "Workflow.h"
 #include "WFTask.h"
 
 class WFGraphNode : protected WFCounterTask

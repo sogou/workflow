@@ -21,14 +21,12 @@
 
 #include <pthread.h>
 #include <functional>
-#include <utility>
 #include "rbtree.h"
-#include "Communicator.h"
-#include "Workflow.h"
 #include "WFTask.h"
 #include "RouteManager.h"
-#include "URIParser.h"
 #include "EndpointParams.h"
+
+class ParsedURI;
 
 class WFRouterTask : public WFGenericTask
 {

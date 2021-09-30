@@ -16,11 +16,10 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <stdio.h>
 #include "CommScheduler.h"
 
 #define PTHREAD_COND_TIMEDWAIT(cond, mutex, abstime) \

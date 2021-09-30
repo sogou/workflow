@@ -17,12 +17,8 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <stdint.h>
 #include <string.h>
-#include <string>
-#include <openssl/ssl.h>
 #include "SSLWrapper.h"
-#include "mysql_byteorder.h"
 
 namespace protocol
 {

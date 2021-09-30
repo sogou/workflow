@@ -20,6 +20,10 @@
 #define _PROTOCOLMESSAGE_H_
 
 #include <errno.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sched.h>
+#include <stdio.h>
 #include <stddef.h>
 #include <utility>
 #include "Communicator.h"

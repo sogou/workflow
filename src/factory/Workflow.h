@@ -21,7 +21,6 @@
 
 #include <assert.h>
 #include <stddef.h>
-#include <utility>
 #include <functional>
 #include <mutex>
 #include "SubTask.h"

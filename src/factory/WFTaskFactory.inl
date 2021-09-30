@@ -18,23 +18,11 @@
            Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <time.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <new>
-#include <string>
 #include <functional>
-#include <utility>
 #include "WFGlobal.h"
-#include "Workflow.h"
-#include "WFTask.h"
-#include "RouteManager.h"
 #include "URIParser.h"
 #include "WFTaskError.h"
-#include "EndpointParams.h"
 #include "WFNameService.h"
 
 class __WFGoTask : public WFGoTask

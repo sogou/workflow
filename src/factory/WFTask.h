@@ -25,10 +25,8 @@
 #include <atomic>
 #include <utility>
 #include <functional>
-#include "Executor.h"
 #include "ExecRequest.h"
 #include "Communicator.h"
-#include "CommScheduler.h"
 #include "CommRequest.h"
 #include "SleepRequest.h"
 #include "IORequest.h"

@@ -23,6 +23,8 @@
 #include "Communicator.h"
 #include "CommScheduler.h"
 
+#include <errno.h>
+
 class SleepRequest : public SubTask, public SleepSession
 {
 public:

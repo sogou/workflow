@@ -25,14 +25,17 @@
 #endif
 
 #include <string>
-#include <openssl/ssl.h>
-#include "CommScheduler.h"
-#include "DnsCache.h"
-#include "RouteManager.h"
-#include "Executor.h"
+#include <openssl/ossl_typ.h>
 #include "EndpointParams.h"
-#include "WFNameService.h"
-#include "WFDnsResolver.h"
+
+class CommScheduler;
+class DnsCache;
+class RouteManager;
+class ExecQueue;
+class Executor;
+class IOService;
+class WFNameService;
+class WFDnsResolver;
 
 /**
  * @file    WFGlobal.h

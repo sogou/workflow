@@ -19,12 +19,10 @@
 #ifndef _MYSQLMESSAGE_H_
 #define _MYSQLMESSAGE_H_
 
-#include <stdint.h>
 #include <string>
 #include "ProtocolMessage.h"
 #include "mysql_stream.h"
 #include "mysql_parser.h"
-#include "mysql_byteorder.h"
 
 /**
  * @file   MySQLMessage.h

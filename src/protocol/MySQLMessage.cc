@@ -17,18 +17,11 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/uio.h>
-#include <stdint.h>
-#include <string.h>
-#include <errno.h>
-#include <string>
-#include <openssl/ssl.h>
 #include <openssl/sha.h>
-#include <utility>
-#include "SSLWrapper.h"
 #include "mysql_types.h"
 #include "MySQLResult.h"
 #include "MySQLMessage.h"
+#include "mysql_byteorder.h"
 
 namespace protocol
 {

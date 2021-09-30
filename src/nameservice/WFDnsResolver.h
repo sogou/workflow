@@ -19,7 +19,6 @@
 #ifndef _WFDNSRESOLVER_H_
 #define _WFDNSRESOLVER_H_
 
-#include "EndpointParams.h"
 #include "WFNameService.h"
 #include "WFResourcePool.h"
 

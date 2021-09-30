@@ -18,7 +18,7 @@
 
 #include <pthread.h>
 #include "UpstreamManager.h"
-#include "WFNameService.h"
+#include "WFGlobal.h"
 #include "UpstreamPolicies.h"
 
 class __UpstreamManager

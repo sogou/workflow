@@ -20,22 +20,15 @@
 #ifndef _WFTASKFACTORY_H_
 #define _WFTASKFACTORY_H_
 
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <time.h>
-#include <utility>
-#include <functional>
-#include "URIParser.h"
 #include "RedisMessage.h"
 #include "HttpMessage.h"
 #include "MySQLMessage.h"
 #include "DnsMessage.h"
-#include "DnsRoutine.h"
-#include "Workflow.h"
 #include "WFTask.h"
 #include "WFGraphTask.h"
 #include "EndpointParams.h"
-#include "WFAlgoTaskFactory.h"
+
+class ParsedURI;
 
 // Network Client/Server tasks
 

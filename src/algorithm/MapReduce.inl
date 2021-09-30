@@ -17,10 +17,6 @@
 */
 
 #include <assert.h>
-#include <utility>
-#include <vector>
-#include <type_traits>
-#include "rbtree.h"
 #include "list.h"
 
 namespace algorithm

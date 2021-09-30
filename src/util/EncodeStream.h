@@ -19,8 +19,6 @@
 #ifndef _ENCODESTREAM_H_
 #define _ENCODESTREAM_H_
 
-#include <sys/uio.h>
-#include <stdint.h>
 #include <string.h>
 #include <utility>
 #include <string>

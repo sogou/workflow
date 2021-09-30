@@ -19,7 +19,6 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
-#include <utility>
 #include <functional>
 #include <mutex>
 #include "Workflow.h"

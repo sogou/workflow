@@ -21,6 +21,14 @@
 #define _LRUCACHE_H_
 
 #include <assert.h>
+#include <time.h>
+#include <wchar.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sched.h>
+#include <locale.h>
+#include <stdlib.h>
+#include <rpc/netdb.h>
 #include <map>
 
 /**

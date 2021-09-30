@@ -16,7 +16,6 @@
   Author: Liu Kai (liukaidx@sogou-inc.com)
 */
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>

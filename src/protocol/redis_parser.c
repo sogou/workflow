@@ -16,9 +16,7 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <string.h>
 #include <stdlib.h>
-#include "list.h"
 #include "redis_parser.h"
 
 #define MIN(x, y)	((x) <= (y) ? (x) : (y))

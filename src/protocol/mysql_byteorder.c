@@ -18,6 +18,8 @@
 
 #include "mysql_byteorder.h"
 
+#include <stdlib.h>
+
 int decode_length_safe(unsigned long long *res, const unsigned char **pos,
 					   const unsigned char *end)
 {

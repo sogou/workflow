@@ -22,8 +22,6 @@
 #include <errno.h>
 #include <netdb.h>
 #include <stddef.h>
-#include <stdio.h>
-#include <string.h>
 #include <string>
 #include "DnsRoutine.h"
 

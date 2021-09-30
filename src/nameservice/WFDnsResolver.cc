@@ -19,21 +19,15 @@
 */
 
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
-#include <errno.h>
-#include <netdb.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <ctype.h>
-#include <utility>
-#include <string>
 #include "DnsRoutine.h"
 #include "EndpointParams.h"
 #include "RouteManager.h"
 #include "WFGlobal.h"
-#include "WFTaskError.h"
+#include "DnsCache.h"
 #include "WFTaskFactory.h"
 #include "WFResourcePool.h"
 #include "WFNameService.h"

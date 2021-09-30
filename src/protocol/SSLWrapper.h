@@ -19,7 +19,6 @@
 #ifndef _SSLWRAPPER_H_
 #define _SSLWRAPPER_H_
 
-#include <openssl/ssl.h>
 #include "ProtocolMessage.h"
 
 namespace protocol

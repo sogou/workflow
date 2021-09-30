@@ -21,6 +21,8 @@
 
 #include "DnsMessage.h"
 
+#include <rpc/netdb.h>
+
 /**
  * @file   DnsUtil.h
  * @brief  Dns toolbox

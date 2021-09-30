@@ -17,9 +17,7 @@
 */
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include "list.h"
 #include "http_parser.h"
 
 #define MIN(x, y)	((x) <= (y) ? (x) : (y))

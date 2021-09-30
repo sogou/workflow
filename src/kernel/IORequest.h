@@ -20,7 +20,10 @@
 #define _IOREQUEST_H_
 
 #include "SubTask.h"
-#include "Communicator.h"
+#include "IOService_linux.h"
+
+#include <sys/cdefs.h>
+#include <errno.h>
 
 class IORequest : public SubTask, public IOSession
 {

@@ -19,6 +19,9 @@
 #include "mysql_types.h"
 #include "mysql_byteorder.h"
 #include "MySQLResult.h"
+#include "MySQLMessage.h"
+
+#include <vector>
 
 namespace protocol
 {

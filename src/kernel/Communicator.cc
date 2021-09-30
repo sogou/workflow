@@ -16,24 +16,18 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <errno.h>
-#include <limits.h>
-#include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <openssl/ssl.h>
-#include <openssl/bio.h>
 #include "list.h"
 #include "msgqueue.h"
 #include "thrdpool.h"
-#include "poller.h"
 #include "mpoller.h"
 #include "Communicator.h"
 

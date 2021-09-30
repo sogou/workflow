@@ -17,12 +17,10 @@
            Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <string>
 #include <vector>
 #include <algorithm>
+#include <stdlib.h>
 #include "HttpUtil.h"
-#include "URIParser.h"
-#include "http_parser.h"
 
 namespace protocol
 {

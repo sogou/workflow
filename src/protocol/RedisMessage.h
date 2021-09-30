@@ -20,12 +20,12 @@
 #ifndef _REDISMESSAGE_H_
 #define _REDISMESSAGE_H_
 
-#include <stdint.h>
 #include <string>
 #include <vector>
 #include "ProtocolMessage.h"
-#include "EncodeStream.h"
 #include "redis_parser.h"
+
+class EncodeStream;
 
 /**
  * @file   RedisMessage.h

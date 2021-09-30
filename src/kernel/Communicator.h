@@ -19,15 +19,12 @@
 #ifndef _COMMUNICATOR_H_
 #define _COMMUNICATOR_H_
 
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/uio.h>
-#include <time.h>
 #include <stddef.h>
-#include <pthread.h>
-#include <openssl/ssl.h>
 #include "list.h"
 #include "poller.h"
+
+class IOService;
 
 class CommConnection
 {

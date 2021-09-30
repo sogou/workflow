@@ -19,9 +19,13 @@
 #ifndef _WFCONNECTION_H_
 #define _WFCONNECTION_H_
 
-#include <utility>
 #include <atomic>
 #include <functional>
+#include <stdio.h>
+#include <sched.h>
+#include <stdlib.h>
+#include <wchar.h>
+#include <time.h>
 #include "Communicator.h"
 
 class WFConnection : public CommConnection

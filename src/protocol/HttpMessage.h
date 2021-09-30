@@ -20,9 +20,7 @@
 #define _HTTPMESSAGE_H_
 
 #include <string.h>
-#include <utility>
 #include <string>
-#include "list.h"
 #include "ProtocolMessage.h"
 #include "http_parser.h"
 

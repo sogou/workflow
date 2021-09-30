@@ -18,6 +18,8 @@
 
 #include "WFMySQLServer.h"
 
+#include <sys/uio.h>
+
 WFConnection *WFMySQLServer::new_connection(int accept_fd)
 {
 	WFConnection *conn = this->WFServer::new_connection(accept_fd);

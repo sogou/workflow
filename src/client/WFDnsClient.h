@@ -20,7 +20,6 @@
 #define _WFDNSCLIENT_H_
 
 #include <string>
-#include <atomic>
 #include "WFTaskFactory.h"
 #include "DnsMessage.h"
 

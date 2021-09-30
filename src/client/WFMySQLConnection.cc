@@ -17,10 +17,7 @@
 */
 
 #include <stdlib.h>
-#include <string.h>
 #include <string>
-#include <utility>
-#include "URIParser.h"
 #include "WFMySQLConnection.h"
 
 int WFMySQLConnection::init(const std::string& url)

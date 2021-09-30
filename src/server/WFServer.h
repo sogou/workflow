@@ -20,14 +20,10 @@
 #ifndef _WFSERVER_H_
 #define _WFSERVER_H_
 
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <openssl/ssl.h>
 #include <functional>
 #include <atomic>
-#include <mutex>
 #include <condition_variable>
-#include "CommScheduler.h"
 #include "WFTaskFactory.h"
 
 struct WFServerParams

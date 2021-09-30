@@ -16,8 +16,6 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#include <string>
-#include <utility>
 #include "mysql_byteorder.h"
 
 namespace protocol

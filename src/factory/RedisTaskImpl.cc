@@ -18,8 +18,6 @@
            Liu Kai (liukaidx@sogou-inc.com)
 */
 
-#include <stdio.h>
-#include <string>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"

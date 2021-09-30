@@ -17,16 +17,13 @@
            Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <openssl/ssl.h>
 #include "CommScheduler.h"
-#include "WFConnection.h"
 #include "WFGlobal.h"
 #include "WFServer.h"
 

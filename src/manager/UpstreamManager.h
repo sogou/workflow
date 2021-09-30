@@ -20,12 +20,7 @@
 #define _UPSTREAM_MANAGER_H_
 #include <string>
 #include <vector>
-#include <functional>
-#include "URIParser.h"
-#include "EndpointParams.h"
-#include "WFServiceGovernance.h"
 #include "UpstreamPolicies.h"
-#include "WFGlobal.h"
 
 /**
  * @file    UpstreamManager.h

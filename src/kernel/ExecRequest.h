@@ -22,6 +22,9 @@
 #include "SubTask.h"
 #include "Executor.h"
 
+#include <sys/cdefs.h>
+#include <errno.h>
+
 class ExecRequest : public SubTask, public ExecSession
 {
 public:

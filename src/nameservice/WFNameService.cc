@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include "rbtree.h"
 #include "WFNameService.h"
 

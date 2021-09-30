@@ -20,7 +20,9 @@
 #define _DNS_PARSER_H_
 
 #include <stddef.h>
-#include <stdint.h>
+#include <bits/stdint-intn.h>
+#include <endian.h>
+#include <bits/stdint-uintn.h>
 #include "list.h"
 
 enum

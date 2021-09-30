@@ -19,10 +19,8 @@
 #ifndef _POLLER_H_
 #define _POLLER_H_
 
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <time.h>
-#include <openssl/ssl.h>
+#include <openssl/ossl_typ.h>
 
 typedef struct __poller poller_t;
 typedef struct __poller_message poller_message_t;

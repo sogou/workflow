@@ -22,7 +22,9 @@
 
 #include <mutex>
 #include "list.h"
-#include "WFTask.h"
+#include "SubTask.h"
+
+class WFConditional;
 
 class WFResourcePool
 {

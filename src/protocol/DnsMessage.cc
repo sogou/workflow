@@ -16,8 +16,7 @@
   Author: Liu Kai (liukaidx@sogou-inc.com)
 */
 
-#include <errno.h>
-#include <arpa/inet.h>
+#include <netinet/in.h>
 #include "DnsMessage.h"
 
 #define DNS_LABELS_MAX				63

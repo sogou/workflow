@@ -20,11 +20,6 @@
 */
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
-#include <string>
-#include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"

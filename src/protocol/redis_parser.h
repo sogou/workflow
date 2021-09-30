@@ -21,6 +21,9 @@
 
 #include "list.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 // redis_parser_t is absolutely same as hiredis-redisReply in memory
 // If you include hiredis.h, redisReply* can cast to redis_reply_t* safely
 

@@ -18,6 +18,8 @@
 
 #include <ctype.h>
 #include <algorithm>
+#include <vector>
+#include <string>
 #include "StringUtil.h"
 
 static int __htoi(unsigned char *s)

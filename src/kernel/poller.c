@@ -16,7 +16,6 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #ifdef __linux__
@@ -28,15 +27,11 @@
 # undef SLIST_HEAD
 #endif
 #include <errno.h>
-#include <limits.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <openssl/ssl.h>
-#include <openssl/err.h>
 #include "list.h"
 #include "rbtree.h"
 #include "poller.h"

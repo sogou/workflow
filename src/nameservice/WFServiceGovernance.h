@@ -23,12 +23,8 @@
 #include <unordered_map>
 #include <vector>
 #include <atomic>
-#include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFDnsResolver.h"
-#include "WFGlobal.h"
-#include "WFTaskError.h"
 
 #define MTTR_SECOND_DEFAULT 30
 #define VIRTUAL_GROUP_SIZE  16

@@ -17,7 +17,6 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <string.h>
 #include "list.h"
 #include "WFTask.h"
 #include "WFResourcePool.h"

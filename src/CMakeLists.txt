@@ -4,7 +4,7 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
 	find_package(OpenSSL REQUIRED)
 endif ()
 
-include_directories(${OPENSSL_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/kernel ${CMAKE_CURRENT_SOURCE_DIR}/protocol ${CMAKE_CURRENT_SOURCE_DIR}/algorithm ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/factory ${CMAKE_CURRENT_SOURCE_DIR}/kernel ${CMAKE_CURRENT_SOURCE_DIR}/manager ${CMAKE_CURRENT_SOURCE_DIR}/nameservice ${CMAKE_CURRENT_SOURCE_DIR}/server ${CMAKE_CURRENT_SOURCE_DIR}/util)
+include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
 add_subdirectory(kernel)
 add_subdirectory(util)

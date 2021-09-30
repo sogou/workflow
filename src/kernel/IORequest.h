@@ -19,11 +19,9 @@
 #ifndef _IOREQUEST_H_
 #define _IOREQUEST_H_
 
-#include "SubTask.h"
-#include "IOService_linux.h"
-
 #include <sys/cdefs.h>
 #include <errno.h>
+#include "SubTask.h"
 
 class IORequest : public SubTask, public IOSession
 {

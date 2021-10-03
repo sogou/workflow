@@ -27,7 +27,6 @@
 #include <functional>
 #include "kafka_parser.h"
 #include "ProtocolMessage.h"
-#include "EncodeStream.h"
 #include "KafkaDataTypes.h"
 
 
@@ -184,7 +183,7 @@ protected:
 	using parse_func = std::function<int (void **buf, size_t *size)>;
 	std::map<int, parse_func> parse_func_map;
 
-	EncodeStream *stream;
+	class EncodeStream *stream;
 	std::string msgbuf;
 	std::string headbuf;
 

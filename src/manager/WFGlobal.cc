@@ -18,13 +18,13 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <assert.h>
+#include <arpa/inet.h>
 #include <unistd.h>
+#include <assert.h>
 #include <signal.h>
 #include <pthread.h>
-#include <string.h>
 #include <stdio.h>
-#include <arpa/inet.h>
+#include <ctype.h>
 #include <string>
 #include <unordered_map>
 #include <atomic>
@@ -35,8 +35,6 @@
 #include <openssl/engine.h>
 #include <openssl/conf.h>
 #include <openssl/crypto.h>
-#include "WFGlobal.h"
-#include "EndpointParams.h"
 #include "CommScheduler.h"
 #include "DnsCache.h"
 #include "RouteManager.h"
@@ -46,6 +44,7 @@
 #include "WFNameService.h"
 #include "WFDnsResolver.h"
 #include "WFDnsClient.h"
+#include "WFGlobal.h"
 
 class __WFGlobal
 {

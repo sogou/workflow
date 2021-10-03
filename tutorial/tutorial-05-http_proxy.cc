@@ -119,7 +119,7 @@ void process(WFHttpTask *proxy_task)
 	});
 
 	context->is_keep_alive = req->is_keep_alive();
-	http_task = WFTaskFactory::create_http_task(req->get_request_uri(), 0, 0,
+	http_task = WFTaskFactory::create_http_task(req->get_request_uri(), 3, 2,
 												http_callback);
 
 	const void *body;
@@ -158,6 +158,8 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sig_handler);
 
 	struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+	settings.dns_ttl_default = 10;
+	settings.dns_ttl_min = 5;
 	settings.resolv_conf_path = "/etc/resolv.conf";
 	settings.hosts_path = "/etc/hosts";
 	WORKFLOW_library_init(&settings);

@@ -17,8 +17,8 @@
 */
 
 #include <openssl/md5.h>
-#include <stdio.h>
 #include <string.h>
+#include <string>
 #include "MD5Util.h"
 
 static inline void __md5(const std::string& str, unsigned char *md)

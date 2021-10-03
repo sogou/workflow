@@ -20,7 +20,6 @@
 
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <assert.h>
 #include <signal.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -211,7 +210,8 @@ private:
 #endif
 
 		ssl_client_ctx_ = SSL_CTX_new(SSLv23_client_method());
-		assert(ssl_client_ctx_ != NULL);
+		if (ssl_client_ctx_ == NULL)
+			abort();
 	}
 
 	~__SSLManager()

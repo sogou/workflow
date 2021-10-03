@@ -26,7 +26,6 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include "CommScheduler.h"
 #include "WFTaskFactory.h"
 
 struct WFServerParams
@@ -127,7 +126,7 @@ private:
 	std::mutex mutex;
 	std::condition_variable cond;
 
-	CommScheduler *scheduler;
+	class CommScheduler *scheduler;
 };
 
 template<class REQ, class RESP>

@@ -156,6 +156,8 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sig_handler);
 
 	struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+	settings.dns_ttl_default = 10;
+	settings.dns_ttl_min = 5;
 	settings.resolv_conf_path = "/etc/resolv.conf";
 	settings.hosts_path = "/etc/hosts";
 	WORKFLOW_library_init(&settings);

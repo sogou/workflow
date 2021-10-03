@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <string>
-#include "mysql_byteorder.h"
 
 namespace protocol
 {

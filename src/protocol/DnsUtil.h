@@ -19,6 +19,7 @@
 #ifndef _DNSUTIL_H_
 #define _DNSUTIL_H_
 
+#include <netdb.h>
 #include "DnsMessage.h"
 
 /**

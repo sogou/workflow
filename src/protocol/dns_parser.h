@@ -19,7 +19,7 @@
 #ifndef _DNS_PARSER_H_
 #define _DNS_PARSER_H_
 
-#include <stddef.h>
+#include <sys/types.h>
 #include <stdint.h>
 #include "list.h"
 
@@ -105,7 +105,7 @@ struct dns_header
 	uint8_t z : 3;
 	uint8_t rcode : 4;
 #else
-#error endian?
+# error "unknown byte order"
 #endif
 	uint16_t qdcount;
 	uint16_t ancount;

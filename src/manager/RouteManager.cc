@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
@@ -30,7 +31,6 @@
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
-#include "WFConnection.h"
 #include "MD5Util.h"
 #include "CommScheduler.h"
 #include "EndpointParams.h"

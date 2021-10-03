@@ -17,6 +17,8 @@
 */
 
 #include <ctype.h>
+#include <string>
+#include <vector>
 #include <algorithm>
 #include "StringUtil.h"
 

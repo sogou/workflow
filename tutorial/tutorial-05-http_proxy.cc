@@ -119,7 +119,7 @@ void process(WFHttpTask *proxy_task)
 	});
 
 	context->is_keep_alive = req->is_keep_alive();
-	http_task = WFTaskFactory::create_http_task(req->get_request_uri(), 3, 2,
+	http_task = WFTaskFactory::create_http_task(req->get_request_uri(), 0, 0,
 												http_callback);
 
 	const void *body;

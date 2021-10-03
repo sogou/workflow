@@ -19,6 +19,7 @@
 #ifndef _REDIS_PARSER_H_
 #define _REDIS_PARSER_H_
 
+#include <stddef.h>
 #include "list.h"
 
 // redis_parser_t is absolutely same as hiredis-redisReply in memory
@@ -121,3 +122,4 @@ static inline void redis_reply_set_status(const char *str, size_t len,
 }
 
 #endif
+

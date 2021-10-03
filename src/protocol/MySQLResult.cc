@@ -16,8 +16,10 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <vector>
 #include "mysql_types.h"
 #include "mysql_byteorder.h"
+#include "MySQLMessage.h"
 #include "MySQLResult.h"
 
 namespace protocol

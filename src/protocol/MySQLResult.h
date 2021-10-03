@@ -23,8 +23,9 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include "MySQLMessage.h"
 #include "mysql_types.h"
+#include "mysql_parser.h"
+#include "MySQLMessage.h"
 
 /**
  * @file   MySQLResult.h

@@ -19,9 +19,10 @@
 */
 
 #include <string.h>
-#include <ctype.h>
 #include <errno.h>
 #include <utility>
+#include <vector>
+#include <map>
 #include "StringUtil.h"
 #include "URIParser.h"
 

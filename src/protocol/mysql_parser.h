@@ -19,7 +19,7 @@
 #ifndef _MYSQL_PARSER_H_
 #define _MYSQL_PARSER_H_
 
-#include <stdlib.h>
+#include <stddef.h>
 #include "list.h"
 
 // the first byte in response message

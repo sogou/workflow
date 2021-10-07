@@ -17,7 +17,7 @@
 
 # 协议的实现
 
-用户自定义协议，需要提供协议的序列化和反序列化方法，这两个方法都是ProtocolMeessage类的虚函数。  
+用户自定义协议，需要提供协议的序列化和反序列化方法，这两个方法都是ProtocolMessage类的虚函数。  
 另外，为了使用方便，我们强烈建议用户实现消息的移动构造和移动赋值（用于std::move()）。
 在[ProtocolMessage.h](../src/protocol/ProtocolMessage.h)里，序列化反序列化接口如下：
 ~~~cpp

@@ -19,8 +19,8 @@
 #include <pthread.h>
 #include <algorithm>
 #include <random>
+#include "rbtree.h"
 #include "URIParser.h"
-#include "StringUtil.h"
 #include "UpstreamPolicies.h"
 
 class EndpointGroup

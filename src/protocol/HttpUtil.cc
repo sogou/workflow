@@ -20,9 +20,9 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include "HttpUtil.h"
-#include "URIParser.h"
 #include "http_parser.h"
+#include "HttpMessage.h"
+#include "HttpUtil.h"
 
 namespace protocol
 {

@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include "rbtree.h"

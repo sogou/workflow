@@ -19,15 +19,12 @@
 #ifndef _UPSTREAM_POLICIES_H_
 #define _UPSTREAM_POLICIES_H_
 
-#include <pthread.h>
+#include <utility>
 #include <vector>
-#include <atomic>
+#include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFDnsResolver.h"
-#include "WFGlobal.h"
-#include "WFTaskError.h"
 #include "WFServiceGovernance.h"
 
 using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;

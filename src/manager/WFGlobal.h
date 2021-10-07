@@ -26,6 +26,13 @@
 
 #include <string>
 #include <openssl/ssl.h>
+#include "CommScheduler.h"
+#include "DnsCache.h"
+#include "RouteManager.h"
+#include "Executor.h"
+#include "EndpointParams.h"
+#include "WFNameService.h"
+#include "WFDnsResolver.h"
 #include "EndpointParams.h"
 
 /**

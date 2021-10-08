@@ -258,8 +258,8 @@ WFDnsTask *WFDnsClient::create_dns_task(const std::string& name,
 
 	__has_next_name(p, &status);
 
-	task = WFTaskFactory::create_dns_task(p->uris[next_server],
-										  0, std::move(callback));
+	task = WFTaskFactory::create_dns_task(p->uris[next_server], 0,
+										  std::move(callback));
 	status.next_server = next_server;
 	status.last_server = (next_server + p->uris.size() - 1) % p->uris.size();
 

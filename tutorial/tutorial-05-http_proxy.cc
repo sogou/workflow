@@ -157,13 +157,6 @@ int main(int argc, char *argv[])
 	port = atoi(argv[1]);
 	signal(SIGINT, sig_handler);
 
-	struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
-	settings.dns_ttl_default = 10;
-	settings.dns_ttl_min = 5;
-	settings.resolv_conf_path = "/etc/resolv.conf";
-	settings.hosts_path = "/etc/hosts";
-	WORKFLOW_library_init(&settings);
-
 	struct WFServerParams params = HTTP_SERVER_PARAMS_DEFAULT;
 	/* for safety, limit request size to 8MB. */
 	params.request_size_limit = 8 * 1024 * 1024;

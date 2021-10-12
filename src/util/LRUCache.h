@@ -90,7 +90,7 @@ typedef typename Map::const_iterator	MapConstIterator;
 
 public:
 	LRUCache():
-		max_size_(1),
+		max_size_(0),
 		size_(0)
 	{
 		not_use_.next = &not_use_;

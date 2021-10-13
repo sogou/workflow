@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 	{
 		arr.n = 1;
 		arr.a = new int[1];
-		arr.a[0] = random() % 65536;
+		arr.a[0] = rand() % 65536;
 		input.emplace_back(0, arr);
 	}
 

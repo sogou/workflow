@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <atomic>
@@ -67,24 +68,24 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen)
 
 int WFServerBase::create_listen_fd()
 {
-	int listen_fd  = this->listen_fd;
-
-	if (listen_fd < 0)
+	if (this->listen_fd < 0)
 	{
 		const struct sockaddr *bind_addr;
 		socklen_t addrlen;
 		int reuse = 1;
 
 		this->get_addr(&bind_addr, &addrlen);
-		listen_fd = socket(bind_addr->sa_family, SOCK_STREAM, 0);
-		if (listen_fd >= 0)
+		this->listen_fd = socket(bind_addr->sa_family, SOCK_STREAM, 0);
+		if (this->listen_fd >= 0)
 		{
-			setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
+			setsockopt(this->listen_fd, SOL_SOCKET, SO_REUSEADDR,
 					   &reuse, sizeof (int));
 		}
 	}
+	else
+		this->listen_fd = dup(this->listen_fd);
 
-	return listen_fd;
+	return this->listen_fd;
 }
 
 WFConnection *WFServerBase::new_connection(int accept_fd)
@@ -126,6 +127,7 @@ int WFServerBase::start(const struct sockaddr *bind_addr, socklen_t addrlen)
 		this->deinit();
 	}
 
+	this->listen_fd = -1;
 	return -1;
 }
 
@@ -157,53 +159,21 @@ int WFServerBase::start(int family, const char *host, unsigned short port)
 	return ret;
 }
 
-static int __get_addr_bound(int sockfd, struct sockaddr *addr, socklen_t *len)
-{
-	int family;
-	socklen_t i;
-
-	if (getsockname(sockfd, addr, len) < 0)
-		return -1;
-
-	family = addr->sa_family;
-	addr->sa_family = 0;
-	for (i = 0; i < *len; i++)
-	{
-		if (((char *)addr)[i])
-			break;
-	}
-
-	if (i == *len)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
-	addr->sa_family = family;
-	return 0;
-}
-
 int WFServerBase::serve(int listen_fd)
 {
 	struct sockaddr_storage ss;
 	socklen_t len = sizeof ss;
-	int ret;
 
-	if (__get_addr_bound(listen_fd, (struct sockaddr *)&ss, &len) < 0)
-		return -1;
-
-	listen_fd = dup(listen_fd);
-	if (listen_fd < 0)
+	if (getsockname(listen_fd, (struct sockaddr *)&ss, &len) < 0)
 		return -1;
 
 	this->listen_fd = listen_fd;
-	ret = start((struct sockaddr *)&ss, len);
-	this->listen_fd = -1;
-	return ret;
+	return start((struct sockaddr *)&ss, len);
 }
 
 void WFServerBase::shutdown()
 {
+	this->listen_fd = -1;
 	this->scheduler->unbind(this);
 }
 

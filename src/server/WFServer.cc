@@ -17,14 +17,21 @@
            Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+#include <errno.h>
 #include <stdio.h>
-#include <openssl/ssl.h>
 #include <atomic>
+#include <openssl/ssl.h>
 #include "PlatformSocket.h"
 #include "CommScheduler.h"
 #include "WFConnection.h"
 #include "WFGlobal.h"
 #include "WFServer.h"
+
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #define PORT_STR_MAX	5
 
@@ -115,24 +122,24 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 
 int WFServerBase::create_listen_fd()
 {
-	int listen_fd  = this->listen_fd;
-
-	if (listen_fd < 0)
+	if (this->listen_fd < 0)
 	{
 		const struct sockaddr *bind_addr;
 		socklen_t addrlen;
 		int reuse = 1;
 
 		this->get_addr(&bind_addr, &addrlen);
-		listen_fd = (int)socket(bind_addr->sa_family, SOCK_STREAM, 0);
+		this->listen_fd = (int)socket(bind_addr->sa_family, SOCK_STREAM, 0);
 		if (listen_fd >= 0)
 		{
-			setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
+			setsockopt(this->listen_fd, SOL_SOCKET, SO_REUSEADDR,
 					   (const char *)(&reuse), sizeof (int));
 		}
 	}
+	else
+		this->listen_fd = dup(this->listen_fd);
 
-	return listen_fd;
+	return this->listen_fd;
 }
 
 WFConnection *WFServerBase::new_connection(int accept_fd)
@@ -175,6 +182,7 @@ int WFServerBase::start(const struct sockaddr *bind_addr, socklen_t addrlen,
 			SSL_CTX_free(ssl_ctx);
 	}
 
+	this->listen_fd = -1;
 	return -1;
 }
 
@@ -210,60 +218,22 @@ int WFServerBase::start(int family, const char *host, unsigned short port,
 	return ret;
 }
 
-static int __get_addr_bound(int sockfd, struct sockaddr *addr, socklen_t *len)
-{
-	int family;
-	socklen_t i;
-
-	if (getsockname(sockfd, addr, len) < 0)
-		return -1;
-
-	family = addr->sa_family;
-	addr->sa_family = 0;
-	for (i = 0; i < *len; i++)
-	{
-		if (((char *)addr)[i])
-			break;
-	}
-
-	if (i == *len)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
-	addr->sa_family = family;
-	return 0;
-}
-
-#ifdef _WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
-
 int WFServerBase::serve(int listen_fd,
 						const char *cert_file, const char *key_file)
 {
 	struct sockaddr_storage ss;
 	socklen_t len = sizeof ss;
-	int ret;
 
-	if (__get_addr_bound(listen_fd, (struct sockaddr *)&ss, &len) < 0)
-		return -1;
-
-	listen_fd = dup(listen_fd);
-	if (listen_fd < 0)
+	if (getsockname(listen_fd, (struct sockaddr *)&ss, &len) < 0)
 		return -1;
 
 	this->listen_fd = listen_fd;
-	ret = start((struct sockaddr *)&ss, len, cert_file, key_file);
-	this->listen_fd = -1;
-	return ret;
+	return start((struct sockaddr *)&ss, len, cert_file, key_file);
 }
 
 void WFServerBase::shutdown()
 {
+	this->listen_fd = -1;
 	this->scheduler->unbind(this);
 }
 

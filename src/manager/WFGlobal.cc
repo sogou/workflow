@@ -14,6 +14,8 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <openssl/ssl.h>
@@ -475,35 +477,38 @@ public:
 
 	ExecQueue *get_exec_queue(const std::string& queue_name)
 	{
-		ExecQueue *queue;
-		ExecQueueMap::iterator iter;
+		ExecQueue *queue = NULL;
+		ExecQueueMap::const_iterator iter;
 
 		{
 			ReadLock lock(rwlock_);
-
 			iter = queue_map_.find(queue_name);
-			if (iter != queue_map_.end())
-				return iter->second;
+			if (iter != queue_map_.cend())
+				queue = iter->second;
 		}
 
-		queue = new ExecQueue();
-		if (queue->init() >= 0)
+		if (queue)
+			return queue;
+
 		{
 			WriteLock lock(rwlock_);
-			auto ret = queue_map_.emplace(queue_name, queue);
-
-			if (!ret.second)
+			iter = queue_map_.find(queue_name);
+			if (iter == queue_map_.cend())
 			{
-				queue->deinit();
-				delete queue;
-				queue = ret.first->second;
+				queue = new ExecQueue();
+				if (queue->init() >= 0)
+					queue_map_.emplace(queue_name, queue);
+				else
+				{
+					delete queue;
+					queue = NULL;
+				}
 			}
-
-			return queue;
+			else
+				queue = iter->second;
 		}
 
-		delete queue;
-		return NULL;
+		return queue;
 	}
 
 	Executor *get_compute_executor() { return &compute_executor_; }

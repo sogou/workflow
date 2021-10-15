@@ -22,12 +22,12 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <openssl/ssl.h>
+#include <errno.h>
 #include <functional>
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include "CommScheduler.h"
+#include <openssl/ssl.h>
 #include "WFTaskFactory.h"
 
 struct WFServerParams
@@ -57,8 +57,8 @@ public:
 		conn_count(0)
 	{
 		this->params = *params;
-		this->listen_fd = -1;
 		this->unbind_finish = false;
+		this->listen_fd = -1;
 	}
 
 public:
@@ -145,6 +145,17 @@ public:
 public:
 	size_t get_conn_count() const { return this->conn_count; }
 
+	/* Get the listening address. This is often used after starting
+	 * server on a random port (start() with port == 0). */
+	int get_listen_addr(struct sockaddr *addr, socklen_t *addrlen) const
+	{
+		if (this->listen_fd >= 0)
+			return getsockname(this->listen_fd, addr, addrlen);
+
+		errno = ENOTCONN;
+		return -1;
+	}
+
 protected:
 	/* Override this function to implement server that supports TLS SNI.
 	 * "servername" will be NULL if client does not set a host name.
@@ -179,7 +190,7 @@ private:
 	std::mutex mutex;
 	std::condition_variable cond;
 
-	CommScheduler *scheduler;
+	class CommScheduler *scheduler;
 };
 
 template<class REQ, class RESP>

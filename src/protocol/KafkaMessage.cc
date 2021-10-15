@@ -35,6 +35,7 @@
 #include <snappy.h>
 #include <snappy-sinksource.h>
 #include "crc32c.h"
+#include "EncodeStream.h"
 #include "KafkaMessage.h"
 
 namespace protocol

@@ -22,6 +22,7 @@
 #include <future>
 #include <chrono>
 #include <utility>
+#include "CommScheduler.h"
 #include "WFGlobal.h"
 
 template<typename RES>

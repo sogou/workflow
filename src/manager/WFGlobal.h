@@ -33,6 +33,7 @@
 #include "EndpointParams.h"
 #include "WFNameService.h"
 #include "WFDnsResolver.h"
+#include "EndpointParams.h"
 
 /**
  * @file    WFGlobal.h
@@ -114,18 +115,18 @@ public:
 
 	// Internal usage only
 public:
-	static CommScheduler *get_scheduler();
-	static DnsCache *get_dns_cache();
-	static RouteManager *get_route_manager();
+	static class CommScheduler *get_scheduler();
+	static class DnsCache *get_dns_cache();
+	static class RouteManager *get_route_manager();
 	static SSL_CTX *get_ssl_client_ctx();
 	static SSL_CTX *new_ssl_server_ctx();
-	static ExecQueue *get_exec_queue(const std::string& queue_name);
-	static Executor *get_compute_executor();
-	static IOService *get_io_service();
-	static ExecQueue *get_dns_queue();
-	static Executor *get_dns_executor();
-	static WFNameService *get_name_service();
-	static WFDnsResolver *get_dns_resolver();
+	static class ExecQueue *get_exec_queue(const std::string& queue_name);
+	static class Executor *get_compute_executor();
+	static class IOService *get_io_service();
+	static class ExecQueue *get_dns_queue();
+	static class Executor *get_dns_executor();
+	static class WFNameService *get_name_service();
+	static class WFDnsResolver *get_dns_resolver();
 	static class WFDnsClient *get_dns_client();
 
 public:

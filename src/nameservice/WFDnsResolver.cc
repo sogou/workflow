@@ -33,10 +33,10 @@
 #include "EndpointParams.h"
 #include "RouteManager.h"
 #include "WFGlobal.h"
-#include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "WFResourcePool.h"
 #include "WFNameService.h"
+#include "DnsCache.h"
 #include "DnsUtil.h"
 #include "WFDnsClient.h"
 #include "WFDnsResolver.h"
@@ -53,7 +53,6 @@ DNS_CACHE_LEVEL_3	->	Forever
 #define DNS_CACHE_LEVEL_2		2
 #define DNS_CACHE_LEVEL_3		3
 
-#define MAX(x, y)	((x) >= (y) ? (x) : (y))
 #define HOSTS_LINEBUF_INIT_SIZE	128
 #define PORT_STR_MAX			5
 
@@ -96,11 +95,11 @@ static int __default_family()
 
 	if (getaddrinfo(NULL, "1", &__ai_hints, &res) == 0)
 	{
-		for(cur = res; cur; cur = cur->ai_next)
+		for (cur = res; cur; cur = cur->ai_next)
 		{
-			if(cur->ai_family == AF_INET)
+			if (cur->ai_family == AF_INET)
 				v4 = true;
-			else if(cur->ai_family == AF_INET6)
+			else if (cur->ai_family == AF_INET6)
 				v6 = true;
 		}
 
@@ -261,7 +260,7 @@ private:
 	std::string info_;
 	unsigned short port_;
 	bool first_addr_only_;
-	bool insert_dns_;
+	bool query_dns_;
 	int dns_cache_level_;
 	unsigned int dns_ttl_default_;
 	unsigned int dns_ttl_min_;
@@ -270,11 +269,10 @@ private:
 
 void WFResolverTask::dispatch()
 {
-	insert_dns_ = true;
 	if (dns_cache_level_ != DNS_CACHE_LEVEL_0)
 	{
-		auto *dns_cache = WFGlobal::get_dns_cache();
-		const DnsCache::DnsHandle *addr_handle = NULL;
+		DnsCache *dns_cache = WFGlobal::get_dns_cache();
+		const DnsCache::DnsHandle *addr_handle;
 
 		switch (dns_cache_level_)
 		{
@@ -291,6 +289,7 @@ void WFResolverTask::dispatch()
 			break;
 
 		default:
+			addr_handle = NULL;
 			break;
 		}
 
@@ -316,12 +315,14 @@ void WFResolverTask::dispatch()
 			else
 				this->state = WFT_STATE_SUCCESS;
 
-			insert_dns_ = false;
 			dns_cache->release(addr_handle);
+			query_dns_ = false;
+			this->subtask_done();
+			return;
 		}
 	}
 
-	if (insert_dns_ && !host_.empty())
+	if (!host_.empty())
 	{
 		char front = host_.front();
 		char back = host_.back();
@@ -346,15 +347,14 @@ void WFResolverTask::dispatch()
 			DnsRoutine::run(&dns_in, &dns_out);
 			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
-			insert_dns_ = false;
+			query_dns_ = false;
+			this->subtask_done();
+			return;
 		}
 	}
 
-	static int family = __default_family();
-	WFDnsClient *client = WFGlobal::get_dns_client();
 	const char *hosts = WFGlobal::get_global_settings()->hosts_path;
-
-	if (insert_dns_ && client && hosts)
+	if (hosts)
 	{
 		struct addrinfo *ai;
 		int ret = __readaddrinfo(hosts, host_.c_str(), port_, &__ai_hints, &ai);
@@ -365,21 +365,16 @@ void WFResolverTask::dispatch()
 			DnsRoutine::create(&out, ret, ai);
 			__add_passive_flags((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
-			insert_dns_ = false;
+			query_dns_ = false;
+			this->subtask_done();
+			return;
 		}
 	}
 
-	if (insert_dns_ && !client)
+	WFDnsClient *client = WFGlobal::get_dns_client();
+	if (client)
 	{
-		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
-							  this,
-							  std::placeholders::_1);
-		ThreadDnsTask *dns_task = __create_thread_dns_task(host_, port_,
-														   std::move(cb));
-		series_of(this)->push_front(dns_task);
-	}
-	else if (insert_dns_)
-	{
+		static int family = __default_family();
 		WFDnsResolver *resolver = WFGlobal::get_dns_resolver();
 
 		if (family == AF_INET || family == AF_INET6)
@@ -429,7 +424,17 @@ void WFResolverTask::dispatch()
 			series_of(this)->push_front(pwork);
 		}
 	}
+	else
+	{
+		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
+							  this,
+							  std::placeholders::_1);
+		ThreadDnsTask *dns_task = __create_thread_dns_task(host_, port_,
+														   std::move(cb));
+		series_of(this)->push_front(dns_task);
+	}
 
+	query_dns_ = true;
 	this->subtask_done();
 }
 
@@ -437,7 +442,7 @@ SubTask *WFResolverTask::done()
 {
 	SeriesWork *series = series_of(this);
 
-	if (!insert_dns_)
+	if (!query_dns_)
 	{
 		if (this->callback)
 			this->callback(this);

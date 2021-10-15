@@ -19,7 +19,7 @@
 #ifndef _MYSQL_BYTEORDER_H_
 #define _MYSQL_BYTEORDER_H_
 
-#include <stdlib.h>
+#include <sys/types.h>
 #include <string.h>
 #include <stdint.h>
 

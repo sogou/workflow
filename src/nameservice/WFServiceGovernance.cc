@@ -17,12 +17,14 @@
 */
 
 #include <vector>
+#include <chrono>
 #include "URIParser.h"
+#include "WFTaskError.h"
 #include "StringUtil.h"
+#include "WFGlobal.h"
 #include "WFNameService.h"
 #include "WFDnsResolver.h"
 #include "WFServiceGovernance.h"
-#include "UpstreamManager.h"
 
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 

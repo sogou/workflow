@@ -26,6 +26,7 @@
 #include <openssl/sha.h>
 #include <utility>
 #include "SSLWrapper.h"
+#include "mysql_byteorder.h"
 #include "mysql_types.h"
 #include "MySQLResult.h"
 #include "MySQLMessage.h"

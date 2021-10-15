@@ -16,8 +16,8 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include "list.h"
 #include "redis_parser.h"
 

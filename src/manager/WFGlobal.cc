@@ -18,13 +18,12 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <assert.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
-#include <string.h>
 #include <stdio.h>
-#include <arpa/inet.h>
+#include <ctype.h>
 #include <string>
 #include <unordered_map>
 #include <atomic>
@@ -35,8 +34,6 @@
 #include <openssl/engine.h>
 #include <openssl/conf.h>
 #include <openssl/crypto.h>
-#include "WFGlobal.h"
-#include "EndpointParams.h"
 #include "CommScheduler.h"
 #include "DnsCache.h"
 #include "RouteManager.h"
@@ -46,6 +43,7 @@
 #include "WFNameService.h"
 #include "WFDnsResolver.h"
 #include "WFDnsClient.h"
+#include "WFGlobal.h"
 
 class __WFGlobal
 {
@@ -212,7 +210,8 @@ private:
 #endif
 
 		ssl_client_ctx_ = SSL_CTX_new(SSLv23_client_method());
-		assert(ssl_client_ctx_ != NULL);
+		if (ssl_client_ctx_ == NULL)
+			abort();
 	}
 
 	~__SSLManager()
@@ -467,39 +466,34 @@ public:
 	ExecQueue *get_exec_queue(const std::string& queue_name)
 	{
 		ExecQueue *queue = NULL;
+		ExecQueueMap::const_iterator iter;
 
 		pthread_rwlock_rdlock(&rwlock_);
-		const auto iter = queue_map_.find(queue_name);
-
+		iter = queue_map_.find(queue_name);
 		if (iter != queue_map_.cend())
 			queue = iter->second;
 
 		pthread_rwlock_unlock(&rwlock_);
+		if (queue)
+			return queue;
 
-		if (!queue)
+		pthread_rwlock_wrlock(&rwlock_);
+		iter = queue_map_.find(queue_name);
+		if (iter == queue_map_.cend())
 		{
 			queue = new ExecQueue();
-			if (queue->init() < 0)
+			if (queue->init() >= 0)
+				queue_map_.emplace(queue_name, queue);
+			else
 			{
 				delete queue;
 				queue = NULL;
 			}
-			else
-			{
-				pthread_rwlock_wrlock(&rwlock_);
-				const auto ret = queue_map_.emplace(queue_name, queue);
-
-				if (!ret.second)
-				{
-					queue->deinit();
-					delete queue;
-					queue = ret.first->second;
-				}
-
-				pthread_rwlock_unlock(&rwlock_);
-			}
 		}
+		else
+			queue = iter->second;
 
+		pthread_rwlock_unlock(&rwlock_);
 		return queue;
 	}
 

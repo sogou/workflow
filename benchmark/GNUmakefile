@@ -9,9 +9,9 @@ CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake;
 .PHONY: $(ALL_TARGETS)
 
 all:
-	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)                                                       //mkdir for creating or making the directory
 ifeq ($(DEBUG),y)
-	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug $(ROOT_DIR)
+	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug $(ROOT_DIR)          //cd is used for change directory
 else
 	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
 endif

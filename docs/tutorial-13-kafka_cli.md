@@ -3,9 +3,15 @@
 
 [tutorial-13-kafka_cli.cc](/tutorial/tutorial-13-kafka_cli.cc)
 
-# 关于编译选项
+# 编译
 
-在workflow中，对kafka协议的支持是独立的。因此可以通过命令make KAFKA=y 编译独立的类库支持kafka协议，系统需要预先安装[zlib](https://github.com/madler/zlib.git),[snappy](https://github.com/google/snappy.git),[lz4(>=1.7.5)](https://github.com/lz4/lz4.git),[zstd](https://github.com/facebook/zstd.git)等第三方库，用来支持kafka协议中的压缩算法。
+由于支持Kafka的多种压缩方式，因此系统需要预先安装[zlib](https://github.com/madler/zlib.git),[snappy](https://github.com/google/snappy.git),[lz4(>=1.7.5)](https://github.com/lz4/lz4.git),[zstd](https://github.com/facebook/zstd.git)等第三方库。
+
+支持CMake和Bazel两种编译方式。
+
+CMake：执行命令make KAFKA=y 编译独立的类库（libwfkafka.a和libwfkafka.so）支持kafka协议；cd tutorial; make KAFKA=y 可以编译kafka_cli
+
+Bazel：执行bazel build kafka 编译支持kafka协议的类库；执行bazel build kafka_cli 编译kafka_cli
 
 
 # 关于kafka_cli

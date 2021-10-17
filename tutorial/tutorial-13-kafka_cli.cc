@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 {
 	if (argc < 3)
 	{
-		fprintf(stderr, "USAGE: %s url [p/c/m]\n", argv[0]);
+		fprintf(stderr, "USAGE: %s url [p/c] [compress_type/d]\n", argv[0]);
 		exit(1);
 	}
 
@@ -259,7 +259,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		fprintf(stderr, "USAGE: %s url [p/c/m]\n", argv[0]);
+		fprintf(stderr, "USAGE: %s url [p/c] [compress_type/d]\n", argv[0]);
 		exit(1);
 	}
 

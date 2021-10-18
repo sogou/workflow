@@ -72,7 +72,7 @@ template<typename, typename, class> friend class LRUCache;
 
 // RAII: NO. Release ref by LRUCache::release
 // Define ValueDeleter(VALUE& v) for value deleter
-// Thread safety: YES
+// Thread safety: NO
 // Make sure KEY operator< usable
 template<typename KEY, typename VALUE, class ValueDeleter>
 class LRUCache

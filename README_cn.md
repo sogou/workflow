@@ -91,7 +91,7 @@ make
     * [Upstream更多文档](docs/about-upstream.md)
   * 连接上下文的使用
     * [关于连接上下文](docs/about-connection-context.md)
-  * 内置协议用法
+  * 内置客户端
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
     * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
 

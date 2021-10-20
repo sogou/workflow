@@ -49,8 +49,8 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
     .poller_threads     =    4,
     .handler_threads    =    20,
     .compute_threads    =    -1,
-    .resolv_conf_path   =    NULL,
-    .hosts_path         =    NULL,
+    .resolv_conf_path   =    "/etc/resolv.conf",
+    .hosts_path         =    "/etc/hosts",
 };
 ~~~
 
@@ -59,8 +59,8 @@ where the DNS-related configuration items include:
 * dns\_threads: the number of threads in the DNS thread pool, 4 by default.
 * dns\_ttl\_default: default TTL in DNS Cache in seconds, 12 hours by default; DNS cache is used by the current process, and will be destroyed when the process exists. The configuration is valid only for the current process.
 * dns\_ttl\_min: minimum DNS ttl value, in seconds, 3 minutes by default, which is used to decide whether to retry DNS resolution after communication failure.
-* resolv_conf_path: path of the resolv.conf configuration file, we will use multi-threaded DNS resolution when it is empty.
-* hosts_path: path of the hosts configuration file.
+* resolv_conf_path: Path of the resolv.conf configuration file, we will use multi-threaded DNS resolution when it is NULL.
+* hosts_path: Path of the hosts configuration file. This item can also be NULL.
 
 To put it simply, in every communication, the system will check TTL to decide whether to refresh DNS resolution.   
 dns\_ttl\_default is checked by default, and dns\_ttl\_min is checked in the retry after communication failure. 
@@ -68,6 +68,28 @@ dns\_ttl\_default is checked by default, and dns\_ttl\_min is checked in the ret
 The global DNS configuration can be overridden by the configuration for an individual address in the upstream.   
 In Upstream, each AddressParams can also have its own dns\_ttl\_default and dns\_ttl\_min, and you can configure them in the same way as you configure the Global items.   
 For the detailed structures, please see [upstream documents](/docs/en/about-upstream.md#Address).
+
+### DNS over SSL (Dot)
+
+On the master branch (not available on windows branch), we also supports DNS resolving over SSL (Dot) by extending the format of **resolv.conf** slightly. You may edit the **resolv.conf** file and add an SSL dns server like:
+~~~bash
+nameserver dnss://8.8.8.8/
+~~~
+We use the **dnss://** scheme to represent an SSL dns server address. With the configure abort, all DNS resolving will use SSL connection to global dns server 8.8.8.8. The global DNS supports SSL perfectly, and you can try this feature right now! But to avoid changing the system **resolv.conf** file (/etc/resolv.conf), you may need to setup a private **resolv.conf** path:
+~~~cpp
+#include <workflow/WFGlobal.h>
+#include <workflow/WFTaskFactory.h>
+
+int main()
+{
+    struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+    settings.resolv_conf_path = "./myresolv.conf";
+    WORKFLOW_library_init(&settings);
+
+    WFHttpTask *task = WFTaskFactory::create_http_task("https://www.example.com", ...);
+	...
+}
+~~~
 
 ### Handling at TTL expiration moment under high concurrency
 

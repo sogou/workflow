@@ -25,8 +25,16 @@
 class DnsInput
 {
 public:
-	DnsInput():
-		port_(0)
+	DnsInput() :
+		port_(0),
+		numeric_host_(false)
+	{}
+
+	DnsInput(const std::string& host, unsigned short port,
+			 bool numeric_host) :
+		host_(host),
+		port_(port),
+		numeric_host_(numeric_host)
 	{}
 
 	//move constructor
@@ -38,14 +46,25 @@ public:
 	{
 		host_.assign(host);
 		port_ = port;
+		numeric_host_ = false;
+	}
+
+	void reset(const std::string& host, unsigned short port,
+			   bool numeric_host)
+	{
+		host_.assign(host);
+		port_ = port;
+		numeric_host_ = numeric_host;
 	}
 
 	const std::string& get_host() const { return host_; }
 	unsigned short get_port() const { return port_; }
+	bool is_numeric_host() const { return numeric_host_; }
 
 protected:
 	std::string host_;
 	unsigned short port_;
+	bool numeric_host_;
 
 	friend class DnsRoutine;
 };

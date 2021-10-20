@@ -56,7 +56,7 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
 
 where the DNS-related configuration items include:
 
-* dns\_threads: the number of threads in the DNS thread pool, 4 by default.
+* dns\_threads: the number of threads in the DNS thread pool, 4 by default. This item will be ignored if the resolv_conf_path is not NULL, and no DNS thread will be created.  
 * dns\_ttl\_default: default TTL in DNS Cache in seconds, 12 hours by default; DNS cache is used by the current process, and will be destroyed when the process exists. The configuration is valid only for the current process.
 * dns\_ttl\_min: minimum DNS ttl value, in seconds, 3 minutes by default, which is used to decide whether to retry DNS resolution after communication failure.
 * resolv_conf_path: Path of the resolv.conf configuration file, we will use multi-threaded DNS resolution when it is NULL.
@@ -75,7 +75,7 @@ On the master branch (not available on windows branch), we also supports DNS res
 ~~~bash
 nameserver dnss://8.8.8.8/
 ~~~
-We use the **dnss://** scheme to represent an SSL dns server address. With the configure abort, all DNS resolving will use SSL connection to global dns server 8.8.8.8. The global DNS supports SSL perfectly, and you can try this feature right now! But to avoid changing the system **resolv.conf** file (/etc/resolv.conf), you may need to setup a private **resolv.conf** path:
+We use the **dnss://** scheme to represent an SSL dns server address. With the config abort, all DNS resolving will use SSL connection to global dns server 8.8.8.8. The global DNS supports SSL perfectly, and you can try this feature right now! But to avoid changing the system **resolv.conf** file (/etc/resolv.conf), you may need to setup a private **resolv.conf** path:
 ~~~cpp
 #include <workflow/WFGlobal.h>
 #include <workflow/WFTaskFactory.h>

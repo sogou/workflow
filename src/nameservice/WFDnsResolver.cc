@@ -340,10 +340,9 @@ void WFResolverTask::dispatch()
 
 		if (ret == 1)
 		{
-			DnsInput dns_in;
+			DnsInput dns_in(host_, port_, true); // 'true' means numeric host
 			DnsOutput dns_out;
 
-			dns_in.reset(host_, port_);
 			DnsRoutine::run(&dns_in, &dns_out);
 			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);

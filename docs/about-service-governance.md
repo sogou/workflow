@@ -23,7 +23,7 @@ upstream名相当于程序内部的域名，但相比一般的域名，upstream�
 
 # upstream的创建与删除
 
-在[UpstreamMananer.h](../src/manager/UpstreamManager.h)里，包括几个upstream创建接口：
+在[UpstreamManager.h](../src/manager/UpstreamManager.h)里，包括几个upstream创建接口：
 ~~~cpp
 using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;
 

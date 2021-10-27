@@ -329,7 +329,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->fetch_min_bytes = 1;
 	conf->fetch_max_bytes = 50 * 1024 * 1024;
 	conf->fetch_msg_max_bytes = 1024 * 1024;
-	conf->offset_timestamp = -2;
+	conf->offset_timestamp = KAFKA_TIMESTAMP_EARLIEST;
 	conf->commit_timestamp = 0;
 	conf->session_timeout = 10*1000;
 	conf->rebalance_timeout = 10000;
@@ -444,7 +444,7 @@ void kafka_topic_partition_init(kafka_topic_partition_t *toppar)
 	toppar->low_watermark = -2;
 	toppar->last_stable_offset = -1;
 	toppar->log_start_offset = -1;
-	toppar->offset_timestamp = -1;
+	toppar->offset_timestamp = KAFKA_TIMESTAMP_UNINIT;
 	toppar->committed_metadata = NULL;
 	INIT_LIST_HEAD(&toppar->record_list);
 }

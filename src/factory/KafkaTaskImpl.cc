@@ -198,7 +198,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			{
 				if (toppar->get_offset_timestamp() == KAFKA_TIMESTAMP_UNINIT)
 				{
-					auto conf_ts = this->get_req()->get_config()->get_offset_timestamp();
+					long long conf_ts = this->get_req()->get_config()->get_offset_timestamp();
 					if (conf_ts != KAFKA_TIMESTAMP_UNINIT)
 						toppar->set_offset_timestamp(conf_ts);
 					else

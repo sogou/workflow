@@ -2132,8 +2132,12 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			KafkaBlock record_block;
 			struct timespec ts;
 
-			clock_gettime(CLOCK_REALTIME, &ts);
-			record->get_raw_ptr()->timestamp = (ts.tv_sec * 1000000000 + ts.tv_nsec) / 1000 / 1000;
+			if (record->get_timestamp() == 0)
+			{
+				clock_gettime(CLOCK_REALTIME, &ts);
+				record->set_timestamp((ts.tv_sec * 1000000000 +
+									   ts.tv_nsec) / 1000 / 1000);
+			}
 
 			if (batch_cnt == 0)
 			{
@@ -3285,18 +3289,14 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 				if (ptr->offset_timestamp == -1)
 				{
 					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->high_watermark));
-					if (ptr->offset > ptr->high_watermark ||
-						this->config.get_offset_timestamp() == -1)
-						ptr->offset = ptr->high_watermark;
+					if (ptr->offset > ptr->high_watermark || ptr->offset == -1)
+						ptr->offset = ptr->high_watermark - 1;
 				}
 				else if (ptr->offset_timestamp == -2)
 				{
 					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->low_watermark));
-					if (this->config.get_offset_timestamp() == -2 &&
-						ptr->offset < ptr->low_watermark)
-					{
+					if (ptr->offset < ptr->low_watermark)
 						ptr->offset = ptr->low_watermark;
-					}
 				}
 				else
 				{

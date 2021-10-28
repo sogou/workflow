@@ -34,14 +34,15 @@
 #include "WFGlobal.h"
 #include "EndpointParams.h"
 #include "CommScheduler.h"
-#include "DNSCache.h"
+#include "DnsCache.h"
 #include "RouteManager.h"
 #include "Executor.h"
 #include "RWLock.h"
 #include "WFTask.h"
 #include "WFTaskError.h"
 #include "WFNameService.h"
-#include "WFDNSResolver.h"
+#include "WFDnsClient.h"
+#include "WFDnsResolver.h"
 
 class __WFGlobal
 {
@@ -130,6 +131,15 @@ private:
 
 __WFGlobal::__WFGlobal() : settings_(GLOBAL_SETTINGS_DEFAULT)
 {
+	static_scheme_port_["dns"] = "53";
+	static_scheme_port_["Dns"] = "53";
+	static_scheme_port_["DNS"] = "53";
+
+	static_scheme_port_["dnss"] = "853";
+	static_scheme_port_["Dnss"] = "853";
+	static_scheme_port_["DNSs"] = "853";
+	static_scheme_port_["DNSS"] = "853";
+
 	static_scheme_port_["http"] = "80";
 	static_scheme_port_["Http"] = "80";
 	static_scheme_port_["HTTP"] = "80";
@@ -220,7 +230,8 @@ private:
 #endif
 
 		ssl_client_ctx_ = SSL_CTX_new(SSLv23_client_method());
-		assert(ssl_client_ctx_ != NULL);
+		if (ssl_client_ctx_ == NULL)
+			abort();
 	}
 
 	~__SSLManager()
@@ -307,13 +318,13 @@ private:
 	bool flag_;
 };
 
-class __DNSManager
+class __DnsManager
 {
 public:
 	ExecQueue *get_dns_queue() { return &dns_queue_; }
 	Executor *get_dns_executor() { return &dns_executor_; }
 
-	__DNSManager()
+	__DnsManager()
 	{
 		int ret;
 
@@ -328,7 +339,7 @@ public:
 			abort();
 	}
 
-	~__DNSManager()
+	~__DnsManager()
 	{
 		dns_executor_.deinit();
 		dns_queue_.deinit();
@@ -395,10 +406,8 @@ private:
 		signal(SIGPIPE, SIG_IGN);
 #endif
 		const auto *settings = __WFGlobal::get_instance()->get_global_settings();
-		int ret = scheduler_.init(settings->poller_threads,
-								  settings->handler_threads);
-
-		if (ret < 0)
+		if (scheduler_.init(settings->poller_threads,
+							settings->handler_threads) < 0)
 			abort();
 	}
 
@@ -415,14 +424,14 @@ private:
 		}
 	}
 
-	__DNSManager *get_dns_manager_safe()
+	__DnsManager *get_dns_manager_safe()
 	{
 		if (!dns_flag_)
 		{
 			dns_mutex_.lock();
 			if (!dns_flag_)
 			{
-				dns_manager_ = new __DNSManager();
+				dns_manager_ = new __DnsManager();
 				dns_flag_ = true;
 			}
 
@@ -438,29 +447,29 @@ private:
 	IOServer *io_server_;
 	volatile bool io_flag_;
 	std::mutex io_mutex_;
-	__DNSManager *dns_manager_;
+	__DnsManager *dns_manager_;
 	volatile bool dns_flag_;
 	std::mutex dns_mutex_;
 };
 
-class __DNSCache
+class __DnsCache
 {
 public:
-	static __DNSCache *get_instance()
+	static __DnsCache *get_instance()
 	{
-		static __DNSCache kInstance;
+		static __DnsCache kInstance;
 		return &kInstance;
 	}
 
-	DNSCache *get_dns_cache() { return &dns_cache_; }
+	DnsCache *get_dns_cache() { return &dns_cache_; }
 
 private:
-	__DNSCache() { }
+	__DnsCache() { }
 
-	~__DNSCache() { }
+	~__DnsCache() { }
 
 private:
-	DNSCache dns_cache_;
+	DnsCache dns_cache_;
 };
 
 class __ExecManager
@@ -558,26 +567,187 @@ public:
 	}
 
 public:
-	WFDNSResolver *get_dns_resolver() { return &resolver_; }
+	WFDnsResolver *get_dns_resolver() { return &resolver_; }
 	WFNameService *get_name_service() { return &service_; }
 
 private:
-	WFDNSResolver resolver_;
+	WFDnsResolver resolver_;
 	WFNameService service_;
 
 public:
 	__NameServiceManager() : service_(&resolver_) { }
 };
 
+#define MAX(x, y)	((x) >= (y) ? (x) : (y))
+#define HOSTS_LINEBUF_INIT_SIZE	128
+
+static void __split_merge_str(const char *p, bool is_nameserver,
+							  std::string& result)
+{
+	const char *start;
+
+	if (!isspace(*p))
+		return;
+
+	while (1)
+	{
+		while (isspace(*p))
+			p++;
+
+		start = p;
+		while (*p && *p != '#' && *p != ';' && !isspace(*p))
+			p++;
+
+		if (start == p)
+			break;
+
+		if (!result.empty())
+			result.push_back(',');
+
+		std::string str(start, p);
+		if (is_nameserver)
+		{
+			struct in6_addr buf;
+			if (inet_pton(AF_INET6, str.c_str(), &buf) > 0)
+				str = "[" + str + "]";
+		}
+
+		result.append(str);
+	}
+}
+
+static inline const char *__try_options(const char *p, const char *q,
+										const char *r)
+{
+	size_t len = strlen(r);
+	if ((size_t)(q - p) >= len && strncmp(p, r, len) == 0)
+		return p + len;
+	return NULL;
+}
+
+static void __set_options(const char *p,
+						  int *ndots, int *attempts, bool *rotate)
+{
+	const char *start;
+	const char *opt;
+
+	if (!isspace(*p))
+		return;
+
+	while (1)
+	{
+		while (isspace(*p))
+			p++;
+
+		start = p;
+		while (*p && *p != '#' && *p != ';' && !isspace(*p))
+			p++;
+
+		if (start == p)
+			break;
+
+		if ((opt = __try_options(start, p, "ndots:")) != NULL)
+			*ndots = atoi(opt);
+		else if ((opt = __try_options(start, p, "attempts:")) != NULL)
+			*attempts = atoi(opt);
+		else if ((opt = __try_options(start, p, "rotate")) != NULL)
+			*rotate = true;
+	}
+}
+
+static int __parse_resolv_conf(const char *path,
+							   std::string& url, std::string& search_list,
+							   int *ndots, int *attempts, bool *rotate)
+{
+	size_t bufsize = 0;
+	char *line = NULL;
+	FILE *fp;
+	int ret;
+
+	fp = fopen(path, "r");
+	if (!fp)
+		return -1;
+
+	while ((ret = getline(&line, &bufsize, fp)) > 0)
+	{
+		if (strncmp(line, "nameserver", 10) == 0)
+			__split_merge_str(line + 10, true, url);
+		else if (strncmp(line, "search", 6) == 0)
+			__split_merge_str(line + 6, false, search_list);
+		else if (strncmp(line, "options", 7) == 0)
+			__set_options(line + 7, ndots, attempts, rotate);
+	}
+
+	ret = ferror(fp) ? -1 : 0;
+	free(line);
+	fclose(fp);
+	return ret;
+}
+
+class __DnsClientManager
+{
+public:
+	static __DnsClientManager *get_instance()
+	{
+		static __DnsClientManager kInstance;
+		return &kInstance;
+	}
+
+public:
+	WFDnsClient *get_dns_client() { return client; }
+
+private:
+	__DnsClientManager()
+	{
+		const char *path = WFGlobal::get_global_settings()->resolv_conf_path;
+
+		client = NULL;
+		if (path && path[0])
+		{
+			int ndots = 1;
+			int attempts = 2;
+			bool rotate = false;
+			std::string url;
+			std::string search;
+
+			__parse_resolv_conf(path, url, search, &ndots, &attempts, &rotate);
+			if (url.size() == 0)
+				url = "8.8.8.8";
+
+			client = new WFDnsClient;
+			if (client->init(url, search, ndots, attempts, rotate) >= 0)
+				return;
+
+			delete client;
+			client = NULL;
+		}
+	}
+
+	~__DnsClientManager()
+	{
+		if (client)
+		{
+			client->deinit();
+			delete client;
+		}
+	}
+
+	WFDnsClient *client;
+};
+
+WFDnsClient *WFGlobal::get_dns_client()
+{
+	return __DnsClientManager::get_instance()->get_dns_client();
+}
 
 CommScheduler *WFGlobal::get_scheduler()
 {
 	return __CommManager::get_instance()->get_scheduler();
 }
 
-DNSCache *WFGlobal::get_dns_cache()
+DnsCache *WFGlobal::get_dns_cache()
 {
-	return __DNSCache::get_instance()->get_dns_cache();
+	return __DnsCache::get_instance()->get_dns_cache();
 }
 
 RouteManager *WFGlobal::get_route_manager()
@@ -625,7 +795,7 @@ WFNameService *WFGlobal::get_name_service()
 	return __NameServiceManager::get_instance()->get_name_service();
 }
 
-WFDNSResolver *WFGlobal::get_dns_resolver()
+WFDnsResolver *WFGlobal::get_dns_resolver()
 {
 	return __NameServiceManager::get_instance()->get_dns_resolver();
 }
@@ -753,6 +923,9 @@ static inline const char *__get_task_error_string(int error)
 
 	case WFT_ERR_MYSQL_COMMAND_DISALLOWED:
 		return "MySQL Command Disallowed";
+
+	case WFT_ERR_MYSQL_QUERY_NOT_SET:
+		return "MySQL Query Not Set";
 
 	case WFT_ERR_MYSQL_SSL_NOT_SUPPORTED:
 		return "MySQL SSL Not Supported";

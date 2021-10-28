@@ -27,7 +27,7 @@
 #include "RedisMessage.h"
 #include "HttpMessage.h"
 #include "MySQLMessage.h"
-#include "DNSRoutine.h"
+#include "DnsRoutine.h"
 #include "WFTask.h"
 #include "Workflow.h"
 #include "WFGraphTask.h"
@@ -47,6 +47,10 @@ using redis_callback_t = std::function<void (WFRedisTask *)>;
 using WFMySQLTask = WFNetworkTask<protocol::MySQLRequest,
 								  protocol::MySQLResponse>;
 using mysql_callback_t = std::function<void (WFMySQLTask *)>;
+
+using WFDnsTask = WFNetworkTask<protocol::DnsRequest,
+								protocol::DnsResponse>;
+using dns_callback_t = std::function<void (WFDnsTask *)>;
 
 // File IO tasks
 
@@ -89,10 +93,6 @@ using mailbox_callback_t = std::function<void (WFMailboxTask *)>;
 
 // Graph (DAG) task.
 using graph_callback_t = std::function<void (WFGraphTask *)>;
-
-// DNS task. For internal usage only.
-using WFDNSTask = WFThreadTask<DNSInput, DNSOutput>;
-using dns_callback_t = std::function<void (WFDNSTask *)>;
 
 using WFEmptyTask = WFGenericTask;
 
@@ -140,6 +140,15 @@ public:
 	static WFMySQLTask *create_mysql_task(const ParsedURI& uri,
 										  int retry_max,
 										  mysql_callback_t callback);
+
+	static WFDnsTask *create_dns_task(const std::string& url,
+									  int retry_max,
+									  dns_callback_t callback);
+
+	static WFDnsTask *create_dns_task(const ParsedURI& uri,
+									  int retry_max,
+									  dns_callback_t callback);
+
 
 #ifndef _WIN32
 public:
@@ -250,11 +259,6 @@ public:
 	{
 		return new WFGraphTask(std::move(callback));
 	}
-
-public:
-	static WFDNSTask *create_dns_task(const std::string& host,
-									  unsigned short port,
-									  dns_callback_t callback);
 
 public:
 	static WFEmptyTask *create_empty_task()

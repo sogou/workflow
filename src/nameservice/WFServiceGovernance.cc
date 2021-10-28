@@ -20,7 +20,7 @@
 #include "URIParser.h"
 #include "StringUtil.h"
 #include "WFNameService.h"
-#include "WFDNSResolver.h"
+#include "WFDnsResolver.h"
 #include "WFServiceGovernance.h"
 #include "UpstreamManager.h"
 
@@ -128,7 +128,7 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 	if (this->select(params->uri, tracing, &addr) &&
 		copy_host_port(params->uri, addr))
 	{
-		WFDNSResolver *resolver = WFGlobal::get_dns_resolver();
+		WFDnsResolver *resolver = WFGlobal::get_dns_resolver();
 		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
 		unsigned int dns_ttl_min = addr->params->dns_ttl_min;
 		const struct EndpointParams *endpoint_params = &addr->params->endpoint_params;

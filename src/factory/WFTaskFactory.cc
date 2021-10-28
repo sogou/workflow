@@ -369,20 +369,6 @@ WFMailboxTask *WFTaskFactory::create_mailbox_task(mailbox_callback_t callback)
 	return new WFMailboxTask(std::move(callback));
 }
 
-WFDNSTask *WFTaskFactory::create_dns_task(const std::string& host,
-										  unsigned short port,
-										  dns_callback_t callback)
-{
-	auto *task = WFThreadTaskFactory<DNSInput, DNSOutput>::
-						create_thread_task(WFGlobal::get_dns_queue(),
-										   WFGlobal::get_dns_executor(),
-										   DNSRoutine::run,
-										   std::move(callback));
-
-	task->get_input()->reset(host, port);
-	return task;
-}
-
 /********FileIOTask*************/
 
 class WFFilepreadTask : public WFFileIOTask

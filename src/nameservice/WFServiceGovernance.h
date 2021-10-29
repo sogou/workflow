@@ -89,7 +89,7 @@ public:
 	std::string host;
 	std::string port;
 	unsigned int fail_count;
-	unsigned int ref;
+	std::atomic<int> ref;
 	long long broken_timeout;
 	PolicyAddrParams *params;
 
@@ -175,7 +175,7 @@ protected:
 	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
 											  WFNSTracing *tracing);
 	void check_breaker();
-	void remove_server_from_breaker(EndpointAddress *addr);
+	void pre_delete_server(EndpointAddress *addr);
 	static void tracing_deleter(void *data);
 
 	std::vector<EndpointAddress *> servers;

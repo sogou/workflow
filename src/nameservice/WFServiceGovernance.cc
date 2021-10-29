@@ -243,13 +243,13 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 
 	this->rwlock.wlock();
 	this->recover_server_from_breaker(server);
-	this->rwlock.unlock();
 	if (--server->ref == 0)
 	{
 		this->pre_delete_server(server);
 		delete server;
 	}
 
+	this->rwlock.unlock();
 	this->WFNSPolicy::success(result, tracing, target);
 }
 
@@ -269,13 +269,14 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 	this->rwlock.wlock();
 	if (++server->fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
-	this->rwlock.unlock();
+
 	if (--server->ref == 0)
 	{
 		this->pre_delete_server(server);
 		delete server;
 	}
 
+	this->rwlock.unlock();
 	this->WFNSPolicy::failed(result, tracing, target);
 }
 

@@ -85,7 +85,7 @@ public:
 	std::string host;
 	std::string port;
 	unsigned int fail_count;
-	unsigned int ref;
+	std::atomic<int> ref;
 	long long broken_timeout;
 	PolicyAddrParams *params;
 

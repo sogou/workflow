@@ -194,10 +194,19 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 
 		while ((toppar = req->get_toppar_list()->get_next()) != NULL)
 		{
-			if (toppar->get_low_watermark() == -2)
-				toppar->set_offset_timestamp(-2);
-			else if (toppar->get_offset() == -1)
-				toppar->set_offset_timestamp(this->get_req()->get_config()->get_offset_timestamp());
+			if (toppar->get_offset() == -1)
+			{
+				if (toppar->get_offset_timestamp() == KAFKA_TIMESTAMP_UNINIT)
+				{
+					long long conf_ts = this->get_req()->get_config()->get_offset_timestamp();
+					if (conf_ts != KAFKA_TIMESTAMP_UNINIT)
+						toppar->set_offset_timestamp(conf_ts);
+					else
+						toppar->set_offset_timestamp(KAFKA_TIMESTAMP_EARLIEST);
+				}
+				else
+					toppar->set_offset_timestamp(KAFKA_TIMESTAMP_LATEST);
+			}
 			else
 				continue;
 
@@ -595,8 +604,8 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *addr,
 													   socklen_t addrlen,
-													   int retry_max,
 													   const std::string& info,
+													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
@@ -607,9 +616,9 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *ad
 }
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
-													   int port,
-													   int retry_max,
+													   unsigned short port,
 													   const std::string& info,
+													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));

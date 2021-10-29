@@ -202,6 +202,13 @@ enum
 	KAFKA_BROKER_INITED,
 };
 
+enum
+{
+    KAFKA_TIMESTAMP_EARLIEST = -2,
+    KAFKA_TIMESTAMP_LATEST = -1,
+    KAFKA_TIMESTAMP_UNINIT = 0,
+};
+
 typedef struct __kafka_api_version
 {
 	short api_key;

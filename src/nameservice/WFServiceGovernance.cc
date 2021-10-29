@@ -190,7 +190,7 @@ bool WFServiceGovernance::in_select_history(WFNSTracing *tracing,
 	return false;
 }
 
-inline void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
+void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
 {
 	addr->fail_count = 0;
 	pthread_mutex_lock(&this->breaker_lock);
@@ -204,7 +204,7 @@ inline void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *ad
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-inline void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
+void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 {
 	pthread_mutex_lock(&this->breaker_lock);
 	if (!addr->entry.list.next)
@@ -217,10 +217,16 @@ inline void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-void WFServiceGovernance::remove_server_from_breaker(EndpointAddress *addr)
+void WFServiceGovernance::pre_delete_server(EndpointAddress *addr)
 {
 	pthread_mutex_lock(&this->breaker_lock);
-	list_del(&addr->entry.list);
+	if (addr->entry.list.next)
+	{
+		list_del(&addr->entry.list);
+		addr->entry.list.next = NULL;
+	}
+	else
+		this->fuse_one_server(addr);
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
@@ -240,9 +246,12 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 	pthread_rwlock_wrlock(&this->rwlock);
 	this->recover_server_from_breaker(server);
 	if (--server->ref == 0)
+	{
+		this->pre_delete_server(server);
 		delete server;
-	pthread_rwlock_unlock(&this->rwlock);
+	}
 
+	pthread_rwlock_unlock(&this->rwlock);
 	this->WFNSPolicy::success(result, tracing, target);
 }
 
@@ -260,10 +269,14 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 		server = (EndpointAddress *)tracing->data;
 
 	pthread_rwlock_wrlock(&this->rwlock);
-	if (--server->ref == 0)
-		delete server;
-	else if (++server->fail_count == server->params->max_fails)
+	if (++server->fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
+
+	if (--server->ref == 0)
+	{
+		this->pre_delete_server(server);
+		delete server;
+	}
 
 	pthread_rwlock_unlock(&this->rwlock);
 	this->WFNSPolicy::failed(result, tracing, target);
@@ -363,51 +376,34 @@ void WFServiceGovernance::add_server_locked(EndpointAddress *addr)
 
 int WFServiceGovernance::remove_server_locked(const std::string& address)
 {
-	std::vector<EndpointAddress *> remove_list;
-
 	const auto map_it = this->server_map.find(address);
-	if (map_it != this->server_map.cend())
-	{
-		for (EndpointAddress *addr : map_it->second)
-		{
-			// or not: it has already been -- in nalives
-			if (addr->fail_count < addr->params->max_fails)
-				this->fuse_one_server(addr);
-			else
-				this->remove_server_from_breaker(addr);
-
-			this->server_list_change(addr, REMOVE_SERVER);
-			remove_list.push_back(addr);
-		}
-
-		this->server_map.erase(map_it);
-	}
-
 	size_t n = this->servers.size();
 	size_t new_n = 0;
+	int ret = 0;
 
 	for (size_t i = 0; i < n; i++)
 	{
 		if (this->servers[i]->address != address)
+			this->servers[new_n++] = this->servers[i];
+	}
+
+	this->servers.resize(new_n);
+
+	if (map_it != this->server_map.cend())
+	{
+		for (EndpointAddress *addr : map_it->second)
 		{
-			if (new_n != i)
-				this->servers[new_n++] = this->servers[i];
-			else
-				new_n++;
+			this->server_list_change(addr, REMOVE_SERVER);
+			if (--addr->ref == 0)
+			{
+				this->pre_delete_server(addr);
+				delete addr;
+			}
+
+			ret++;
 		}
-	}
 
-	int ret = 0;
-	if (new_n < n)
-	{
-		this->servers.resize(new_n);
-		ret = n - new_n;
-	}
-
-	for (EndpointAddress *server : remove_list)
-	{
-		if (--server->ref == 0)
-			delete server;
+		this->server_map.erase(map_it);
 	}
 
 	return ret;
@@ -441,8 +437,8 @@ int WFServiceGovernance::replace_server(const std::string& address,
 									new PolicyAddrParams(params));
 
 	pthread_rwlock_wrlock(&this->rwlock);
-	this->add_server_locked(addr);
 	ret = this->remove_server_locked(address);
+	this->add_server_locked(addr);
 	pthread_rwlock_unlock(&this->rwlock);
 	return ret;
 }

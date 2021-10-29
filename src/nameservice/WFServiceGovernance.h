@@ -173,7 +173,7 @@ protected:
 	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
 											  WFNSTracing *tracing);
 	void check_breaker();
-	void remove_server_from_breaker(EndpointAddress *addr);
+	void pre_delete_server(EndpointAddress *addr);
 	static void tracing_deleter(void *data);
 
 	std::vector<EndpointAddress *> servers;

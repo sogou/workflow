@@ -70,12 +70,6 @@ public:
 		this->data = NULL;
 		this->deleter = NULL;
 	}
-
-	~WFNSTracing()
-	{
-		if (this->deleter)
-			this->deleter(this->data);
-	}
 };
 
 struct WFNSParams

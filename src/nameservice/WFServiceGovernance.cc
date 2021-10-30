@@ -63,33 +63,19 @@ public:
 	}
 };
 
-static bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
+static void copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
 {
-	char *host = NULL;
-	char *port = NULL;
-
-	if (!addr->host.empty())
+	if (addr->host != uri.host)
 	{
-		host = strdup(addr->host.c_str());
-		if (!host)
-			return false;
+		free(uri.host);
+		uri.host = strdup(addr->host.c_str());
 	}
 
-	if (!addr->port.empty())
+	if (addr->port != uri.port)
 	{
-		port = strdup(addr->port.c_str());
-		if (!port)
-		{
-			free(host);
-			return false;
-		}
 		free(uri.port);
-		uri.port = port;
+		uri.port = strdup(addr->port.c_str());
 	}
-
-	free(uri.host);
-	uri.host = host;
-	return true;
 }
 
 EndpointAddress::EndpointAddress(const std::string& address,
@@ -121,12 +107,11 @@ EndpointAddress::EndpointAddress(const std::string& address,
 WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *params,
 													  router_callback_t callback)
 {
+	WFNSTracing *tracing = params->tracing;
 	EndpointAddress *addr;
 	WFRouterTask *task;
-	WFNSTracing *tracing =  params->tracing;
 
-	if (this->select(params->uri, tracing, &addr) &&
-		copy_host_port(params->uri, addr))
+	if (this->select(params->uri, tracing, &addr))
 	{
 		WFDnsResolver *resolver = WFGlobal::get_dns_resolver();
 		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
@@ -134,28 +119,21 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 		const struct EndpointParams *endpoint_params = &addr->params->endpoint_params;
 		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
 														 DNS_CACHE_LEVEL_1;
+
+		copy_host_port(params->uri, addr);
 		task = resolver->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 								endpoint_params, std::move(callback));
 
-		if (!tracing->data)
-			tracing->data = addr;
-		else
+		struct TracingData *tracing_data = (struct TracingData *)tracing->data;
+		if (!tracing_data)
 		{
-			std::vector<EndpointAddress *> *v;
-
-			if (!tracing->deleter)
-			{
-				EndpointAddress *last_addr = (EndpointAddress *)tracing->data;
-				v = new std::vector<EndpointAddress *>;
-				v->push_back(last_addr);
-				tracing->deleter = WFServiceGovernance::tracing_deleter;
-				tracing->data = v;
-			}
-			else
-				v = (std::vector<EndpointAddress *> *)tracing->data;
-
-			v->push_back(addr);
+			tracing_data = new TracingData;
+			tracing_data->sg = this;
+			tracing->data = tracing_data;
+			tracing->deleter = WFServiceGovernance::tracing_deleter;
 		}
+
+		tracing_data->history.push_back(addr);
 	}
 	else
 		task = new WFSelectorFailTask(std::move(callback));
@@ -165,21 +143,31 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 
 void WFServiceGovernance::tracing_deleter(void *data)
 {
-	delete (std::vector<EndpointAddress *> *)data;
+	struct TracingData *tracing_data = (struct TracingData *)data;
+
+	for (EndpointAddress *addr : tracing_data->history)
+	{
+		if (--addr->ref == 0)
+		{
+			tracing_data->sg->rwlock.wlock();
+			tracing_data->sg->pre_delete_server(addr);
+			tracing_data->sg->rwlock.unlock();
+			delete addr;
+		}
+	}
+
+	delete tracing_data;
 }
 
 bool WFServiceGovernance::in_select_history(WFNSTracing *tracing,
 											EndpointAddress *addr)
 {
-	if (!tracing || !tracing->data)
+	struct TracingData *tracing_data = (struct TracingData *)tracing->data;
+
+	if (!tracing_data)
 		return false;
 
-	if (!tracing->deleter)
-		return (EndpointAddress *)tracing->data == addr;
-
-	auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
-
-	for (auto *server : (*v))
+	for (EndpointAddress *server : tracing_data->history)
 	{
 		if (server == addr)
 			return true;
@@ -232,24 +220,14 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 								  WFNSTracing *tracing,
 								  CommTarget *target)
 {
-	EndpointAddress *server;
-	if (tracing->deleter)
-	{
-		auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
-		server = (*v)[v->size() - 1];
-	}
-	else
-		server = (EndpointAddress *)tracing->data;
+	struct TracingData *tracing_data = (struct TracingData *)tracing->data;
+	auto *v = &tracing_data->history;
+	EndpointAddress *server = (*v)[v->size() - 1];
 
 	this->rwlock.wlock();
 	this->recover_server_from_breaker(server);
-	if (--server->ref == 0)
-	{
-		this->pre_delete_server(server);
-		delete server;
-	}
-
 	this->rwlock.unlock();
+
 	this->WFNSPolicy::success(result, tracing, target);
 }
 
@@ -257,28 +235,18 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 								 WFNSTracing *tracing,
 								 CommTarget *target)
 {
-	EndpointAddress *server;
-	if (tracing->deleter)
-	{
-		auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
-		server = (*v)[v->size() - 1];
-	}
-	else
-		server = (EndpointAddress *)tracing->data;
+	struct TracingData *tracing_data = (struct TracingData *)tracing->data;
+	auto *v = &tracing_data->history;
+	EndpointAddress *server = (*v)[v->size() - 1];
 
 	this->rwlock.wlock();
 	if (++server->fail_count == server->params->max_fails)
 		this->fuse_server_to_breaker(server);
-
-	if (--server->ref == 0)
-	{
-		this->pre_delete_server(server);
-		delete server;
-	}
-
 	this->rwlock.unlock();
+
 	this->WFNSPolicy::failed(result, tracing, target);
 }
+
 
 void WFServiceGovernance::check_breaker()
 {

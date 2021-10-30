@@ -190,8 +190,8 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 	if (select_addr)
 	{
-		*addr = (EndpointAddress *)select_addr;
-		++(*addr)->ref;
+		*addr = select_addr;
+		++select_addr->ref;
 	}
 
 	pthread_rwlock_unlock(&this->rwlock);

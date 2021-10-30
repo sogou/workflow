@@ -66,33 +66,19 @@ public:
 	}
 };
 
-static bool copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
+static void copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
 {
-	char *host = NULL;
-	char *port = NULL;
-
-	if (!addr->host.empty())
+	if (addr->host != uri.host)
 	{
-		host = strdup(addr->host.c_str());
-		if (!host)
-			return false;
+		free(uri.host);
+		uri.host = strdup(addr->host.c_str());
 	}
 
-	if (!addr->port.empty())
+	if (addr->port != uri.port)
 	{
-		port = strdup(addr->port.c_str());
-		if (!port)
-		{
-			free(host);
-			return false;
-		}
 		free(uri.port);
-		uri.port = port;
+		uri.port = strdup(addr->port.c_str());
 	}
-
-	free(uri.host);
-	uri.host = host;
-	return true;
 }
 
 EndpointAddress::EndpointAddress(const std::string& address,
@@ -128,8 +114,7 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 	EndpointAddress *addr;
 	WFRouterTask *task;
 
-	if (this->select(params->uri, tracing, &addr) &&
-		copy_host_port(params->uri, addr))
+	if (this->select(params->uri, tracing, &addr))
 	{
 		WFDnsResolver *resolver = WFGlobal::get_dns_resolver();
 		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
@@ -137,6 +122,8 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 		const struct EndpointParams *endpoint_params = &addr->params->endpoint_params;
 		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
 														 DNS_CACHE_LEVEL_1;
+
+		copy_host_port(params->uri, addr);
 		task = resolver->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 								endpoint_params, std::move(callback));
 
@@ -340,7 +327,7 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 	if (select_addr)
 	{
 		*addr = select_addr;
-		++(*addr)->ref;
+		++select_addr->ref;
 	}
 
 	pthread_rwlock_unlock(&this->rwlock);

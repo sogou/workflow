@@ -225,7 +225,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::clear_prev_state()
 	route_result_.clear();
 	if (tracing_.deleter)
 	{
-		tracing_.deleter(this->tracing_.data);
+		tracing_.deleter(tracing_.data);
 		tracing_.deleter = NULL;
 	}
 	tracing_.data = NULL;
@@ -404,6 +404,12 @@ void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
 {
 	if (!redirect_)
 	{
+		if (tracing_.deleter)
+		{
+			tracing_.deleter(tracing_.data);
+			tracing_.deleter = NULL;
+		}
+
 		if (this->callback)
 			this->callback(this);
 	}

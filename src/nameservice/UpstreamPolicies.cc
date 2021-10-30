@@ -190,8 +190,8 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 	if (select_addr)
 	{
-		*addr = (EndpointAddress *)select_addr;
-		++(*addr)->ref;
+		*addr = select_addr;
+		++select_addr->ref;
 	}
 
 	pthread_rwlock_unlock(&this->rwlock);
@@ -465,26 +465,15 @@ int UPSWeightedRandomPolicy::remove_server_locked(const std::string& address)
 
 int UPSWeightedRandomPolicy::select_history_weight(WFNSTracing *tracing)
 {
-	if (!tracing || !tracing->data)
+	struct TracingData *tracing_data = (struct TracingData *)tracing->data;
+
+	if (!tracing_data)
 		return 0;
 
-	UPSAddrParams *params;
-
-	if (!tracing->deleter)
-	{
-		auto *server = (EndpointAddress *)tracing->data;
-		params = (UPSAddrParams *)server->params;
-		return params->weight;
-	}
-
 	int ret = 0;
-	auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
 
-	for (auto *server : (*v))
-	{
-		params = (UPSAddrParams *)server->params;
-		ret += params->weight;
-	}
+	for (EndpointAddress *server : tracing_data->history)
+		ret += ((UPSAddrParams *)server->params)->weight;
 
 	return ret;
 }

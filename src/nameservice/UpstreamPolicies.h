@@ -16,8 +16,8 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#ifndef _UPSTREAM_POLICIES_H_
-#define _UPSTREAM_POLICIES_H_
+#ifndef _UPSTREAMPOLICIES_H_
+#define _UPSTREAMPOLICIES_H_
 
 #include <utility>
 #include <vector>

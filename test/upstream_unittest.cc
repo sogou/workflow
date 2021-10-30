@@ -224,6 +224,7 @@ TEST(upstream_unittest, AddAndRemove)
 	wait_group.wait();
 	EXPECT_TRUE(http_server1.start("127.0.0.1", 8001) == 0)
 				<< "http server start failed";
+	ns->del_policy(name.c_str());
 }
 
 TEST(upstream_unittest, FuseAndRecover)
@@ -285,6 +286,7 @@ TEST(upstream_unittest, FuseAndRecover)
 
 	series->start();
 	wait_group.wait();
+	ns->del_policy("test_policy");
 }
 
 TEST(upstream_unittest, TryAnother)

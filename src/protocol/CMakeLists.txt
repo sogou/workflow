@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 project(protocol)
 
 set(SRC
+	dns_parser.c
 	http_parser.c
 	redis_parser.c
 	mysql_stream.c
@@ -9,6 +10,8 @@ set(SRC
 	mysql_byteorder.c
 	MySQLMessage.cc
 	MySQLResult.cc
+	DnsMessage.cc
+	DnsUtil.cc
 	HttpMessage.cc
 	RedisMessage.cc
 	HttpUtil.cc

@@ -139,6 +139,8 @@ SubTask *ComplexWebSocketOutTask::done()
 SubTask *ComplexWebSocketOutTask::upgrade()
 {
 	auto *channel = (ComplexWebSocketChannel *)this->get_request_channel();
+	const ParsedURI *uri = channel->get_uri();
+	std::string request_uri;
 
 	auto *http_task = new WFChannelOutTask<HttpRequest>(this->channel,
 														WFGlobal::get_scheduler(),
@@ -152,10 +154,16 @@ SubTask *ComplexWebSocketOutTask::upgrade()
 
 		this->ready = true;
 	});
+
+	if (uri->path && uri->path[0])
+		request_uri = uri->path;
+	else
+		request_uri = "/";
+
 	HttpRequest *req = http_task->get_msg();
 	req->set_method(HttpMethodGet);
 	req->set_http_version("HTTP/1.1");
-	req->set_request_uri("/");
+	req->set_request_uri(request_uri);
 	req->add_header_pair("Host", channel->get_uri()->host);
 	req->add_header_pair("Upgrade", "websocket");
 	req->add_header_pair("Connection", "Upgrade");

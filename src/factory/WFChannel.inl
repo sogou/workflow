@@ -229,7 +229,8 @@ SubTask *WFComplexChannel<MSG>::done()
 	if (this->state == WFT_STATE_SUCCESS)
 		this->state = WFT_STATE_UNDEFINED;
 
-//	if (this->established == 0 && this->state == WFT_STATE_SYS_ERROR) // sending == false
+	if (this->established == 0 && this->state == WFT_STATE_SYS_ERROR) // sending == false
+		this->state = WFT_STATE_UNDEFINED;
 //		delete this;
 
 	return series->pop();

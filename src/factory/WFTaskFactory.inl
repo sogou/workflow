@@ -308,7 +308,10 @@ template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
 	if (redirect_)
+	{
 		clear_prev_state();
+		ns_policy_ = WFGlobal::get_dns_resolver();
+	}
 
 	if (uri_.state == URI_STATE_SUCCESS)
 	{

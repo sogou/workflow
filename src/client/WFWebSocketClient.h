@@ -52,7 +52,7 @@ public:
 	WFWebSocketTask *create_close_task(websocket_callback_t cb);
 
 private:
-	ComplexWebSocketChannel *channel;
+	ComplexWebSocketChannel channel;
 	struct WFWebSocketParams params;
 
 public:
@@ -65,7 +65,7 @@ public:
 
 inline WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 {
-	return new ComplexWebSocketOutTask(this->channel, WFGlobal::get_scheduler(),
+	return new ComplexWebSocketOutTask(&this->channel, WFGlobal::get_scheduler(),
 									   std::move(cb));
 }
 
@@ -75,14 +75,14 @@ inline int WebSocketClient::init(const std::string& url)
 	if (URIParser::parse(url, uri) != 0)
 		return -1;
 
-	this->channel->set_uri(uri);
+	this->channel.set_uri(uri);
 	return 0;
 }
 
 inline WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t cb)
 {
 	ComplexWebSocketOutTask *ping_task;
-	ping_task = new ComplexWebSocketOutTask(this->channel,
+	ping_task = new ComplexWebSocketOutTask(&this->channel,
 											WFGlobal::get_scheduler(),
 											std::move(cb));
 
@@ -95,7 +95,7 @@ inline WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t c
 inline WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 {
 	ComplexWebSocketOutTask *close_task;
-	close_task = new ComplexWebSocketOutTask(this->channel,
+	close_task = new ComplexWebSocketOutTask(&this->channel,
 											 WFGlobal::get_scheduler(),
 											 std::move(cb));
 
@@ -106,23 +106,22 @@ inline WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t 
 }
 
 WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
-								 websocket_process_t process)
+								 websocket_process_t process) :
+	channel(NULL, WFGlobal::get_scheduler(), std::move(process))
 {
 	this->params = *params;
-	this->channel = new ComplexWebSocketChannel(NULL, WFGlobal::get_scheduler(),
-												std::move(process));
-	this->channel->set_idle_timeout(this->params.idle_timeout);
-	this->channel->set_size_limit(this->params.size_limit);
+	this->channel.set_idle_timeout(this->params.idle_timeout);
+	this->channel.set_size_limit(this->params.size_limit);
 
-	this->channel->set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
+	this->channel.set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
 	{
-		pthread_mutex_lock(&this->channel->mutex);
-		if (this->channel->is_established() == 0)
+		pthread_mutex_lock(&this->channel.mutex);
+		if (this->channel.is_established() == 0)
 		{
-			this->channel->set_state(WFT_STATE_SYS_ERROR);
-			this->channel->set_sending(false);
+			this->channel.set_state(WFT_STATE_SYS_ERROR);
+			this->channel.set_sending(false);
 		}
-		pthread_mutex_unlock(&this->channel->mutex);
+		pthread_mutex_unlock(&this->channel.mutex);
 	});
 }
 

@@ -85,7 +85,7 @@ public:
 
 #### 2. masking_key
 
-**WebSocket**协议的文本和二进制数据都需要经过一个掩码加密，用户可以不填，也可以通过``void set_masking_key(uint32_t masking_key)``手动指定；
+**WebSocket**协议的文本和二进制数据都需要经过一个掩码加密，可以通过``void set_masking_key(uint32_t masking_key)``手动指定，框架自动随机生成的功能正在开发中，很快可以投入使用。
 
 #### 3. data
 
@@ -165,9 +165,10 @@ task->start();
 wait_group.wait();
 ```
 
-这里发起了一个close任务，由于close是异步的，因此在``task->start()``之后当前线程会退出，我们在当前线程结合一个了``wait_group``进行不占线程的阻塞，并在close任务的回调函数里唤醒，然后当前线程就可以安全删除client实例和退出了。
+这里发起了一个close任务，由于close是异步的，因此在``task->start()``之后当前线程会退出，我们在当前线程结合一个了``wait_group``进行不占线程的阻塞，并在close任务的回调函数里唤醒，然后当前线程就可以安全调用``client.deinit()``、删除client实例以及退出了。
 
-需要注意的是，如果不主动发起close任务，直接删除client实例，那么底层使用的那个网络连接还会存在，直到超时或其他原因断开。
+需要注意的是，如果不主动发起close任务，直接删除client实例，那么底层使用的那个网络连接还会存在，直到超时或其他原因断开；
+而``client.deinit()``是个等待内部网络资源完全释放的同步接口，需要手动调用，以保证程序退出前client的所有资源安全释放。
 
 # websocket_cli的参数
 

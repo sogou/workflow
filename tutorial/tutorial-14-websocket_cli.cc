@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
 	task->start();
 
 	wg.wait();
+	client.deinit();
 
 	return 0;
 }

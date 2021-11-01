@@ -3,6 +3,7 @@ project(client)
 
 set(SRC
 	WFDnsClient.cc
+	WFWebsocketClient.cc
 )
 
 if (NOT MYSQL STREQUAL "n")

@@ -123,15 +123,15 @@ SubTask *ComplexWebSocketOutTask::done()
 		this->get_state() == WFT_STATE_SUCCESS &&
 		channel->is_established())
 	{
-		series->push_front(this);
 		series->push_front(channel);
-		return series->pop();
 	}
-
-	pthread_mutex_lock(&channel->mutex);
-	channel->set_sending(false);
-	channel->condition.signal(NULL);
-	pthread_mutex_unlock(&channel->mutex);
+	else
+	{
+		pthread_mutex_lock(&channel->mutex);
+		channel->set_sending(false);
+		channel->condition.signal(NULL);
+		pthread_mutex_unlock(&channel->mutex);
+	}
 
 	return WFChannelOutTask<WebSocketFrame>::done();
 }

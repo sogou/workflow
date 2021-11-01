@@ -20,10 +20,9 @@
 #define _WFWEBSOCKETCLIENT_H_
 
 #include <string>
+#include <pthread.h>
 #include <functional>
-#include "WFGlobal.h"
 #include "HttpUtil.h"
-#include "HttpMessage.h"
 #include "WFChannel.h"
 #include "WebSocketMessage.h"
 
@@ -50,10 +49,12 @@ public:
 	WFWebSocketTask *create_websocket_task(websocket_callback_t cb);
 	WFWebSocketTask *create_ping_task(websocket_callback_t cb);
 	WFWebSocketTask *create_close_task(websocket_callback_t cb);
+	void deinit();
 
 private:
 	ComplexWebSocketChannel channel;
 	struct WFWebSocketParams params;
+	pthread_cond_t shutdown_cond;
 
 public:
 	WebSocketClient(const struct WFWebSocketParams *params,
@@ -62,68 +63,6 @@ public:
 		WebSocketClient(&WEBSOCKET_PARAMS_DEFAULT, std::move(process))
 	{ }
 };
-
-inline WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
-{
-	return new ComplexWebSocketOutTask(&this->channel, WFGlobal::get_scheduler(),
-									   std::move(cb));
-}
-
-inline int WebSocketClient::init(const std::string& url)
-{
-	ParsedURI uri;
-	if (URIParser::parse(url, uri) != 0)
-		return -1;
-
-	this->channel.set_uri(uri);
-	return 0;
-}
-
-inline WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t cb)
-{
-	ComplexWebSocketOutTask *ping_task;
-	ping_task = new ComplexWebSocketOutTask(&this->channel,
-											WFGlobal::get_scheduler(),
-											std::move(cb));
-
-	protocol::WebSocketFrame *msg = ping_task->get_msg();
-	msg->set_opcode(WebSocketFramePing);
-
-	return ping_task;
-}
-
-inline WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
-{
-	ComplexWebSocketOutTask *close_task;
-	close_task = new ComplexWebSocketOutTask(&this->channel,
-											 WFGlobal::get_scheduler(),
-											 std::move(cb));
-
-	protocol::WebSocketFrame *msg = close_task->get_msg();
-	msg->set_opcode(WebSocketFrameConnectionClose);
-
-	return close_task;
-}
-
-WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
-								 websocket_process_t process) :
-	channel(NULL, WFGlobal::get_scheduler(), std::move(process))
-{
-	this->params = *params;
-	this->channel.set_idle_timeout(this->params.idle_timeout);
-	this->channel.set_size_limit(this->params.size_limit);
-
-	this->channel.set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
-	{
-		pthread_mutex_lock(&this->channel.mutex);
-		if (this->channel.is_established() == 0)
-		{
-			this->channel.set_state(WFT_STATE_SYS_ERROR);
-			this->channel.set_sending(false);
-		}
-		pthread_mutex_unlock(&this->channel.mutex);
-	});
-}
 
 #endif
 

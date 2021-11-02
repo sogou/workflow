@@ -102,7 +102,6 @@ SubTask *ComplexWebSocketInTask::done()
 
 SubTask *ComplexWebSocketOutTask::done()
 {
-	SeriesWork *series = series_of(this);
 	auto *channel = (ComplexWebSocketChannel *)this->get_request_channel();
 
 	if (channel->get_state() == WFT_STATE_UNDEFINED ||
@@ -117,21 +116,10 @@ SubTask *ComplexWebSocketOutTask::done()
 		this->error = channel->get_error();
 	}
 
-	const websocket_parser_t *parser = this->get_msg()->get_parser();
-	
-	if (parser->opcode == WebSocketFrameConnectionClose &&
-		this->get_state() == WFT_STATE_SUCCESS &&
-		channel->is_established())
-	{
-		series->push_front(channel);
-	}
-	else
-	{
-		pthread_mutex_lock(&channel->mutex);
-		channel->set_sending(false);
-		channel->condition.signal(NULL);
-		pthread_mutex_unlock(&channel->mutex);
-	}
+	pthread_mutex_lock(&channel->mutex);
+	channel->set_sending(false);
+	channel->condition.signal(NULL);
+	pthread_mutex_unlock(&channel->mutex);
 
 	return WFChannelOutTask<WebSocketFrame>::done();
 }

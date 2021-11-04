@@ -36,7 +36,11 @@ public:
 	ComplexDnsTask(int retry_max, dns_callback_t&& cb):
 		WFComplexClientTask(retry_max, std::move(cb))
 	{
+#ifdef _WIN32
 		this->set_transport_type(TT_TCP);
+#else
+		this->set_transport_type(TT_UDP);
+#endif
 	}
 
 protected:

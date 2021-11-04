@@ -660,7 +660,6 @@ static int __parse_resolv_conf(const char *path,
 							   std::string& url, std::string& search_list,
 							   int *ndots, int *attempts, bool *rotate)
 {
-	size_t bufsize = 0;
 	std::string line;
 	int ret;
 

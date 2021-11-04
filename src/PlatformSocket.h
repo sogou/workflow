@@ -38,6 +38,7 @@ struct iovec
 
 #else
 # include <arpa/inet.h>
+# include <netinet/in.h>
 # include <sys/socket.h>
 # include <sys/un.h>
 # include <sys/uio.h>

@@ -24,6 +24,7 @@
 #include <ctype.h>
 #include <utility>
 #include <string>
+#include <fstream>
 #include "PlatformSocket.h"
 #include "DnsRoutine.h"
 #include "EndpointParams.h"
@@ -151,6 +152,7 @@ static int __readaddrinfo_line(char *p, const char *name, const char *port,
 	return 1;
 }
 
+#include <iostream>
 static int __readaddrinfo(const char *path,
 						  const char *name, unsigned short port,
 						  const struct addrinfo *hints,
@@ -158,34 +160,38 @@ static int __readaddrinfo(const char *path,
 {
 	char port_str[PORT_STR_MAX + 1];
 	size_t bufsize = 0;
-	char *line = NULL;
+	std::string line;
+	// 1024 may be enough for one line
+	char buffer[1024];
 	int count = 0;
 	struct addrinfo h;
 	int errno_bak;
-	FILE *fp;
 	int ret;
 
-	fp = fopen(path, "r");
-	if (!fp)
-		return EAI_SYSTEM;
+	std::ifstream ifs;
+	ifs.open(path, ifs.in);
+	if (!ifs.is_open())
+		return /*EAI_SYSTEM*/ EAI_FAIL;
 
 	h = *hints;
 	h.ai_flags |= AI_NUMERICSERV | AI_NUMERICHOST,
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", port);
 
 	errno_bak = errno;
-	while ((ret = getline(&line, &bufsize, fp)) > 0)
+	while (!(std::getline(ifs, line)).eof() && !line.empty())
 	{
-		if (__readaddrinfo_line(line, name, port_str, &h, res) == 0)
+		std::cout << line << std::endl;
+		line.copy(buffer, sizeof(buffer) / sizeof(buffer[0]));
+		buffer[line.length()] = '\0';
+		if (__readaddrinfo_line(buffer, name, port_str, &h, res) == 0)
 		{
 			count++;
 			res = &(*res)->ai_next;
 		}
 	}
 
-	ret = ferror(fp) ? EAI_SYSTEM : EAI_NONAME;
-	free(line);
-	fclose(fp);
+	ret = ifs.bad() ? /*EAI_SYSTEM*/ EAI_FAIL : EAI_NONAME;
+	ifs.close();
 	if (count != 0)
 	{
 		errno = errno_bak;
@@ -456,7 +462,7 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 
 	if (dns_error)
 	{
-		if (dns_error == EAI_SYSTEM)
+		if (dns_error == /*EAI_SYSTEM*/ EAI_FAIL)
 		{
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;

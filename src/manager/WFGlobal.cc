@@ -31,6 +31,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <fstream>
 #include "WFGlobal.h"
 #include "EndpointParams.h"
 #include "CommScheduler.h"
@@ -660,27 +661,26 @@ static int __parse_resolv_conf(const char *path,
 							   int *ndots, int *attempts, bool *rotate)
 {
 	size_t bufsize = 0;
-	char *line = NULL;
-	FILE *fp;
+	std::string line;
 	int ret;
 
-	fp = fopen(path, "r");
-	if (!fp)
+	std::ifstream ifs;
+	ifs.open(path, ifs.in);
+	if (!ifs.is_open())
 		return -1;
 
-	while ((ret = getline(&line, &bufsize, fp)) > 0)
+	while (!(std::getline(ifs, line)).eof())
 	{
-		if (strncmp(line, "nameserver", 10) == 0)
-			__split_merge_str(line + 10, true, url);
-		else if (strncmp(line, "search", 6) == 0)
-			__split_merge_str(line + 6, false, search_list);
-		else if (strncmp(line, "options", 7) == 0)
-			__set_options(line + 7, ndots, attempts, rotate);
+		if (strncmp(line.c_str(), "nameserver", 10) == 0)
+			__split_merge_str(line.c_str() + 10, true, url);
+		else if (strncmp(line.c_str(), "search", 6) == 0)
+			__split_merge_str(line.c_str() + 6, false, search_list);
+		else if (strncmp(line.c_str(), "options", 7) == 0)
+			__set_options(line.c_str() + 7, ndots, attempts, rotate);
 	}
 
-	ret = ferror(fp) ? -1 : 0;
-	free(line);
-	fclose(fp);
+	ret = ifs.bad() ? -1 : 0;
+	ifs.close();
 	return ret;
 }
 

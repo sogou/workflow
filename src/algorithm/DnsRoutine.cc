@@ -16,16 +16,13 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <errno.h>
-#include <netdb.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <string>
 #include "DnsRoutine.h"
+#include "PlatformSocket.h"
 
 #define PORT_STR_MAX	5
 
@@ -55,6 +52,7 @@ DnsOutput& DnsOutput::operator= (DnsOutput&& move)
 	return *this;
 }
 
+#ifndef _WIN32
 void DnsRoutine::run_local_path(const std::string& path, DnsOutput *out)
 {
 	struct sockaddr_un *sun = NULL;
@@ -85,20 +83,24 @@ void DnsRoutine::run_local_path(const std::string& path, DnsOutput *out)
 	out->error_ = EAI_SYSTEM;
 }
 
+#endif
+
 void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 {
 	if (!in->host_.empty() && in->host_[0] == '/')
 	{
+#ifndef _WIN32
 		run_local_path(in->host_, out);
+#endif // !_WIN32		
 		return;
 	}
 
 	struct addrinfo hints = {
 #ifdef AI_ADDRCONFIG
-		.ai_flags    = AI_ADDRCONFIG,
+		/*.ai_flags    = */AI_ADDRCONFIG,
 #endif
-		.ai_family   = AF_UNSPEC,
-		.ai_socktype = SOCK_STREAM
+		/*.ai_family   = */AF_UNSPEC,
+		/*.ai_socktype = */SOCK_STREAM
 	};
 	char port_str[PORT_STR_MAX + 1];
 

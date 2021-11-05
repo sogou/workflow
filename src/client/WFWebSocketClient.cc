@@ -16,50 +16,63 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
-#include "WFChannel.h"
 #include "HttpMessage.h"
+#include "WFChannel.h"
 #include "WebSocketMessage.h"
 #include "WFWebSocketClient.h"
 
 WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 {
-	return new ComplexWebSocketOutTask(&this->channel, WFGlobal::get_scheduler(),
+	return new ComplexWebSocketOutTask(this->channel,
+									   WFGlobal::get_scheduler(),
 									   std::move(cb));
 }
 
 int WebSocketClient::init(const std::string& url)
 {
 	ParsedURI uri;
+	if (URIParser::parse(url, uri) < 0)
+		return -1;
 
-	if (pthread_cond_init(&this->shutdown_cond, NULL) == 0)
+	this->channel = new ComplexWebSocketChannel(NULL,
+												WFGlobal::get_scheduler(),
+												std::move(process));
+	this->channel->set_idle_timeout(this->params.idle_timeout);
+	this->channel->set_size_limit(this->params.size_limit);
+	this->channel->set_uri(uri);
+
+	this->channel->set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
 	{
-		if (URIParser::parse(url, uri) == 0)
+		pthread_mutex_lock(&this->channel->mutex);
+		if (this->channel->is_established() == 0)
 		{
-			this->channel.set_uri(uri);
-			return 0;
+			this->channel->set_state(WFT_STATE_SYS_ERROR);
+			this->channel->set_sending(false);
 		}
+		pthread_mutex_unlock(&this->channel->mutex);
+	});
 
-		pthread_cond_destroy(&this->shutdown_cond);
-	}
-
-	return -1;
+	return 0;
 }
 
 void WebSocketClient::deinit()
 {
-	pthread_mutex_lock(&this->channel.mutex);
+	SeriesWork *series;
+	series = Workflow::create_series_work(this->channel,
+										  [](const SeriesWork *series){
+		ComplexWebSocketChannel *channel;
+		channel = (ComplexWebSocketChannel *)series->get_context();
+		delete channel;
+	});
 
-	while (this->channel.get_sending())
-		pthread_cond_wait(&this->shutdown_cond, &this->channel.mutex);
-
-	pthread_mutex_unlock(&this->channel.mutex);
-	pthread_cond_destroy(&this->shutdown_cond);
+	series->set_context(this->channel);
+	series->start();
 }
 
 WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t cb)
 {
 	ComplexWebSocketOutTask *ping_task;
-	ping_task = new ComplexWebSocketOutTask(&this->channel,
+	ping_task = new ComplexWebSocketOutTask(this->channel,
 											WFGlobal::get_scheduler(),
 											std::move(cb));
 
@@ -72,7 +85,7 @@ WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t cb)
 WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 {
 	ComplexWebSocketOutTask *close_task;
-	close_task = new ComplexWebSocketOutTask(&this->channel,
+	close_task = new ComplexWebSocketOutTask(this->channel,
 											 WFGlobal::get_scheduler(),
 											 std::move(cb));
 
@@ -84,23 +97,8 @@ WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 
 WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
 								 websocket_process_t process) :
-	channel(NULL, WFGlobal::get_scheduler(), std::move(process))
+	process(std::move(process))
 {
 	this->params = *params;
-	this->channel.set_idle_timeout(this->params.idle_timeout);
-	this->channel.set_size_limit(this->params.size_limit);
-
-	this->channel.set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
-	{
-		pthread_mutex_lock(&this->channel.mutex);
-
-		if (this->channel.is_established() == 0)
-			this->channel.set_sending(false);
-
-		this->channel.condition.signal(NULL);
-		pthread_cond_signal(&this->shutdown_cond);
-
-		pthread_mutex_unlock(&this->channel.mutex);
-	});
 }
 

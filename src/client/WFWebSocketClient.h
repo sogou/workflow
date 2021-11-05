@@ -20,9 +20,9 @@
 #define _WFWEBSOCKETCLIENT_H_
 
 #include <string>
-#include <pthread.h>
 #include <functional>
 #include "HttpUtil.h"
+#include "HttpMessage.h"
 #include "WFChannel.h"
 #include "WebSocketMessage.h"
 
@@ -52,9 +52,9 @@ public:
 	void deinit();
 
 private:
-	ComplexWebSocketChannel channel;
+	ComplexWebSocketChannel *channel;
 	struct WFWebSocketParams params;
-	pthread_cond_t shutdown_cond;
+	websocket_process_t process;
 
 public:
 	WebSocketClient(const struct WFWebSocketParams *params,

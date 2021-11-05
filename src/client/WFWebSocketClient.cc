@@ -17,16 +17,9 @@
 */
 
 #include "HttpMessage.h"
-#include "WFFacilities.h"
 #include "WFChannel.h"
 #include "WebSocketMessage.h"
 #include "WFWebSocketClient.h"
-
-struct websocket_series_ctx_t
-{
-	WebSocketClient *client;
-	WFFacilities::WaitGroup *wait_group;
-};
 
 WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 {
@@ -38,7 +31,7 @@ WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 int WebSocketClient::init(const std::string& url)
 {
 	ParsedURI uri;
-	if (URIParser::parse(url, uri) != 0)
+	if (URIParser::parse(url, uri) < 0)
 		return -1;
 
 	this->channel = new ComplexWebSocketChannel(NULL,
@@ -64,26 +57,16 @@ int WebSocketClient::init(const std::string& url)
 
 void WebSocketClient::deinit()
 {
-	WFFacilities::WaitGroup wait_group(1);
-
-	struct websocket_series_ctx_t ctx = {
-		.client = this,
-		.wait_group = &wait_group,
-	};
-
-	SeriesWork *series = Workflow::create_series_work(this->channel,
-										[](const SeriesWork *series)
-	{
-		struct websocket_series_ctx_t *ctx;
-		ctx = (struct websocket_series_ctx_t *)series->get_context();
-		delete ctx->client->channel;
-		ctx->wait_group->done();
+	SeriesWork *series;
+	series = Workflow::create_series_work(this->channel,
+										  [](const SeriesWork *series){
+		ComplexWebSocketChannel *channel;
+		channel = (ComplexWebSocketChannel *)series->get_context();
+		delete channel;
 	});
 
-	series->set_context(&ctx);
+	series->set_context(this->channel);
 	series->start();
-
-	wait_group.wait();
 }
 
 WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t cb)

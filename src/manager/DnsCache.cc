@@ -90,3 +90,21 @@ const DnsCache::DnsHandle *DnsCache::put(const HostPort& host_port,
 	return cache_pool_.put(host_port, {addrinfo, confident_time, expire_time});
 }
 
+const DnsCache::DnsHandle *DnsCache::get(const DnsCache::HostPort& host_port)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	return cache_pool_.get(host_port);
+}
+
+void DnsCache::release(const DnsCache::DnsHandle *handle)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	cache_pool_.release(handle);
+}
+
+void DnsCache::del(const DnsCache::HostPort& key)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	cache_pool_.del(key);
+}
+

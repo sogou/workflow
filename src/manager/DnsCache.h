@@ -151,6 +151,11 @@ private:
 	};
 
 	LRUCache<HostPort, DnsCacheValue, ValueDeleter> cache_pool_;
+
+public:
+	// To prevent inline calling LRUCache's constructor and deconstructor.
+	DnsCache();
+	~DnsCache();
 };
 
 #endif

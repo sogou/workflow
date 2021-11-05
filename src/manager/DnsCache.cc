@@ -108,3 +108,11 @@ void DnsCache::del(const DnsCache::HostPort& key)
 	cache_pool_.del(key);
 }
 
+DnsCache::DnsCache()
+{
+}
+
+DnsCache::~DnsCache()
+{
+}
+

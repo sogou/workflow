@@ -39,7 +39,7 @@ static constexpr struct WFWebSocketParams WEBSOCKET_PARAMS_DEFAULT =
 	.idle_timeout		=	WS_HANDSHAKE_TIMEOUT,
 	.ping_interval		=	-1,
 	.size_limit			=	(size_t)-1,
-	.random_masking_key	=	false,
+	.random_masking_key	=	true,
 };
 
 class WebSocketClient

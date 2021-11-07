@@ -23,9 +23,12 @@
 
 WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 {
-	return new ComplexWebSocketOutTask(this->channel,
-									   WFGlobal::get_scheduler(),
-									   std::move(cb));
+	WFWebSocketTask *task = new ComplexWebSocketOutTask(this->channel,
+														WFGlobal::get_scheduler(),
+														std::move(cb));
+
+	task->get_msg()->set_masking_key(this->channel->gen_masking_key());
+	return task;
 }
 
 int WebSocketClient::init(const std::string& url)
@@ -36,6 +39,7 @@ int WebSocketClient::init(const std::string& url)
 
 	this->channel = new ComplexWebSocketChannel(NULL,
 												WFGlobal::get_scheduler(),
+												this->params.random_masking_key,
 												std::move(process));
 	this->channel->set_idle_timeout(this->params.idle_timeout);
 	this->channel->set_size_limit(this->params.size_limit);
@@ -78,6 +82,7 @@ WFWebSocketTask *WebSocketClient::create_ping_task(websocket_callback_t cb)
 
 	protocol::WebSocketFrame *msg = ping_task->get_msg();
 	msg->set_opcode(WebSocketFramePing);
+	msg->set_masking_key(this->channel->gen_masking_key());
 
 	return ping_task;
 }
@@ -91,6 +96,7 @@ WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 
 	protocol::WebSocketFrame *msg = close_task->get_msg();
 	msg->set_opcode(WebSocketFrameConnectionClose);
+	msg->set_masking_key(this->channel->gen_masking_key());
 
 	return close_task;
 }

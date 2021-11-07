@@ -80,6 +80,7 @@ SubTask *ComplexWebSocketInTask::done()
 		WebSocketFrame *msg = close_task->get_msg();
 		msg->set_opcode(WebSocketFrameConnectionClose);
 		msg->set_data(parser);
+		msg->set_masking_key(channel->gen_masking_key());
 		series->push_front(close_task);
 	}
 	else if (parser->opcode == WebSocketFramePing)
@@ -90,6 +91,7 @@ SubTask *ComplexWebSocketInTask::done()
 		WebSocketFrame *msg = pong_task->get_msg();
 		msg->set_opcode(WebSocketFramePong);
 		msg->set_data(parser);
+		msg->set_masking_key(channel->gen_masking_key());
 		series->push_front(pong_task);
 	}
 

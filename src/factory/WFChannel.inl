@@ -17,6 +17,7 @@
           Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <random>
 #include <functional>
 #include "TransRequest.h"
 #include "WFTask.h"
@@ -451,6 +452,12 @@ class ComplexWebSocketChannel : public WFComplexChannel<protocol::WebSocketFrame
 public:
 	void set_idle_timeout(int timeout) { this->idle_timeout = timeout; }
 	void set_size_limit(size_t size_limit) { this->size_limit = size_limit; }
+	uint32_t gen_masking_key()
+	{
+		if (random_masking_key == false)
+			return 0;
+		return this->gen();
+	}
 
 protected:
 	virtual CommMessageIn *message_in();
@@ -461,13 +468,20 @@ protected:
 private:
 	int idle_timeout;
 	size_t size_limit;
+	bool random_masking_key;
+	std::random_device rd;
+	std::mt19937 gen;
 
 public:
-	ComplexWebSocketChannel(CommSchedObject *object, CommScheduler *scheduler,
+	ComplexWebSocketChannel(CommSchedObject *object,
+							CommScheduler *scheduler,
+							bool random_masking_key,
 							websocket_process_t&& process) :
 		WFComplexChannel<protocol::WebSocketFrame>(object, scheduler,
-												   std::move(process))
+												   std::move(process)),
+		gen(rd())
 	{
+		this->random_masking_key = random_masking_key;
 	}
 };
 
@@ -478,7 +492,8 @@ protected:
 	virtual SubTask *done();
 
 public:
-	ComplexWebSocketOutTask(ComplexWebSocketChannel *channel, CommScheduler *scheduler,
+	ComplexWebSocketOutTask(ComplexWebSocketChannel *channel,
+							CommScheduler *scheduler,
 							websocket_callback_t&& cb) :
 		ComplexChannelOutTask<protocol::WebSocketFrame>(channel,
 														scheduler,

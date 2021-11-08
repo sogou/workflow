@@ -65,7 +65,7 @@ public:
 		this->subtasks_nr = n;
 	}
 
-	SubTask **get_subtasks(size_t *n)
+	SubTask **get_subtasks(size_t *n) const
 	{
 		*n = this->subtasks_nr;
 		return this->subtasks;

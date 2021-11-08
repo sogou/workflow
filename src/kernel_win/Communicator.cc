@@ -204,9 +204,8 @@ void CommTarget::deinit()
 	free(this->addr);
 }
 
-int CommMessageIn::feedback(const void *buf, size_t size)
+static int __sync_send(const void *buf, size_t size, CommConnEntry *entry)
 {
-	CommConnEntry *entry = this->entry;
 	int error;
 	int ret;
 
@@ -223,20 +222,33 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 		if (error != SSL_ERROR_SYSCALL)
 			errno = -error;
 
-		ret = -1;
-		return ret;
+		return -1;
 	}
 
 	int sz = BIO_pending(entry->bio_send);
 
 	char *ssl_buf = new char[sz];
 	if (sz == BIO_read(entry->bio_send, ssl_buf, sz))
-		ret = send(entry->sockfd, ssl_buf, (int)size, 0);
+		ret = send(entry->sockfd, ssl_buf, (int)sz, 0);
 	else
 		ret = -1;
 
 	delete []ssl_buf;
+	if (ret == sz)
+		return size;
+
+	if (ret > 0)
+	{
+		errno = ENOBUFS;
+		ret = -1;
+	}
+
 	return ret;
+}
+
+int CommMessageIn::feedback(const void *buf, size_t size)
+{
+	return __sync_send(buf, size, this->entry);
 }
 
 int CommService::init(const struct sockaddr *bind_addr, socklen_t addrlen,
@@ -344,7 +356,7 @@ CommSession::~CommSession()
 	if (!this->passive)
 		return;
 
-	struct CommConnEntry *entry;
+	CommConnEntry *entry;
 	struct list_head *pos;
 	CommServiceTarget *target = (CommServiceTarget *)this->target;
 	if (this->passive == 1)
@@ -353,7 +365,7 @@ CommSession::~CommSession()
 		if (!list_empty(&target->idle_list))
 		{
 			pos = target->idle_list.next;
-			entry = list_entry(pos, struct CommConnEntry, list);
+			entry = list_entry(pos, CommConnEntry, list);
 			entry->poller->cancel_pending_io((HANDLE)entry->sockfd);
 		}
 
@@ -575,6 +587,34 @@ int Communicator::reply(CommSession *session)
 	}
 
 	return -1;
+}
+
+int Communicator::push(const void *buf, size_t size, CommSession *session)
+{
+	CommTarget *target = session->target;
+	CommConnEntry *entry;
+	int ret;
+
+	if (session->passive != 1)
+	{
+		errno = session->passive ? ENOENT : EPERM;
+		return -1;
+	}
+
+	target->mutex.lock();
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, CommConnEntry, list);
+		ret = __sync_send(buf, size, entry);
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	target->mutex.unlock();
+	return ret;
 }
 
 int Communicator::bind(CommService *service)

@@ -19,6 +19,7 @@
 #ifndef _SLEEPREQUEST_H_
 #define _SLEEPREQUEST_H_
 
+#include <errno.h>
 #include "SubTask.h"
 #include "Communicator.h"
 #include "CommScheduler.h"

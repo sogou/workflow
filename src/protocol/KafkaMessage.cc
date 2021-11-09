@@ -223,6 +223,17 @@ static inline size_t append_varint_i32(std::string& buf, int32_t num)
 	return append_varint_i64(buf, num);
 }
 
+static size_t append_compact_string(std::string& buf, const char *str)
+{
+	if (!str || str[0] == '\0')
+		append_string(buf, "");
+
+	size_t len = strlen(str);
+	size_t r = append_varint_u64(buf, len + 1);
+	append_string_raw(buf, str, len);
+	return r + len;
+}
+
 static inline int parse_i8(void **buf, size_t *size, int8_t *val)
 {
 	if (*size >= 1)
@@ -2403,7 +2414,12 @@ int KafkaRequest::encode_fetch(struct iovec vectors[], int max)
 
 	//rackid
 	if (this->api_version >= 11)
-		append_string(this->msgbuf, "");
+	{
+		if (this->config.get_rack_id())
+			append_compact_string(this->msgbuf, this->config.get_rack_id());
+		else
+			append_string(this->msgbuf, "");
+	}
 
 	this->cur_size = this->msgbuf.size();
 
@@ -3233,7 +3249,10 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			}
 
 			if (this->api_version >= 11)
+			{
 				CHECK_RET(parse_i32(buf, size, &preferred_read_replica));
+				ptr->preferred_read_replica = preferred_read_replica;
+			}
 
 			parse_records(buf, size, this->config.get_check_crcs(),
 						  toppar->get_record(),

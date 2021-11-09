@@ -495,6 +495,21 @@ public:
 		this->ptr->offset_store = offset_store;
 	}
 
+	const char *get_rack_id() const
+	{
+		return this->ptr->rack_id;
+	}
+	bool set_rack_id(const char *rack_id)
+	{
+		char *p = strdup(rack_id);
+		if (!p)
+			return false;
+
+		free(this->ptr->rack_id);
+		this->ptr->rack_id = p;
+		return true;
+	}
+
 	const char *get_sasl_mech() const
 	{
 		return this->ptr->mechanisms;
@@ -754,6 +769,11 @@ public:
 	{
 		return kafka_topic_partition_set_tp(topic.c_str(), partition,
 											this->ptr) == 0;
+	}
+
+	int get_preferred_read_replica() const
+	{
+		return this->ptr->preferred_read_replica;
 	}
 
 	bool set_topic(const char *topic)

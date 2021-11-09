@@ -33,3 +33,6 @@
 
 # bazel env
 bazel-*
+
+# vscode configs
+.vscode

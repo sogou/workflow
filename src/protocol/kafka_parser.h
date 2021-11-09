@@ -286,6 +286,7 @@ typedef struct __kafka_config
 	char *client_id;
 	int check_crcs;
 	int offset_store;
+	char *rack_id;
 
 	char *mechanisms;
 	char *username;
@@ -333,6 +334,7 @@ typedef struct __kafka_topic_partition
 	short error;
 	char *topic_name;
 	int partition;
+	int preferred_read_replica;
 	long long offset;
 	long long high_watermark;
 	long long low_watermark;

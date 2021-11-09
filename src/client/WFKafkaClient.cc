@@ -347,6 +347,10 @@ private:
 
 int ComplexKafkaTask::get_node_id(const KafkaToppar *toppar)
 {
+	int preferred_read_replica = toppar->get_preferred_read_replica();
+	if (preferred_read_replica >= 0)
+		return preferred_read_replica;
+
 	bool flag = false;
 	this->client_meta_list.rewind();
 	KafkaMeta *meta;

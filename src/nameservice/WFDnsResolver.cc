@@ -295,7 +295,7 @@ void WFResolverTask::dispatch()
 
 		if (addr_handle)
 		{
-			auto *route_manager = WFGlobal::get_route_manager();
+			RouteManager *route_manager = WFGlobal::get_route_manager();
 			struct addrinfo *addrinfo = addr_handle->value.addrinfo;
 			struct addrinfo first;
 
@@ -374,7 +374,7 @@ void WFResolverTask::dispatch()
 	if (client)
 	{
 		static int family = __default_family();
-		WFDnsResolver *resolver = WFGlobal::get_dns_resolver();
+		WFResourcePool *respool = WFGlobal::get_dns_respool();
 
 		if (family == AF_INET || family == AF_INET6)
 		{
@@ -386,7 +386,7 @@ void WFResolverTask::dispatch()
 			if (family == AF_INET6)
 				dns_task->get_req()->set_question_type(DNS_TYPE_AAAA);
 
-			WFConditional *cond = resolver->respool.get(dns_task);
+			WFConditional *cond = respool->get(dns_task);
 			series_of(this)->push_front(cond);
 		}
 		else
@@ -415,8 +415,8 @@ void WFResolverTask::dispatch()
 			pwork = Workflow::create_parallel_work(std::move(cb));
 			pwork->set_context(dctx);
 
-			WFConditional *cond_v4 = resolver->respool.get(task_v4);
-			WFConditional *cond_v6 = resolver->respool.get(task_v6);
+			WFConditional *cond_v4 = respool->get(task_v4);
+			WFConditional *cond_v6 = respool->get(task_v6);
 			pwork->add_series(Workflow::create_series_work(cond_v4, nullptr));
 			pwork->add_series(Workflow::create_series_work(cond_v6, nullptr));
 
@@ -473,8 +473,8 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 	}
 	else
 	{
-		auto *route_manager = WFGlobal::get_route_manager();
-		auto *dns_cache = WFGlobal::get_dns_cache();
+		RouteManager *route_manager = WFGlobal::get_route_manager();
+		DnsCache *dns_cache = WFGlobal::get_dns_cache();
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
 		const DnsCache::DnsHandle *addr_handle;
 
@@ -496,7 +496,7 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 
 void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 {
-	WFGlobal::get_dns_resolver()->respool.post(NULL);
+	WFGlobal::get_dns_respool()->post(NULL);
 
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
@@ -520,22 +520,19 @@ void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 
 void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
 {
-	WFGlobal::get_dns_resolver()->respool.post(NULL);
+	WFGlobal::get_dns_respool()->post(NULL);
 
 	struct DnsContext *ctx = (struct DnsContext *)dns_task->user_data;
+	ctx->ai = NULL;
 	ctx->state = dns_task->get_state();
 	ctx->error = dns_task->get_error();
 	if (ctx->state == WFT_STATE_SUCCESS)
 	{
-		auto *resp = dns_task->get_resp();
-		ctx->ai = NULL;
+		protocol::DnsResponse *resp = dns_task->get_resp();
 		ctx->eai_error = DnsUtil::getaddrinfo(resp, ctx->port, &ctx->ai);
 	}
 	else
-	{
 		ctx->eai_error = EAI_NONAME;
-		ctx->ai = NULL;
-	}
 }
 
 void WFResolverTask::dns_parallel_callback(const ParallelWork *pwork)
@@ -615,7 +612,7 @@ WFDnsResolver::create(const struct WFNSParams *params, int dns_cache_level,
 WFRouterTask *WFDnsResolver::create_router_task(const struct WFNSParams *params,
 												router_callback_t callback)
 {
-	const auto *settings = WFGlobal::get_global_settings();
+	const struct WFGlobalSettings *settings = WFGlobal::get_global_settings();
 	unsigned int dns_ttl_default = settings->dns_ttl_default;
 	unsigned int dns_ttl_min = settings->dns_ttl_min;
 	const struct EndpointParams *endpoint_params = &settings->endpoint_params;
@@ -623,10 +620,5 @@ WFRouterTask *WFDnsResolver::create_router_task(const struct WFNSParams *params,
 													 DNS_CACHE_LEVEL_1;
 	return create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
 				  endpoint_params, std::move(callback));
-}
-
-WFDnsResolver::WFDnsResolver() :
-	respool(WFGlobal::get_global_settings()->dns_server_params.max_connections)
-{
 }
 

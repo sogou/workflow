@@ -30,6 +30,7 @@
 #include "RouteManager.h"
 #include "Executor.h"
 #include "EndpointParams.h"
+#include "WFResourcePool.h"
 #include "WFNameService.h"
 #include "WFDnsResolver.h"
 #include "EndpointParams.h"
@@ -94,7 +95,8 @@ public:
 	 * @param[in]  port             default port value
 	 * @warning    No effect when scheme is "http"/"https"/"redis"/"rediss"/"mysql"/"kafka"
 	 */
-	static void register_scheme_port(const std::string& scheme, unsigned short port);
+	static void register_scheme_port(const std::string& scheme,
+									 unsigned short port);
 	/**
 	 * @brief      get default port string for one scheme string
 	 * @param[in]  scheme           scheme string
@@ -108,27 +110,59 @@ public:
 	 * @return     current global settings const pointer
 	 * @note       returnval never NULL
 	 */
-	static const struct WFGlobalSettings *get_global_settings();
+	static const struct WFGlobalSettings *get_global_settings()
+	{
+		return &settings_;
+	}
+
+	static void set_global_settings(const struct WFGlobalSettings *settings)
+	{
+		settings_ = *settings;
+	}
 
 	static const char *get_error_string(int state, int error);
 
 	// Internal usage only
 public:
 	static class CommScheduler *get_scheduler();
-	static class DnsCache *get_dns_cache();
-	static class RouteManager *get_route_manager();
 	static class ExecQueue *get_exec_queue(const std::string& queue_name);
 	static class Executor *get_compute_executor();
 	static class IOService *get_io_service();
 	static class ExecQueue *get_dns_queue();
 	static class Executor *get_dns_executor();
-	static class WFNameService *get_name_service();
-	static class WFDnsResolver *get_dns_resolver();
 	static class WFDnsClient *get_dns_client();
+	static class WFResourcePool *get_dns_respool();
+
+	static class RouteManager *get_route_manager()
+	{
+		return &route_manager_;
+	}
+
+	static class DnsCache *get_dns_cache()
+	{
+		return &dns_cache_;
+	}
+
+	static class WFDnsResolver *get_dns_resolver()
+	{
+		return &dns_resolver_;
+	}
+
+	static class WFNameService *get_name_service()
+	{
+		return &name_service_;
+	}
 
 public:
 	static void sync_operation_begin();
 	static void sync_operation_end();
+
+private:
+	static struct WFGlobalSettings settings_;
+	static RouteManager route_manager_;
+	static DnsCache dns_cache_;
+	static WFDnsResolver dns_resolver_;
+	static WFNameService name_service_;
 };
 
 #endif

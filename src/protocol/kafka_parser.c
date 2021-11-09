@@ -344,6 +344,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->client_id = NULL;
 	conf->check_crcs = 0;
 	conf->offset_store = KAFKA_OFFSET_AUTO;
+	conf->rack_id = NULL;
 	conf->mechanisms = NULL;
 	conf->username = NULL;
 	conf->password = NULL;
@@ -355,6 +356,7 @@ void kafka_config_deinit(kafka_config_t *conf)
 {
 	free(conf->broker_version);
 	free(conf->client_id);
+	free(conf->rack_id);
 	free(conf->mechanisms);
 	free(conf->username);
 	free(conf->password);
@@ -439,6 +441,7 @@ void kafka_topic_partition_init(kafka_topic_partition_t *toppar)
 	toppar->error = KAFKA_NONE;
 	toppar->topic_name = NULL;
 	toppar->partition = -1;
+	toppar->preferred_read_replica = -1;
 	toppar->offset = -1;
 	toppar->high_watermark = -1;
 	toppar->low_watermark = -2;

@@ -123,7 +123,7 @@ void pread_callback(WFFileIOTask *task)
     long ret = task->get_retval();
     HttpResponse *resp = (HttpResponse *)task->user_data;
 
-    /* Close fd only when you use the **fd** interface to create a file io task. */
+    /* close fd only when you created File IO task with **fd** interface. */
     close(args->fd);
     if (ret < 0)
     {
@@ -134,7 +134,7 @@ void pread_callback(WFFileIOTask *task)
         resp->append_output_body_nocopy(args->buf, ret);
 }
 ~~~
-文件任务的get_args()得到输入参数，这里是FileIOArgs结构。  
+文件任务的get_args()得到输入参数，这里是FileIOArgs结构，如果是用文件路径名创建的文件任务，其中的fd域等于-1。  
 get_retval()是操作的返回值。当ret < 0, 任务错误。否则ret为读取到数据的大小。  
 在文件任务里，ret < 0与task->get_state() != WFT_STATE_SUCCESS完全等价。  
 buf域的内存我们是自己管理的，可以通过append_output_body_nocopy()传给resp。  

@@ -49,9 +49,6 @@ public:
 		*addrlen = this->addrlen;
 	}
 
-	int get_connect_timeout() const { return this->connect_timeout; }
-	int get_response_timeout() const { return this->response_timeout; }
-
 private:
 	virtual int create_connect_fd()
 	{
@@ -124,10 +121,6 @@ private:
 	virtual int keep_alive_timeout() { return 0; }
 	virtual int first_timeout() { return 0; }	/* for client session only. */
 	virtual void handle(int state, int error) = 0;
-
-private:
-	virtual int connect_timeout() { return this->target->connect_timeout; }
-	virtual int response_timeout() { return this->target->response_timeout; }
 
 protected:
 	CommTarget *get_target() const { return this->target; }

@@ -99,11 +99,17 @@ public:
     static WFFileIOTask *create_pwrite_task(int fd, void *buf, size_t count, off_t offset,
                                             fio_callback_t callback);
     ...
+
+    /* Interface with file path name */
+	static WFFileIOTask *create_pread_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+                                           fio_callback_t callback);
+
+    static WFFileIOTask *create_pwrite_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+                                            fio_callback_t callback);  
 };
 ~~~
 无论是pread还是pwrite，返回的都是WFFileIOTask。这与不区分sort或psort，不区分client或server task是一个道理。  
 除这两个接口还有preadv和pwritev，返回WFFileVIOTask，以及fsync，fdsync，返回WFFileSyncTask。可以在头文件里查看。  
-目前我们这套接口需要用户自行打开关闭fd，我们正在研发一套文件管理，将来用户只需要传入文件名，对跨平台更友好。  
 示例用了task的user_data域保存服务的全局数据。但对于大服务，我们推荐使用series context。可以参考前面的[proxy示例](../tutorial/tutorial-05-http_proxy.cc)。
 
 # 处理读文件结果
@@ -117,6 +123,7 @@ void pread_callback(WFFileIOTask *task)
     long ret = task->get_retval();
     HttpResponse *resp = (HttpResponse *)task->user_data;
 
+    /* Close fd only when you use the **fd** interface to create a file io task. */
     close(args->fd);
     if (ret < 0)
     {

@@ -117,7 +117,6 @@ public:
 
 Both pread and pwrite return WFFileIOTask. We do not distinguish between sort and psort, and we do not distinguish between client and server task. They all follow the same principle.   
 In addition to these two interfaces, preadv and pwritev return WFFileVIOTask; fsync and fdsync return WFFileSyncTask. You can see the details in the header file.   
-Currently, our interface requires users to open and close fd by themselves. We are developing a set of file management interfaces. In the future, users only need to pass file names, which is more friendly to cross-platform applications.   
 The example uses the user\_data field of the task to save the global data of the service. For larger services, we recommend to use series context. You can see the [proxy examples](/tutorial/tutorial-05-http_proxy.cc) for details.
 
 # Handling file reading results

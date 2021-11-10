@@ -534,7 +534,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 			data.operation = PD_OP_CONNECT;
 			data.handle = (HANDLE)entry->sockfd;
 			data.context = new_ctx;
-			if (this->poller->put_io(&data, session->connect_timeout()) >= 0)
+			if (this->poller->put_io(&data, session->target->connect_timeout) >= 0)
 				return 0;
 
 			delete new_ctx;
@@ -1905,7 +1905,7 @@ int Communicator::first_timeout_recv(CommSession *session)
 
 int Communicator::first_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 
 	if (timeout < 0 || (unsigned int)session->timeout <= (unsigned int)timeout)
 	{
@@ -1920,7 +1920,7 @@ int Communicator::first_timeout(CommSession *session)
 
 int Communicator::next_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 	int64_t cur_time;
 	int time_used, time_left;
 

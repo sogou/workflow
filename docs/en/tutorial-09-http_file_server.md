@@ -105,7 +105,13 @@ public:
 
     static WFFileIOTask *create_pwrite_task(int fd, void *buf, size_t count, off_t offset,
                                             fio_callback_t callback);
-    ...
+
+    /* Interface with file path name */
+	static WFFileIOTask *create_pread_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+                                           fio_callback_t callback);
+
+    static WFFileIOTask *create_pwrite_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+                                            fio_callback_t callback);  
 };
 ~~~
 
@@ -125,6 +131,7 @@ void pread_callback(WFFileIOTask *task)
     long ret = task->get_retval();
     HttpResponse *resp = (HttpResponse *)task->user_data;
 
+    /* close fd only when you created File IO task with **fd** interface. */
     close(args->fd);
     if (ret < 0)
     {
@@ -136,7 +143,7 @@ void pread_callback(WFFileIOTask *task)
 }
 ~~~
 
-Use **get\_args()** of the file task to get the input parameters. Here it is a FileIOArgs struct.   
+Use **get\_args()** of the file task to get the input parameters. Here it is a FileIOArgs struct, and it's **fd** field will be -1 if the task was created with **pathname**.   
 Use **get\_retval()** to get the return value of the operation. If ret < 0, the task fails. Otherwise, the ret is the size of the read data.   
 In the file task, ret < 0 and task->get\_state()! = WFT\_STATE\_SUCCESS are completely equivalent.   
 The memory of the buf domain is managed by ourselves. You can use  **append\_output\_body\_nocopy()** to pass that memory to resp.   

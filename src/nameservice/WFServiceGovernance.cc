@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <vector>
@@ -162,6 +163,10 @@ void WFServiceGovernance::tracing_deleter(void *data)
 bool WFServiceGovernance::in_select_history(WFNSTracing *tracing,
 											EndpointAddress *addr)
 {
+	/* 'tracing' is NULL in consistent hash. */
+	if (!tracing)
+		return false;
+
 	struct TracingData *tracing_data = (struct TracingData *)tracing->data;
 
 	if (!tracing_data)

@@ -284,18 +284,6 @@ protected:
 	virtual int keep_alive_timeout() { return this->keep_alive_timeo; }
 
 protected:
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-		return series->pop();
-	}
-
-protected:
 	int send_timeo;
 	int receive_timeo;
 	int keep_alive_timeo;

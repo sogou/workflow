@@ -453,8 +453,8 @@ public:
 	void set_idle_timeout(int timeout) { this->idle_timeout = timeout; }
 	void set_size_limit(size_t size_limit) { this->size_limit = size_limit; }
 
-	void set_sec_protocol(std::string& protocol) { this->sec_protocol = protocol; }
-	void set_sec_version(std::string& version) { this->sec_version = version; }
+	void set_sec_protocol(const char *protocol) { this->sec_protocol = protocol; }
+	void set_sec_version(const char *version) { this->sec_version = version; }
 
 	const char *get_sec_protocol() const { return this->sec_protocol.c_str(); }
 	const char *get_sec_version() const { return this->sec_version.c_str(); }

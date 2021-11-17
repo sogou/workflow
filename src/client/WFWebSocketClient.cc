@@ -33,19 +33,29 @@ WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 
 int WebSocketClient::init(const std::string& url)
 {
+	struct WFWebSocketParams params = WEBSOCKET_PARAMS_DEFAULT;
+	params.url = url.c_str();
+	return this->init(&params);
+}
+
+int WebSocketClient::init(const struct WFWebSocketParams *params)
+{
 	ParsedURI uri;
-	if (URIParser::parse(url, uri) < 0)
+	if (URIParser::parse(params->url, uri) < 0)
 		return -1;
 
 	this->channel = new ComplexWebSocketChannel(NULL,
 												WFGlobal::get_scheduler(),
-												this->params.random_masking_key,
+												params->random_masking_key,
 												std::move(process));
 	this->channel->set_uri(uri);
-	this->channel->set_idle_timeout(this->params.idle_timeout);
-	this->channel->set_size_limit(this->params.size_limit);
-	this->channel->set_sec_protocol(this->sec_protocol);
-	this->channel->set_sec_version(this->sec_version);
+	this->channel->set_idle_timeout(params->idle_timeout);
+	this->channel->set_size_limit(params->size_limit);
+
+	if (params->sec_protocol)
+		this->channel->set_sec_protocol(params->sec_protocol);
+	if (params->sec_version)
+	this->channel->set_sec_version(params->sec_version);
 
 	this->channel->set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
 	{
@@ -101,17 +111,5 @@ WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 	msg->set_masking_key(this->channel->gen_masking_key());
 
 	return close_task;
-}
-
-WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
-								 websocket_process_t process) :
-	process(std::move(process))
-{
-	this->params = *params;
-
-	if (params->sec_protocol)
-		this->sec_protocol = params->sec_protocol;
-	if (params->sec_version)
-		this->sec_version = params->sec_version;
 }
 

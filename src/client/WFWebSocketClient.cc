@@ -41,9 +41,11 @@ int WebSocketClient::init(const std::string& url)
 												WFGlobal::get_scheduler(),
 												this->params.random_masking_key,
 												std::move(process));
+	this->channel->set_uri(uri);
 	this->channel->set_idle_timeout(this->params.idle_timeout);
 	this->channel->set_size_limit(this->params.size_limit);
-	this->channel->set_uri(uri);
+	this->channel->set_sec_protocol(this->sec_protocol);
+	this->channel->set_sec_version(this->sec_version);
 
 	this->channel->set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
 	{
@@ -106,5 +108,10 @@ WebSocketClient::WebSocketClient(const struct WFWebSocketParams *params,
 	process(std::move(process))
 {
 	this->params = *params;
+
+	if (params->sec_protocol)
+		this->sec_protocol = params->sec_protocol;
+	if (params->sec_version)
+		this->sec_version = params->sec_version;
 }
 

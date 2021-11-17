@@ -23,9 +23,7 @@
 #define WS_HTTP_SEC_KEY_K		"Sec-WebSocket-Key"
 #define WS_HTTP_SEC_KEY_V		"dGhlIHNhbXBsZSBub25jZQ=="
 #define WS_HTTP_SEC_PROTOCOL_K	"Sec-WebSocket-Protocol"
-#define WS_HTTP_SEC_PROTOCOL_V	"chat"
 #define WS_HTTP_SEC_VERSION_K	"Sec-WebSocket-Version"
-#define WS_HTTP_SEC_VERSION_V	"13"
 
 using namespace protocol;
 
@@ -158,8 +156,11 @@ SubTask *ComplexWebSocketOutTask::upgrade()
 	req->add_header_pair("Upgrade", "websocket");
 	req->add_header_pair("Connection", "Upgrade");
 	req->add_header_pair(WS_HTTP_SEC_KEY_K, WS_HTTP_SEC_KEY_V);
-	req->add_header_pair(WS_HTTP_SEC_PROTOCOL_K, WS_HTTP_SEC_PROTOCOL_V);
-	req->add_header_pair(WS_HTTP_SEC_VERSION_K, WS_HTTP_SEC_VERSION_V);
+
+	if (channel->get_sec_protocol())
+		req->add_header_pair(WS_HTTP_SEC_PROTOCOL_K, channel->get_sec_protocol());
+	if (channel->get_sec_version())
+		req->add_header_pair(WS_HTTP_SEC_VERSION_K, channel->get_sec_version());
 
 	return http_task;
 }

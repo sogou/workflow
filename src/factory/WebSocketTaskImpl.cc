@@ -132,15 +132,25 @@ SubTask *ComplexWebSocketOutTask::upgrade()
 
 	auto *http_task = new WFChannelOutTask<HttpRequest>(this->channel,
 														WFGlobal::get_scheduler(),
-														[this](WFChannelTask<HttpRequest> *task)
+														[this](WFChannelTask<HttpRequest> *upgrade_task)
 	{
-		if (task->get_state() == WFT_STATE_SYS_ERROR)
-		{
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = task->get_error();
-		}
+		WFMailboxTask *waiter;
+		ComplexWebSocketChannel *channel;
+		channel = (ComplexWebSocketChannel *)this->get_request_channel();
 
-		this->ready = true;
+		if (upgrade_task->get_state() == WFT_STATE_SUCCESS)
+		{
+			waiter = WFCondTaskFactory::create_wait_task(&channel->condition,
+														 nullptr);
+			series_of(upgrade_task)->push_front(waiter);
+			this->ready = true;
+		}
+		else
+		{
+			channel->set_state(WFT_STATE_SYS_ERROR);
+			this->state = upgrade_task->get_state();
+			this->error = upgrade_task->get_error();
+		}
 	});
 
 	if (uri->path && uri->path[0])

@@ -85,7 +85,7 @@ public:
 
 #### 2. masking_key
 
-**WebSocket**协议的文本和二进制数据都需要经过一个掩码加密，可以通过``void set_masking_key(uint32_t masking_key)``手动指定，框架自动随机生成的功能正在开发中，很快可以投入使用。
+**WebSocket**协议的文本和二进制数据都需要经过一个掩码加密，默认框架会随机生成，也可以通过``void set_masking_key(uint32_t masking_key)``手动指定。
 
 #### 3. data
 
@@ -172,16 +172,26 @@ wait_group.wait();
 
 # websocket_cli的参数
 
-``WebSocketClient``的构造函数有两个，除了刚才介绍的传入``process()``函数的接口以外，还可以传入client的参数：
+``WebSocketClient``的init函数有两个，除了刚才介绍的传入URL函数的接口以外，还可以传入client的参数：
 
 ```cpp
 class WebSocketClient
 {
 public:
-    WebSocketClient(const struct WFWebSocketParams *params,
-                    websocket_process_t process);
-    WebSocketClient(websocket_process_t process);
+    int init(const std::string& url);
+    int init(const struct WFWebSocketParams *params);
     ...
+```
+
+使用时记得用默认参数初始化一下：
+```cpp
+struct WFWebSocketParams params = WEBSOCKET_PARAMS_DEFAULT;
+params.url = "ws://127.0.0.1:80";
+params.sec_protocol = "chat";
+                                                         
+WebSocketClient client(process);
+client.init(&params);
+...
 ```
 
 其中，参数的定义如下：
@@ -189,14 +199,17 @@ public:
 ```cpp
 struct WFWebSocketParams
 {
+    const char *url;         // 目标URL
     int idle_timeout;        // client保持长连接的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：10s
     int ping_interval;       // client自动发ping的时间间隔，用于做心跳，保持与远端的连接。默认：-1，不自动发ping(功能开发中)
     size_t size_limit;       // 每个数据包的大小限制，超过的话会拿到错误码1009(WSStatusCodeTooLarge)。默认：不限制
-    bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：不自动生成(功能开发中)
+    bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：自动生成
+    const char *sec_protocol;// 应用层的Sec-Websocket-Protocol字段
+    const char *sec_version; // 应用层的Sec-Websocket-Version字段
 };
 ```
 
-如果不传入参数，会使用默认参数来构造client。
+如果只使用URL调用init()，则会使用默参数。
 
 # 进阶版：注意事项！
 

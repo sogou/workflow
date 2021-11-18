@@ -28,39 +28,44 @@
 
 struct WFWebSocketParams
 {
+	const char *url;
 	int idle_timeout;
 	int ping_interval;
 	size_t size_limit;
 	bool random_masking_key;
+	const char *sec_protocol;
+	const char *sec_version;
 };
 
 static constexpr struct WFWebSocketParams WEBSOCKET_PARAMS_DEFAULT =
 {
+	.url				=	NULL,
 	.idle_timeout		=	WS_HANDSHAKE_TIMEOUT,
 	.ping_interval		=	-1,
 	.size_limit			=	(size_t)-1,
 	.random_masking_key	=	true,
+	.sec_protocol		=	NULL,
+	.sec_version		=	NULL,
 };
 
 class WebSocketClient
 {
 public:
 	int init(const std::string& url);
+	int init(const struct WFWebSocketParams *params);
+	void deinit();
+
 	WFWebSocketTask *create_websocket_task(websocket_callback_t cb);
 	WFWebSocketTask *create_ping_task(websocket_callback_t cb);
 	WFWebSocketTask *create_close_task(websocket_callback_t cb);
-	void deinit();
 
 private:
 	ComplexWebSocketChannel *channel;
-	struct WFWebSocketParams params;
 	websocket_process_t process;
 
 public:
-	WebSocketClient(const struct WFWebSocketParams *params,
-					websocket_process_t process);
 	WebSocketClient(websocket_process_t process) :
-		WebSocketClient(&WEBSOCKET_PARAMS_DEFAULT, std::move(process))
+		process(std::move(process))
 	{ }
 };
 

@@ -64,8 +64,11 @@ int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 													 upstream_route_t consistent_hash)
 {
 	auto *ns = WFGlobal::get_name_service();
-	UPSConsistentHashPolicy *policy = new UPSConsistentHashPolicy(std::move(consistent_hash));
-
+	UPSConsistentHashPolicy *policy;
+	
+	policy = new UPSConsistentHashPolicy(
+				consistent_hash ? std::move(consistent_hash) :
+								  UpstreamManager::default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
 		__UpstreamManager::get_instance()->add_policy_name(name);
@@ -110,12 +113,14 @@ int UpstreamManager::upstream_create_vswrr(const std::string& name)
 int UpstreamManager::upstream_create_manual(const std::string& name,
 											upstream_route_t select,
 											bool try_another,
-											upstream_route_t consitent_hash)
+											upstream_route_t consistent_hash)
 {
 	auto *ns = WFGlobal::get_name_service();
-	UPSManualPolicy *policy = new UPSManualPolicy(try_another,
-												  std::move(select),
-												  std::move(consitent_hash));
+	UPSManualPolicy *policy;
+
+	policy = new UPSManualPolicy(try_another, std::move(select),
+				consistent_hash ? std::move(consistent_hash) :
+								  UpstreamManager::default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
 		__UpstreamManager::get_instance()->add_policy_name(name);

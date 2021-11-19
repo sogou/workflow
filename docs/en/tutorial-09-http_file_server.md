@@ -105,13 +105,18 @@ public:
 
     static WFFileIOTask *create_pwrite_task(int fd, void *buf, size_t count, off_t offset,
                                             fio_callback_t callback);
-    ...
+
+    /* Interface with file path name */
+	static WFFileIOTask *create_pread_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+                                           fio_callback_t callback);
+
+    static WFFileIOTask *create_pwrite_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+                                            fio_callback_t callback);  
 };
 ~~~
 
 Both pread and pwrite return WFFileIOTask. We do not distinguish between sort and psort, and we do not distinguish between client and server task. They all follow the same principle.   
 In addition to these two interfaces, preadv and pwritev return WFFileVIOTask; fsync and fdsync return WFFileSyncTask. You can see the details in the header file.   
-Currently, our interface requires users to open and close fd by themselves. We are developing a set of file management interfaces. In the future, users only need to pass file names, which is more friendly to cross-platform applications.   
 The example uses the user\_data field of the task to save the global data of the service. For larger services, we recommend to use series context. You can see the [proxy examples](/tutorial/tutorial-05-http_proxy.cc) for details.
 
 # Handling file reading results
@@ -125,6 +130,7 @@ void pread_callback(WFFileIOTask *task)
     long ret = task->get_retval();
     HttpResponse *resp = (HttpResponse *)task->user_data;
 
+    /* close fd only when you created File IO task with **fd** interface. */
     close(args->fd);
     if (ret < 0)
     {
@@ -136,7 +142,7 @@ void pread_callback(WFFileIOTask *task)
 }
 ~~~
 
-Use **get\_args()** of the file task to get the input parameters. Here it is a FileIOArgs struct.   
+Use **get\_args()** of the file task to get the input parameters. Here it is a FileIOArgs struct, and it's **fd** field will be -1 if the task was created with **pathname**.   
 Use **get\_retval()** to get the return value of the operation. If ret < 0, the task fails. Otherwise, the ret is the size of the read data.   
 In the file task, ret < 0 and task->get\_state()! = WFT\_STATE\_SUCCESS are completely equivalent.   
 The memory of the buf domain is managed by ourselves. You can use  **append\_output\_body\_nocopy()** to pass that memory to resp.   

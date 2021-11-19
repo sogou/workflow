@@ -47,27 +47,10 @@ public:
 	using DnsHandle = LRUHandle<HostPort, DnsCacheValue>;
 
 public:
-	// release handle by get/put
-	void release(DnsHandle *handle)
-	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		cache_pool_.release(handle);
-	}
-
-	void release(const DnsHandle *handle)
-	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		cache_pool_.release(handle);
-	}
-
 	// get handler
 	// Need call release when handle no longer needed
 	//Handle *get(const KEY &key);
-	const DnsHandle *get(const HostPort& host_port)
-	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		return cache_pool_.get(host_port);
-	}
+	const DnsHandle *get(const HostPort& host_port);
 
 	const DnsHandle *get(const std::string& host, unsigned short port)
 	{
@@ -132,12 +115,11 @@ public:
 		return put(std::string(host), port, addrinfo, dns_ttl_default, dns_ttl_min);
 	}
 
+	// release handle by get/put
+	void release(const DnsHandle *handle);
+
 	// delete from cache, deleter delay called when all inuse-handle release.
-	void del(const HostPort& key)
-	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		cache_pool_.del(key);
-	}
+	void del(const HostPort& key);
 
 	void del(const std::string& host, unsigned short port)
 	{
@@ -169,6 +151,11 @@ private:
 	};
 
 	LRUCache<HostPort, DnsCacheValue, ValueDeleter> cache_pool_;
+
+public:
+	// To prevent inline calling LRUCache's constructor and deconstructor.
+	DnsCache();
+	~DnsCache();
 };
 
 #endif

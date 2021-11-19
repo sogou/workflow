@@ -225,7 +225,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::clear_prev_state()
 	route_result_.clear();
 	if (tracing_.deleter)
 	{
-		tracing_.deleter(this->tracing_.data);
+		tracing_.deleter(tracing_.data);
 		tracing_.deleter = NULL;
 	}
 	tracing_.data = NULL;
@@ -308,7 +308,10 @@ template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
 	if (redirect_)
+	{
 		clear_prev_state();
+		ns_policy_ = WFGlobal::get_dns_resolver();
+	}
 
 	if (uri_.state == URI_STATE_SUCCESS)
 	{
@@ -409,6 +412,12 @@ void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
 		{
 			this->state = WFT_STATE_SSL_ERROR;
 			this->error = -this->error;
+		}
+
+		if (tracing_.deleter)
+		{
+			tracing_.deleter(tracing_.data);
+			tracing_.deleter = NULL;
 		}
 
 		if (this->callback)

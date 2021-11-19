@@ -190,8 +190,8 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 	if (select_addr)
 	{
-		*addr = (EndpointAddress *)select_addr;
-		++(*addr)->ref;
+		*addr = select_addr;
+		++select_addr->ref;
 	}
 
 	pthread_rwlock_unlock(&this->rwlock);
@@ -345,16 +345,24 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 
 int UPSGroupPolicy::remove_server_locked(const std::string& address)
 {
-	UPSAddrParams *params;
-	std::vector<EndpointAddress *> remove_list;
-
 	const auto map_it = this->server_map.find(address);
+	size_t n = this->servers.size();
+	size_t new_n = 0;
+	int ret = 0;
+
+	for (size_t i = 0; i < n; i++)
+	{
+		if (this->servers[i]->address != address)
+			this->servers[new_n++] = this->servers[i];
+	}
+
+	this->servers.resize(new_n);
 
 	if (map_it != this->server_map.cend())
 	{
 		for (EndpointAddress *addr : map_it->second)
 		{
-			params = static_cast<UPSAddrParams *>(addr->params);
+			UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
 			EndpointGroup *group = params->group;
 			std::vector<EndpointAddress *> *vec;
 
@@ -365,11 +373,6 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 
 			//std::lock_guard<std::mutex> lock(group->mutex);
 			pthread_mutex_lock(&group->mutex);
-			if (addr->fail_count < params->max_fails)
-				this->fuse_one_server(addr);
-			else
-				this->remove_server_from_breaker(addr);
-
 			if (params->server_type == 0)
 				group->weight -= params->weight;
 
@@ -383,38 +386,17 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 			}
 
 			this->server_list_change(addr, REMOVE_SERVER);
-			remove_list.push_back(addr);
+			if (--addr->ref == 0)
+			{
+				this->pre_delete_server(addr);
+				delete addr;
+			}
+
 			pthread_mutex_unlock(&group->mutex);
+			ret++;
 		}
 
 		this->server_map.erase(map_it);
-	}
-
-	size_t n = this->servers.size();
-	size_t new_n = 0;
-
-	for (size_t i = 0; i < n; i++)
-	{
-		if (this->servers[i]->address != address)
-		{
-			if (new_n != i)
-				this->servers[new_n++] = this->servers[i];
-			else
-				new_n++;
-		}
-	}
-
-	int ret = 0;
-	if (new_n < n)
-	{
-		this->servers.resize(new_n);
-		ret = n - new_n;
-	}
-
-	for (EndpointAddress *server : remove_list)
-	{
-		if (--server->ref == 0)
-			delete server;
 	}
 
 	return ret;
@@ -483,26 +465,15 @@ int UPSWeightedRandomPolicy::remove_server_locked(const std::string& address)
 
 int UPSWeightedRandomPolicy::select_history_weight(WFNSTracing *tracing)
 {
-	if (!tracing || !tracing->data)
+	struct TracingData *tracing_data = (struct TracingData *)tracing->data;
+
+	if (!tracing_data)
 		return 0;
 
-	UPSAddrParams *params;
-
-	if (!tracing->deleter)
-	{
-		auto *server = (EndpointAddress *)tracing->data;
-		params = (UPSAddrParams *)server->params;
-		return params->weight;
-	}
-
 	int ret = 0;
-	auto *v = (std::vector<EndpointAddress *> *)(tracing->data);
 
-	for (auto *server : (*v))
-	{
-		params = (UPSAddrParams *)server->params;
-		ret += params->weight;
-	}
+	for (EndpointAddress *server : tracing_data->history)
+		ret += ((UPSAddrParams *)server->params)->weight;
 
 	return ret;
 }

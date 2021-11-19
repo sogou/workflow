@@ -73,6 +73,24 @@ protected:
 		return NULL;
 	}
 
+protected:
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+
+		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
+		{
+			this->state = WFT_STATE_SSL_ERROR;
+			this->error = -this->error;
+		}
+
+		if (this->callback)
+			this->callback(this);
+
+		delete this;
+		return series->pop();
+	}
+
 public:
 	void set_prepare(std::function<void (WFNetworkTask<REQ, RESP> *)> prep)
 	{
@@ -102,6 +120,20 @@ protected:
 	virtual void handle(int state, int error);
 
 protected:
+	/* CommSession::get_connection() is supposed to be called only in the
+	 * implementations of it's virtual functions. As a server task, to call
+	 * this function after process() and before callback() is very dangerous
+	 * and should be blocked. */
+	virtual WFConnection *get_connection() const
+	{
+		if (this->processor.task)
+			return (WFConnection *)this->CommSession::get_connection();
+
+		errno = EPERM;
+		return NULL;
+	}
+
+protected:
 	virtual void dispatch()
 	{
 		if (this->state == WFT_STATE_TOREPLY)
@@ -119,21 +151,22 @@ protected:
 		this->subtask_done();
 	}
 
-	/* CommSession::get_connection() is supposed to be called only in the
-	 * implementations of it's virtual functions. As a server task, to call
-	 * this function after process() and before callback() is very dangerous
-	 * and should be blocked. */
-	virtual WFConnection *get_connection() const
+	virtual SubTask *done()
 	{
-		if (this->processor.task)
-			return (WFConnection *)this->CommSession::get_connection();
+		SeriesWork *series = series_of(this);
 
-		errno = EPERM;
-		return NULL;
+		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
+		{
+			this->state = WFT_STATE_SSL_ERROR;
+			this->error = -this->error;
+		}
+
+		if (this->callback)
+			this->callback(this);
+
+		/* Defer deleting the task. */
+		return series->pop();
 	}
-
-protected:
-	CommService *service;
 
 protected:
 	class Processor : public SubTask
@@ -169,17 +202,15 @@ protected:
 			SeriesWork(&task->processor, nullptr)
 		{
 			this->set_last_task(task);
-			this->service = task->service;
-			this->service->incref();
+			this->task = task;
 		}
 
 		virtual ~Series()
 		{
-			this->callback = nullptr;
-			this->service->decref();
+			delete this->task;
 		}
 
-		CommService *service;
+		WFServerTask<REQ, RESP> *task;
 	};
 
 public:
@@ -188,7 +219,6 @@ public:
 		WFNetworkTask<REQ, RESP>(NULL, scheduler, nullptr),
 		processor(this, proc)
 	{
-		this->service = service;
 	}
 
 protected:

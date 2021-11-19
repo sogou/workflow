@@ -305,7 +305,7 @@ CommSession::~CommSession()
 
 inline int Communicator::first_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 
 	if (timeout < 0 || (unsigned int)session->timeout <= (unsigned int)timeout)
 	{
@@ -321,7 +321,7 @@ inline int Communicator::first_timeout(CommSession *session)
 
 int Communicator::next_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 	struct timespec cur_time;
 	int time_used, time_left;
 
@@ -1520,7 +1520,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 			data.fd = entry->sockfd;
 			data.ssl = NULL;
 			data.context = entry;
-			timeout = session->connect_timeout();
+			timeout = session->target->connect_timeout;
 			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
 				break;
 

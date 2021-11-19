@@ -14,10 +14,11 @@
   limitations under the License.
 
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
-#ifndef _SERVICE_GOVERNANCE_H_
-#define _SERVICE_GOVERNANCE_H_
+#ifndef _WFSERVICEGOVERNANCE_H_
+#define _WFSERVICEGOVERNANCE_H_
 
 #include <pthread.h>
 #include <unordered_map>
@@ -85,7 +86,7 @@ public:
 	std::string host;
 	std::string port;
 	unsigned int fail_count;
-	unsigned int ref;
+	std::atomic<int> ref;
 	long long broken_timeout;
 	PolicyAddrParams *params;
 
@@ -173,7 +174,14 @@ protected:
 	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
 											  WFNSTracing *tracing);
 	void check_breaker();
-	void remove_server_from_breaker(EndpointAddress *addr);
+	void pre_delete_server(EndpointAddress *addr);
+
+	struct TracingData
+	{
+		std::vector<EndpointAddress *> history;
+		WFServiceGovernance *sg;
+	};
+
 	static void tracing_deleter(void *data);
 
 	std::vector<EndpointAddress *> servers;

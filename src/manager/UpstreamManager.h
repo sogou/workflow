@@ -21,7 +21,6 @@
 
 #include <string>
 #include <vector>
-#include <functional>
 #include "WFServiceGovernance.h"
 #include "UpstreamPolicies.h"
 #include "WFGlobal.h"
@@ -202,18 +201,6 @@ public:
 									   const std::string& address,
 									   const struct AddressParams *address_params);
 
-private:
-	static unsigned int default_consistent_hash(const char *path,
-												const char *query,
-												const char *fragment)
-	{
-		static std::hash<std::string> std_hash;
-		std::string str(path);
-
-		str += query;
-		str += fragment;
-		return std_hash(str);
-	}
 };
 
 #endif

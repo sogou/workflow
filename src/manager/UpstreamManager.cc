@@ -17,6 +17,7 @@
 */
 
 #include <pthread.h>
+#include <functional>
 #include "UpstreamManager.h"
 #include "WFNameService.h"
 #include "WFGlobal.h"
@@ -60,15 +61,27 @@ private:
 	std::vector<std::string> upstream_names;
 };
 
+static unsigned int __default_consistent_hash(const char *path,
+											  const char *query,
+											  const char *fragment)
+{
+	static std::hash<std::string> std_hash;
+	std::string str(path);
+
+	str += query;
+	str += fragment;
+	return std_hash(str);
+}
+
 int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 													 upstream_route_t consistent_hash)
 {
 	auto *ns = WFGlobal::get_name_service();
 	UPSConsistentHashPolicy *policy;
-	
+
 	policy = new UPSConsistentHashPolicy(
-				consistent_hash ? std::move(consistent_hash) :
-								  UpstreamManager::default_consistent_hash);
+						consistent_hash ? std::move(consistent_hash) :
+										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
 		__UpstreamManager::get_instance()->add_policy_name(name);
@@ -119,8 +132,8 @@ int UpstreamManager::upstream_create_manual(const std::string& name,
 	UPSManualPolicy *policy;
 
 	policy = new UPSManualPolicy(try_another, std::move(select),
-				consistent_hash ? std::move(consistent_hash) :
-								  UpstreamManager::default_consistent_hash);
+						consistent_hash ? std::move(consistent_hash) :
+										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
 		__UpstreamManager::get_instance()->add_policy_name(name);

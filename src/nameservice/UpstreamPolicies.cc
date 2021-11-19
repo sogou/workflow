@@ -635,16 +635,10 @@ int UPSVNSWRRPolicy::remove_server_locked(const std::string& address)
 EndpointAddress *UPSConsistentHashPolicy::first_strategy(const ParsedURI& uri,
 														 WFNSTracing *tracing)
 {
-	unsigned int hash_value;
-
-	if (this->consistent_hash)
-		hash_value = this->consistent_hash(uri.path ? uri.path : "",
-										   uri.query ? uri.query : "",
-										   uri.fragment ? uri.fragment : "");
-	else
-		hash_value = this->default_consistent_hash(uri.path ? uri.path : "",
-												   uri.query ? uri.query : "",
-												   uri.fragment ? uri.fragment : "");
+	unsigned int hash_value = this->consistent_hash(
+										uri.path ? uri.path : "",
+										uri.query ? uri.query : "",
+										uri.fragment ? uri.fragment : "");
 	return this->consistent_hash_with_group(hash_value);
 }
 
@@ -664,16 +658,10 @@ EndpointAddress *UPSManualPolicy::first_strategy(const ParsedURI& uri,
 EndpointAddress *UPSManualPolicy::another_strategy(const ParsedURI& uri,
 												   WFNSTracing *tracing)
 {
-	unsigned int hash_value;
-
-	if (this->try_another_select)
-		hash_value = this->try_another_select(uri.path ? uri.path : "",
-											  uri.query ? uri.query : "",
-											  uri.fragment ? uri.fragment : "");
-	else
-		hash_value = UPSConsistentHashPolicy::default_consistent_hash(uri.path ? uri.path : "",
-																   uri.query ? uri.query : "",
-																   uri.fragment ? uri.fragment : "");
+	unsigned int hash_value = this->another_select(
+										uri.path ? uri.path : "",
+										uri.query ? uri.query : "",
+										uri.fragment ? uri.fragment : "");
 	return this->consistent_hash_with_group(hash_value);
 }
 

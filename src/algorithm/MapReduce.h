@@ -22,7 +22,6 @@
 #include <utility>
 #include <vector>
 #include <functional>
-#include <type_traits>
 #include "rbtree.h"
 
 namespace algorithm

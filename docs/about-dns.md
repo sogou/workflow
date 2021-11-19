@@ -48,17 +48,17 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
     .poller_threads     =    4,
     .handler_threads    =    20,
     .compute_threads    =    -1,
-    .resolv_conf_path   =    NULL,
-    .hosts_path         =    NULL,
+    .resolv_conf_path   =    "/etc/resolv.conf",
+    .hosts_path         =    "/etc/hosts",
 };
 //compute_threads<=0 means auto-set by system cpu number
 ~~~
 其中，与DNS相关的配置包括：
-  * dns_threads: DNS线程池线程数，默认4。
+  * dns_threads: DNS线程池线程数，默认4。只有当resolv_conf_path配置为空时，这个参数才会起作用。否则我们并不会创建dns线程。
   * dns_ttl_default: DNS Cache中默认的TTL，单位秒，默认12小时，dns cache是当前进程的，即进程退出就会消失，配置也仅对当前进程有效。
   * dns_ttl_min: dns最短生效时间，单位秒，默认3分钟，用于通信失败重试是否尝试重新dns的决策。
-  * resolv_conf_path: resolv.conf配置文件路径，为空时表示使用多线程DNS解析
-  * hosts_path: hosts配置文件路径
+  * resolv_conf_path: resolv.conf配置文件路径，为NULL表示使用多线程DNS解析
+  * hosts_path: hosts配置文件路径。可以为NULL
 
 简单来讲，每次通信都会检查TTL来决定要不要重新进行DNS解析。  
 默认检查dns_ttl_default，通信失败重试时才会去检查dns_ttl_min。
@@ -66,6 +66,30 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
 全局的DNS配置，可以通过upstream功能，被单独的地址配置覆盖。  
 Upstream每一个AddressParams也有dns_ttl_default和dns_ttl_min配置项，使用方式与Global相仿。  
 具体结构详见[upstream文档](./about-upstream.md#Address属性)。
+
+## SSL DNS (DoT)的支持
+我们的主分支代码（不包括windows分支）支持通过SSL连接访问DNS服务器，即DoT。  
+我们简单的扩展了**resolv.conf**的格式，你可以通过以下方式加入一个SSL dns server:
+~~~bash
+nameserver dnss://8.8.8.8/
+~~~
+我们用**dnss://** 来表示一个SSL dns server地址。通过以上的配置，我们所有的DNS请求都将通过SSL连接与全球DNS server 8.8.8.8通信。  
+全球DNS server完美支持SSL连接，大家可以立刻试用一下这个功能。  
+为了不用修改系统的**resolv.conf**文件，你可能需要创建一个私有的**resolv.conf**，并修改workflow配置：
+~~~cpp
+#include <workflow/WFGlobal.h>
+#include <workflow/WFTaskFactory.h>
+
+int main()
+{
+    struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+    settings.resolv_conf_path = "./myresolv.conf";
+    WORKFLOW_library_init(&settings);
+
+    WFHttpTask *task = WFTaskFactory::create_http_task("https://www.example.com", ...);
+	...
+}
+~~~
 
 ### 高并发场景下TTL过期瞬间的处理
 

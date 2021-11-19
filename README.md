@@ -7,7 +7,7 @@
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
 [![Build Status](https://travis-ci.com/sogou/workflow.svg?branch=master)](https://travis-ci.com/sogou/workflow)
 
-As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method，online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
+As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method, online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
 
 #### You can use it:
 
@@ -37,11 +37,12 @@ int main()
   * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc, trpc and thrift protocols.
 * To build **asynchronous workflow**; support common **series** and **parallel** structures, and also support any **DAG** structures.
 * As a **parallel computing tool**. In addition to **networking tasks**, Sogou C++ Workflow also includes **the scheduling of computing tasks**. All types of tasks can be put into **the same** flow.
-* As a **asynchronous file IO tool** in `Linux` system, with high performance exceeding any system call. Disk file IO is also a task.
+* As an **asynchronous file IO tool** in `Linux` system, with high performance exceeding any system call. Disk file IO is also a task.
 * To realize any **high-performance** and **high-concurrency** back-end service with a very complex relationship between computing and networking.
 * To build a **micro service** system.
   * This project has built-in **service governance** and **load balancing** features.
-  * The [workflow-k8s](https://github.com/sogou/workflow-k8s) plugin enables using name service with kubernetes automated deployment.
+  * The [workflow-k8s](https://github.com/sogou/workflow-k8s) plugin enables using name service with Kubernetes automated deployment.
+* Wiki link : [PaaS Architecture](https://github.com/sogou/workflow/wiki)
 
 #### Compiling and running environment
 
@@ -89,11 +90,11 @@ make
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
 * Service governance
-  * [About service governance](docs/en/about-service-management.md)
+  * [About service governance](docs/en/about-service-governance.md)
   * [More documents about upstream](docs/en/about-upstream.md)
 * Connection context
   * [About connection context](docs/en/about-connection-context.md)
-* Built-in protocols
+* Built-in clients
   * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
   * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 
@@ -110,7 +111,7 @@ We believe that a typical back-end program=protocol+algorithm+workflow and shoul
   * We have provided some general algorithms, such as sort, merge, psort, reduce, which can be used directly.
   * Compared with a user-defined protocol, a user-defined algorithm is much more common. Any complicated computation with clear boundaries should be packaged into an algorithm.
 * Workflow
-  * Workflow is the actual bussiness logic, which is to put the protocols and algorithms into the flow graph for use.
+  * Workflow is the actual business logic, which is to put the protocols and algorithms into the flow graph for use.
   * The typical workflow is a closed series-parallel graph. Complex business logic may be a non-closed DAG.
   * The workflow graph can be constructed directly or dynamically generated based on the results of each step. All tasks are executed asynchronously.
 
@@ -127,7 +128,7 @@ Basic task, task factory and complex task
 Asynchrony and encapsulation based on `C++11 std::function`
 
 * Not based on user mode coroutines. Users need to know that they are writing asynchronous programs.
-* All calls are executed asynchronously, and there are almost no operation that occupys a thread.
+* All calls are executed asynchronously, and there is almost no operation that occupies a thread.
   * Although we also provide some facilities with semi-synchronous interfaces, they are not core features.
 * We try to avoid user's derivations, and encapsulate user behavior with `std::function` instead, including:
   * The callback of any task.

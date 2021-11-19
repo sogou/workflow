@@ -42,14 +42,14 @@ public:
 
 	static __WFKafkaTask *create_kafka_task(const struct sockaddr *addr,
 											socklen_t addrlen,
-											int retry_max,
 											const std::string& info,
+											int retry_max,
 											__kafka_callback_t callback);
 
 	static __WFKafkaTask *create_kafka_task(const char *host,
-											int port,
-											int retry_max,
+											unsigned short port,
 											const std::string& info,
+											int retry_max,
 											__kafka_callback_t callback);
 };
 

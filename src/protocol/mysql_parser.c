@@ -16,6 +16,7 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <stdlib.h>
 #include "mysql_types.h"
 #include "mysql_byteorder.h"
 #include "mysql_parser.h"

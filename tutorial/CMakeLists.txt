@@ -33,6 +33,7 @@ set(TUTORIAL_LIST
 	tutorial-09-http_file_server
 	tutorial-11-graph_task
 	tutorial-14-websocket_cli
+	tutorial-20-reducer
 )
 
 if (APPLE)

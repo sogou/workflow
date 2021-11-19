@@ -16,6 +16,7 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+#include <sys/uio.h>
 #include "WFMySQLServer.h"
 
 WFConnection *WFMySQLServer::new_connection(int accept_fd)

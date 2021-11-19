@@ -26,7 +26,7 @@
 
 using namespace protocol;
 
-#define REDIS_KEEPALIVE_DEFAULT		(180 * 1000)
+#define REDIS_KEEPALIVE_DEFAULT		(60 * 1000)
 #define REDIS_REDIRECT_MAX			3
 
 /**********Client**********/
@@ -105,7 +105,7 @@ CommMessageOut *ComplexRedisTask::message_out()
 		}
 	}
 
-	return this->WFClientTask::message_out();
+	return this->WFComplexClientTask::message_out();
 }
 
 CommMessageIn *ComplexRedisTask::message_in()
@@ -118,7 +118,7 @@ CommMessageIn *ComplexRedisTask::message_in()
 	else
 		resp->set_asking(false);
 
-	return this->WFClientTask::message_in();
+	return this->WFComplexClientTask::message_in();
 }
 
 int ComplexRedisTask::keep_alive_timeout()

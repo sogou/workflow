@@ -4,9 +4,16 @@
 
 [tutorial-13-kafka_cli.cc](/tutorial/tutorial-13-kafka_cli.cc)
 
-# About Compiler Options
+# About Compiler
 
-Sogou Workflow provides separate support for Kafka protocol. You can use **make KAFKA=y** to compile a separate library for Kafka protocol. However, [zlib](https://github.com/madler/zlib.git), [snappy](https://github.com/google/snappy.git), [lz4(>=1.7.5)](https://github.com/lz4/lz4.git), [zstd](https://github.com/facebook/zstd.git) and other third-party libraries are used in the compression algorithms in the Kafka protocol, and they must be installed before the compilation.
+Because of supporting multiple compression methods of Kafka, [zlib](https://github.com/madler/zlib.git), [snappy](https://github.com/google/snappy.git), [lz4(>=1.7.5)](https://github.com/lz4/lz4.git), [zstd](https://github.com/facebook/zstd.git) and other third-party libraries are used in the compression algorithms in the Kafka protocol, and they must be installed before the compilation.
+
+It supports both CMake and Bazel for compiling.
+
+CMake: You can use **make KAFKA=y** to compile a separate library for Kafka protocol(libwfkafka.a和libwfkafka.so) and use **cd tutorial; make KAFKA=y** to compile kafka_cli.
+
+Bazel: You can use **bazel build kafka** to compile a separate library for Kafka protocol and use **bazel build kafka_cli** to compile kafka_cli.
+
 
 # About kafka_cli
 

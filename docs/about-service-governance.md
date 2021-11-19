@@ -23,7 +23,7 @@ upstream名相当于程序内部的域名，但相比一般的域名，upstream�
 
 # upstream的创建与删除
 
-在[UpstreamMananer.h](../src/manager/UpstreamManager.h)里，包括几个upstream创建接口：
+在[UpstreamManager.h](../src/manager/UpstreamManager.h)里，包括几个upstream创建接口：
 ~~~cpp
 using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;
 
@@ -78,12 +78,6 @@ int main()
 }
 ~~~
 请注意，以上这些函数可以在任何场景下调用，完全线程安全，并实时生效。  
-在task创建完成时，upstream目标选取就已经完成了。在http task里，如果选择到的目标是127.0.0.1:8000，  
-那么，请求里的Host头内容为127.0.0.1:8000而不是www.sogou.com。所以，如果有需要的话，可以进行修改：
-~~~cpp
-    WFHttpTask *task = WFTaskFactory::create_http_task("http://www.sogou.com/index.html", ...);
-    task->get_req()->set_header_pair("Host", "www.sogou.com");  
-~~~
 另外，由于我们一切协议，包括用户自定义协议都有URL，所以upstream功能可作用于一切协议。
 
 # 示例2：手动选择

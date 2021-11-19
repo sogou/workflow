@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <stdint.h>
@@ -27,25 +28,20 @@
 
 const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port, int type)
 {
+	int64_t cur_time = GET_CURRENT_SECOND;
+	std::lock_guard<std::mutex> lock(mutex_);
 	const DnsHandle *handle = cache_pool_.get(host_port);
 
 	if (handle)
 	{
-		int64_t cur_time = GET_CURRENT_SECOND;
-
 		switch (type)
 		{
 		case GET_TYPE_TTL:
 			if (cur_time > handle->value.expire_time)
 			{
-				std::lock_guard<std::mutex> lock(mutex_);
-
-				if (cur_time > handle->value.expire_time)
-				{
-					const_cast<DnsHandle *>(handle)->value.expire_time += TTL_INC;
-					cache_pool_.release(handle);
-					return NULL;
-				}
+				const_cast<DnsHandle *>(handle)->value.expire_time += TTL_INC;
+				cache_pool_.release(handle);
+				return NULL;
 			}
 
 			break;
@@ -53,14 +49,9 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port, int ty
 		case GET_TYPE_CONFIDENT:
 			if (cur_time > handle->value.confident_time)
 			{
-				std::lock_guard<std::mutex> lock(mutex_);
-
-				if (cur_time > handle->value.confident_time)
-				{
-					const_cast<DnsHandle *>(handle)->value.confident_time += CONFIDENT_INC;
-					cache_pool_.release(handle);
-					return NULL;
-				}
+				const_cast<DnsHandle *>(handle)->value.confident_time += CONFIDENT_INC;
+				cache_pool_.release(handle);
+				return NULL;
 			}
 
 			break;
@@ -96,7 +87,32 @@ const DnsCache::DnsHandle *DnsCache::put(const HostPort& host_port,
 		expire_time = cur_time + dns_ttl_default;
 
 	std::lock_guard<std::mutex> lock(mutex_);
-
 	return cache_pool_.put(host_port, {addrinfo, confident_time, expire_time});
+}
+
+const DnsCache::DnsHandle *DnsCache::get(const DnsCache::HostPort& host_port)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	return cache_pool_.get(host_port);
+}
+
+void DnsCache::release(const DnsCache::DnsHandle *handle)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	cache_pool_.release(handle);
+}
+
+void DnsCache::del(const DnsCache::HostPort& key)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	cache_pool_.del(key);
+}
+
+DnsCache::DnsCache()
+{
+}
+
+DnsCache::~DnsCache()
+{
 }
 

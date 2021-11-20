@@ -185,17 +185,9 @@ private:
 	int listen_timeout;
 	int response_timeout;
 
-public:
-	void incref()
-	{
-		__sync_add_and_fetch(&this->ref, 1);
-	}
-
-	void decref()
-	{
-		if (__sync_sub_and_fetch(&this->ref, 1) == 0)
-			this->handle_unbound();
-	}
+private:
+	void incref();
+	void decref();
 
 private:
 	int listen_fd;

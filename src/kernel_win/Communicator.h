@@ -221,17 +221,9 @@ private:
 	int ssl_accept_timeout;
 	SSL_CTX *ssl_ctx;
 
-public:
-	void incref()
-	{
-		this->ref++;
-	}
-
-	void decref()
-	{
-		if (--this->ref == 0)
-			this->handle_unbound();
-	}
+private:
+	void incref();
+	void decref();
 
 private:
 	SOCKET listen_sockfd;

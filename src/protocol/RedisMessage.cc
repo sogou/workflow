@@ -18,10 +18,10 @@
 */
 
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sstream>
 #include <utility>
+#include "EncodeStream.h"
 #include "RedisMessage.h"
 
 namespace protocol

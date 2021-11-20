@@ -456,8 +456,21 @@ public:
 	void set_sec_protocol(const char *protocol) { this->sec_protocol = protocol; }
 	void set_sec_version(const char *version) { this->sec_version = version; }
 
-	const char *get_sec_protocol() const { return this->sec_protocol.c_str(); }
-	const char *get_sec_version() const { return this->sec_version.c_str(); }
+	const char *get_sec_protocol() const
+	{
+		if (!this->sec_protocol.empty())
+			return this->sec_protocol.c_str();
+
+		return NULL;
+	}
+
+	const char *get_sec_version() const
+	{
+		if (!this->sec_version.empty())
+			return this->sec_version.c_str();
+
+		return NULL;
+	}
 
 	uint32_t gen_masking_key()
 	{

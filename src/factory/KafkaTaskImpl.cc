@@ -115,10 +115,11 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	if (seqid == 0)
 	{
 		KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
-		this->get_connection()->set_context(conn_info, std::move([](void *ctx) {
-					delete (KafkaConnectionInfo *)ctx;
-				}));
+
 		this->get_req()->set_api(&conn_info->api);
+		this->get_connection()->set_context(conn_info, [](void *ctx) {
+			delete (KafkaConnectionInfo *)ctx;
+		});
 
 		if (!this->get_req()->get_config()->get_broker_version())
 		{
@@ -193,10 +194,19 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 
 		while ((toppar = req->get_toppar_list()->get_next()) != NULL)
 		{
-			if (toppar->get_low_watermark() == -2)
-				toppar->set_offset_timestamp(-2);
-			else if (toppar->get_offset() == -1)
-				toppar->set_offset_timestamp(this->get_req()->get_config()->get_offset_timestamp());
+			if (toppar->get_offset() == -1)
+			{
+				if (toppar->get_offset_timestamp() == KAFKA_TIMESTAMP_UNINIT)
+				{
+					long long conf_ts = this->get_req()->get_config()->get_offset_timestamp();
+					if (conf_ts != KAFKA_TIMESTAMP_UNINIT)
+						toppar->set_offset_timestamp(conf_ts);
+					else
+						toppar->set_offset_timestamp(KAFKA_TIMESTAMP_EARLIEST);
+				}
+				else
+					toppar->set_offset_timestamp(KAFKA_TIMESTAMP_LATEST);
+			}
 			else
 				continue;
 
@@ -217,7 +227,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	return this->WFClientTask::message_out();
+	return this->WFComplexClientTask::message_out();
 }
 
 CommMessageIn *__ComplexKafkaTask::message_in()
@@ -229,7 +239,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	resp->set_api_version(req->get_api_version());
 	resp->duplicate(*req);
 
-	return this->WFClientTask::message_in();
+	return this->WFComplexClientTask::message_in();
 }
 
 bool __ComplexKafkaTask::init_success()
@@ -602,8 +612,8 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *addr,
 													   socklen_t addrlen,
-													   int retry_max,
 													   const std::string& info,
+													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
@@ -614,9 +624,9 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *ad
 }
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
-													   int port,
-													   int retry_max,
+													   unsigned short port,
 													   const std::string& info,
+													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));

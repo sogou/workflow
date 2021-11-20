@@ -83,7 +83,7 @@ int TutorialMessage::append(const void *buf, size_t size)
 		return -1;
 	}
 
-	memcpy(this->body, buf, body_left);
+	memcpy(this->body, buf, size);
 	if (size < body_left)
 		return 0;
 

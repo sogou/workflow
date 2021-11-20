@@ -40,6 +40,7 @@ set(TEST_LIST
 	upstream_unittest
 	dns_unittest
 	resource_unittest
+	uriparser_unittest
 )
 
 if (APPLE)

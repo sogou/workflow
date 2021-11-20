@@ -23,8 +23,8 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "HttpMessage.h"
 #include "http_parser.h"
+#include "HttpMessage.h"
 
 /**
  * @file   HttpUtil.h

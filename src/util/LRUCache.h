@@ -14,14 +14,15 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #ifndef _LRUCACHE_H_
 #define _LRUCACHE_H_
+
 #include <assert.h>
-#include <map>
-#include <mutex>
-//#include <unordered_map>
+#include "list.h"
+#include "rbtree.h"
 
 /**
  * @file   LRUCache.h
@@ -38,82 +39,54 @@ public:
 	VALUE value;
 
 private:
-	LRUHandle():
-		prev(NULL),
-		next(NULL),
-		ref(0)
-	{}
-
-	LRUHandle(const KEY& k, const VALUE& v):
-		value(v),
-		key(k),
-		prev(NULL),
-		next(NULL),
-		ref(0),
-		in_cache(false)
-	{}
-	//ban copy constructor
-	LRUHandle(const LRUHandle& copy);
-	//ban copy operator
-	LRUHandle& operator= (const LRUHandle& copy);
-	//ban move constructor
-	LRUHandle(LRUHandle&& move);
-	//ban move operator
-	LRUHandle& operator= (LRUHandle&& move);
+	LRUHandle(const KEY& k, const VALUE& v) :
+		value(v), key(k)
+	{
+	}
 
 	KEY key;
-	LRUHandle *prev;
-	LRUHandle *next;
-	int ref;
+	struct list_head list;
+	struct rb_node rb;
 	bool in_cache;
+	int ref;
 
-template<typename, typename, class> friend class LRUCache;
+	template<typename, typename, class> friend class LRUCache;
 };
 
 // RAII: NO. Release ref by LRUCache::release
 // Define ValueDeleter(VALUE& v) for value deleter
-// Thread safety: YES
+// Thread safety: NO
 // Make sure KEY operator< usable
 template<typename KEY, typename VALUE, class ValueDeleter>
 class LRUCache
 {
 protected:
-//using Map = std::unordered_map<KEY, VALUE>;
-//using Handle = LRUHandle<KEY, VALUE>;
-//using Map = std::map<KEY, LRUHandle*>;
-//using MapIterator = typename Map::iterator;
-//using MapConstIterator = typename Map::const_iterator;
-typedef LRUHandle<KEY, VALUE>			Handle;
-typedef std::map<KEY, Handle*>			Map;
-typedef typename Map::iterator			MapIterator;
-typedef typename Map::const_iterator	MapConstIterator;
+	typedef LRUHandle<KEY, VALUE>			Handle;
 
 public:
-	LRUCache():
-		max_size_(0),
-		size_(0)
+	LRUCache()
 	{
-		not_use_.next = &not_use_;
-		not_use_.prev = &not_use_;
-		in_use_.next = &in_use_;
-		in_use_.prev = &in_use_;
+		INIT_LIST_HEAD(&this->not_use);
+		INIT_LIST_HEAD(&this->in_use);
+		this->cache_map.rb_node = NULL;
+		this->max_size = 0;
+		this->size = 0;
 	}
 
 	~LRUCache()
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
+		struct list_head *pos, *tmp;
+		Handle *e;
 
 		// Error if caller has an unreleased handle
-		assert(in_use_.next == &in_use_);
-		for (Handle *e = not_use_.next; e != &not_use_; )
+		assert(list_empty(&this->in_use));
+		list_for_each_safe(pos, tmp, &this->not_use)
 		{
-			Handle *next = e->next;
-
+			e = list_entry(pos, Handle, list);
 			assert(e->in_cache);
 			e->in_cache = false;
 			assert(e->ref == 1);// Invariant for not_use_ list.
-			unref(e);
-			e = next;
+			this->unref(e);
 		}
 	}
 
@@ -121,56 +94,54 @@ public:
 	// max_size means max cache number of key-value pairs
 	void set_max_size(size_t max_size)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-
-		max_size_ = max_size;
+		this->max_size = max_size;
 	}
-
-	size_t get_max_size() const { return max_size_; }
-	size_t size() const { return size_; }
 
 	// Remove all cache that are not actively in use.
 	void prune()
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
+		struct list_head *pos, *tmp;
+		Handle *e;
 
-		while (not_use_.next != &not_use_)
+		list_for_each_safe(pos, tmp, &this->not_use)
 		{
-			Handle *e = not_use_.next;
-
+			e = list_entry(&pos, Handle, list);
 			assert(e->ref == 1);
-			cache_map_.erase(e->key);
-			erase_node(e);
+			rb_erase(&e->rb);
+			this->erase_node(e);
 		}
 	}
 
 	// release handle by get/put
-	void release(Handle *handle)
-	{
-		if (handle)
-		{
-			std::lock_guard<std::mutex> lock(mutex_);
-
-			unref(handle);
-		}
-	}
-
 	void release(const Handle *handle)
 	{
-		release(const_cast<Handle *>(handle));
+		this->unref(const_cast<Handle *>(handle));
 	}
 
 	// get handler
 	// Need call release when handle no longer needed
 	const Handle *get(const KEY& key)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		MapConstIterator it = cache_map_.find(key);
+		struct rb_node *p = this->cache_map.rb_node;
+		Handle *bound = NULL;
+		Handle *e;
 
-		if (it != cache_map_.end())
+		while (p)
 		{
-			ref(it->second);
-			return it->second;
+			e = rb_entry(p, Handle, rb);
+			if (!(e->key < key))
+			{
+				bound = e;
+				p = p->rb_left;
+			}
+			else
+				p = p->rb_right;
+		}
+
+		if (bound && !(key < bound->key))
+		{
+			this->ref(bound);
+			return bound;
 		}
 
 		return NULL;
@@ -180,33 +151,49 @@ public:
 	// Need call release when handle no longer needed
 	const Handle *put(const KEY& key, VALUE value)
 	{
-		Handle *e = new Handle(key, value);
+		struct rb_node **p = &this->cache_map.rb_node;
+		struct rb_node *parent = NULL;
+		Handle *bound = NULL;
+		Handle *e;
 
-		e->ref = 1;
-		std::lock_guard<std::mutex> lock(mutex_);
-
-		size_++;
-		e->in_cache = true;
-		e->ref++;
-		list_append(&in_use_, e);
-		MapIterator it = cache_map_.find(key);
-		if (it != cache_map_.end())
+		while (*p)
 		{
-			erase_node(it->second);
-			it->second = e;
+			parent = *p;
+			e = rb_entry(*p, Handle, rb);
+			if (!(e->key < key))
+			{
+				bound = e;
+				p = &(*p)->rb_left;
+			}
+			else
+				p = &(*p)->rb_right;
+		}
+
+		e = new Handle(key, value);
+		e->in_cache = true;
+		e->ref = 2;
+		list_add_tail(&e->list, &this->in_use);
+		this->size++;
+
+		if (bound && !(key < bound->key))
+		{
+			rb_replace_node(&bound->rb, &e->rb, &this->cache_map);
+			this->erase_node(bound);
 		}
 		else
-			cache_map_[key] = e;
-
-		if (max_size_ > 0)
 		{
-			while (size_ > max_size_ && not_use_.next != &not_use_)
-			{
-				Handle *old = not_use_.next;
+			rb_link_node(&e->rb, parent, p);
+			rb_insert_color(&e->rb, &this->cache_map);
+		}
 
-				assert(old->ref == 1);
-				cache_map_.erase(old->key);
-				erase_node(old);
+		if (this->max_size > 0)
+		{
+			while (this->size > this->max_size && !list_empty(&this->not_use))
+			{
+				Handle *tmp = list_entry(this->not_use.next, Handle, list);
+				assert(tmp->ref == 1);
+				rb_erase(&tmp->rb, &this->cache_map);
+				this->erase_node(tmp);
 			}
 		}
 
@@ -216,40 +203,21 @@ public:
 	// delete from cache, deleter delay called when all inuse-handle release.
 	void del(const KEY& key)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		MapConstIterator it = cache_map_.find(key);
+		Handle *e = const_cast<Handle *>(this->get(key));
 
-		if (it != cache_map_.end())
+		if (e)
 		{
-			Handle *node = it->second;
-
-			cache_map_.erase(it);
-			erase_node(node);
+			this->unref(e);
+			rb_erase(&e->rb, &this->cache_map);
+			this->erase_node(e);
 		}
 	}
 
 private:
-	void list_remove(Handle *node)
-	{
-		node->next->prev = node->prev;
-		node->prev->next = node->next;
-	}
-
-	void list_append(Handle *list, Handle *node)
-	{
-		node->next = list;
-		node->prev = list->prev;
-		node->prev->next = node;
-		node->next->prev = node;
-	}
-
 	void ref(Handle *e)
 	{
 		if (e->in_cache && e->ref == 1)
-		{
-			list_remove(e);
-			list_append(&in_use_, e);
-		}
+			list_move_tail(&e->list, &this->in_use);
 
 		e->ref++;
 	}
@@ -257,39 +225,34 @@ private:
 	void unref(Handle *e)
 	{
 		assert(e->ref > 0);
-		e->ref--;
-		if (e->ref == 0)
+		if (--e->ref == 0)
 		{
 			assert(!e->in_cache);
-			value_deleter_(e->value);
+			this->value_deleter(e->value);
 			delete e;
 		}
 		else if (e->in_cache && e->ref == 1)
-		{
-			list_remove(e);
-			list_append(&not_use_, e);
-		}
+			list_move_tail(&e->list, &this->not_use);
 	}
 
 	void erase_node(Handle *e)
 	{
 		assert(e->in_cache);
-		list_remove(e);
+		list_del(&e->list);
 		e->in_cache = false;
-		size_--;
-		unref(e);
+		this->size--;
+		this->unref(e);
 	}
 
-	std::mutex mutex_;
-	size_t max_size_;
-	size_t size_;
+	size_t max_size;
+	size_t size;
 
-	Handle not_use_;
-	Handle in_use_;
-	Map cache_map_;
+	struct list_head not_use;
+	struct list_head in_use;
+	struct rb_root cache_map;
 
-	ValueDeleter value_deleter_;
+	ValueDeleter value_deleter;
 };
 
-#endif  // SSS_LRUCACHE_H_
+#endif
 

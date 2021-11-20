@@ -55,8 +55,6 @@ public:
 		return http_parser_set_version(version, this->parser) == 0;
 	}
 
-	/* is_chunked(), is_keep_alive() only reflect the parsed result.
-	 * set_header(), add_header() do not effect on it. */
 	bool is_chunked() const
 	{
 		return http_parser_chunked(this->parser);
@@ -93,6 +91,21 @@ public:
 		return http_parser_set_header(name, strlen(name),
 									  value, strlen(value),
 									  this->parser) == 0;
+	}
+
+	bool has_connection_header() const
+	{
+		return http_parser_has_connection(this->parser);
+	}
+
+	bool has_content_length_header() const
+	{
+		return http_parser_has_content_length(this->parser);
+	}
+
+	bool has_keep_alive_header() const
+	{
+		return http_parser_has_keep_alive(this->parser);
 	}
 
 	bool get_parsed_body(const void **body, size_t *size) const

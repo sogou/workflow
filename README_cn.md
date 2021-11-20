@@ -38,6 +38,7 @@ int main()
 * 构建微服务系统。
   * 项目内置服务治理与负载均衡等功能。
   * 使用[workflow-k8s](https://github.com/sogou/workflow-k8s)插件，可将服务治理与kubernetes的自动部署融合。
+* Wiki链接 : [PaaS 架构图](https://github.com/sogou/workflow/wiki)
 
 #### 编译和运行环境
 * 项目支持``Linux``，``macOS``，``Windows``，``Android``等操作系统。
@@ -81,15 +82,16 @@ make
     * [异步IO的http server：http_file_server](docs/tutorial-09-http_file_server.md)
   * 用户定义协议基础
     * [简单的用户自定义协议client/server](docs/tutorial-10-user_defined_protocol.md)
-  * 定时与计数任务
+  * 其它一些重要任务与组件
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
+    * [条件任务与资源池](docs/about-conditional.md)
   * 服务治理
-    * [关于服务治理](docs/about-service-management.md)
+    * [关于服务治理](docs/about-service-governance.md)
     * [Upstream更多文档](docs/about-upstream.md)
   * 连接上下文的使用
     * [关于连接上下文](docs/about-connection-context.md)
-  * 内置协议用法
+  * 内置客户端
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
     * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
 

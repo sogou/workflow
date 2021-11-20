@@ -17,7 +17,6 @@
 */
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include "list.h"
 #include "http_parser.h"
@@ -54,9 +53,9 @@ struct __header_line
 	char *buf;
 };
 
-int http_parser_add_header(const void *name, size_t name_len,
-						   const void *value, size_t value_len,
-						   http_parser_t *parser)
+static int __add_message_header(const void *name, size_t name_len,
+								const void *value, size_t value_len,
+								http_parser_t *parser)
 {
 	size_t size = sizeof (struct __header_line) + name_len + value_len + 4;
 	struct __header_line *line;
@@ -80,9 +79,9 @@ int http_parser_add_header(const void *name, size_t name_len,
 	return -1;
 }
 
-int http_parser_set_header(const void *name, size_t name_len,
-						   const void *value, size_t value_len,
-						   http_parser_t *parser)
+static int __set_message_header(const void *name, size_t name_len,
+								const void *value, size_t value_len,
+								http_parser_t *parser)
 {
 	struct __header_line *line;
 	struct list_head *pos;
@@ -117,7 +116,7 @@ int http_parser_set_header(const void *name, size_t name_len,
 		}
 	}
 
-	return http_parser_add_header(name, name_len, value, value_len, parser);
+	return __add_message_header(name, name_len, value, value_len, parser);
 }
 
 static int __match_request_line(const char *method,
@@ -193,50 +192,59 @@ static int __match_status_line(const char *version,
 	return -1;
 }
 
-static int __match_message_header(const char *name, size_t name_len,
-								  const char *value, size_t value_len,
-								  http_parser_t *parser)
+static void __check_message_header(const char *name, size_t name_len,
+								   const char *value, size_t value_len,
+								   http_parser_t *parser)
 {
 	switch (name_len)
 	{
 	case 6:
-		if (strcasecmp(name, "Expect") == 0)
+		if (strncasecmp(name, "Expect", 6) == 0)
 		{
-			if (strcasecmp(value, "100-continue") == 0)
+			if (value_len == 12 && strncasecmp(value, "100-continue", 12) == 0)
 				parser->expect_continue = 1;
-		}
-
-	case 10:
-		if (strcasecmp(name, "Connection") == 0)
-		{
-			if (strcasecmp(value, "Keep-Alive") == 0)
-				parser->keep_alive = 1;
-			else if (strcasecmp(value, "close") == 0)
-				parser->keep_alive = 0;
 		}
 
 		break;
 
-	case 14:
-		if (strcasecmp(name, "Content-Length") == 0)
+	case 10:
+		if (strncasecmp(name, "Connection", 10) == 0)
 		{
-			if (*value >= '0' && *value <= '9')
-				parser->content_length = atoi(value);
+			parser->has_connection = 1;
+			if (value_len == 10 && strncasecmp(value, "Keep-Alive", 10) == 0)
+				parser->keep_alive = 1;
+			else if (value_len == 5 && strncasecmp(value, "close", 5) == 0)
+				parser->keep_alive = 0;
+		}
+		else if (strncasecmp(name, "Keep-Alive", 10) == 0)
+			parser->has_keep_alive = 1;
+
+		break;
+
+	case 14:
+		if (strncasecmp(name, "Content-Length", 14) == 0)
+		{
+			parser->has_content_length = 1;
+			if (*value >= '0' && *value <= '9' && value_len <= 15)
+			{
+				char buf[16];
+				memcpy(buf, value, value_len);
+				buf[value_len] = '\0';
+				parser->content_length = atol(buf);
+			}
 		}
 
 		break;
 
 	case 17:
-		if (strcasecmp(name, "Transfer-Encoding") == 0)
+		if (strncasecmp(name, "Transfer-Encoding", 17) == 0)
 		{
-			if (value_len != 8 || strcasecmp(value, "identity") != 0)
+			if (value_len != 8 || strncasecmp(value, "identity", 8) != 0)
 				parser->chunked = 1;
 		}
 
 		break;
 	}
-
-	return http_parser_add_header(name, name_len, value, value_len, parser);
 }
 
 static int __parse_start_line(const char *ptr, size_t len,
@@ -292,7 +300,7 @@ static int __parse_start_line(const char *ptr, size_t len,
 			return 1;
 		}
 
-		if ((signed char)start_line[i] <= 0)
+		if (start_line[i] == 0)
 			return -2;
 	}
 
@@ -400,7 +408,7 @@ static int __parse_header_value(const char *ptr, size_t len,
 	}
 
 	header_value[i] = '\0';
-	if (__match_message_header(parser->namebuf, strlen(parser->namebuf),
+	if (http_parser_add_header(parser->namebuf, strlen(parser->namebuf),
 							   header_value, i, parser) < 0)
 		return -1;
 
@@ -556,6 +564,9 @@ void http_parser_init(int is_resp, http_parser_t *parser)
 	parser->msgbuf = NULL;
 	parser->msgsize = 0;
 	parser->bufsize = 0;
+	parser->has_connection = 0;
+	parser->has_content_length = 0;
+	parser->has_keep_alive = 0;
 	parser->expect_continue = 0;
 	parser->keep_alive = 1;
 	parser->chunked = 0;
@@ -716,6 +727,36 @@ int http_parser_set_phrase(const char *phrase, http_parser_t *parser)
 	{
 		free(parser->phrase);
 		parser->phrase = (char *)phrase;
+		return 0;
+	}
+
+	return -1;
+}
+
+int http_parser_add_header(const void *name, size_t name_len,
+						   const void *value, size_t value_len,
+						   http_parser_t *parser)
+{
+	if (__add_message_header(name, name_len, value, value_len, parser) >= 0)
+	{
+		__check_message_header((const char *)name, name_len,
+							   (const char *)value, value_len,
+							   parser);
+		return 0;
+	}
+
+	return -1;
+}
+
+int http_parser_set_header(const void *name, size_t name_len,
+						   const void *value, size_t value_len,
+						   http_parser_t *parser)
+{
+	if (__set_message_header(name, name_len, value, value_len, parser) >= 0)
+	{
+		__check_message_header((const char *)name, name_len,
+							   (const char *)value, value_len,
+							   parser);
 		return 0;
 	}
 

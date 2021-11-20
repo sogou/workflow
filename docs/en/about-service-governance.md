@@ -83,13 +83,6 @@ int main()
 ~~~
 
 Please note that these functions can be called in any scenario. They are completely thread-safe and takes effect instantly.   
-When a task is created, the upstream target selection has already completed. In the HTTP task, if the selected target is 127.0.0.1:8000, then the content in the Host header of the request is 127.0.0.1:8000 instead of www.sogou.com. Therefore, you may modify it if necessary:
-
-~~~cpp
-    WFHttpTask *task = WFTaskFactory::create_http_task("http://www.sogou.com/index.html", ...);
-    task->get_req()->set_header_pair("Host", "www.sogou.com");  
-~~~
-
 In addition, because all our protocols, including user-defined protocols, have URLs, the upstream function can be applied to all protocols.
 
 # Example 2: manual selection

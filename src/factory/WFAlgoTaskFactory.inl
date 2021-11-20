@@ -446,13 +446,13 @@ public:
 	}
 
 	__WFReduceTask(ExecQueue *queue, Executor *executor,
-				   algorithm::ReduceInput<KEY, VAL>&& in,
+				   algorithm::ReduceInput<KEY, VAL>&& input,
 				   algorithm::reduce_function_t<KEY, VAL>&& red,
 				   reduce_callback_t<KEY, VAL>&& cb) :
 		WFReduceTask<KEY, VAL>(queue, executor, std::move(cb)),
 		reduce(std::move(red))
 	{
-		this->in = std::move(in);
+		this->input = std::move(input);
 	}
 };
 

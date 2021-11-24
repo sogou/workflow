@@ -1,7 +1,18 @@
 cmake_minimum_required(VERSION 3.6)
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
-	find_package(OpenSSL REQUIRED)
+
+	if(CMAKE_CROSSCOMPILING)
+		message(STATUS "CORSS COMPILE START")
+		message(STATUS "openssl path is: ${OPENSSL_DIR}")
+		set(OPENSSL_INCLUDE_DIR "${OPENSSL_DIR}/include")
+		set(OPENSSL_LINK_DIR "${OPENSSL_DIR}/lib")
+		link_directories(${OPENSSL_LINK_DIR} ${INC_DIR}/workflow)
+
+	else ()
+		find_package(OpenSSL REQUIRED)
+		
+	endif ()
 endif ()
 
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)

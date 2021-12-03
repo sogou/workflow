@@ -331,6 +331,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 					break;
 
 				case URI_PART_ELEMENTS:
+					skip_path = true;
 					break;
 			}
 

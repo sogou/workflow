@@ -238,7 +238,7 @@ public:
 	void set_request_name(const std::string& name)
 	{
 		this->request_name = name;
-		while (!name.empty() && name.back() == '.')
+		while (!this->request_name.empty() && this->request_name.back() == '.')
 			this->request_name.pop_back();
 	}
 

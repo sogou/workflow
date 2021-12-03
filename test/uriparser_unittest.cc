@@ -202,5 +202,10 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(strcmp(uri.path, "/abc"), 0);
 	EXPECT_EQ(uri.query, nullptr);
 	EXPECT_EQ(strcmp(uri.fragment, "frag"), 0);
+
+	EXPECT_EQ(URIParser::parse("http://www.sogou.com", uri), 0);
+	EXPECT_EQ(uri.path, nullptr);
+	EXPECT_EQ(uri.query, nullptr);
+	EXPECT_EQ(uri.fragment, nullptr);
 }
 

@@ -235,9 +235,11 @@ public:
 		this->request_id = id;
 	}
 
-	void set_request_name(const std::string& name)
+	void set_request_name(std::string name)
 	{
-		this->request_name = name;
+		while (name.size() > 1 && name.back() == '.')
+			name.pop_back();
+		this->request_name = std::move(name);
 	}
 
 protected:

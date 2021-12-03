@@ -252,7 +252,7 @@ WFDnsTask *WFDnsClient::create_dns_task(const std::string& name,
 	status.try_origin_state = DNS_STATUS_TRY_ORIGIN_FIRST;
 
 	if (!name.empty() && name.back() == '.')
-		status.next_domain = p->uris.size();
+		status.next_domain = p->search_list.size();
 	else if (__get_ndots(name) < p->ndots)
 		status.try_origin_state = DNS_STATUS_TRY_ORIGIN_LAST;
 

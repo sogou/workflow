@@ -327,6 +327,9 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 					break;
 
 				case URI_PATH:
+					if (skip_path)
+						continue;
+
 					start_idx[URI_PATH] = i;
 					break;
 

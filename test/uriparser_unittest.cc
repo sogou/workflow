@@ -207,5 +207,9 @@ TEST(uriparser_unittest, parse)
 	EXPECT_EQ(uri.path, nullptr);
 	EXPECT_EQ(uri.query, nullptr);
 	EXPECT_EQ(uri.fragment, nullptr);
+
+	EXPECT_EQ(URIParser::parse("http://www.sogou.com?aaa/=bbb", uri), 0);
+	EXPECT_EQ(uri.path, nullptr);
+	EXPECT_EQ(strcmp(uri.query, "aaa/=bbb"), 0);
 }
 

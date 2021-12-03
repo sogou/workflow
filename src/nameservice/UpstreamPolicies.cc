@@ -590,7 +590,7 @@ void UPSVNSWRRPolicy::init_virtual_nodes()
 	UPSAddrParams *params;
 	size_t s = this->pre_generated_vec.size();
 	size_t e = this->total_weight - s;
-	this->pre_generated_vec.resize(s);
+	this->pre_generated_vec.resize(e);
 
 	for (size_t i = s; i < e; i++)
 	{

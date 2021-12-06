@@ -121,7 +121,7 @@ private:
 	void init();
 	void init_virtual_nodes();
 	std::vector<size_t> pre_generated_vec;
-	std::vector<size_t> current_weight_vec;
+	std::vector<int> current_weight_vec;
 	size_t cur_idx;
 };
 

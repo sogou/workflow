@@ -577,22 +577,18 @@ EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
 
 		break;
 	}
-	this->cur_idx = idx;
+	this->cur_idx = idx + 1;
 	return this->servers[idx];
 }
 
 void UPSVNSWRRPolicy::init_virtual_nodes()
 {
-	if (this->total_weight <= (int)this->pre_generated_vec.size())
-		return;
-
-	std::vector<size_t> loop;
 	UPSAddrParams *params;
-	size_t s = this->pre_generated_vec.size();
-	size_t e = this->total_weight - s;
-	this->pre_generated_vec.resize(e);
+	size_t start_pos = this->pre_generated_vec.size();
+	size_t end_pos = std::min(this->total_weight - start_pos, this->servers.size()) + start_pos;
+	this->pre_generated_vec.resize(end_pos);
 
-	for (size_t i = s; i < e; i++)
+	for (size_t i = start_pos; i < end_pos; i++)
 	{
 		for (size_t j = 0; j < this->servers.size(); j++)
 		{
@@ -600,10 +596,10 @@ void UPSVNSWRRPolicy::init_virtual_nodes()
 			params = static_cast<UPSAddrParams *>(server->params);
 			this->current_weight_vec[j] += params->weight;
 		}
-		std::vector<size_t>::iterator biggest = std::max_element(this->current_weight_vec.begin(),
+		std::vector<int>::iterator biggest = std::max_element(this->current_weight_vec.begin(),
 																 this->current_weight_vec.end());
 		this->pre_generated_vec[i] = std::distance(this->current_weight_vec.begin(), biggest);
-		this->current_weight_vec[loop[i]] -= this->total_weight;
+		this->current_weight_vec[this->pre_generated_vec[i]] -= this->total_weight;
 	}
 }
 
@@ -614,7 +610,7 @@ void UPSVNSWRRPolicy::init()
 
 	this->pre_generated_vec.clear();
 	this->cur_idx = rand() % this->total_weight;
-	std::vector<size_t> t(this->servers.size(), 0);
+	std::vector<int> t(this->servers.size(), 0);
 	this->current_weight_vec.swap(t);
 	this->init_virtual_nodes();
 }

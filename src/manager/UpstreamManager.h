@@ -126,7 +126,7 @@ public:
 									  upstream_route_t consitent_hash);
 
 	/**
-	 * @brief      MODE 4: VNSWRR select (https://github.com/alibaba/tengine/blob/master/docs/modules/ngx_http_upstream_vnswrr_module.md)
+	 * @brief      MODE 4: VNSWRR select
 	 * @param[in]  name             upstream name
 	 * @return     success/fail
 	 * @retval     0                success

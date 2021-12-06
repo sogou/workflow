@@ -108,7 +108,7 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 	return -1;
 }
 
-int UpstreamManager::upstream_create_vswrr(const std::string& name)
+int UpstreamManager::upstream_create_vnswrr(const std::string& name)
 {
 	auto *ns = WFGlobal::get_name_service();
 	UPSWeightedRandomPolicy *policy = new UPSVNSWRRPolicy();

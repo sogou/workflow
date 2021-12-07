@@ -20,3 +20,10 @@ if (WIN32)
 	)
 endif ()
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		KafkaTaskImpl.cc
+	)
+	add_library("factory_kafka" OBJECT ${SRC})
+	set_property(SOURCE KafkaTaskImpl.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+endif ()

@@ -58,6 +58,11 @@ foreach(src ${TUTORIAL_LIST})
 	endif ()
 endforeach()
 
+if (KAFKA STREQUAL "y")
+	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
+	target_link_libraries("kafka_cli" wfkafka workflow z snappy lz4 zstd rt)
+endif ()
+
 set(DIR10 tutorial-10-user_defined_protocol)
 add_executable(server ${DIR10}/server.cc ${DIR10}/message.cc)
 add_executable(client ${DIR10}/client.cc ${DIR10}/message.cc)

@@ -44,6 +44,20 @@ add_library(
 #target_link_libraries(${LIB_SHARED} ws2_32 wsock32 OpenSSL::SSL OpenSSL::Crypto)
 #if (NOT WIN32)
 
+if (KAFKA STREQUAL "y")
+	add_dependencies(client_kafka LINK_HEADERS)
+	add_dependencies(util_kafka LINK_HEADERS)
+	add_dependencies(protocol_kafka LINK_HEADERS)
+	add_dependencies(factory_kafka LINK_HEADERS)
+	add_library(
+		"wfkafka" STATIC
+		$<TARGET_OBJECTS:client_kafka>
+		$<TARGET_OBJECTS:util_kafka>
+		$<TARGET_OBJECTS:protocol_kafka>
+		$<TARGET_OBJECTS:factory_kafka>
+)
+endif ()
+
 install(
 	TARGETS ${PROJECT_NAME}
 	ARCHIVE
@@ -62,11 +76,39 @@ elseif (NOT WIN32)
 	add_dependencies(SCRIPT_SHARED_LIB ${PROJECT_NAME})
 endif ()
 
+if (KAFKA STREQUAL "y")
+	if (APPLE)
+		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.a)
+	else ()
+		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.so)
+		add_custom_target(
+			SCRIPT_SHARED_LIB_KAFKA ALL
+			COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
+		)
+		add_dependencies(SCRIPT_SHARED_LIB_KAFKA "wfkafka")
+	endif ()
+endif ()
+
 install(
 	FILES ${LIBSO}
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	COMPONENT devel
 )
+
+if (KAFKA STREQUAL "y")
+	install(
+		FILES ${LIB_DIR}/libwfkafka.a
+		DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		COMPONENT devel
+	)
+	if (NOT APPLE)
+		install(
+			FILES ${LIBSOKAFKA}
+			DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			COMPONENT devel
+		)
+	endif()
+endif ()
 
 install (
 	TARGETS ${CMAKE_PROJECT_NAME} EXPORT ${CMAKE_PROJECT_NAME}-targets

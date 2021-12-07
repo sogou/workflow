@@ -41,6 +41,7 @@ public:
 		update_metadata_ = false;
 		is_user_request_ = true;
 		is_redirect_ = false;
+		need_retry_ = false;
 	}
 
 protected:
@@ -107,6 +108,7 @@ private:
 	bool update_metadata_;
 	bool is_user_request_;
 	bool is_redirect_;
+	bool need_retry_;
 };
 
 CommMessageOut *__ComplexKafkaTask::message_out()
@@ -194,21 +196,45 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 
 		while ((toppar = req->get_toppar_list()->get_next()) != NULL)
 		{
-			if (toppar->get_offset() == -1)
+			if (toppar->get_low_watermark() < 0)
+				toppar->set_offset_timestamp(KAFKA_TIMESTAMP_EARLIEST);
+			else if (toppar->get_high_watermark() < 0)
+				toppar->set_offset_timestamp(KAFKA_TIMESTAMP_LATEST);
+			else if (toppar->get_offset() == KAFKA_OFFSET_UNINIT)
 			{
-				if (toppar->get_offset_timestamp() == KAFKA_TIMESTAMP_UNINIT)
+				long long conf_ts =
+					this->get_req()->get_config()->get_offset_timestamp();
+				if (conf_ts == KAFKA_TIMESTAMP_EARLIEST)
 				{
-					long long conf_ts = this->get_req()->get_config()->get_offset_timestamp();
-					if (conf_ts != KAFKA_TIMESTAMP_UNINIT)
-						toppar->set_offset_timestamp(conf_ts);
-					else
-						toppar->set_offset_timestamp(KAFKA_TIMESTAMP_EARLIEST);
+					toppar->set_offset(toppar->get_low_watermark());
+					continue;
+				}
+				else if (conf_ts == KAFKA_TIMESTAMP_LATEST)
+				{
+					toppar->set_offset(toppar->get_high_watermark());
+					continue;
 				}
 				else
-					toppar->set_offset_timestamp(KAFKA_TIMESTAMP_LATEST);
+				{
+					toppar->set_offset_timestamp(conf_ts);
+				}
+			}
+			else if (toppar->get_offset() == KAFKA_OFFSET_OVERFLOW)
+			{
+				if (this->get_req()->get_config()->get_offset_timestamp() == 
+					KAFKA_TIMESTAMP_EARLIEST)
+				{
+					toppar->set_offset(toppar->get_low_watermark());
+				}
+				else
+				{
+					toppar->set_offset(toppar->get_high_watermark());
+				}
 			}
 			else
+			{
 				continue;
+			}
 
 			toppar_list.add_item(*toppar);
 			flag = true;
@@ -511,6 +537,23 @@ bool __ComplexKafkaTask::has_next()
 		break;
 
 	case Kafka_Fetch:
+		{
+			ret = false;
+			msg->get_toppar_list()->rewind();
+			KafkaToppar *toppar;
+			while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
+			{
+				if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
+				{
+					toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
+					toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
+					need_retry_ = true;
+					ret = true;
+				}
+			}
+			break;
+		}
+
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
 	case Kafka_ListOffsets:
@@ -547,6 +590,12 @@ bool __ComplexKafkaTask::finish_once()
 			{
 				is_redirect_ = false;
 				return true;
+			}
+
+			if (need_retry_)
+			{
+				is_user_request_ = false;
+				need_retry_ = false;
 			}
 
 			this->clear_resp();

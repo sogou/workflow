@@ -209,6 +209,12 @@ enum
     KAFKA_TIMESTAMP_UNINIT = 0,
 };
 
+enum
+{
+	KAFKA_OFFSET_UNINIT = -2,
+	KAFKA_OFFSET_OVERFLOW = -1,
+};
+
 typedef struct __kafka_api_version
 {
 	short api_key;

@@ -793,9 +793,12 @@ public:
 	void set_offset_timestamp(long long tm) { this->ptr->offset_timestamp = tm; }
 
 	long long get_high_watermark() const { return this->ptr->high_watermark; }
+	void set_high_watermark(long long offset) const { this->ptr->high_watermark = offset; }
 
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
+
+	bool reach_high_watermark() const { return this->ptr->offset == this->ptr->high_watermark; }
 
 public:
 	KafkaToppar()

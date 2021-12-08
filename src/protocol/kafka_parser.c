@@ -442,9 +442,9 @@ void kafka_topic_partition_init(kafka_topic_partition_t *toppar)
 	toppar->topic_name = NULL;
 	toppar->partition = -1;
 	toppar->preferred_read_replica = -1;
-	toppar->offset = -1;
-	toppar->high_watermark = -1;
-	toppar->low_watermark = -2;
+	toppar->offset = KAFKA_OFFSET_UNINIT;
+	toppar->high_watermark = KAFKA_OFFSET_UNINIT;
+	toppar->low_watermark = KAFKA_OFFSET_UNINIT;
 	toppar->last_stable_offset = -1;
 	toppar->log_start_offset = -1;
 	toppar->offset_timestamp = KAFKA_TIMESTAMP_UNINIT;

@@ -3209,6 +3209,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	int aborted_cnt;
 	int preferred_read_replica;
 	long long producer_id, first_offset;
+	int64_t high_watermark;
 
 	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
@@ -3228,10 +3229,10 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			kafka_topic_partition_t *ptr = toppar->get_raw_ptr();
 
 			CHECK_RET(parse_i16(buf, size, &ptr->error));
-			CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->high_watermark));
+			CHECK_RET(parse_i64(buf, size, &high_watermark));
 
-			if (ptr->high_watermark == ptr->offset && ptr->error == KAFKA_NONE)
-				ptr->error = KAFKA_OFFSET_OUT_OF_RANGE;
+			if (ptr->error == KAFKA_NONE)
+				ptr->high_watermark = high_watermark;
 
 			if (this->api_version >= 4)
 			{
@@ -3281,7 +3282,7 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 	std::string topic_name;
 	int partition_cnt;
 	int partition;
-	int64_t offset_timestamp;
+	int64_t offset_timestamp, offset;
 	int offset_cnt;
 
 	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
@@ -3305,22 +3306,13 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 			if (this->api_version == 1)
 			{
 				CHECK_RET(parse_i64(buf, size, &offset_timestamp));
+				CHECK_RET(parse_i64(buf, size, &offset));
 				if (ptr->offset_timestamp == -1)
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->high_watermark));
-					if (ptr->offset > ptr->high_watermark || ptr->offset == -1)
-						ptr->offset = ptr->high_watermark - 1;
-				}
+					ptr->high_watermark = offset;
 				else if (ptr->offset_timestamp == -2)
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->low_watermark));
-					if (ptr->offset < ptr->low_watermark)
-						ptr->offset = ptr->low_watermark;
-				}
+					ptr->low_watermark = offset;
 				else
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->offset));
-				}
+					ptr->offset = offset;
 			}
 			else if (this->api_version == 0)
 			{

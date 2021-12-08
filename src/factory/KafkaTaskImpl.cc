@@ -221,7 +221,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			}
 			else if (toppar->get_offset() == KAFKA_OFFSET_OVERFLOW)
 			{
-				if (this->get_req()->get_config()->get_offset_timestamp() == 
+				if (this->get_req()->get_config()->get_offset_timestamp() ==
 					KAFKA_TIMESTAMP_EARLIEST)
 				{
 					toppar->set_offset(toppar->get_low_watermark());
@@ -400,6 +400,7 @@ bool __ComplexKafkaTask::has_next()
 	struct sockaddr_storage addr;
 	socklen_t addrlen = sizeof addr;
 	const struct sockaddr *paddr = (const struct sockaddr *)&addr;
+	KafkaToppar *toppar = nullptr;
 
 	//always success
 	this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
@@ -500,6 +501,7 @@ bool __ComplexKafkaTask::has_next()
 				}
 			}
 		}
+
 		break;
 
 	case Kafka_SaslHandshake:
@@ -512,20 +514,6 @@ bool __ComplexKafkaTask::has_next()
 
 		break;
 
-	case Kafka_Produce:
-		{
-			msg->get_toppar_list()->rewind();
-			KafkaToppar *toppar;
-			while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
-			{
-				if (!toppar->record_reach_end())
-				{
-					this->get_req()->set_api_type(Kafka_Produce);
-					return true;
-				}
-			}
-		}
-
 	case Kafka_SaslAuthenticate:
 		if (msg->get_broker()->get_error())
 		{
@@ -537,21 +525,29 @@ bool __ComplexKafkaTask::has_next()
 		break;
 
 	case Kafka_Fetch:
+		ret = false;
+		msg->get_toppar_list()->rewind();
+		while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
 		{
-			ret = false;
-			msg->get_toppar_list()->rewind();
-			KafkaToppar *toppar;
-			while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
+			if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
 			{
-				if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
-				{
-					toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
-					toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
-					need_retry_ = true;
-					ret = true;
-				}
+				toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
+				toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
+				need_retry_ = true;
+				ret = true;
 			}
-			break;
+		}
+		break;
+
+	case Kafka_Produce:
+		msg->get_toppar_list()->rewind();
+		while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
+		{
+			if (!toppar->record_reach_end())
+			{
+				this->get_req()->set_api_type(Kafka_Produce);
+				return true;
+			}
 		}
 
 	case Kafka_OffsetCommit:

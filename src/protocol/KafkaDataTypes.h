@@ -798,6 +798,8 @@ public:
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
 
+	bool reach_high_watermark() const { return this->ptr->offset == this->ptr->high_watermark; }
+
 public:
 	KafkaToppar()
 	{

@@ -698,7 +698,8 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
-			if (task_toppar->get_error() == KAFKA_NONE)
+			if (task_toppar->get_error() == KAFKA_NONE && 
+				!task_toppar->reach_high_watermark())
 				toppar->set_offset(task_toppar->get_offset() + 1);
 			else
 				toppar->set_offset(task_toppar->get_offset());

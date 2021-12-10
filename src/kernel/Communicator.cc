@@ -1907,7 +1907,8 @@ void Communicator::shutdown(CommChannel *channel)
 	}
 
 	errno = errno_bak;
-=======
+}
+
 int Communicator::push(const void *buf, size_t size, CommSession *session)
 {
 	CommTarget *target = session->target;

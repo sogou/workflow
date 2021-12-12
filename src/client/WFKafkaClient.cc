@@ -347,6 +347,10 @@ private:
 
 int ComplexKafkaTask::get_node_id(const KafkaToppar *toppar)
 {
+	int preferred_read_replica = toppar->get_preferred_read_replica();
+	if (preferred_read_replica >= 0)
+		return preferred_read_replica;
+
 	bool flag = false;
 	this->client_meta_list.rewind();
 	KafkaMeta *meta;
@@ -417,8 +421,8 @@ void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
 
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr,
 																 socklen,
-																 0,
 																 t->get_userinfo(),
+																 0,
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = t;
 			kafka_task->get_req()->set_api_type(Kafka_Heartbeat);
@@ -521,8 +525,8 @@ void ComplexKafkaTask::kafka_timer_callback(WFTimerTask *task)
 	socklen_t socklen;
 	coordinator->get_broker_addr(&addr, &socklen);
 
-	kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen, 0,
-														 t->get_userinfo(),
+	kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
+														 t->get_userinfo(), 0,
 														 kafka_heartbeat_callback);
 
 	kafka_task->user_data = t;
@@ -629,8 +633,8 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 			coordinator->get_broker_addr(&addr, &socklen);
 
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-																 t->retry_max,
 																 t->get_userinfo(),
+																 t->retry_max,
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = hb;
 			kafka_task->get_req()->set_config(t->config);
@@ -694,20 +698,14 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
-			if (task_toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE &&
-				task_toppar->get_offset() < task_toppar->get_low_watermark())
-			{
-				toppar->set_offset(-1);
-			}
-			else if (task_toppar->get_error() == KAFKA_NONE)
-			{
+			if (task_toppar->get_error() == KAFKA_NONE && 
+				!task_toppar->reach_high_watermark())
 				toppar->set_offset(task_toppar->get_offset() + 1);
-			}
 			else
 				toppar->set_offset(task_toppar->get_offset());
 
-			if (task_toppar->get_low_watermark() > 0)
-				toppar->set_low_watermark(task_toppar->get_low_watermark());
+			toppar->set_low_watermark(task_toppar->get_low_watermark());
+			toppar->set_low_watermark(task_toppar->get_high_watermark());
 
 			break;
 		}
@@ -797,6 +795,7 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 
 		case META_INITED:
 			this->meta_list.del_cur();
+			delete meta;
 			break;
 
 		case META_UNINIT:
@@ -888,16 +887,16 @@ void ComplexKafkaTask::dispatch()
 			broker->get_broker_addr(&addr, &socklen);
 
 			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-														   this->retry_max,
 														   this->get_userinfo(),
+														   this->retry_max,
 														   kafka_cgroup_callback);
 		}
 		else
 		{
 			task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 														   broker->get_port(),
-														   this->retry_max,
 														   this->get_userinfo(),
+														   this->retry_max,
 														   kafka_cgroup_callback);
 		}
 
@@ -941,16 +940,16 @@ void ComplexKafkaTask::dispatch()
 				broker->get_broker_addr(&addr, &socklen);
 
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-															   this->retry_max,
 															   this->get_userinfo(),
+															   this->retry_max,
 															   nullptr);
 			}
 			else
 			{
 				task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 															   broker->get_port(),
-															   this->retry_max,
 															   this->get_userinfo(),
+															   this->retry_max,
 															   nullptr);
 			}
 
@@ -993,16 +992,16 @@ void ComplexKafkaTask::dispatch()
 				broker->get_broker_addr(&addr, &socklen);
 
 				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-															   this->retry_max,
 															   this->get_userinfo(),
+															   this->retry_max,
 															   nullptr);
 			}
 			else
 			{
 				task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 															   broker->get_port(),
-															   this->retry_max,
 															   this->get_userinfo(),
+															   this->retry_max,
 															   nullptr);
 			}
 
@@ -1043,8 +1042,8 @@ void ComplexKafkaTask::dispatch()
 			coordinator->get_broker_addr(&addr, &socklen);
 
 			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-														   this->retry_max,
 														   this->get_userinfo(),
+														   this->retry_max,
 														   kafka_offsetcommit_callback);
 			task->user_data = this;
 			task->get_req()->set_config(this->config);
@@ -1077,8 +1076,8 @@ void ComplexKafkaTask::dispatch()
 			{
 				task = __WFKafkaTaskFactory::create_kafka_task(addr,
 															   socklen,
-															   0,
 															   this->get_userinfo(),
+															   0,
 															   kafka_leavegroup_callback);
 				task->user_data = this;
 				task->get_req()->set_config(this->config);
@@ -1487,7 +1486,8 @@ SubTask *WFKafkaTask::done()
 	{
 		if (this->state == WFT_STATE_TASK_ERROR)
 		{
-			WFTimerTask *timer = WFTaskFactory::create_timer_task(0, std::move(cb));
+			WFTimerTask *timer;
+			timer = WFTaskFactory::create_timer_task(0, 0, std::move(cb));
 			timer->user_data = this;
 			series->push_front(timer);
 		}

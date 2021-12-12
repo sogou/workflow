@@ -202,6 +202,19 @@ enum
 	KAFKA_BROKER_INITED,
 };
 
+enum
+{
+    KAFKA_TIMESTAMP_EARLIEST = -2,
+    KAFKA_TIMESTAMP_LATEST = -1,
+    KAFKA_TIMESTAMP_UNINIT = 0,
+};
+
+enum
+{
+	KAFKA_OFFSET_UNINIT = -2,
+	KAFKA_OFFSET_OVERFLOW = -1,
+};
+
 typedef struct __kafka_api_version
 {
 	short api_key;
@@ -226,18 +239,21 @@ typedef struct __kafka_parser
 	size_t hsize;
 } kafka_parser_t;
 
+enum __kafka_scram_state
+{
+	KAFKA_SASL_SCRAM_STATE_CLIENT_FIRST_MESSAGE,
+	KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE,
+	KAFKA_SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE,
+	KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED,
+};
+
 typedef struct __kafka_scram
 {
 	const void *evp;
 	unsigned char *(*scram_h)(const unsigned char *d, size_t n,
 							  unsigned char *md);
 	size_t scram_h_size;
-	enum
-	{
-		KAFKA_SASL_SCRAM_STATE_CLIENT_FIRST_MESSAGE,
-		KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE,
-		KAFKA_SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE,
-	} state;
+	enum __kafka_scram_state state;
 	struct iovec cnonce;
 	struct iovec first_msg;
 	struct iovec server_signature_b64;
@@ -276,6 +292,7 @@ typedef struct __kafka_config
 	char *client_id;
 	int check_crcs;
 	int offset_store;
+	char *rack_id;
 
 	char *mechanisms;
 	char *username;
@@ -323,6 +340,7 @@ typedef struct __kafka_topic_partition
 	short error;
 	char *topic_name;
 	int partition;
+	int preferred_read_replica;
 	long long offset;
 	long long high_watermark;
 	long long low_watermark;

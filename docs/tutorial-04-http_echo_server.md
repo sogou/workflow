@@ -48,12 +48,16 @@ public:
     int start(const struct sockaddr *bind_addr, socklen_t addrlen,
               const char *cert_file, const char *key_file);
 
-    /* For graceful restart. */
+    /* For graceful restart or multi-process server. */
     int serve(int listen_fd);
     int serve(int listen_fd, const char *cert_file, const char *key_file);
+
+    /* Get the listening address. Used when started a server on a random port. */
+    int get_listen_addr(struct sockaddr *addr, socklen_t *addrlen) const;
 };
 ~~~
-这些接口都比较好理解。其中，启动SSL server时，cert_file和key_file为PEM格式。  
+这些接口都比较好理解。任何一个start函数，当端口号为0时，将使用随机端口。此时用户可能需要在server启动完成之后通过get_listen_addr获得实际监听地址。  
+启动SSL server时，cert_file和key_file为PEM格式。  
 最后两个带listen_fd的serve()接口，主要用于优雅重启。或者简单建立一个非TCP协议（如SCTP）的server。  
 需要特别提醒一下，我们一个server对象对应一个listen_fd，如果在IPv4和IPv6两个协议上都运行server，需要：
 ~~~cpp

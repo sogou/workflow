@@ -101,8 +101,8 @@ private:
 
 private:
 	__ReduceValue<VAL> *heap[__REDUCE_ITERATOR_HEAP_MAX];
-	int heap_size;
-	int original_size;
+	size_t heap_size;
+	size_t original_size;
 
 private:
 	__ReduceIterator(struct list_head *value_list, size_t *value_cnt);

@@ -18,11 +18,9 @@
 
 #ifndef _UPSTREAM_MANAGER_H_
 #define _UPSTREAM_MANAGER_H_
+
 #include <string>
 #include <vector>
-#include <functional>
-#include "URIParser.h"
-#include "EndpointParams.h"
 #include "WFServiceGovernance.h"
 #include "UpstreamPolicies.h"
 #include "WFGlobal.h"
@@ -128,14 +126,14 @@ public:
 									  upstream_route_t consitent_hash);
 
 	/**
-	 * @brief      MODE 4: VSWRR select
+	 * @brief      MODE 4: VNSWRR select
 	 * @param[in]  name             upstream name
 	 * @return     success/fail
 	 * @retval     0                success
 	 * @retval     -1               fail, more info see errno
 	 * @note
 	 */
-	static int upstream_create_vswrr(const std::string& name);
+	static int upstream_create_vnswrr(const std::string& name);
 
 	/**
 	 * @brief      Delete one upstream

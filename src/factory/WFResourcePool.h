@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Author: Li Yingxin (liyingxin@sogou-inc.com)
-          Xie Han (xiehan@sogou-inc.com)
+  Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #ifndef _WFRESOURCEPOOL_H_
@@ -28,6 +28,7 @@ class WFResourcePool
 {
 public:
 	WFConditional *get(SubTask *task, void **resbuf);
+	WFConditional *get(SubTask *task);
 	void post(void *res);
 
 public:
@@ -44,7 +45,7 @@ public:
 		WFResourcePool *pool;
 	};
 
-private:
+protected:
 	virtual void *pop()
 	{
 		return this->data.res[this->data.index++];
@@ -55,11 +56,15 @@ private:
 		this->data.res[--this->data.index] = res;
 	}
 
-private:
+protected:
 	struct Data data;
+
+private:
+	void create(size_t n);
 
 public:
 	WFResourcePool(void *const *res, size_t n);
+	WFResourcePool(size_t n);
 	virtual ~WFResourcePool() { delete []this->data.res; }
 };
 

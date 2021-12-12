@@ -209,7 +209,7 @@ template<class REQ, class RESP>
 class WFNetworkTask : public CommRequest
 {
 public:
-	/* start(), dismiss() for client task only. */
+	/* start(), dismiss() are for client tasks only. */
 	void start()
 	{
 		assert(!series_of(this));
@@ -220,13 +220,6 @@ public:
 	{
 		assert(!series_of(this));
 		delete this;
-	}
-
-	/* noreply() for server task only. */
-	void noreply()
-	{
-		if (this->state == WFT_STATE_TOREPLY)
-			this->state = WFT_STATE_NOREPLY;
 	}
 
 public:
@@ -269,6 +262,19 @@ public:
 	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
 
 public:
+	/* noreply(), push() are for server tasks only. */
+	void noreply()
+	{
+		if (this->state == WFT_STATE_TOREPLY)
+			this->state = WFT_STATE_NOREPLY;
+	}
+
+	virtual int push(const void *buf, size_t size)
+	{
+		return this->scheduler->push(buf, size, this);
+	}
+
+public:
 	void set_callback(std::function<void (WFNetworkTask<REQ, RESP> *)> cb)
 	{
 		this->callback = std::move(cb);
@@ -278,24 +284,6 @@ protected:
 	virtual int send_timeout() { return this->send_timeo; }
 	virtual int receive_timeout() { return this->receive_timeo; }
 	virtual int keep_alive_timeout() { return this->keep_alive_timeo; }
-
-protected:
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
-		{
-			this->state = WFT_STATE_SSL_ERROR;
-			this->error = -this->error;
-		}
-
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-		return series->pop();
-	}
 
 protected:
 	int send_timeo;
@@ -634,7 +622,7 @@ protected:
 class WFConditional : public WFGenericTask
 {
 public:
-	void signal(void *msg)
+	virtual void signal(void *msg)
 	{
 		*this->msgbuf = msg;
 		if (this->flag.exchange(true))

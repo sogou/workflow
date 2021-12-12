@@ -22,6 +22,7 @@
 
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <time.h>
 #include <utility>
 #include <functional>
 #include "URIParser.h"
@@ -29,7 +30,6 @@
 #include "HttpMessage.h"
 #include "MySQLMessage.h"
 #include "DnsMessage.h"
-#include "DnsRoutine.h"
 #include "Workflow.h"
 #include "WFTask.h"
 #include "WFGraphTask.h"
@@ -186,6 +186,32 @@ public:
 	static WFFileSyncTask *create_fdsync_task(int fd,
 											  fsync_callback_t callback);
 
+	/* File tasks with path name. */
+public:
+	static WFFileIOTask *create_pread_task(const std::string& pathname,
+										   void *buf,
+										   size_t count,
+										   off_t offset,
+										   fio_callback_t callback);
+
+	static WFFileIOTask *create_pwrite_task(const std::string& pathname,
+											const void *buf,
+											size_t count,
+											off_t offset,
+											fio_callback_t callback);
+
+	static WFFileVIOTask *create_preadv_task(const std::string& pathname,
+											 const struct iovec *iov,
+											 int iovcnt,
+											 off_t offset,
+											 fvio_callback_t callback);
+
+	static WFFileVIOTask *create_pwritev_task(const std::string& pathname,
+											  const struct iovec *iov,
+											  int iovcnt,
+											  off_t offset,
+											  fvio_callback_t callback);
+
 public:
 	static WFTimerTask *create_timer_task(unsigned int microseconds,
 										  timer_callback_t callback);
@@ -193,6 +219,9 @@ public:
 	/* timer_name has no use currently. */
 	static WFTimerTask *create_timer_task(const std::string& timer_name,
 										  unsigned int microseconds,
+										  timer_callback_t callback);
+
+	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
 										  timer_callback_t callback);
 
 	/* Counter is like semaphore. The callback of counter is called when

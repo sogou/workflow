@@ -279,6 +279,25 @@ Basic principles
 5. The backups of different groups are isolated from each other, and they serve the main servers of their own group only
 6. Add the default group number -1 of the target, and the type is main
 
+### Example 8 NVSWRR selection weighting strategy
+~~~
+UpstreamManager::upstream_create_vnswrr("nvswrr.random");
+
+AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
+address_params.weight = 3;//weight is 3
+UpstreamManager::upstream_add_server("weighted.random", "192.168.2.100:8081", &address_params);//weight is 3
+address_params.weight = 2;//weight is 2
+UpstreamManager::upstream_add_server("weighted.random", "192.168.2.100:8082", &address_params);//weight is 2
+UpstreamManager::upstream_add_server("weighted.random", "abc.sogou.com");//weight is 1
+
+auto *http_task = WFTaskFactory::create_http_task("http://nvswrr.random:9090", 0, 0, nullptr);
+http_task->start();
+~~~
+1. The virtual node initialization sequence is selected according to the [SWRR algorithm](https://github.com/nginx/nginx/commit/52327e0627f49dbda1e8db695e63a4b0af4448b1)
+2. The virtual nodes are initialized in batches during operation to avoid intensive computing concentration. After each batch of virtual nodes is used up, the next batch of virtual node lists can be initialized.
+3. It has both the smooth and scattered characteristics of [SWRR algorithm](https://github.com/nginx/nginx/commit/52327e0627f49dbda1e8db695e63a4b0af4448b1) and the time complexity of O(1)
+4. For specific details of the algorithm, see tengine(https://github.com/alibaba/tengine/pull/1306)
+
 # Upstream selection strategy
 
 When the URIHost of the url that initiates the request is filled with UpstreamName, it is regarded as a request to the Upstream corresponding to the name, and then it will be selected from the set of Addresses recorded by the Upstream:

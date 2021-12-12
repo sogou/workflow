@@ -102,6 +102,10 @@ void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 	};
 	char port_str[PORT_STR_MAX + 1];
 
+	hints.ai_flags |= AI_NUMERICSERV;
+	if (in->is_numeric_host())
+		hints.ai_flags |= AI_NUMERICHOST;
+
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", in->port_);
 	out->error_ = getaddrinfo(in->host_.c_str(),
 							  port_str,

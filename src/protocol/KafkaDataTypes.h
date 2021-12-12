@@ -495,6 +495,21 @@ public:
 		this->ptr->offset_store = offset_store;
 	}
 
+	const char *get_rack_id() const
+	{
+		return this->ptr->rack_id;
+	}
+	bool set_rack_id(const char *rack_id)
+	{
+		char *p = strdup(rack_id);
+		if (!p)
+			return false;
+
+		free(this->ptr->rack_id);
+		this->ptr->rack_id = p;
+		return true;
+	}
+
 	const char *get_sasl_mech() const
 	{
 		return this->ptr->mechanisms;
@@ -756,6 +771,11 @@ public:
 											this->ptr) == 0;
 	}
 
+	int get_preferred_read_replica() const
+	{
+		return this->ptr->preferred_read_replica;
+	}
+
 	bool set_topic(const char *topic)
 	{
 		this->ptr->topic_name = strdup(topic);
@@ -773,9 +793,12 @@ public:
 	void set_offset_timestamp(long long tm) { this->ptr->offset_timestamp = tm; }
 
 	long long get_high_watermark() const { return this->ptr->high_watermark; }
+	void set_high_watermark(long long offset) const { this->ptr->high_watermark = offset; }
 
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
+
+	bool reach_high_watermark() const { return this->ptr->offset == this->ptr->high_watermark; }
 
 public:
 	KafkaToppar()

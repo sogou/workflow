@@ -237,7 +237,12 @@ public:
 
 	void set_request_name(const std::string& name)
 	{
-		this->request_name = name;
+		std::string req_name(name);
+
+		while (req_name.size() > 1 && req_name.back() == '.')
+			req_name.pop_back();
+
+		this->request_name = std::move(req_name);
 	}
 
 protected:

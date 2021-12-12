@@ -24,14 +24,17 @@
 #include <C++11_REQUIRED>
 #endif
 
-#include <string>
 #include <openssl/ssl.h>
+#include <string>
 #include "CommScheduler.h"
 #include "DnsCache.h"
 #include "RouteManager.h"
 #include "Executor.h"
 #include "EndpointParams.h"
+#include "WFResourcePool.h"
 #include "WFNameService.h"
+#include "WFDnsResolver.h"
+#include "EndpointParams.h"
 
 /**
  * @file    WFGlobal.h
@@ -46,6 +49,7 @@
 struct WFGlobalSettings
 {
 	struct EndpointParams endpoint_params;
+	struct EndpointParams dns_server_params;
 	unsigned int dns_ttl_default;	///< in seconds, DNS TTL when network request success
 	unsigned int dns_ttl_min;		///< in seconds, DNS TTL when network request fail
 	int dns_threads;
@@ -62,14 +66,15 @@ struct WFGlobalSettings
 static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 {
 	.endpoint_params	=	ENDPOINT_PARAMS_DEFAULT,
+	.dns_server_params	=	ENDPOINT_PARAMS_DEFAULT,
 	.dns_ttl_default	=	12 * 3600,
 	.dns_ttl_min		=	180,
 	.dns_threads		=	4,
 	.poller_threads		=	4,
 	.handler_threads	=	20,
 	.compute_threads	=	-1,
-	.resolv_conf_path	=	NULL,			// use thread dns task for default
-	.hosts_path			=	NULL,
+	.resolv_conf_path	=	"/etc/resolv.conf",
+	.hosts_path			=	"/etc/hosts",
 };
 
 /**
@@ -91,7 +96,8 @@ public:
 	 * @param[in]  port             default port value
 	 * @warning    No effect when scheme is "http"/"https"/"redis"/"rediss"/"mysql"/"kafka"
 	 */
-	static void register_scheme_port(const std::string& scheme, unsigned short port);
+	static void register_scheme_port(const std::string& scheme,
+									 unsigned short port);
 	/**
 	 * @brief      get default port string for one scheme string
 	 * @param[in]  scheme           scheme string
@@ -105,26 +111,61 @@ public:
 	 * @return     current global settings const pointer
 	 * @note       returnval never NULL
 	 */
-	static const struct WFGlobalSettings *get_global_settings();
+	static const struct WFGlobalSettings *get_global_settings()
+	{
+		return &settings_;
+	}
+
+	static void set_global_settings(const struct WFGlobalSettings *settings)
+	{
+		settings_ = *settings;
+	}
 
 	static const char *get_error_string(int state, int error);
 
-public:
 	// Internal usage only
-	static CommScheduler *get_scheduler();
-	static DnsCache *get_dns_cache();
-	static RouteManager *get_route_manager();
+public:
+	static class CommScheduler *get_scheduler();
 	static SSL_CTX *get_ssl_client_ctx();
 	static SSL_CTX *new_ssl_server_ctx();
-	static ExecQueue *get_exec_queue(const std::string& queue_name);
-	static Executor *get_compute_executor();
-	static IOService *get_io_service();
-	static ExecQueue *get_dns_queue();
-	static Executor *get_dns_executor();
-	static WFNameService *get_name_service();
+	static class ExecQueue *get_exec_queue(const std::string& queue_name);
+	static class Executor *get_compute_executor();
+	static class IOService *get_io_service();
+	static class ExecQueue *get_dns_queue();
+	static class Executor *get_dns_executor();
 	static class WFDnsClient *get_dns_client();
+	static class WFResourcePool *get_dns_respool();
+
+	static class RouteManager *get_route_manager()
+	{
+		return &route_manager_;
+	}
+
+	static class DnsCache *get_dns_cache()
+	{
+		return &dns_cache_;
+	}
+
+	static class WFDnsResolver *get_dns_resolver()
+	{
+		return &dns_resolver_;
+	}
+
+	static class WFNameService *get_name_service()
+	{
+		return &name_service_;
+	}
+
+public:
 	static void sync_operation_begin();
 	static void sync_operation_end();
+
+private:
+	static struct WFGlobalSettings settings_;
+	static RouteManager route_manager_;
+	static DnsCache dns_cache_;
+	static WFDnsResolver dns_resolver_;
+	static WFNameService name_service_;
 };
 
 #endif

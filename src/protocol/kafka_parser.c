@@ -329,7 +329,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->fetch_min_bytes = 1;
 	conf->fetch_max_bytes = 50 * 1024 * 1024;
 	conf->fetch_msg_max_bytes = 1024 * 1024;
-	conf->offset_timestamp = -2;
+	conf->offset_timestamp = KAFKA_TIMESTAMP_EARLIEST;
 	conf->commit_timestamp = 0;
 	conf->session_timeout = 10*1000;
 	conf->rebalance_timeout = 10000;
@@ -344,6 +344,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->client_id = NULL;
 	conf->check_crcs = 0;
 	conf->offset_store = KAFKA_OFFSET_AUTO;
+	conf->rack_id = NULL;
 	conf->mechanisms = NULL;
 	conf->username = NULL;
 	conf->password = NULL;
@@ -355,6 +356,7 @@ void kafka_config_deinit(kafka_config_t *conf)
 {
 	free(conf->broker_version);
 	free(conf->client_id);
+	free(conf->rack_id);
 	free(conf->mechanisms);
 	free(conf->username);
 	free(conf->password);
@@ -439,12 +441,13 @@ void kafka_topic_partition_init(kafka_topic_partition_t *toppar)
 	toppar->error = KAFKA_NONE;
 	toppar->topic_name = NULL;
 	toppar->partition = -1;
-	toppar->offset = -1;
-	toppar->high_watermark = -1;
-	toppar->low_watermark = -2;
+	toppar->preferred_read_replica = -1;
+	toppar->offset = KAFKA_OFFSET_UNINIT;
+	toppar->high_watermark = KAFKA_OFFSET_UNINIT;
+	toppar->low_watermark = KAFKA_OFFSET_UNINIT;
 	toppar->last_stable_offset = -1;
 	toppar->log_start_offset = -1;
-	toppar->offset_timestamp = -1;
+	toppar->offset_timestamp = KAFKA_TIMESTAMP_UNINIT;
 	toppar->committed_metadata = NULL;
 	INIT_LIST_HEAD(&toppar->record_list);
 }
@@ -1111,7 +1114,7 @@ static int kafka_sasl_scram_recv(const char *buf, size_t len, void *p, void *q)
 
 	case KAFKA_SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE:
 		ret = scram_handle_server_final_message(buf, len, conf, sasl);
-		sasl->scram.state = -1;
+		sasl->scram.state = KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED;
 		break;
 
 	default:

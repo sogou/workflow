@@ -160,7 +160,11 @@ public:
 		init(type, addr, addrlen, info);
 	}
 
+	bool is_fixed_addr() const { return this->fixed_addr_; }
+
 protected:
+	void set_fixed_addr(int fixed) { this->fixed_addr_ = fixed; }
+
 	void set_info(const std::string& info)
 	{
 		info_.assign(info);
@@ -221,7 +225,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::clear_prev_state()
 	route_result_.clear();
 	if (tracing_.deleter)
 	{
-		tracing_.deleter(this->tracing_.data);
+		tracing_.deleter(tracing_.data);
 		tracing_.deleter = NULL;
 	}
 	tracing_.data = NULL;
@@ -304,7 +308,10 @@ template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
 	if (redirect_)
+	{
 		clear_prev_state();
+		ns_policy_ = WFGlobal::get_dns_resolver();
+	}
 
 	if (uri_.state == URI_STATE_SUCCESS)
 	{
@@ -407,6 +414,12 @@ void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
 			this->error = -this->error;
 		}
 
+		if (tracing_.deleter)
+		{
+			tracing_.deleter(tracing_.data);
+			tracing_.deleter = NULL;
+		}
+
 		if (this->callback)
 			this->callback(this);
 	}
@@ -473,7 +486,9 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		auto&& cb = std::bind(&WFComplexClientTask::switch_callback,
 							  this,
 							  std::placeholders::_1);
-		WFTimerTask *timer = WFTaskFactory::create_timer_task(0, std::move(cb));
+		WFTimerTask *timer;
+
+		timer = WFTaskFactory::create_timer_task(0, 0, std::move(cb));
 		series->push_front(timer);
 	}
 	else

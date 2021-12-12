@@ -35,6 +35,7 @@
 #include <snappy.h>
 #include <snappy-sinksource.h>
 #include "crc32c.h"
+#include "EncodeStream.h"
 #include "KafkaMessage.h"
 
 namespace protocol
@@ -220,6 +221,17 @@ static inline size_t append_varint_i64(std::string& buf, int64_t num)
 static inline size_t append_varint_i32(std::string& buf, int32_t num)
 {
 	return append_varint_i64(buf, num);
+}
+
+static size_t append_compact_string(std::string& buf, const char *str)
+{
+	if (!str || str[0] == '\0')
+		append_string(buf, "");
+
+	size_t len = strlen(str);
+	size_t r = append_varint_u64(buf, len + 1);
+	append_string_raw(buf, str, len);
+	return r + len;
 }
 
 static inline int parse_i8(void **buf, size_t *size, int8_t *val)
@@ -2131,8 +2143,12 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			KafkaBlock record_block;
 			struct timespec ts;
 
-			clock_gettime(CLOCK_REALTIME, &ts);
-			record->get_raw_ptr()->timestamp = (ts.tv_sec * 1000000000 + ts.tv_nsec) / 1000 / 1000;
+			if (record->get_timestamp() == 0)
+			{
+				clock_gettime(CLOCK_REALTIME, &ts);
+				record->set_timestamp((ts.tv_sec * 1000000000 +
+									   ts.tv_nsec) / 1000 / 1000);
+			}
 
 			if (batch_cnt == 0)
 			{
@@ -2398,7 +2414,12 @@ int KafkaRequest::encode_fetch(struct iovec vectors[], int max)
 
 	//rackid
 	if (this->api_version >= 11)
-		append_string(this->msgbuf, "");
+	{
+		if (this->config.get_rack_id())
+			append_compact_string(this->msgbuf, this->config.get_rack_id());
+		else
+			append_string(this->msgbuf, "");
+	}
 
 	this->cur_size = this->msgbuf.size();
 
@@ -3188,6 +3209,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	int aborted_cnt;
 	int preferred_read_replica;
 	long long producer_id, first_offset;
+	int64_t high_watermark;
 
 	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
@@ -3207,10 +3229,10 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			kafka_topic_partition_t *ptr = toppar->get_raw_ptr();
 
 			CHECK_RET(parse_i16(buf, size, &ptr->error));
-			CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->high_watermark));
+			CHECK_RET(parse_i64(buf, size, &high_watermark));
 
-			if (ptr->high_watermark == ptr->offset && ptr->error == KAFKA_NONE)
-				ptr->error = KAFKA_OFFSET_OUT_OF_RANGE;
+			if (ptr->error == KAFKA_NONE)
+				ptr->high_watermark = high_watermark;
 
 			if (this->api_version >= 4)
 			{
@@ -3228,7 +3250,10 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			}
 
 			if (this->api_version >= 11)
+			{
 				CHECK_RET(parse_i32(buf, size, &preferred_read_replica));
+				ptr->preferred_read_replica = preferred_read_replica;
+			}
 
 			parse_records(buf, size, this->config.get_check_crcs(),
 						  toppar->get_record(),
@@ -3257,7 +3282,7 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 	std::string topic_name;
 	int partition_cnt;
 	int partition;
-	int64_t offset_timestamp;
+	int64_t offset_timestamp, offset;
 	int offset_cnt;
 
 	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
@@ -3281,26 +3306,13 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 			if (this->api_version == 1)
 			{
 				CHECK_RET(parse_i64(buf, size, &offset_timestamp));
+				CHECK_RET(parse_i64(buf, size, &offset));
 				if (ptr->offset_timestamp == -1)
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->high_watermark));
-					if (ptr->offset > ptr->high_watermark ||
-						this->config.get_offset_timestamp() == -1)
-						ptr->offset = ptr->high_watermark;
-				}
+					ptr->high_watermark = offset;
 				else if (ptr->offset_timestamp == -2)
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->low_watermark));
-					if (this->config.get_offset_timestamp() == -2 &&
-						ptr->offset < ptr->low_watermark)
-					{
-						ptr->offset = ptr->low_watermark;
-					}
-				}
+					ptr->low_watermark = offset;
 				else
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->offset));
-				}
+					ptr->offset = offset;
 			}
 			else if (this->api_version == 0)
 			{
@@ -3819,7 +3831,8 @@ int KafkaResponse::append(const void *buf, size_t *size)
 				if (strncasecmp(this->config.get_sasl_mech(), "SCRAM", 5) == 0)
 				{
 					this->clear_buf();
-					if (this->sasl->scram.state != -1)
+					if (this->sasl->scram.state !=
+							KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED)
 						ret = this->handle_sasl_continue();
 					else
 						this->sasl->status = 1;

@@ -21,6 +21,7 @@
 
 #include "EndpointParams.h"
 #include "WFNameService.h"
+#include "WFResourcePool.h"
 
 class WFDnsResolver : public WFNSPolicy
 {
@@ -28,7 +29,7 @@ public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
 											 router_callback_t callback);
 
-protected:
+public:
 	WFRouterTask *create(const struct WFNSParams *params, int dns_cache_level,
 						 unsigned int dns_ttl_default, unsigned int dns_ttl_min,
 						 const struct EndpointParams *endpoint_params,

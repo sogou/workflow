@@ -8,6 +8,7 @@ set(SRC
 	Workflow.cc
 	HttpTaskImpl.cc
 	WFResourcePool.cc
+	FileTaskImpl.cc
 )
 
 if (NOT MYSQL STREQUAL "n")

@@ -73,7 +73,7 @@ private:
 	virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
-	virtual void release() { }
+	virtual void release(int keep_alive) { }
 
 private:
 	struct sockaddr *addr;
@@ -212,17 +212,9 @@ private:
 	int ssl_accept_timeout;
 	SSL_CTX *ssl_ctx;
 
-public:
-	void incref()
-	{
-		__sync_add_and_fetch(&this->ref, 1);
-	}
-
-	void decref()
-	{
-		if (__sync_sub_and_fetch(&this->ref, 1) == 0)
-			this->handle_unbound();
-	}
+private:
+	void incref();
+	void decref();
 
 private:
 	int listen_fd;
@@ -267,6 +259,8 @@ public:
 
 	int request(CommSession *session, CommTarget *target);
 	int reply(CommSession *session);
+
+	int push(const void *buf, size_t size, CommSession *session);
 
 	int bind(CommService *service);
 	void unbind(CommService *service);

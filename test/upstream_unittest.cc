@@ -152,8 +152,8 @@ TEST(upstream_unittest, EnableAndDisable)
 		UpstreamManager::upstream_enable_server("weighted.random", "127.0.0.1:8001");
 		auto *task2 = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 													  std::bind(basic_callback,
-																  std::placeholders::_1,
-																   std::string("server1")));
+																std::placeholders::_1,
+																std::string("server1")));
 		task2->user_data = &wait_group;
 		series_of(task)->push_back(task2);
 	});
@@ -161,6 +161,70 @@ TEST(upstream_unittest, EnableAndDisable)
 	task->start();	
 
 	wait_group.wait();
+}
+
+TEST(upstream_unittest, AddAndRemove)
+{
+	WFFacilities::WaitGroup wait_group(2);
+	WFHttpTask *task;
+	SeriesWork *series;
+	protocol::HttpRequest *req;
+	int batch = MAX_FAILS + 50;
+	std::string url = "http://add_and_remove";
+	std::string name = "add_and_remove";
+	UPSWeightedRandomPolicy test_policy(false);
+
+	AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
+
+	address_params.weight = 1000;
+	test_policy.add_server("127.0.0.1:8001", &address_params);
+
+	address_params.weight = 1;
+	test_policy.add_server("127.0.0.1:8002", &address_params);
+
+	auto *ns = WFGlobal::get_name_service();
+	EXPECT_EQ(ns->add_policy(name.c_str(), &test_policy), 0);
+
+	UpstreamManager::upstream_remove_server(name, "127.0.0.1:8001");
+	task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
+										   std::bind(basic_callback,
+													 std::placeholders::_1,
+													 std::string("server2")));
+	task->user_data = &wait_group;
+	task->start();
+
+	//test remove fused server
+	address_params.weight = 1000;
+	test_policy.add_server("127.0.0.1:8001", &address_params);
+	http_server1.stop();
+
+	fprintf(stderr, "server 1 stopped start %d tasks to fuse it\n", batch);
+	ParallelWork *pwork = Workflow::create_parallel_work(
+										[&wait_group, &name, &url](const ParallelWork *pwork) {
+		fprintf(stderr, "parallel finished and remove server1\n");
+		UpstreamManager::upstream_remove_server(name, "127.0.0.1:8001");
+		auto *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
+													 std::bind(basic_callback,
+													 std::placeholders::_1,
+								 					 std::string("server2")));
+		task->user_data = &wait_group;
+		series_of(pwork)->push_back(task);
+	});
+
+	for (int i = 0; i < batch; i++)
+	{
+		task = WFTaskFactory::create_http_task(url, 0, 0, nullptr);
+		req = task->get_req();
+		req->add_header_pair("Connection", "keep-alive");
+		series = Workflow::create_series_work(task, nullptr);
+		pwork->add_series(series);
+	}
+
+	pwork->start();
+	wait_group.wait();
+	EXPECT_TRUE(http_server1.start("127.0.0.1", 8001) == 0)
+				<< "http server start failed";
+	ns->del_policy(name.c_str());
 }
 
 TEST(upstream_unittest, FuseAndRecover)
@@ -222,6 +286,7 @@ TEST(upstream_unittest, FuseAndRecover)
 
 	series->start();
 	wait_group.wait();
+	ns->del_policy("test_policy");
 }
 
 TEST(upstream_unittest, TryAnother)

@@ -14,10 +14,11 @@
   limitations under the License.
 
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
-#ifndef _SERVICE_GOVERNANCE_H_
-#define _SERVICE_GOVERNANCE_H_
+#ifndef _WFSERVICEGOVERNANCE_H_
+#define _WFSERVICEGOVERNANCE_H_
 
 #include <pthread.h>
 #include <unordered_map>
@@ -26,9 +27,6 @@
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFDnsResolver.h"
-#include "WFGlobal.h"
-#include "WFTaskError.h"
 
 #define MTTR_SECOND_DEFAULT 30
 #define VIRTUAL_GROUP_SIZE  16
@@ -87,7 +85,8 @@ public:
 	std::string address;
 	std::string host;
 	std::string port;
-	std::atomic<unsigned int> fail_count;
+	unsigned int fail_count;
+	std::atomic<int> ref;
 	long long broken_timeout;
 	PolicyAddrParams *params;
 
@@ -102,7 +101,7 @@ public:
 	virtual ~EndpointAddress() { delete this->params; }
 };
 
-class WFServiceGovernance : public WFDnsResolver
+class WFServiceGovernance : public WFNSPolicy
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
@@ -141,7 +140,7 @@ public:
 
 	virtual ~WFServiceGovernance()
 	{
-		for (EndpointAddress *addr : this->addresses)
+		for (EndpointAddress *addr : this->servers)
 			delete addr;
 	}
 
@@ -170,15 +169,22 @@ private:
 	unsigned int mttr_second;
 
 protected:
-	virtual const EndpointAddress *first_strategy(const ParsedURI& uri,
-												  WFNSTracing *tracing);
-	virtual const EndpointAddress *another_strategy(const ParsedURI& uri,
-													WFNSTracing *tracing);
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
+	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
+											  WFNSTracing *tracing);
 	void check_breaker();
+	void pre_delete_server(EndpointAddress *addr);
+
+	struct TracingData
+	{
+		std::vector<EndpointAddress *> history;
+		WFServiceGovernance *sg;
+	};
+
 	static void tracing_deleter(void *data);
 
-	std::vector<EndpointAddress *> servers; // current servers
-	std::vector<EndpointAddress *> addresses; // memory management
+	std::vector<EndpointAddress *> servers;
 	std::unordered_map<std::string,
 					   std::vector<EndpointAddress *>> server_map;
 	pthread_rwlock_t rwlock;

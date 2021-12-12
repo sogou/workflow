@@ -19,6 +19,7 @@
 #ifndef _DNSUTIL_H_
 #define _DNSUTIL_H_
 
+#include <netdb.h>
 #include "DnsMessage.h"
 
 /**
@@ -65,7 +66,7 @@ public:
 		dns_additional_cursor_init(&cursor, parser);
 	}
 
-	bool next(dns_record **next_record)
+	bool next(struct dns_record **next_record)
 	{
 		int ret = dns_record_cursor_next(&record, &cursor);
 		if (ret != 0)
@@ -84,7 +85,7 @@ public:
 private:
 	const dns_parser_t *parser;
 	dns_record_cursor_t cursor;
-	dns_record *record;
+	struct dns_record *record;
 };
 
 #endif

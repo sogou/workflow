@@ -16,18 +16,15 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#ifndef _UPSTREAM_POLICIES_H_
-#define _UPSTREAM_POLICIES_H_
+#ifndef _UPSTREAMPOLICIES_H_
+#define _UPSTREAMPOLICIES_H_
 
-#include <pthread.h>
+#include <utility>
 #include <vector>
-#include <atomic>
+#include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFDnsResolver.h"
-#include "WFGlobal.h"
-#include "WFTaskError.h"
 #include "WFServiceGovernance.h"
 
 using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;
@@ -44,7 +41,6 @@ public:
 	EndpointGroup *group;
 	unsigned int consistent_hash[VIRTUAL_GROUP_SIZE];
 
-	UPSAddrParams();
 	UPSAddrParams(const struct AddressParams *params,
 				  const std::string& address);
 };
@@ -75,11 +71,11 @@ protected:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	const EndpointAddress *consistent_hash_with_group(unsigned int hash);
-	const EndpointAddress *check_and_get(const EndpointAddress *addr,
-										 bool flag, WFNSTracing *tracing);
+	EndpointAddress *consistent_hash_with_group(unsigned int hash);
+	EndpointAddress *check_and_get(EndpointAddress *addr,
+								   bool flag, WFNSTracing *tracing);
 
-	bool is_alive_or_group_alive(const EndpointAddress *addr) const;
+	bool is_alive(const EndpointAddress *addr) const;
 };
 
 class UPSWeightedRandomPolicy : public UPSGroupPolicy
@@ -91,10 +87,10 @@ public:
 		this->available_weight = 0;
 		this->try_another = try_another;
 	}
-	const EndpointAddress *first_strategy(const ParsedURI& uri,
-										  WFNSTracing *tracing);
-	const EndpointAddress *another_strategy(const ParsedURI& uri,
-											WFNSTracing *tracing);
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
+	EndpointAddress *another_strategy(const ParsedURI& uri,
+									  WFNSTracing *tracing);
 
 protected:
 	virtual void add_server_locked(EndpointAddress *addr);
@@ -116,8 +112,8 @@ public:
 		this->cur_idx = 0;
 		this->try_another = false;
 	};
-	const EndpointAddress *first_strategy(const ParsedURI& uri,
-										  WFNSTracing *tracing);
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
 
 private:
 	virtual void add_server_locked(EndpointAddress *addr);
@@ -125,42 +121,24 @@ private:
 	void init();
 	void init_virtual_nodes();
 	std::vector<size_t> pre_generated_vec;
-	std::vector<size_t> current_weight_vec;
+	std::vector<int> current_weight_vec;
 	size_t cur_idx;
 };
 
 class UPSConsistentHashPolicy : public UPSGroupPolicy
 {
 public:
-	UPSConsistentHashPolicy() :
-		consistent_hash(UPSConsistentHashPolicy::default_consistent_hash)
-	{
-	}
-
 	UPSConsistentHashPolicy(upstream_route_t&& consistent_hash) :
 		consistent_hash(std::move(consistent_hash))
 	{
 	}
 
 protected:
-	const EndpointAddress *first_strategy(const ParsedURI& uri,
-										  WFNSTracing *tracing);
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
 
 private:
 	upstream_route_t consistent_hash;
-
-public:
-	static unsigned int default_consistent_hash(const char *path,
-												const char *query,
-												const char *fragment)
-	{
-	    static std::hash<std::string> std_hash;
-	    std::string str(path);
-
-    	str += query;
-    	str += fragment;
-    	return std_hash(str);
-	}
 };
 
 class UPSManualPolicy : public UPSGroupPolicy
@@ -169,19 +147,19 @@ public:
 	UPSManualPolicy(bool try_another, upstream_route_t&& select,
 					upstream_route_t&& try_another_select) :
 		manual_select(std::move(select)),
-		try_another_select(std::move(try_another_select))
+		another_select(std::move(try_another_select))
 	{
 		this->try_another = try_another;
 	}
 
-	const EndpointAddress *first_strategy(const ParsedURI& uri,
-										  WFNSTracing *tracing);
-	const EndpointAddress *another_strategy(const ParsedURI& uri,
-											WFNSTracing *tracing);
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
+	EndpointAddress *another_strategy(const ParsedURI& uri,
+									  WFNSTracing *tracing);
 
 private:
 	upstream_route_t manual_select;
-	upstream_route_t try_another_select;
+	upstream_route_t another_select;
 };
 
 #endif

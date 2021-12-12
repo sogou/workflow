@@ -17,8 +17,10 @@
 */
 
 #include <pthread.h>
+#include <functional>
 #include "UpstreamManager.h"
 #include "WFNameService.h"
+#include "WFGlobal.h"
 #include "UpstreamPolicies.h"
 
 class __UpstreamManager
@@ -59,12 +61,27 @@ private:
 	std::vector<std::string> upstream_names;
 };
 
+static unsigned int __default_consistent_hash(const char *path,
+											  const char *query,
+											  const char *fragment)
+{
+	static std::hash<std::string> std_hash;
+	std::string str(path);
+
+	str += query;
+	str += fragment;
+	return std_hash(str);
+}
+
 int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 													 upstream_route_t consistent_hash)
 {
 	auto *ns = WFGlobal::get_name_service();
-	UPSConsistentHashPolicy *policy = new UPSConsistentHashPolicy(std::move(consistent_hash));
+	UPSConsistentHashPolicy *policy;
 
+	policy = new UPSConsistentHashPolicy(
+						consistent_hash ? std::move(consistent_hash) :
+										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
 		__UpstreamManager::get_instance()->add_policy_name(name);
@@ -91,7 +108,7 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 	return -1;
 }
 
-int UpstreamManager::upstream_create_vswrr(const std::string& name)
+int UpstreamManager::upstream_create_vnswrr(const std::string& name)
 {
 	auto *ns = WFGlobal::get_name_service();
 	UPSWeightedRandomPolicy *policy = new UPSVNSWRRPolicy();
@@ -109,12 +126,14 @@ int UpstreamManager::upstream_create_vswrr(const std::string& name)
 int UpstreamManager::upstream_create_manual(const std::string& name,
 											upstream_route_t select,
 											bool try_another,
-											upstream_route_t consitent_hash)
+											upstream_route_t consistent_hash)
 {
 	auto *ns = WFGlobal::get_name_service();
-	UPSManualPolicy *policy = new UPSManualPolicy(try_another,
-												  std::move(select),
-												  std::move(consitent_hash));
+	UPSManualPolicy *policy;
+
+	policy = new UPSManualPolicy(try_another, std::move(select),
+						consistent_hash ? std::move(consistent_hash) :
+										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
 		__UpstreamManager::get_instance()->add_policy_name(name);

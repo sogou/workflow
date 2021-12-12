@@ -41,6 +41,7 @@ public:
 		update_metadata_ = false;
 		is_user_request_ = true;
 		is_redirect_ = false;
+		need_retry_ = false;
 	}
 
 protected:
@@ -107,6 +108,7 @@ private:
 	bool update_metadata_;
 	bool is_user_request_;
 	bool is_redirect_;
+	bool need_retry_;
 };
 
 CommMessageOut *__ComplexKafkaTask::message_out()
@@ -115,10 +117,11 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 	if (seqid == 0)
 	{
 		KafkaConnectionInfo *conn_info = new KafkaConnectionInfo;
-		this->get_connection()->set_context(conn_info, std::move([](void *ctx) {
-					delete (KafkaConnectionInfo *)ctx;
-				}));
+
 		this->get_req()->set_api(&conn_info->api);
+		this->get_connection()->set_context(conn_info, [](void *ctx) {
+			delete (KafkaConnectionInfo *)ctx;
+		});
 
 		if (!this->get_req()->get_config()->get_broker_version())
 		{
@@ -193,12 +196,45 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 
 		while ((toppar = req->get_toppar_list()->get_next()) != NULL)
 		{
-			if (toppar->get_low_watermark() == -2)
-				toppar->set_offset_timestamp(-2);
-			else if (toppar->get_offset() == -1)
-				toppar->set_offset_timestamp(this->get_req()->get_config()->get_offset_timestamp());
+			if (toppar->get_low_watermark() < 0)
+				toppar->set_offset_timestamp(KAFKA_TIMESTAMP_EARLIEST);
+			else if (toppar->get_high_watermark() < 0)
+				toppar->set_offset_timestamp(KAFKA_TIMESTAMP_LATEST);
+			else if (toppar->get_offset() == KAFKA_OFFSET_UNINIT)
+			{
+				long long conf_ts =
+					this->get_req()->get_config()->get_offset_timestamp();
+				if (conf_ts == KAFKA_TIMESTAMP_EARLIEST)
+				{
+					toppar->set_offset(toppar->get_low_watermark());
+					continue;
+				}
+				else if (conf_ts == KAFKA_TIMESTAMP_LATEST)
+				{
+					toppar->set_offset(toppar->get_high_watermark());
+					continue;
+				}
+				else
+				{
+					toppar->set_offset_timestamp(conf_ts);
+				}
+			}
+			else if (toppar->get_offset() == KAFKA_OFFSET_OVERFLOW)
+			{
+				if (this->get_req()->get_config()->get_offset_timestamp() ==
+					KAFKA_TIMESTAMP_EARLIEST)
+				{
+					toppar->set_offset(toppar->get_low_watermark());
+				}
+				else
+				{
+					toppar->set_offset(toppar->get_high_watermark());
+				}
+			}
 			else
+			{
 				continue;
+			}
 
 			toppar_list.add_item(*toppar);
 			flag = true;
@@ -217,7 +253,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		}
 	}
 
-	return this->WFClientTask::message_out();
+	return this->WFComplexClientTask::message_out();
 }
 
 CommMessageIn *__ComplexKafkaTask::message_in()
@@ -229,7 +265,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	resp->set_api_version(req->get_api_version());
 	resp->duplicate(*req);
 
-	return this->WFClientTask::message_in();
+	return this->WFComplexClientTask::message_in();
 }
 
 bool __ComplexKafkaTask::init_success()
@@ -364,6 +400,7 @@ bool __ComplexKafkaTask::has_next()
 	struct sockaddr_storage addr;
 	socklen_t addrlen = sizeof addr;
 	const struct sockaddr *paddr = (const struct sockaddr *)&addr;
+	KafkaToppar *toppar = nullptr;
 
 	//always success
 	this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
@@ -464,6 +501,7 @@ bool __ComplexKafkaTask::has_next()
 				}
 			}
 		}
+
 		break;
 
 	case Kafka_SaslHandshake:
@@ -476,20 +514,6 @@ bool __ComplexKafkaTask::has_next()
 
 		break;
 
-	case Kafka_Produce:
-		{
-			msg->get_toppar_list()->rewind();
-			KafkaToppar *toppar;
-			while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
-			{
-				if (!toppar->record_reach_end())
-				{
-					this->get_req()->set_api_type(Kafka_Produce);
-					return true;
-				}
-			}
-		}
-
 	case Kafka_SaslAuthenticate:
 		if (msg->get_broker()->get_error())
 		{
@@ -501,6 +525,31 @@ bool __ComplexKafkaTask::has_next()
 		break;
 
 	case Kafka_Fetch:
+		ret = false;
+		msg->get_toppar_list()->rewind();
+		while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
+		{
+			if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
+			{
+				toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
+				toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
+				need_retry_ = true;
+				ret = true;
+			}
+		}
+		break;
+
+	case Kafka_Produce:
+		msg->get_toppar_list()->rewind();
+		while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
+		{
+			if (!toppar->record_reach_end())
+			{
+				this->get_req()->set_api_type(Kafka_Produce);
+				return true;
+			}
+		}
+
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
 	case Kafka_ListOffsets:
@@ -537,6 +586,12 @@ bool __ComplexKafkaTask::finish_once()
 			{
 				is_redirect_ = false;
 				return true;
+			}
+
+			if (need_retry_)
+			{
+				is_user_request_ = false;
+				need_retry_ = false;
 			}
 
 			this->clear_resp();
@@ -602,8 +657,8 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *addr,
 													   socklen_t addrlen,
-													   int retry_max,
 													   const std::string& info,
+													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
@@ -614,9 +669,9 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *ad
 }
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
-													   int port,
-													   int retry_max,
+													   unsigned short port,
 													   const std::string& info,
+													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));

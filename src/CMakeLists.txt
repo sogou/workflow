@@ -60,13 +60,20 @@ install(
 	COMPONENT devel
 )
 
+if(ANDROID)
+message("use libc.so instead of libpthread.so on Android Platform")
+set(PTHREAD_LIB libc.so)
+else()
+set(PTHREAD_LIB libpthread.so)
+endif()
+
 if (APPLE)
 	set(LIBSO ${LIB_DIR}/libworkflow.a)
 else ()
 	set(LIBSO ${LIB_DIR}/libworkflow.so)
 	add_custom_target(
 		SCRIPT_SHARED_LIB ALL
-		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSO}
+		COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libworkflow.a AS_NEEDED ( ${PTHREAD_LIB} libssl.so libcrypto.so ) ) ' > ${LIBSO}
 	)
 	add_dependencies(SCRIPT_SHARED_LIB ${PROJECT_NAME})
 endif ()
@@ -78,7 +85,7 @@ if (KAFKA STREQUAL "y")
 		set(LIBSOKAFKA ${LIB_DIR}/libwfkafka.so)
 		add_custom_target(
 			SCRIPT_SHARED_LIB_KAFKA ALL
-			COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( libpthread.so libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
+			COMMAND ${CMAKE_COMMAND} -E echo 'GROUP ( libwfkafka.a AS_NEEDED ( ${PTHREAD_LIB} libssl.so libcrypto.so ) ) ' > ${LIBSOKAFKA}
 		)
 		add_dependencies(SCRIPT_SHARED_LIB_KAFKA "wfkafka")
 	endif ()

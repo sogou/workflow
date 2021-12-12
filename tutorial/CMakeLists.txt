@@ -8,8 +8,17 @@ project(tutorial
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
-find_library(LIBRT rt)
-find_package(OpenSSL REQUIRED)
+
+if(ANDROID)
+	message("build for Android")
+	include_directories(${${OPENSSL_INCLUDE_DIR}})
+	link_directories(${OPENSSL_LINK_DIR})
+	find_library(LIBRT c)
+else ()
+	find_library(LIBRT rt)
+    find_package(OpenSSL REQUIRED)
+endif()
+
 find_package(workflow REQUIRED CONFIG HINTS ..)
 include_directories(${OPENSSL_INCLUDE_DIR} ${WORKFLOW_INCLUDE_DIR})
 link_directories(${WORKFLOW_LIB_DIR})

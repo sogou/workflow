@@ -28,7 +28,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIB_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB_DIR})
 
 if(ANDROID)
-include_directories(${${OPENSSL_INCLUDE_DIR}})
+include_directories(${OPENSSL_INCLUDE_DIR})
 link_directories(${OPENSSL_LINK_DIR})
 endif()
 

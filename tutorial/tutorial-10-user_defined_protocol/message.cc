@@ -92,15 +92,20 @@ int TutorialMessage::append(const void *buf, size_t size)
 
 int TutorialMessage::set_message_body(const void *body, size_t size)
 {
-	void *p = malloc(size);
+	// void *p = malloc(size);
 
-	if (!p)
-		return -1;
+	// if (!p)
+	// 	return -1;
 
-	memcpy(p, body, size);
-	free(this->body);
-	this->body = (char *)p;
-	this->body_size = size;
+	// memcpy(p, body, size);
+	// free(this->body);
+	// this->body = (char *)p;
+	// this->body_size = size;
+
+	//上面注释的部分是原代码，下面是我修改的部分
+	this->body_size = size;//我认为没有必要重复开辟和释放空间。因为上文已经表明原先的body指向的空间的大小一定大于
+	//等于p所指向的空间。而且又有body_size来知名空间大小，这里只需要懒惰的方法，直接修改body_size即可，对原空间进行复用
+	//这样可以避免重复maclloc,free和memcpy操作。节省大量时间
 
 	this->head_received = 4;
 	this->body_received = size;

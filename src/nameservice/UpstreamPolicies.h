@@ -128,7 +128,7 @@ private:
 class UPSConsistentHashPolicy : public UPSGroupPolicy
 {
 public:
-	UPSConsistentHashPolicy(upstream_route_t&& consistent_hash) :
+	UPSConsistentHashPolicy(upstream_route_t consistent_hash) :
 		consistent_hash(std::move(consistent_hash))
 	{
 	}
@@ -144,8 +144,8 @@ private:
 class UPSManualPolicy : public UPSGroupPolicy
 {
 public:
-	UPSManualPolicy(bool try_another, upstream_route_t&& select,
-					upstream_route_t&& try_another_select) :
+	UPSManualPolicy(bool try_another, upstream_route_t select,
+					upstream_route_t try_another_select) :
 		manual_select(std::move(select)),
 		another_select(std::move(try_another_select))
 	{

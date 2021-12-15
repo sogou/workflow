@@ -400,7 +400,7 @@ bool __ComplexKafkaTask::has_next()
 	struct sockaddr_storage addr;
 	socklen_t addrlen = sizeof addr;
 	const struct sockaddr *paddr = (const struct sockaddr *)&addr;
-	KafkaToppar *toppar = nullptr;
+	KafkaToppar *toppar;
 
 	//always success
 	this->get_peer_addr((struct sockaddr *)&addr, &addrlen);

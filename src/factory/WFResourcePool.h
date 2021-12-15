@@ -32,6 +32,10 @@ public:
 	void post(void *res);
 
 public:
+	/* Queue for execution. It's like 'get', but does not need to 'post'.  */
+	WFConditional *queue(SubTask *task);
+
+public:
 	struct Data
 	{
 		void *pop() { return this->pool->pop(); }

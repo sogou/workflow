@@ -62,6 +62,29 @@ void __WFConditional::dispatch()
 	this->WFConditional::dispatch();
 }
 
+class __WFConditional__ : public __WFConditional
+{
+protected:
+	virtual SubTask *done()
+	{
+		this->data->pool->post(this->user_data);
+		return this->__WFConditional::done();
+	}
+
+public:
+	__WFConditional__(SubTask *task, void **resbuf,
+					  struct WFResourcePool::Data *data) :
+		__WFConditional(task, resbuf, data)
+	{
+	}
+
+	__WFConditional__(SubTask *task,
+					  struct WFResourcePool::Data *data) :
+		__WFConditional(task, data)
+	{
+	}
+};
+
 WFConditional *WFResourcePool::get(SubTask *task, void **resbuf)
 {
 	return new __WFConditional(task, resbuf, &this->data);
@@ -70,6 +93,11 @@ WFConditional *WFResourcePool::get(SubTask *task, void **resbuf)
 WFConditional *WFResourcePool::get(SubTask *task)
 {
 	return new __WFConditional(task, &this->data);
+}
+
+WFConditional *WFResourcePool::queue(SubTask *task)
+{
+	return new __WFConditional__(task, &this->data);
 }
 
 void WFResourcePool::create(size_t n)

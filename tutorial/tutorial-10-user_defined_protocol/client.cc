@@ -85,7 +85,9 @@ int main(int argc, char *argv[])
 
 		printf("Input next request string (Ctrl-D to exit): ");
 		*buf = '\0';
-		scanf("%1024s", buf);
+		buf[1023] = '\0';
+		// scanf("%1024s", buf);//这里是不是应当使用%1023s？因为要保证buf[1023] = '\0';
+		scanf("%1023s", buf);
 		body_size = strlen(buf);
 		if (body_size > 0)
 		{

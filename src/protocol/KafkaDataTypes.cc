@@ -278,6 +278,9 @@ KafkaCgroup::KafkaCgroup()
 	protocol->assignor = kafka_range_assignor;
 	list_add_tail(&protocol->list, &this->ptr->group_protocol_list);
 	protocol = new kafka_group_protocol_t;
+
+	//下面对protocol_name重新开辟了内存空间，在重新开辟之前需要先释放
+	delete[] protocol->protocol_name;
 	protocol->protocol_name = new char[strlen("roundrobin") + 1];
 	memcpy(protocol->protocol_name, "roundrobin", strlen("roundrobin") + 1);
 	protocol->assignor = kafka_roundrobin_assignor;

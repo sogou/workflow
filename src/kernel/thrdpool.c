@@ -120,8 +120,9 @@ static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 {
 	pthread_cond_t term = PTHREAD_COND_INITIALIZER;
 
+	pthread_cond_t *src_term = pool->terminate;
 	pthread_mutex_lock(&pool->mutex);
-	pool->terminate = &term;
+	pool->terminate = &term;//引用了本地变量地址，后面必须要进行还原，防止出现内存泄漏
 	pthread_cond_broadcast(&pool->cond);
 
 	if (in_pool)
@@ -137,6 +138,9 @@ static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 	pthread_mutex_unlock(&pool->mutex);
 	if (memcmp(&pool->tid, &__zero_tid, sizeof (pthread_t)) != 0)
 		pthread_join(pool->tid, NULL);
+	pthread_mutex_lock(&pool->mutex);
+	pool->terminate = src_term;//这里还原
+	pthread_mutex_unlock(&pool->mutex);
 }
 
 static int __thrdpool_create_threads(size_t nthreads, thrdpool_t *pool)

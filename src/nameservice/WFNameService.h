@@ -116,6 +116,17 @@ public:
 	WFNSPolicy *get_policy(const char *name);
 	WFNSPolicy *del_policy(const char *name);
 
+public:
+	WFNSPolicy *get_default_policy() const
+	{
+		return this->default_policy;
+	}
+
+	void set_default_policy(WFNSPolicy *policy)
+	{
+		this->default_policy = policy;
+	}
+
 private:
 	WFNSPolicy *default_policy;
 	struct rb_root root;

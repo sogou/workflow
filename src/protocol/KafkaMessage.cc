@@ -3450,13 +3450,13 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 	for (const auto& v : missing_topic)
 	{
 		KafkaMeta *meta = new KafkaMeta;
-
-		meta_list->add_item(std::move(*meta));
 		if (!meta->set_topic(v))
 		{
 			delete meta;
 			return -1;
 		}
+
+		meta_list->add_item(std::move(*meta));
 	}
 
 	if (!missing_topic.empty())

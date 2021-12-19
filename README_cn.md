@@ -6,7 +6,7 @@
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
 [![Build Status](https://travis-ci.com/sogou/workflow.svg?branch=master)](https://travis-ci.com/sogou/workflow)
 
-搜狗公司C++服务器引擎，支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理超百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数C++后端开发需求。  
+搜狗公司C++服务器引擎，支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理超百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数C++后端开发需求。
 #### 你可以用来：
 * 快速搭建http服务器：
 ~~~cpp
@@ -49,7 +49,7 @@ int main()
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
 * 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
 
-#### 快速开始（Linux, maxOS）：
+#### 快速开始（Linux, macOS）：
 ~~~sh
 git clone https://github.com/sogou/workflow # From gitee: git clone https://gitee.com/sogou/workflow
 cd workflow
@@ -137,10 +137,10 @@ make
 * 项目中不使用``std::shared_ptr``来管理内存。
 
 # 使用中有疑问？
-可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
-非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。  
+可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。
+非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。
 也可以通过QQ群：``618773193`` 联系我们。
 
 #### Gitee仓库
-用户可以在访问GitHub遇到困难时，使用我们的Gitee官方仓库：https://gitee.com/sogou/workflow  
+用户可以在访问GitHub遇到困难时，使用我们的Gitee官方仓库：https://gitee.com/sogou/workflow
 **另外也麻烦在Gitee上star了项目的用户，尽量同步star一下[GitHub仓库](https://github.com/sogou/workflow)。谢谢！**

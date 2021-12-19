@@ -1185,93 +1185,79 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 		}
 	}
 
-	KafkaRecord *kafka_record = new KafkaRecord;
-	kafka_record_t *record = kafka_record->get_raw_ptr();
-
-	record->offset = offset;
-	record->toppar = toppar->get_raw_ptr();
-	record->key_is_move = 1;
-	record->value_is_move = 1;
-
 	int8_t magic;
 	int8_t attributes;
 
 	if (parse_i8(buf, size, &magic) < 0)
-	{
-		delete kafka_record;
 		return -1;
-	}
 
 	if (parse_i8(buf, size, &attributes) < 0)
-	{
-		delete kafka_record;
 		return -1;
-	}
 
-	if (msg_vers == 1)
-	{
-		if (parse_i64(buf, size, (int64_t *)&record->timestamp) < 0)
-		{
-			delete kafka_record;
+	int64_t timestamp;
+	if (msg_vers == 1 && parse_i64(buf, size, &timestamp) < 0)
 			return -1;
-		}
-	}
 
-	if (parse_bytes(buf, size, &record->key, &record->key_len) < 0)
-	{
-		delete kafka_record;
+	void *key;
+	size_t key_len;
+	if (parse_bytes(buf, size, &key, &key_len) < 0)
 		return -1;
-	}
 
 	void *payload;
 	size_t payload_len;
 
 	if (parse_bytes(buf, size, &payload, &payload_len) < 0)
-	{
-		delete kafka_record;
 		return -1;
-	}
 
-	int compress_type = attributes & 3;
-
-	if (compress_type == 0)
+	if (offset >= toppar->get_offset())
 	{
-		record->value = payload;
-		record->value_len = payload_len;
-		list_add_tail(kafka_record->get_list(), record_list);
-	}
-	else
-	{
-		delete kafka_record;
-		KafkaBlock block;
-
-		if (uncompress_buf(payload, payload_len, &block, compress_type) < 0)
-			return -1;
-
-		struct list_head *record_head = record_list->prev;
-		void *uncompressed_ptr = block.get_block();
-		size_t uncompressed_len = block.get_len();
-		parse_message_set(&uncompressed_ptr, &uncompressed_len, check_crcs,
-						  msg_vers, record_list, uncompressed, toppar);
-
-		uncompressed->add_item(std::move(block));
-
-		if (msg_vers == 1)
+		int compress_type = attributes & 3;
+		if (compress_type == 0)
 		{
-			struct list_head *pos;
-			KafkaRecord *record;
-			int n = 0;
+			KafkaRecord *kafka_record = new KafkaRecord;
+			kafka_record_t *record = kafka_record->get_raw_ptr();
+			record->key = key;
+			record->key_len = key_len;
+			record->timestamp = timestamp;
+			record->offset = offset;
+			record->toppar = toppar->get_raw_ptr();
+			record->key_is_move = 1;
+			record->value_is_move = 1;
+			record->value = payload;
+			record->value_len = payload_len;
+			list_add_tail(kafka_record->get_list(), record_list);
+		}
+		else
+		{
+			KafkaBlock block;
+			if (uncompress_buf(payload, payload_len, &block, compress_type) < 0)
+				return -1;
 
-			for (pos = record_head->next; pos != record_list; pos = pos->next)
-				n++;
+			struct list_head *record_head = record_list->prev;
+			void *uncompressed_ptr = block.get_block();
+			size_t uncompressed_len = block.get_len();
+			parse_message_set(&uncompressed_ptr, &uncompressed_len, check_crcs,
+							msg_vers, record_list, uncompressed, toppar);
 
-			for (pos = record_head->next; pos != record_list; pos = pos->next)
+			uncompressed->add_item(std::move(block));
+
+			if (msg_vers == 1)
 			{
-				int64_t fix_offset;
+				struct list_head *pos;
+				KafkaRecord *record;
+				int n = 0;
 
-				record = list_entry(pos, KafkaRecord, list);
-				fix_offset = offset + record->get_offset() - n + 1;
-				record->set_offset(fix_offset);
+				for (pos = record_head->next; pos != record_list; pos = pos->next)
+					n++;
+
+				for (pos = record_head->next; pos != record_list; pos = pos->next)
+				{
+					int64_t fix_offset;
+
+					record = list_entry(pos, KafkaRecord, list);
+					fix_offset = offset + record->get_offset() - n + 1;
+					record->set_offset(fix_offset);
+				}
 			}
 		}
 	}
@@ -1485,15 +1471,24 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 	for (int i = 0; i < hdr.record_count; ++i)
 	{
 		KafkaRecord *record = new KafkaRecord;
-
 		record->set_offset(hdr.base_offset);
 		record->set_timestamp(hdr.base_timestamp);
-		parse_message_record(&p, &n, record->get_raw_ptr());
 		record->get_raw_ptr()->key_is_move = 1;
 		record->get_raw_ptr()->value_is_move = 1;
 		record->get_raw_ptr()->toppar = toppar->get_raw_ptr();
-		toppar->set_offset(record->get_offset());
-		list_add_tail(record->get_list(), record_list);
+
+		switch (parse_message_record(&p, &n, record->get_raw_ptr()))
+		{
+			case -1:
+				delete record;
+				return -1;
+			case 0:
+				list_add_tail(record->get_list(), record_list);
+				break;
+			default:
+				delete record;
+				break;
+		}
 	}
 
 	if (hdr.attributes == 0)
@@ -1509,10 +1504,9 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 }
 
 int KafkaMessage::parse_records(void **buf, size_t *size, bool check_crcs,
-								struct list_head *record_list,
-								KafkaBuffer *uncompressed,
-								KafkaToppar *toppar)
+								KafkaBuffer *uncompressed, KafkaToppar *toppar)
 {
+	struct list_head *record_list = toppar->get_record();
 	int msg_set_size = 0;
 
 	if (parse_i32(buf, size, &msg_set_size) < 0)
@@ -3255,9 +3249,21 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 				ptr->preferred_read_replica = preferred_read_replica;
 			}
 
-			parse_records(buf, size, this->config.get_check_crcs(),
-						  toppar->get_record(),
-						  &this->uncompressed, toppar);
+			if (parse_records(buf, size, this->config.get_check_crcs(),
+							  &this->uncompressed, toppar) == 0)
+			{
+				if (toppar->get_record() != toppar->get_record()->prev)
+				{
+					KafkaRecord *tail = (KafkaRecord *)list_entry(
+					toppar->get_record()->prev, KafkaRecord, list);
+					toppar->set_offset(tail->get_offset());
+				}
+			}
+			else
+			{
+				ptr->error = KAFKA_CORRUPT_MESSAGE;
+				return -1;
+			}
 		}
 	}
 

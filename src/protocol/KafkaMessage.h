@@ -151,7 +151,7 @@ protected:
 								 KafkaToppar *toppar);
 
 	static int parse_message_record(void **buf, size_t *size,
-									kafka_record_t *record);
+									kafka_record_t *kafka_record);
 
 	static int parse_record_batch(void **buf, size_t *size,
 								  bool check_crcs,
@@ -160,9 +160,7 @@ protected:
 								  KafkaToppar *toppar);
 
 	static int parse_records(void **buf, size_t *size, bool check_crcs,
-							 struct list_head *record_list,
-							 KafkaBuffer *uncompressed,
-							 KafkaToppar *toppar);
+							 KafkaBuffer *uncompressed, KafkaToppar *toppar);
 
 	static std::string get_member_assignment(kafka_member_t *member);
 

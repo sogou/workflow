@@ -1135,7 +1135,7 @@ static int parse_varint_u64(void **buf, size_t *size, uint64_t *val)
 
 	do
 	{
-		if (*size - 1 == 0)
+		if (*size == 0)
 		{
 			*size = org_size;
 			errno = EBADMSG;

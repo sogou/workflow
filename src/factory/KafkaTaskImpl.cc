@@ -421,9 +421,10 @@ bool __ComplexKafkaTask::process_join_group()
 	KafkaResponse *msg = this->get_resp();
 	if (!msg->get_cgroup()->get_coordinator()->is_to_addr())
 	{
-		const struct sockaddr *paddr;
-		socklen_t addrlen;
-		msg->get_broker()->get_broker_addr(&paddr, &addrlen);
+		struct sockaddr_storage addr;
+		socklen_t addrlen = sizeof addr;
+		const struct sockaddr *paddr = (const struct sockaddr *)&addr;
+		this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
 		msg->get_cgroup()->get_coordinator()->set_broker_addr(paddr, addrlen);
 		msg->get_cgroup()->get_coordinator()->set_to_addr(1);
 	}

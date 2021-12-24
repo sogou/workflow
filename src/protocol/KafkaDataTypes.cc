@@ -208,10 +208,9 @@ bool KafkaMeta::create_partitions(int partition_cnt)
 	return true;
 }
 
-int KafkaCgroup::run_assignor(KafkaMetaList *meta_list,
-							  const char *protocol_name)
+void KafkaCgroup::add_subscriber(KafkaMetaList *meta_list, 
+								 std::vector<KafkaMetaSubscriber> *subscribers)
 {
-	std::vector<KafkaMetaSubscriber> subscribers;
 	meta_list->rewind();
 	KafkaMeta *meta;
 
@@ -241,13 +240,21 @@ int KafkaCgroup::run_assignor(KafkaMetaList *meta_list,
 		}
 
 		if (!subscriber.get_member()->empty())
-			subscribers.emplace_back(subscriber);
+			subscribers->emplace_back(subscriber);
 	}
+}
+
+int KafkaCgroup::run_assignor(KafkaMetaList *meta_list,
+							  KafkaMetaList *alien_meta_list,
+							  const char *protocol_name)
+{
+	std::vector<KafkaMetaSubscriber> subscribers;
+	this->add_subscriber(meta_list, &subscribers);
+	this->add_subscriber(alien_meta_list, &subscribers);
 
 	struct list_head *pos;
 	kafka_group_protocol_t *protocol;
 	bool flag = false;
-
 	list_for_each(pos, this->get_group_protocol())
 	{
 		protocol = list_entry(pos, kafka_group_protocol_t, list);

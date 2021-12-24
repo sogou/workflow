@@ -432,6 +432,7 @@ bool __ComplexKafkaTask::process_join_group()
 	if (msg->get_cgroup()->get_error() == KAFKA_MISSING_TOPIC)
 	{
 		this->get_req()->set_api_type(Kafka_Metadata);
+		this->get_req()->set_alien();
 		update_metadata_ = true;
 	}
 	else if (msg->get_cgroup()->get_error() == KAFKA_MEMBER_ID_REQUIRED)
@@ -478,6 +479,7 @@ bool __ComplexKafkaTask::process_metadata()
 	{
 		KafkaCgroup *cgroup = msg->get_cgroup();
 		if (cgroup->run_assignor(msg->get_meta_list(),
+								 msg->get_alien_meta_list(),
 								 cgroup->get_protocol_name()) < 0)
 		{
 			this->error = errno;

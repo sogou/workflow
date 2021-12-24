@@ -1614,6 +1614,7 @@ KafkaMessage::KafkaMessage()
 	this->stream = new EncodeStream;
 	this->api_type = Kafka_Unknown;
 	this->cur_size = 0;
+	this->alien = false;
 }
 
 KafkaMessage::~KafkaMessage()
@@ -2431,11 +2432,17 @@ int KafkaRequest::encode_metadata(struct iovec vectors[], int max)
 	else
 		append_i32(this->msgbuf, 0);
 
-	this->meta_list.rewind();
+	KafkaMetaList *p_meta_list;
+	if (this->alien)
+		p_meta_list = &this->alien_meta_list;
+	else
+		p_meta_list = &this->meta_list;
+
+	p_meta_list->rewind();
 	KafkaMeta *meta;
 	int topic_cnt = 0;
 
-	while ((meta = this->meta_list.get_next()) != NULL)
+	while ((meta = p_meta_list->get_next()) != NULL)
 	{
 		append_string(this->msgbuf, meta->get_topic());
 		++topic_cnt;
@@ -3053,8 +3060,14 @@ int KafkaResponse::parse_metadata(void **buf, size_t *size)
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &controller_id));
 
+	KafkaMetaList *p_meta_list;
+	if (this->alien)
+		p_meta_list = &this->alien_meta_list;
+	else
+		p_meta_list = &this->meta_list;
+
 	CHECK_RET(kafka_meta_parse_topic(buf, size, this->api_version,
-									 &this->meta_list, &this->broker_list));
+									 p_meta_list, &this->broker_list));
 
 	return 0;
 }
@@ -3382,6 +3395,7 @@ static bool kafka_meta_find_topic(const std::string& topic_name,
 static int kafka_cgroup_parse_member(void **buf, size_t *size,
 									 KafkaCgroup *cgroup,
 									 KafkaMetaList *meta_list,
+									 KafkaMetaList *alien_meta_list,
 									 int api_version)
 {
 	int member_cnt = 0;
@@ -3397,7 +3411,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 		return -1;
 
 	kafka_member_t **member = cgroup->get_members();
-	std::set<std::string> missing_topic;
+	std::set<std::string> alien_topic;
 	int i;
 
 	for (i = 0; i < member_cnt; ++i)
@@ -3443,7 +3457,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 			list_add_tail(toppar->get_list(), &member[i]->toppar_list);
 
 			if (!kafka_meta_find_topic(topic_name, meta_list))
-				missing_topic.insert(topic_name);
+				alien_topic.insert(topic_name);
 		}
 
 		if (j != topic_cnt)
@@ -3453,7 +3467,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 	if (i != member_cnt)
 		return -1;
 
-	for (const auto& v : missing_topic)
+	for (const auto& v : alien_topic)
 	{
 		KafkaMeta *meta = new KafkaMeta;
 		if (!meta->set_topic(v))
@@ -3462,10 +3476,10 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 			return -1;
 		}
 
-		meta_list->add_item(std::move(*meta));
+		alien_meta_list->add_item(std::move(*meta));
 	}
 
-	if (!missing_topic.empty())
+	if (!alien_topic.empty())
 		cgroup->set_error(KAFKA_MISSING_TOPIC);
 
 	return 0;
@@ -3486,11 +3500,14 @@ int KafkaResponse::parse_joingroup(void **buf, size_t *size)
 	CHECK_RET(parse_string(buf, size, &cgroup->leader_id));
 	CHECK_RET(parse_string(buf, size, &cgroup->member_id));
 	CHECK_RET(kafka_cgroup_parse_member(buf, size, &this->cgroup,
-										&this->meta_list, this->api_version));
+										&this->meta_list, 
+										&this->alien_meta_list,
+										this->api_version));
 
-	if (this->cgroup.is_leader())
+	if (cgroup->error != KAFKA_MISSING_TOPIC && this->cgroup.is_leader())
 	{
 		CHECK_RET(this->cgroup.run_assignor(&this->meta_list,
+											&this->alien_meta_list,
 											cgroup->protocol_name));
 	}
 

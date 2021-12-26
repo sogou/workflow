@@ -94,11 +94,23 @@ configure_package_config_file(
 	PATH_VARS CONFIG_INC_DIR CONFIG_LIB_DIR
 )
 
+write_basic_package_version_file(
+	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+	VERSION ${WORKFLOW_VERSION}
+	COMPATIBILITY AnyNewerVersion 
+)
+
 install(
 	FILES ${CMAKE_CONFIG_INSTALL_FILE}
 	DESTINATION ${CMAKE_CONFIG_INSTALL_DIR}
 	COMPONENT devel
 	RENAME ${PROJECT_NAME}-config.cmake
+)
+
+install(
+	FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+	DESTINATION ${CMAKE_CONFIG_INSTALL_DIR}
+	COMPONENT devel
 )
 
 install(

@@ -75,15 +75,16 @@ bool HttpMessage::get_output_body_nocopy(struct iovec iov[], int *iovcnt) const
 
 	list_for_each(pos, &this->output_body)
 	{
-		if (++i > *iovcnt)
+		if (i >= *iovcnt)
 		{
-			errno = ENOSPC;
+			errno = ENOBUFS;
 			return false;
 		}
 
 		block = list_entry(pos, struct HttpMessageBlock, list);
 		iov[i].iov_base = (void *)block->ptr;
 		iov[i].iov_len = block->size;
+		i++;
 	}
 
 	*iovcnt = i;

@@ -130,6 +130,7 @@ public:
 	bool append_output_body_nocopy(const void *buf, size_t size);
 	bool get_output_body_nocopy(struct iovec iov[], int *iovcnt) const;
 	void clear_output_body();
+
 	size_t get_output_body_size() const
 	{
 		return this->output_body_size;

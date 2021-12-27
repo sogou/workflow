@@ -19,6 +19,7 @@
 #ifndef _HTTPMESSAGE_H_
 #define _HTTPMESSAGE_H_
 
+#include <sys/uio.h>
 #include <string.h>
 #include <utility>
 #include <string>
@@ -127,7 +128,9 @@ public:
 	 * msg->append_output_body_nocopy(body, size); */
 	bool append_output_body(const void *buf, size_t size);
 	bool append_output_body_nocopy(const void *buf, size_t size);
+	bool get_output_body_nocopy(struct iovec iov[], int *iovcnt) const;
 	void clear_output_body();
+
 	size_t get_output_body_size() const
 	{
 		return this->output_body_size;

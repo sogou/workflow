@@ -67,6 +67,30 @@ bool HttpMessage::append_output_body_nocopy(const void *buf, size_t size)
 	return false;
 }
 
+bool HttpMessage::get_output_body_nocopy(struct iovec iov[], int *iovcnt) const
+{
+	struct HttpMessageBlock *block;
+	struct list_head *pos;
+	int i = 0;
+
+	list_for_each(pos, &this->output_body)
+	{
+		if (i >= *iovcnt)
+		{
+			errno = ENOBUFS;
+			return false;
+		}
+
+		block = list_entry(pos, struct HttpMessageBlock, list);
+		iov[i].iov_base = (void *)block->ptr;
+		iov[i].iov_len = block->size;
+		i++;
+	}
+
+	*iovcnt = i;
+	return true;
+}
+
 void HttpMessage::clear_output_body()
 {
 	struct HttpMessageBlock *block;

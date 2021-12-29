@@ -53,6 +53,37 @@ int main()
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
+### Get started (Debian Linux):
+Sogou C++ Workflow has been packaged for Debian. It is currently in Debian sid (unstable) but will eventually be placed into the stable repository.
+
+In order to access the unstable repository, you will need to edit your /etc/apt/sources.list file.
+
+sources.list has the format: `deb <respository server/mirror> <repository name> <sub branches of the repo>`
+
+Simply add the 'unstable' sub branch to your repo:
+~~~~sh
+deb http://deb.debian.org/ main contrib non-free 
+
+--> 
+
+deb http://deb.debian.org/ unstable main contrib non-free
+~~~~
+
+Once that is added, update your repo list and then you should be able to install it:
+~~~~sh
+sudo apt-get update
+~~~~
+
+To install the Workflow library for development purposes:
+~~~~sh
+sudo apt-get install libworkflow-dev
+~~~~
+
+To install the Workflow library for deployment:
+~~~~sh
+sudo apt-get install libworkflow1
+~~~~
+
 ### Get started (Linux, macOS):
 ~~~sh
 git clone https://github.com/sogou/workflow

@@ -67,7 +67,7 @@ void EncodeStream::merge()
 	}
 
 	buf->pos = buf->data + ALIGN(len, 8);
-	list_add_tail(&buf->list, &buf_list_);
+	list_add(&buf->list, &buf_list_);
 
 	vec_[merged_size_].iov_base = buf->data;
 	vec_[merged_size_].iov_len = len;
@@ -128,8 +128,11 @@ void EncodeStream::append_copy(const char *data, size_t len)
 	memcpy(buf->pos, data, len);
 	vec_[size_].iov_base = buf->pos;
 	vec_[size_].iov_len = len;
-	buf->pos += ALIGN(len, 8);
 	size_++;
 	bytes_ += len;
+
+	buf->pos += ALIGN(len, 8);
+	if (buf->pos >= buf->data + ENCODE_BUF_SIZE)
+		list_move(&buf->list, &buf_list_);
 }
 

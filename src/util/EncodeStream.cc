@@ -22,6 +22,7 @@
 #include "list.h"
 #include "EncodeStream.h"
 
+#define ALIGN(x,a) (((x)+(a)-1)&~((a)-1))
 #define ENCODE_BUF_SIZE		1024
 
 struct EncodeBuf
@@ -31,7 +32,7 @@ struct EncodeBuf
 	char data[ENCODE_BUF_SIZE];
 };
 
-void EncodeStream::clear_data()
+void EncodeStream::clear_buf_data()
 {
 	struct list_head *pos, *tmp;
 	struct EncodeBuf *entry;
@@ -42,30 +43,34 @@ void EncodeStream::clear_data()
 		list_del(pos);
 		delete [](char *)entry;
 	}
-
-	while (merged_size_ > 0)
-		delete [](char *)vec_[--merged_size_].iov_base;
-
-	bytes_ = 0;
-	size_ = 0;
-	merged_bytes_ = 0;
 }
 
 void EncodeStream::merge()
 {
-	size_t n = bytes_ - merged_bytes_;
-	char *base = new char[n];
-	char *p = base;
+	size_t len = bytes_ - merged_bytes_;
+	struct EncodeBuf *buf;
+	size_t n;
+	char *p;
 	int i;
 
+	if (len > ENCODE_BUF_SIZE)
+		n = offsetof(struct EncodeBuf, data) + len;
+	else
+		n = sizeof (struct EncodeBuf);
+
+	buf = (struct EncodeBuf *)new char[n];
+	p = buf->data;
 	for (i = merged_size_; i < size_; i++)
 	{
 		memcpy(p, vec_[i].iov_base, vec_[i].iov_len);
 		p += vec_[i].iov_len;
 	}
 
-	vec_[merged_size_].iov_base = base;
-	vec_[merged_size_].iov_len = n;
+	buf->pos = buf->data + ALIGN(len, 8);
+	list_add_tail(&buf->list, &buf_list_);
+
+	vec_[merged_size_].iov_base = buf->data;
+	vec_[merged_size_].iov_len = len;
 	merged_size_++;
 	merged_bytes_ = bytes_;
 	size_ = merged_size_;
@@ -123,7 +128,7 @@ void EncodeStream::append_copy(const char *data, size_t len)
 	memcpy(buf->pos, data, len);
 	vec_[size_].iov_base = buf->pos;
 	vec_[size_].iov_len = len;
-	buf->pos += len;
+	buf->pos += ALIGN(len, 8);
 	size_++;
 	bytes_ += len;
 }

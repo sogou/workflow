@@ -37,33 +37,22 @@ class EncodeStream
 public:
 	EncodeStream()
 	{
-		vec_ = NULL;
-		max_ = 0;
-		size_ = 0;
-		bytes_ = 0;
-		merged_size_ = 0;
-		merged_bytes_ = 0;
+		init_vec(NULL, 0);
 		INIT_LIST_HEAD(&buf_list_);
 	}
 
 	EncodeStream(struct iovec *vectors, int max)
 	{
-		vec_ = vectors;
-		max_ = max;
-		size_ = 0;
-		bytes_ = 0;
-		merged_size_ = 0;
-		merged_bytes_ = 0;
+		init_vec(vectors, max);
 		INIT_LIST_HEAD(&buf_list_);
 	}
 
-	~EncodeStream() { clear_data(); }
+	~EncodeStream() { clear_buf_data(); }
 
 	void reset(struct iovec *vectors, int max)
 	{
-		clear_data();
-		vec_ = vectors;
-		max_ = max;
+		clear_buf_data();
+		init_vec(vectors, max);
 	}
 
 	int size() const { return size_; }
@@ -76,7 +65,7 @@ public:
 		append_nocopy(data, strlen(data));
 	}
 
-	void append_nocopy(const std::string &data)
+	void append_nocopy(const std::string& data)
 	{
 		append_nocopy(data.c_str(), data.size());
 	}
@@ -88,14 +77,24 @@ public:
 		append_copy(data, strlen(data));
 	}
 
-	void append_copy(const std::string &data)
+	void append_copy(const std::string& data)
 	{
 		append_copy(data.c_str(), data.size());
 	}
 
 private:
+	void init_vec(struct iovec *vectors, int max)
+	{
+		vec_ = vectors;
+		max_ = max;
+		bytes_ = 0;
+		size_ = 0;
+		merged_bytes_ = 0;
+		merged_size_ = 0;
+	}
+
 	void merge();
-	void clear_data();
+	void clear_buf_data();
 
 private:
 	struct iovec *vec_;
@@ -115,7 +114,7 @@ static inline EncodeStream& operator << (EncodeStream& stream,
 }
 
 static inline EncodeStream& operator << (EncodeStream& stream,
-										 const std::string &data)
+										 const std::string& data)
 {
 	stream.append_nocopy(data.c_str(), data.size());
 	return stream;

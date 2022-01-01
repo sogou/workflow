@@ -54,7 +54,7 @@ void EncodeStream::merge()
 	int i;
 
 	if (len > ENCODE_BUF_SIZE)
-		n = offsetof(struct EncodeBuf, data) + len;
+		n = offsetof(struct EncodeBuf, data) + ALIGN(len, 8);
 	else
 		n = sizeof (struct EncodeBuf);
 
@@ -110,13 +110,12 @@ void EncodeStream::append_copy(const char *data, size_t len)
 
 	struct EncodeBuf *buf = list_entry(buf_list_.prev, struct EncodeBuf, list);
 
-	if (list_empty(&buf_list_) || 
-		buf->pos + len > buf->data + ENCODE_BUF_SIZE)
+	if (list_empty(&buf_list_) || buf->pos + len > buf->data + ENCODE_BUF_SIZE)
 	{
 		size_t n;
 
 		if (len > ENCODE_BUF_SIZE)
-			n = offsetof(struct EncodeBuf, data) + len;
+			n = offsetof(struct EncodeBuf, data) + ALIGN(len, 8);
 		else
 			n = sizeof (struct EncodeBuf);
 

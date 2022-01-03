@@ -66,14 +66,10 @@ Sogou C++ Workflow has been packaged for Debian. It is currently in Debian sid (
 
 In order to access the unstable repository, you will need to edit your /etc/apt/sources.list file.
 
-sources.list has the format: `deb <respository server/mirror> <repository name> <sub branches of the repo>`
-
 Simply add the 'unstable' sub branch to your repo:
 ~~~~sh
 deb http://deb.debian.org/ main contrib non-free 
-
 --> 
-
 deb http://deb.debian.org/ unstable main contrib non-free
 ~~~~
 

@@ -62,8 +62,8 @@ WFResourcePool::WFResourcePool(size_t n)
 ~~~
 
 ### Application interfaces
-Users use **get()** method of resource pool to wrap a task. **get()** returns a conditional, which is also a task. Conditional will runs the task it wrap when it obtain a resource from the pool. **get()** may accept a second argument **void \*\* resbuf**, which is the buffer that will store the resource abtained. After the **get()** operation, users can use the returned condition to substain the original task. It can be started or put to any series just like an ordinary task.  
-After the user task is finished, **post()** need to be called to return a resource to the pool. Topically, **post()** is called in user task's callback.
+Users use **get()** method of resource pool to wrap a task. **get()** returns a conditional, which is also a task. Conditional will runs the task it wrap when it obtain a resource from the pool. **get()** may accept a second argument **void \*\* resbuf**, which is the buffer that will store the resource abtained. After the **get()** operation, users can use the returned conditional to substain the original task. It can be started or put to any series just like an ordinary task.  
+After the user task is finished, **post()** need to be called to return a resource to the pool. Typically, **post()** is called in user task's callback.
 
 ### Derivation
 The using of resource pool is FILO. It means the last released resource will be the next one to be obtained. You may subclass WFResourcePool to implement a FIFO pool.

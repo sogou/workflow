@@ -326,6 +326,7 @@ private:
 	int get_node_id(const KafkaToppar *toppar);
 
 	MetaStatus get_meta_status();
+	void set_meta_status(MetaStatus status);
 
 	std::string get_userinfo() { return this->userinfo; }
 
@@ -673,12 +674,19 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 	t->error = 0;
 
 	std::pair<int, int> *state_error;
-
+	bool flag = false;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
 		if (state_error->first != WFT_STATE_SUCCESS)
 		{
+			if (!flag)
+			{
+				flag = true;
+				t->lock_status.get_mutex()->lock();
+				t->set_meta_status(META_UNINIT);
+				t->lock_status.get_mutex()->unlock();
+			}
 			t->state = state_error->first;
 			t->error = state_error->second;
 		}
@@ -806,6 +814,14 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 	}
 
 	return ret;
+}
+
+void ComplexKafkaTask::set_meta_status(MetaStatus status)
+{
+	this->meta_list.rewind();
+	KafkaMeta *meta;
+	while ((meta = this->meta_list.get_next()) != NULL)
+		(*this->client->member->meta_map)[meta->get_topic()] = status;
 }
 
 void ComplexKafkaTask::dispatch()

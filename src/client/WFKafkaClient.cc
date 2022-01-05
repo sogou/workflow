@@ -706,7 +706,7 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
-			if (task_toppar->get_error() == KAFKA_NONE && 
+			if (task_toppar->get_error() == KAFKA_NONE &&
 				!task_toppar->reach_high_watermark())
 				toppar->set_offset(task_toppar->get_offset() + 1);
 			else
@@ -818,9 +818,9 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 
 void ComplexKafkaTask::set_meta_status(MetaStatus status)
 {
-	this->meta_list.rewind();
+	this->client_meta_list.rewind();
 	KafkaMeta *meta;
-	while ((meta = this->meta_list.get_next()) != NULL)
+	while ((meta = this->client_meta_list.get_next()) != NULL)
 		(*this->client->member->meta_map)[meta->get_topic()] = status;
 }
 

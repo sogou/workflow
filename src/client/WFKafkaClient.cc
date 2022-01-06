@@ -125,7 +125,7 @@ public:
 		this->broker_list = new KafkaBrokerList;
 		this->lock_status = new KafkaLockStatus;
 		this->broker_map = new KafkaBrokerMap;
-		this->meta_map = new std::map<std::string, MetaStatus>;
+		this->meta_map = new std::map<std::string, enum MetaStatus>;
 	}
 
 	~KafkaMember()
@@ -149,7 +149,7 @@ public:
 	KafkaBrokerList *broker_list;
 	KafkaBrokerMap *broker_map;
 	KafkaLockStatus *lock_status;
-	std::map<std::string, MetaStatus> *meta_map;
+	std::map<std::string, enum MetaStatus> *meta_map;
 
 private:
 	std::atomic<int> *ref;
@@ -325,8 +325,8 @@ private:
 
 	int get_node_id(const KafkaToppar *toppar);
 
-	MetaStatus get_meta_status();
-	void set_meta_status(MetaStatus status);
+	enum MetaStatus get_meta_status();
+	void set_meta_status(enum MetaStatus status);
 
 	std::string get_userinfo() { return this->userinfo; }
 
@@ -789,11 +789,11 @@ void ComplexKafkaTask::parse_query()
 	}
 }
 
-MetaStatus ComplexKafkaTask::get_meta_status()
+enum MetaStatus ComplexKafkaTask::get_meta_status()
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
-	MetaStatus ret = META_INITED;
+	enum MetaStatus ret = META_INITED;
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		switch((*this->client->member->meta_map)[meta->get_topic()])
@@ -816,7 +816,7 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 	return ret;
 }
 
-void ComplexKafkaTask::set_meta_status(MetaStatus status)
+void ComplexKafkaTask::set_meta_status(enum MetaStatus status)
 {
 	this->client_meta_list.rewind();
 	KafkaMeta *meta;

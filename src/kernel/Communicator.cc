@@ -404,9 +404,20 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 
 	while (cnt > 0)
 	{
-		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
-		if (n < 0)
-			return errno == EAGAIN ? cnt : -1;
+		if (!entry->ssl)
+		{
+			n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
+			if (n < 0)
+				return errno == EAGAIN ? cnt : -1;
+		}
+		else if (vectors->iov_len > 0)
+		{
+			n = SSL_write(entry->ssl, vectors->iov_base, vectors->iov_len);
+			if (n <= 0)
+				return cnt;
+		}
+		else
+			n = 0;
 
 		for (i = 0; i < cnt; i++)
 		{
@@ -539,12 +550,9 @@ int Communicator::send_message(struct CommConnEntry *entry)
 	}
 
 	end = vectors + cnt;
-	if (!entry->ssl)
-	{
-		cnt = this->send_message_sync(vectors, cnt, entry);
-		if (cnt <= 0)
-			return cnt;
-	}
+	cnt = this->send_message_sync(vectors, cnt, entry);
+	if (cnt <= 0)
+		return cnt;
 
 	return this->send_message_async(end - cnt, cnt, entry);
 }

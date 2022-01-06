@@ -44,7 +44,7 @@ namespace protocol
 #define CHECK_RET(exp)	if (exp < 0) return exp
 
 #ifndef htonll
-static int64_t htonll(int64_t x)
+static uint64_t htonll(uint64_t x)
 {
 	if (1 == htonl(1))
 		return x;
@@ -3500,7 +3500,7 @@ int KafkaResponse::parse_joingroup(void **buf, size_t *size)
 	CHECK_RET(parse_string(buf, size, &cgroup->leader_id));
 	CHECK_RET(parse_string(buf, size, &cgroup->member_id));
 	CHECK_RET(kafka_cgroup_parse_member(buf, size, &this->cgroup,
-										&this->meta_list, 
+										&this->meta_list,
 										&this->alien_meta_list,
 										this->api_version));
 

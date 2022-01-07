@@ -423,21 +423,21 @@ static void __poller_handle_read(struct __poller_node *node,
 	while (1)
 	{
 		p = poller->buf;
-		if (node->data.ssl)
-		{
-			nleft = SSL_read(node->data.ssl, p, POLLER_BUFSIZE);
-			if (nleft < 0)
-			{
-				if (__poller_handle_ssl_error(node, nleft, poller) >= 0)
-					return;
-			}
-		}
-		else
+		if (!node->data.ssl)
 		{
 			nleft = read(node->data.fd, p, POLLER_BUFSIZE);
 			if (nleft < 0)
 			{
 				if (errno == EAGAIN)
+					return;
+			}
+		}
+		else
+		{
+			nleft = SSL_read(node->data.ssl, p, POLLER_BUFSIZE);
+			if (nleft < 0)
+			{
+				if (__poller_handle_ssl_error(node, nleft, poller) >= 0)
 					return;
 			}
 		}
@@ -496,24 +496,9 @@ static void __poller_handle_write(struct __poller_node *node,
 	int iovcnt;
 	int ret;
 
-	while (node->data.iovcnt > 0 && iov->iov_len == 0)
-	{
-		iov++;
-		node->data.iovcnt--;
-	}
-
 	while (node->data.iovcnt > 0)
 	{
-		if (node->data.ssl)
-		{
-			nleft = SSL_write(node->data.ssl, iov->iov_base, iov->iov_len);
-			if (nleft <= 0)
-			{
-				ret = __poller_handle_ssl_error(node, nleft, poller);
-				break;
-			}
-		}
-		else
+		if (!node->data.ssl)
 		{
 			iovcnt = node->data.iovcnt;
 			if (iovcnt > IOV_MAX)
@@ -526,6 +511,17 @@ static void __poller_handle_write(struct __poller_node *node,
 				break;
 			}
 		}
+		else if (iov->iov_len > 0)
+		{
+			nleft = SSL_write(node->data.ssl, iov->iov_base, iov->iov_len);
+			if (nleft <= 0)
+			{
+				ret = __poller_handle_ssl_error(node, nleft, poller);
+				break;
+			}
+		}
+		else
+			nleft = 0;
 
 		count += nleft;
 		do

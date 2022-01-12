@@ -120,6 +120,14 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 	if (ret < 0)
 		return -1;
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	if (ret > 0)
+	{
+		BIO_set_data(SSL_get_wbio(this->ssl), ptr);
+		return 1;
+	}
+#endif
+
 	if (len > 0)
 		n = this->feedback(ptr, len);
 	else
@@ -142,6 +150,11 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 	long len;
 	int ret;
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	if (BIO_get_data(wbio))
+		BIO_set_data(wbio, NULL);
+	else
+#endif
 	if (BIO_reset(wbio) <= 0)
 		return -1;
 

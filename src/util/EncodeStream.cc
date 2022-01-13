@@ -16,7 +16,6 @@
   Authors: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/uio.h>
 #include <stddef.h>
 #include <string.h>
 #include "list.h"

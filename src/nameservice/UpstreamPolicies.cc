@@ -510,11 +510,15 @@ EndpointAddress *UPSWeightedRandomPolicy::first_strategy(const ParsedURI& uri,
 EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri,
 														   WFNSTracing *tracing)
 {
-	UPSAddrParams *params;
+	/* When all servers down, recover all. */
+	if (this->available_weight == 0)
+		this->clear_breaker();
+
 	int temp_weight = this->available_weight;
 	if (temp_weight == 0)
 		return NULL;
 
+	UPSAddrParams *params;
 	EndpointAddress *addr = NULL;
 	int x = rand() % temp_weight;
 	int s = 0;

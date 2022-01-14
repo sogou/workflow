@@ -254,6 +254,29 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 	this->WFNSPolicy::failed(result, tracing, target);
 }
 
+void WFServiceGovernance::clear_breaker()
+{
+	struct list_head *pos, *tmp;
+	struct EndpointAddress::address_entry *entry;
+	EndpointAddress *addr;
+
+	pthread_mutex_lock(&this->breaker_lock);
+	list_for_each_safe(pos, tmp, &this->breaker_list)
+	{
+		entry = list_entry(pos, struct EndpointAddress::address_entry, list);
+		addr = entry->ptr;
+
+		addr->fail_count = addr->params->max_fails - 1;
+		this->recover_one_server(addr);
+		this->server_list_change(addr, RECOVER_SERVER);
+
+		list_del(pos);
+		addr->entry.list.next = NULL;
+	}
+
+	pthread_mutex_unlock(&this->breaker_lock);
+}
+
 void WFServiceGovernance::check_breaker()
 {
 	pthread_mutex_lock(&this->breaker_lock);
@@ -266,18 +289,14 @@ void WFServiceGovernance::check_breaker()
 
 		list_for_each_safe(pos, tmp, &this->breaker_list)
 		{
-			entry = list_entry(pos, struct EndpointAddress::address_entry,
-							   list);
+			entry = list_entry(pos, struct EndpointAddress::address_entry, list);
 			addr = entry->ptr;
 
 			if (cur_time >= addr->broken_timeout)
 			{
-				if (addr->fail_count >= addr->params->max_fails)
-				{
-					addr->fail_count = addr->params->max_fails - 1;
-					this->recover_one_server(addr);
-					this->server_list_change(addr, RECOVER_SERVER);
-				}
+				addr->fail_count = addr->params->max_fails - 1;
+				this->recover_one_server(addr);
+				this->server_list_change(addr, RECOVER_SERVER);
 				list_del(pos);
 				addr->entry.list.next = NULL;
 			}

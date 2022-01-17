@@ -167,11 +167,6 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 	}
 
 	this->check_breaker();
-	if (this->nalives == 0)
-	{
-		pthread_rwlock_unlock(&this->rwlock);
-		return false;
-	}
 
 	// select_addr == NULL will only happened in consistent_hash
 	EndpointAddress *select_addr = this->first_strategy(uri, tracing);
@@ -510,11 +505,16 @@ EndpointAddress *UPSWeightedRandomPolicy::first_strategy(const ParsedURI& uri,
 EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri,
 														   WFNSTracing *tracing)
 {
-	UPSAddrParams *params;
+	/* When all servers are down, recover all servers if any server
+	 * reaches fusing timeout. */
+	if (this->available_weight == 0)
+		this->try_clear_breaker();
+
 	int temp_weight = this->available_weight;
 	if (temp_weight == 0)
 		return NULL;
 
+	UPSAddrParams *params;
 	EndpointAddress *addr = NULL;
 	int x = rand() % temp_weight;
 	int s = 0;

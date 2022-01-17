@@ -20,6 +20,7 @@
 #ifndef _WFSERVICEGOVERNANCE_H_
 #define _WFSERVICEGOVERNANCE_H_
 
+#include <stdint.h>
 #include <pthread.h>
 #include <unordered_map>
 #include <vector>
@@ -163,6 +164,7 @@ private:
 
 	void recover_server_from_breaker(EndpointAddress *addr);
 	void fuse_server_to_breaker(EndpointAddress *addr);
+	void check_breaker_locked(int64_t cur_time);
 
 	struct list_head breaker_list;
 	pthread_mutex_t breaker_lock;
@@ -174,6 +176,7 @@ protected:
 	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
 											  WFNSTracing *tracing);
 	void check_breaker();
+	void try_clear_breaker();
 	void pre_delete_server(EndpointAddress *addr);
 
 	struct TracingData

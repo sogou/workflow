@@ -175,8 +175,8 @@ protected:
 											WFNSTracing *tracing);
 	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
 											  WFNSTracing *tracing);
-	void clear_breaker();
 	void check_breaker();
+	void try_clear_breaker();
 	void pre_delete_server(EndpointAddress *addr);
 
 	struct TracingData

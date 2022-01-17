@@ -274,6 +274,8 @@ void WFServiceGovernance::check_breaker_locked(int64_t cur_time)
 			list_del(pos);
 			pos->next = NULL;
 		}
+		else
+			break;
 	}
 }
 
@@ -285,10 +287,17 @@ void WFServiceGovernance::check_breaker()
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 
-void WFServiceGovernance::clear_breaker()
+void WFServiceGovernance::try_clear_breaker()
 {
 	pthread_mutex_lock(&this->breaker_lock);
-	this->check_breaker_locked(INT64_MAX);
+	if (!list_empty(&this->breaker_list))
+	{
+		struct list_head *pos = this->breaker_list.next;
+		struct EndpointAddress::address_entry *entry;
+		entry = list_entry(pos, struct EndpointAddress::address_entry, list);
+		if (GET_CURRENT_SECOND >= entry->ptr->broken_timeout)
+			this->check_breaker_locked(INT64_MAX);
+	}
 	pthread_mutex_unlock(&this->breaker_lock);
 }
 

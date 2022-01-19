@@ -39,7 +39,7 @@ set(TUTORIAL_LIST
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
 else ()
-	set(WORKFLOW_LIB workflow ${LIBRT})
+	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto ${LIBRT})
 endif ()
 
 foreach(src ${TUTORIAL_LIST})
@@ -76,7 +76,7 @@ endif()
 
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
-	target_link_libraries("kafka_cli" wfkafka workflow z snappy lz4 zstd rt)
+	target_link_libraries("kafka_cli" wfkafka ${WORKFLOW_LIB} z snappy lz4 zstd)
 endif ()
 
 set(DIR10 tutorial-10-user_defined_protocol)

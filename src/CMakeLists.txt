@@ -55,6 +55,10 @@ add_library(
 	$<TARGET_OBJECTS:client>
 )
 
+if (APPLE)
+	target_link_libraries(${SHARED_LIB_NAME} ssl crypto pthread)
+endif ()
+
 set_target_properties(${STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
 set_target_properties(${SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
 

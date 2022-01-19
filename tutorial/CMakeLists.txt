@@ -39,7 +39,7 @@ set(TUTORIAL_LIST
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
 else ()
-	set(WORKFLOW_LIB workflow ${LIBRT})
+	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto ${LIBRT})
 endif ()
 
 foreach(src ${TUTORIAL_LIST})

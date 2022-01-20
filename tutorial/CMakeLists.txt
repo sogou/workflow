@@ -14,6 +14,11 @@ find_package(workflow REQUIRED CONFIG HINTS ..)
 include_directories(${OPENSSL_INCLUDE_DIR} ${WORKFLOW_INCLUDE_DIR})
 link_directories(${WORKFLOW_LIB_DIR})
 
+if (KAFKA STREQUAL "y")
+	find_path(SNAPPY_INCLUDE_PATH NAMES snappy.h)
+	include_directories(${SNAPPY_INCLUDE_PATH})
+endif ()
+
 if (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /std:c++14")

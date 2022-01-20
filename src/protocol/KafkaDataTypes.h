@@ -1255,6 +1255,44 @@ private:
 	friend const KafkaMeta *get_meta(const char *topic, KafkaMetaList *meta_list);
 };
 
+class KafkaMetaSubscriber
+{
+public:
+	void set_meta(KafkaMeta *meta)
+	{
+		this->meta = meta;
+	}
+
+	const KafkaMeta *get_meta() const
+	{
+		return this->meta;
+	}
+
+	void add_member(kafka_member_t *member)
+	{
+		this->member_vec.push_back(member);
+	}
+
+	const std::vector<kafka_member_t *> *get_member() const
+	{
+		return &this->member_vec;
+	}
+
+	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
+	{
+		return strcmp(m1->member_id, m2->member_id) < 0;
+	}
+
+	void sort_by_member()
+	{
+		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
+	}
+
+private:
+	KafkaMeta *meta;
+	std::vector<kafka_member_t *> member_vec;
+};
+
 class KafkaCgroup
 {
 public:
@@ -1353,7 +1391,11 @@ public:
 		return this->coordinator;
 	}
 
-	int run_assignor(KafkaMetaList *meta_list, const char *protocol_name);
+	int run_assignor(KafkaMetaList *meta_list, KafkaMetaList *alien_meta_list, 
+					 const char *protocol_name);
+
+	void add_subscriber(KafkaMetaList *meta_list, 
+						std::vector<KafkaMetaSubscriber> *subscribers);
 
 	static int kafka_range_assignor(kafka_member_t **members,
 									int member_elements,
@@ -1464,44 +1506,6 @@ private:
 
 	friend class KafkaBuffer;
 	friend class KafkaList<KafkaBlock>;
-};
-
-class KafkaMetaSubscriber
-{
-public:
-	void set_meta(KafkaMeta *meta)
-	{
-		this->meta = meta;
-	}
-
-	const KafkaMeta *get_meta() const
-	{
-		return this->meta;
-	}
-
-	void add_member(kafka_member_t *member)
-	{
-		this->member_vec.push_back(member);
-	}
-
-	const std::vector<kafka_member_t *> *get_member() const
-	{
-		return &this->member_vec;
-	}
-
-	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
-	{
-		return strcmp(m1->member_id, m2->member_id) < 0;
-	}
-
-	void sort_by_member()
-	{
-		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
-	}
-
-private:
-	KafkaMeta *meta;
-	std::vector<kafka_member_t *> member_vec;
 };
 
 class KafkaBuffer

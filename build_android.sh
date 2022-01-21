@@ -16,6 +16,10 @@ ANDROID_API_LEVEL=26
 OPEN_SSL_VERSION=1.1.1l
 OPEN_SSL_DIR=
 
+WORKFLOW_DIR=$(realpath $(dirname $0))
+DEFAULT_BUILD_DIR=build.cmake
+
+echo WORKFLOW_DIR ${WORKFLOW_DIR}
 echo ANDROID_NDK_HOME ${ANDROID_NDK_HOME}
 echo ANDROID_ABI_ARCH ${ANDROID_ABI_ARCH}
 echo ANDROID_ABI ${ANDROID_ABI}
@@ -70,21 +74,17 @@ function build_openssl()
 function build_workflow()
 {
     echo "ready to build workflow"
-    WORKFLOW_DIR=$(realpath .)
-    mkdir -p build
-    pushd build
-    check_cleanable
-    cmake -H.. -B. -DANDROID_STL=c++_shared -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=android-${ANDROID_API_LEVEL} -DANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake -DOPENSSL_INCLUDE_DIR=${OPEN_SSL_DIR}/include -DOPENSSL_LINK_DIR=${OPEN_SSL_DIR}
-    make clean
-    make -j${nproc}
-    popd
+    
+    rm -rvf ${DEFAULT_BUILD_DIR}
+    cmake -B${DEFAULT_BUILD_DIR} -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=android-${ANDROID_API_LEVEL} -DANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake -DOPENSSL_INCLUDE_DIR=${OPEN_SSL_DIR}/include -DOPENSSL_LINK_DIR=${OPEN_SSL_DIR} ${WORKFLOW_DIR}
+    echo -e "proc num: ${nproc}"
+    make clean -C ${DEFAULT_BUILD_DIR}
+    make -j$(nproc) -C ${DEFAULT_BUILD_DIR}
 
-    mkdir -p tutorial/build
-    pushd tutorial/build
-    check_cleanable
-    cmake -H.. -B. -DANDROID_STL=c++_shared -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=android-${ANDROID_API_LEVEL} -DANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake -DOPENSSL_INCLUDE_DIR=${OPEN_SSL_DIR}/include -DOPENSSL_LINK_DIR=${OPEN_SSL_DIR} -Dworkflow_DIR=${WORKFLOW_DIR}
-    make clean
-    make -j${nproc}
+    pushd tutorial
+    rm -vrf ${DEFAULT_BUILD_DIR}
+    cmake -B${DEFAULT_BUILD_DIR} -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=android-${ANDROID_API_LEVEL} -DANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake -DOPENSSL_INCLUDE_DIR=${OPEN_SSL_DIR}/include -DOPENSSL_LINK_DIR=${OPEN_SSL_DIR} -Dworkflow_DIR=${WORKFLOW_DIR} .
+    make -j$(nproc) -C ${DEFAULT_BUILD_DIR}
     popd
 }
 

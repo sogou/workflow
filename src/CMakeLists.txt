@@ -71,7 +71,7 @@ if (APPLE)
 	target_link_libraries(${SHARED_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
 elseif(ANDROID)
 	message("use libc instead of pthread on Android platform")
-	target_link_libraries(${SHARED_LIB_NAME} ssl crypto)
+	target_link_libraries(${SHARED_LIB_NAME} ssl crypto c)
 endif ()
 
 set_target_properties(${STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})

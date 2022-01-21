@@ -10,7 +10,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 
 if(ANDROID)
-	message("build for Android")
+	message("use libc instead of librt on Android platform")
 	include_directories(${${OPENSSL_INCLUDE_DIR}})
 	link_directories(${OPENSSL_LINK_DIR})
 	find_library(LIBRT c)
@@ -52,6 +52,8 @@ set(TUTORIAL_LIST
 
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+elseif(ANDROID)
+	set(WORKFLOW_LIB workflow ssl crypto ${LIBRT})
 else ()
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto ${LIBRT})
 endif ()

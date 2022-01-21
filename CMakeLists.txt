@@ -27,11 +27,6 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/_lib CACHE PATH "workflow lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIB_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB_DIR})
 
-if(ANDROID)
-include_directories(${OPENSSL_INCLUDE_DIR})
-link_directories(${OPENSSL_LINK_DIR})
-endif()
-
 add_custom_target(
 	LINK_HEADERS ALL
 	COMMENT "link headers..."

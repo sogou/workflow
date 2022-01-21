@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.6)
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
 	find_package(OpenSSL REQUIRED)
+else()
+	include_directories(${OPENSSL_INCLUDE_DIR})
+	link_directories(${OPENSSL_LINK_DIR})
 endif ()
 
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
@@ -66,6 +69,9 @@ add_library(
 
 if (APPLE)
 	target_link_libraries(${SHARED_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
+elseif(ANDROID)
+	message("use libc instead of pthread on Android platform")
+	target_link_libraries(${SHARED_LIB_NAME} ssl crypto)
 endif ()
 
 set_target_properties(${STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})

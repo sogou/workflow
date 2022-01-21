@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 
 		printf("Input next request string (Ctrl-D to exit): ");
 		*buf = '\0';
-		scanf("%1024s", buf);
+		scanf("%1023s", buf);
 		body_size = strlen(buf);
 		if (body_size > 0)
 		{

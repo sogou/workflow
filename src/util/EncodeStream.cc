@@ -13,104 +13,125 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <sys/uio.h>
 #include <stddef.h>
-#include <string>
+#include <string.h>
 #include "list.h"
 #include "EncodeStream.h"
 
-struct __buff
+#define ALIGN(x,a) (((x)+(a)-1)&~((a)-1))
+#define ENCODE_BUF_SIZE		1024
+
+struct EncodeBuf
 {
-	struct list_head buffer_list;
-	const char *data;
-	size_t len;
-	std::string str;
+	struct list_head list;
+	char *pos;
+	char data[ENCODE_BUF_SIZE];
 };
 
-void EncodeStream::clear_buffer()
+void EncodeStream::clear_buf_data()
 {
 	struct list_head *pos, *tmp;
-	__buff *next;
+	struct EncodeBuf *entry;
 
-	list_for_each_safe(pos, tmp, &buffer_list_)
+	list_for_each_safe(pos, tmp, &buf_list_)
 	{
-		next = list_entry(pos, __buff, buffer_list);
+		entry = list_entry(pos, struct EncodeBuf, list);
 		list_del(pos);
-		delete next;
+		delete [](char *)entry;
 	}
 }
 
-void EncodeStream::check_merge()
+void EncodeStream::merge()
 {
-	if (size_ >= max_)
+	size_t len = bytes_ - merged_bytes_;
+	struct EncodeBuf *buf;
+	size_t n;
+	char *p;
+	int i;
+
+	if (len > ENCODE_BUF_SIZE)
+		n = offsetof(struct EncodeBuf, data) + ALIGN(len, 8);
+	else
+		n = sizeof (struct EncodeBuf);
+
+	buf = (struct EncodeBuf *)new char[n];
+	p = buf->data;
+	for (i = merged_size_; i < size_; i++)
 	{
-		list_head *head = &buffer_list_;
-		list_head *pos = head->next;
-		list_head *next = pos->next;
-
-		size_ = 0;
-		while (pos != head && next != head)
-		{
-			__buff *x = list_entry(pos, __buff, buffer_list);
-			__buff *y = list_entry(next, __buff, buffer_list);
-
-			if (x->str.empty())
-				x->str.assign(x->data, x->len);
-
-			x->str.append(y->data, y->len);
-			x->data = x->str.c_str();
-			x->len = x->str.size();
-			list_del(next);
-			delete y;
-			vec_[size_].iov_base = const_cast<char *>(x->data);
-			vec_[size_++].iov_len = x->len;
-			pos = pos->next;
-			next = pos->next;
-		}
-
-		if (pos != head)
-		{
-			__buff *x = list_entry(pos, __buff, buffer_list);
-
-			vec_[size_].iov_base = const_cast<char *>(x->data);
-			vec_[size_++].iov_len = x->len;
-		}
+		memcpy(p, vec_[i].iov_base, vec_[i].iov_len);
+		p += vec_[i].iov_len;
 	}
-}
 
-void EncodeStream::append_copy(const char *data, size_t len)
-{
-	if (len)
-	{
-		__buff *p = new __buff();
+	buf->pos = buf->data + ALIGN(len, 8);
+	list_add(&buf->list, &buf_list_);
 
-		p->str.assign(data, len);
-		p->data = p->str.c_str();
-		p->len = len;
-		list_add_tail(&p->buffer_list, &buffer_list_);
-		vec_[size_].iov_base = const_cast<char *>(p->data);
-		vec_[size_++].iov_len = len;
-		check_merge();
-		bytes_ += len;
-	}
+	vec_[merged_size_].iov_base = buf->data;
+	vec_[merged_size_].iov_len = len;
+	merged_size_++;
+	merged_bytes_ = bytes_;
+	size_ = merged_size_;
 }
 
 void EncodeStream::append_nocopy(const char *data, size_t len)
 {
-	if (len)
+	if (size_ >= max_)
 	{
-		__buff *p = new __buff();
-
-		p->str.clear();
-		p->data = data;
-		p->len = len;
-		list_add_tail(&p->buffer_list, &buffer_list_);
-		vec_[size_].iov_base = const_cast<char *>(data);
-		vec_[size_++].iov_len = len;
-		check_merge();
-		bytes_ += len;
+		if (merged_size_ + 1 < max_)
+			merge();
+		else
+		{
+			size_ = max_ + 1;	/* Overflow */
+			return;
+		}
 	}
+
+	vec_[size_].iov_base = (char *)data;
+	vec_[size_].iov_len = len;
+	size_++;
+	bytes_ += len;
+}
+
+void EncodeStream::append_copy(const char *data, size_t len)
+{
+	if (size_ >= max_)
+	{
+		if (merged_size_ + 1 < max_)
+			merge();
+		else
+		{
+			size_ = max_ + 1;	/* Overflow */
+			return;
+		}
+	}
+
+	struct EncodeBuf *buf = list_entry(buf_list_.prev, struct EncodeBuf, list);
+
+	if (list_empty(&buf_list_) || buf->pos + len > buf->data + ENCODE_BUF_SIZE)
+	{
+		size_t n;
+
+		if (len > ENCODE_BUF_SIZE)
+			n = offsetof(struct EncodeBuf, data) + ALIGN(len, 8);
+		else
+			n = sizeof (struct EncodeBuf);
+
+		buf = (struct EncodeBuf *)new char[n];
+		buf->pos = buf->data;
+		list_add_tail(&buf->list, &buf_list_);
+	}
+
+	memcpy(buf->pos, data, len);
+	vec_[size_].iov_base = buf->pos;
+	vec_[size_].iov_len = len;
+	size_++;
+	bytes_ += len;
+
+	buf->pos += ALIGN(len, 8);
+	if (buf->pos >= buf->data + ENCODE_BUF_SIZE)
+		list_move(&buf->list, &buf_list_);
 }
 

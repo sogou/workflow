@@ -104,6 +104,14 @@ private:
 	virtual int first_timeout();
 	bool has_next();
 	bool check_redirect();
+	bool process_produce();
+	bool process_fetch();
+	bool process_metadata();
+	bool process_find_coordinator();
+	bool process_join_group();
+	bool process_sync_group();
+	bool process_sasl_authenticate();
+	bool process_sasl_handshake();
 
 	bool update_metadata_;
 	bool is_user_request_;
@@ -392,180 +400,210 @@ bool __ComplexKafkaTask::check_redirect()
 	}
 }
 
-bool __ComplexKafkaTask::has_next()
+bool __ComplexKafkaTask::process_find_coordinator()
 {
-	bool ret = true;
-	KafkaResponse *msg = this->get_resp();
-
-	struct sockaddr_storage addr;
-	socklen_t addrlen = sizeof addr;
-	const struct sockaddr *paddr = (const struct sockaddr *)&addr;
-	KafkaToppar *toppar = nullptr;
-
-	//always success
-	this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
-
-	if (!msg->get_broker()->is_to_addr())
+	if (this->get_resp()->get_cgroup()->get_error())
 	{
-		msg->get_broker()->set_broker_addr(paddr, addrlen);
-		msg->get_broker()->set_to_addr(1);
+		this->error = this->get_resp()->get_cgroup()->get_error();
+		this->state = WFT_STATE_TASK_ERROR;
+		return false;
+	}
+	else
+	{
+		is_redirect_ = check_redirect();
+		this->get_req()->set_api_type(Kafka_JoinGroup);
+		return true;
+	}
+}
+
+bool __ComplexKafkaTask::process_join_group()
+{
+	KafkaResponse *msg = this->get_resp();
+	if (!msg->get_cgroup()->get_coordinator()->is_to_addr())
+	{
+		struct sockaddr_storage addr;
+		socklen_t addrlen = sizeof addr;
+		const struct sockaddr *paddr = (const struct sockaddr *)&addr;
+		this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
+		msg->get_cgroup()->get_coordinator()->set_broker_addr(paddr, addrlen);
+		msg->get_cgroup()->get_coordinator()->set_to_addr(1);
 	}
 
-	switch (msg->get_api_type())
+	if (msg->get_cgroup()->get_error() == KAFKA_MISSING_TOPIC)
 	{
-	case Kafka_FindCoordinator:
-		if (msg->get_cgroup()->get_error())
+		this->get_req()->set_api_type(Kafka_Metadata);
+		this->get_req()->set_alien();
+		update_metadata_ = true;
+	}
+	else if (msg->get_cgroup()->get_error() == KAFKA_MEMBER_ID_REQUIRED)
+	{
+		this->get_req()->set_api_type(Kafka_JoinGroup);
+	}
+	else if (msg->get_cgroup()->get_error() == KAFKA_UNKNOWN_MEMBER_ID)
+	{
+		msg->get_cgroup()->set_member_id("");
+		this->get_req()->set_api_type(Kafka_JoinGroup);
+	}
+	else if (msg->get_cgroup()->get_error())
+	{
+		this->error = msg->get_cgroup()->get_error();
+		this->state = WFT_STATE_TASK_ERROR;
+		return false;
+	}
+	else
+	{
+		this->get_req()->set_api_type(Kafka_SyncGroup);
+	}
+	return true;
+}
+
+bool __ComplexKafkaTask::process_sync_group()
+{
+	if (this->get_resp()->get_cgroup()->get_error())
+	{
+		this->error = this->get_resp()->get_cgroup()->get_error();
+		this->state = WFT_STATE_TASK_ERROR;
+		return false;
+	}
+	else
+	{	
+		this->get_req()->set_api_type(Kafka_OffsetFetch);
+		return true;
+	}
+}
+
+bool __ComplexKafkaTask::process_metadata()
+{
+	KafkaResponse *msg = this->get_resp();
+	if (update_metadata_)
+	{
+		KafkaCgroup *cgroup = msg->get_cgroup();
+		if (cgroup->run_assignor(msg->get_meta_list(),
+								 msg->get_alien_meta_list(),
+								 cgroup->get_protocol_name()) < 0)
 		{
-			this->error = msg->get_cgroup()->get_error();
+			this->error = errno;
 			this->state = WFT_STATE_TASK_ERROR;
-			ret = false;
 		}
 		else
 		{
-			is_redirect_ = check_redirect();
-			this->get_req()->set_api_type(Kafka_JoinGroup);
-		}
-
-		break;
-
-	case Kafka_JoinGroup:
-		if (!msg->get_cgroup()->get_coordinator()->is_to_addr())
-		{
-			msg->get_cgroup()->get_coordinator()->set_broker_addr(paddr, addrlen);
-			msg->get_cgroup()->get_coordinator()->set_to_addr(1);
-		}
-
-		if (msg->get_cgroup()->get_error() == KAFKA_MISSING_TOPIC)
-		{
-			this->get_req()->set_api_type(Kafka_Metadata);
-			update_metadata_ = true;
-		}
-		else if (msg->get_cgroup()->get_error() == KAFKA_MEMBER_ID_REQUIRED)
-		{
-			this->get_req()->set_api_type(Kafka_JoinGroup);
-		}
-		else if (msg->get_cgroup()->get_error() == KAFKA_UNKNOWN_MEMBER_ID)
-		{
-			msg->get_cgroup()->set_member_id("");
-			this->get_req()->set_api_type(Kafka_JoinGroup);
-		}
-		else if (msg->get_cgroup()->get_error())
-		{
-			this->error = msg->get_cgroup()->get_error();
-			this->state = WFT_STATE_TASK_ERROR;
-			ret = false;
-		}
-		else
 			this->get_req()->set_api_type(Kafka_SyncGroup);
-
-		break;
-
-	case Kafka_SyncGroup:
-		if (msg->get_cgroup()->get_error())
-		{
-			this->error = msg->get_cgroup()->get_error();
-			this->state = WFT_STATE_TASK_ERROR;
-			ret = false;
 		}
-		else
-			this->get_req()->set_api_type(Kafka_OffsetFetch);
-
-		break;
-
-	case Kafka_Metadata:
-		if (update_metadata_)
+		return true;
+	}
+	else
+	{
+		msg->get_meta_list()->rewind();
+		KafkaMeta *meta;
+		while ((meta = msg->get_meta_list()->get_next()) != NULL)
 		{
-			KafkaCgroup *cgroup = msg->get_cgroup();
-			if (cgroup->run_assignor(msg->get_meta_list(),
-									 cgroup->get_protocol_name()) < 0)
+			if (meta->get_error() == KAFKA_LEADER_NOT_AVAILABLE)
 			{
-				this->error = errno;
-				this->state = WFT_STATE_TASK_ERROR;
-			}
-			else
-				this->get_req()->set_api_type(Kafka_SyncGroup);
-		}
-		else
-		{
-			ret = false;
-			msg->get_meta_list()->rewind();
-			KafkaMeta *meta;
-
-			while ((meta = msg->get_meta_list()->get_next()) != NULL)
-			{
-				if (meta->get_error() == KAFKA_LEADER_NOT_AVAILABLE)
-				{
-					ret = true;
-					this->get_req()->set_api_type(Kafka_Metadata);
-					break;
-				}
-			}
-		}
-
-		break;
-
-	case Kafka_SaslHandshake:
-		if (msg->get_broker()->get_error())
-		{
-			this->error = msg->get_broker()->get_error();
-			this->state = WFT_STATE_TASK_ERROR;
-			ret = false;
-		}
-
-		break;
-
-	case Kafka_SaslAuthenticate:
-		if (msg->get_broker()->get_error())
-		{
-			this->error = msg->get_broker()->get_error();
-			this->state = WFT_STATE_TASK_ERROR;
-		}
-
-		ret = false;
-		break;
-
-	case Kafka_Fetch:
-		ret = false;
-		msg->get_toppar_list()->rewind();
-		while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
-		{
-			if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
-			{
-				toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
-				toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
-				need_retry_ = true;
-				ret = true;
-			}
-		}
-		break;
-
-	case Kafka_Produce:
-		msg->get_toppar_list()->rewind();
-		while ((toppar = msg->get_toppar_list()->get_next()) != NULL)
-		{
-			if (!toppar->record_reach_end())
-			{
-				this->get_req()->set_api_type(Kafka_Produce);
+				this->get_req()->set_api_type(Kafka_Metadata);
 				return true;
 			}
 		}
+		return false;
+	}
+}
 
+bool __ComplexKafkaTask::process_fetch()
+{
+	bool ret = false;
+	KafkaToppar *toppar;
+	this->get_resp()->get_toppar_list()->rewind();
+	while ((toppar = this->get_resp()->get_toppar_list()->get_next()) != NULL)
+	{
+		if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
+		{
+			toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
+			toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
+			need_retry_ = true;
+			ret = true;
+		}
+	}
+	return ret;
+}
+
+bool __ComplexKafkaTask::process_produce()
+{
+	KafkaToppar *toppar;
+	this->get_resp()->get_toppar_list()->rewind();
+	while ((toppar = this->get_resp()->get_toppar_list()->get_next()) != NULL)
+	{
+		if (!toppar->record_reach_end())
+		{
+			this->get_req()->set_api_type(Kafka_Produce);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool __ComplexKafkaTask::process_sasl_handshake()
+{
+	if (this->get_resp()->get_broker()->get_error())
+	{
+		this->error = this->get_resp()->get_broker()->get_error();
+		this->state = WFT_STATE_TASK_ERROR;
+		return false;
+	}
+	return true;
+}
+
+bool __ComplexKafkaTask::process_sasl_authenticate()
+{
+	if (this->get_resp()->get_broker()->get_error())
+	{
+		this->error = this->get_resp()->get_broker()->get_error();
+		this->state = WFT_STATE_TASK_ERROR;
+	}
+	return false;
+}
+bool __ComplexKafkaTask::has_next()
+{
+	struct sockaddr_storage addr;
+	socklen_t addrlen = sizeof addr;
+	//always success
+	this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
+
+	const struct sockaddr *paddr = (const struct sockaddr *)&addr;
+	if (!this->get_resp()->get_broker()->is_to_addr())
+	{
+		this->get_resp()->get_broker()->set_broker_addr(paddr, addrlen);
+		this->get_resp()->get_broker()->set_to_addr(1);
+	}
+
+	switch (this->get_resp()->get_api_type())
+	{
+	case Kafka_Produce:
+		return this->process_produce();
+	case Kafka_Fetch:
+		return this->process_fetch();
+	case Kafka_Metadata:
+		return this->process_metadata();
+	case Kafka_FindCoordinator:
+		return this->process_find_coordinator();
+	case Kafka_JoinGroup:
+		return this->process_join_group();
+	case Kafka_SyncGroup:
+		return this->process_sync_group();
+	case Kafka_SaslHandshake:
+		return this->process_sasl_handshake();
+	case Kafka_SaslAuthenticate:
+		return this->process_sasl_authenticate();
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
 	case Kafka_ListOffsets:
 	case Kafka_Heartbeat:
 	case Kafka_LeaveGroup:
 	case Kafka_ApiVersions:
-		ret = false;
-		break;
-
+		return false;
 	default:
-		ret = false;
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_KAFKA_API_UNKNOWN;
-		break;
+		return false;
 	}
-	return ret;
 }
 
 bool __ComplexKafkaTask::finish_once()

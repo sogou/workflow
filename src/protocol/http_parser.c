@@ -241,6 +241,8 @@ static void __check_message_header(const char *name, size_t name_len,
 		{
 			if (value_len != 8 || strncasecmp(value, "identity", 8) != 0)
 				parser->chunked = 1;
+			else
+				parser->chunked = 0;
 		}
 
 		break;

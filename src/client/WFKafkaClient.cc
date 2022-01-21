@@ -125,7 +125,7 @@ public:
 		this->broker_list = new KafkaBrokerList;
 		this->lock_status = new KafkaLockStatus;
 		this->broker_map = new KafkaBrokerMap;
-		this->meta_map = new std::map<std::string, MetaStatus>;
+		this->meta_map = new std::map<std::string, enum MetaStatus>;
 	}
 
 	~KafkaMember()
@@ -149,7 +149,7 @@ public:
 	KafkaBrokerList *broker_list;
 	KafkaBrokerMap *broker_map;
 	KafkaLockStatus *lock_status;
-	std::map<std::string, MetaStatus> *meta_map;
+	std::map<std::string, enum MetaStatus> *meta_map;
 
 private:
 	std::atomic<int> *ref;
@@ -325,7 +325,8 @@ private:
 
 	int get_node_id(const KafkaToppar *toppar);
 
-	MetaStatus get_meta_status();
+	enum MetaStatus get_meta_status();
+	void set_meta_status(enum MetaStatus status);
 
 	std::string get_userinfo() { return this->userinfo; }
 
@@ -673,12 +674,19 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 	t->error = 0;
 
 	std::pair<int, int> *state_error;
-
+	bool flag = false;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
 		if (state_error->first != WFT_STATE_SUCCESS)
 		{
+			if (!flag)
+			{
+				flag = true;
+				t->lock_status.get_mutex()->lock();
+				t->set_meta_status(META_UNINIT);
+				t->lock_status.get_mutex()->unlock();
+			}
 			t->state = state_error->first;
 			t->error = state_error->second;
 		}
@@ -698,7 +706,7 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
-			if (task_toppar->get_error() == KAFKA_NONE && 
+			if (task_toppar->get_error() == KAFKA_NONE &&
 				!task_toppar->reach_high_watermark())
 				toppar->set_offset(task_toppar->get_offset() + 1);
 			else
@@ -781,11 +789,11 @@ void ComplexKafkaTask::parse_query()
 	}
 }
 
-MetaStatus ComplexKafkaTask::get_meta_status()
+enum MetaStatus ComplexKafkaTask::get_meta_status()
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
-	MetaStatus ret = META_INITED;
+	enum MetaStatus ret = META_INITED;
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		switch((*this->client->member->meta_map)[meta->get_topic()])
@@ -806,6 +814,14 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 	}
 
 	return ret;
+}
+
+void ComplexKafkaTask::set_meta_status(enum MetaStatus status)
+{
+	this->client_meta_list.rewind();
+	KafkaMeta *meta;
+	while ((meta = this->client_meta_list.get_next()) != NULL)
+		(*this->client->member->meta_map)[meta->get_topic()] = status;
 }
 
 void ComplexKafkaTask::dispatch()

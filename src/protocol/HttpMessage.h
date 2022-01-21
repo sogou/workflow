@@ -128,6 +128,7 @@ public:
 	bool append_output_body(const void *buf, size_t size);
 	bool append_output_body_nocopy(const void *buf, size_t size);
 	void clear_output_body();
+
 	size_t get_output_body_size() const
 	{
 		return this->output_body_size;

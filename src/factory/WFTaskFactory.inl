@@ -211,16 +211,8 @@ public:
 	CTX *get_mutable_ctx() { return &ctx_; }
 
 private:
-	void clear_prev_state()
-	{
-		clear_route_info();
-		retry_times_ = 0;
-		this->state = WFT_STATE_UNDEFINED;
-		this->error = 0;
-		this->timeout_reason = TOR_NOT_TIMEOUT;
-	}
-
-	void clear_route_info();
+	void clear_ns_info();
+	void clear_prev_state();
 	void init_with_uri();
 	bool set_port();
 	void router_callback(WFRouterTask *task);
@@ -228,11 +220,10 @@ private:
 };
 
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::clear_route_info()
+void WFComplexClientTask<REQ, RESP, CTX>::clear_ns_info()
 {
 	if (ns_policy_)
 	{
-		route_result_.clear();
 		if (tracing_.deleter)
 		{
 			tracing_.deleter(tracing_.data);
@@ -243,6 +234,17 @@ void WFComplexClientTask<REQ, RESP, CTX>::clear_route_info()
 		ns_policy_->release();
 		ns_policy_ = NULL;
 	}
+}
+
+template<class REQ, class RESP, typename CTX>
+void WFComplexClientTask<REQ, RESP, CTX>::clear_prev_state()
+{
+	clear_ns_info();
+	route_result_.clear();
+	retry_times_ = 0;
+	this->state = WFT_STATE_UNDEFINED;
+	this->error = 0;
+	this->timeout_reason = TOR_NOT_TIMEOUT;
 }
 
 template<class REQ, class RESP, typename CTX>
@@ -418,7 +420,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
 {
 	if (!redirect_)
 	{
-		clear_route_info();
+		clear_ns_info();
 		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
 		{
 			this->state = WFT_STATE_SSL_ERROR;

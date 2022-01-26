@@ -44,17 +44,13 @@ private:
 		mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
 	}
-	
+
 	~__UpstreamManager()
 	{
-		WFNSPolicy *policy;
 		WFNameService *ns = WFGlobal::get_name_service();
 
 		for (const std::string& name : this->upstream_names)
-		{
-			policy = ns->del_policy(name.c_str());
-			delete policy;
-		}
+			delete dynamic_cast<UPSGroupPolicy *>(ns->del_policy(name.c_str()));
 	}
 
 	pthread_mutex_t mutex;
@@ -184,7 +180,7 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 int UpstreamManager::upstream_delete(const std::string& name)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	WFNSPolicy *policy = ns->del_policy(name.c_str());
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->del_policy(name.c_str()));
 
 	if (policy)
 	{

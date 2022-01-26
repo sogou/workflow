@@ -44,16 +44,17 @@ private:
 		mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
 	}
-	
+
 	~__UpstreamManager()
 	{
-		WFNSPolicy *policy;
 		WFNameService *ns = WFGlobal::get_name_service();
+		UPSGroupPolicy *policy;
 
 		for (const std::string& name : this->upstream_names)
 		{
-			policy = ns->del_policy(name.c_str());
-			delete policy;
+			policy = dynamic_cast<UPSGroupPolicy *>(ns->del_policy(name.c_str()));
+			if (policy)
+				policy->release();
 		}
 	}
 
@@ -88,7 +89,7 @@ int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 		return 0;
 	}
 
-	delete policy;
+	policy->release();
 	return -1;
 }
 
@@ -104,7 +105,7 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 		return 0;
 	}
 
-	delete policy;
+	policy->release();
 	return -1;
 }
 
@@ -119,7 +120,7 @@ int UpstreamManager::upstream_create_vnswrr(const std::string& name)
 		return 0;
 	}
 
-	delete policy;
+	policy->release();
 	return -1;
 }
 
@@ -140,7 +141,7 @@ int UpstreamManager::upstream_create_manual(const std::string& name,
 		return 0;
 	}
 
-	delete policy;
+	policy->release();
 	return -1;
 }
 
@@ -161,6 +162,7 @@ int UpstreamManager::upstream_add_server(const std::string& name,
 	if (policy)
 	{
 		policy->add_server(address, address_params);
+		policy->release();
 		return 0;
 	}
 
@@ -173,9 +175,14 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 {
 	WFNameService *ns = WFGlobal::get_name_service();
 	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
+	int ret;
 
 	if (policy)
-		return policy->remove_server(address);
+	{
+		ret = policy->remove_server(address);
+		policy->release();
+		return ret;
+	}
 
 	errno = ENOENT;
 	return -1;
@@ -184,11 +191,11 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 int UpstreamManager::upstream_delete(const std::string& name)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	WFNSPolicy *policy = ns->del_policy(name.c_str());
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->del_policy(name.c_str()));
 
 	if (policy)
 	{
-		delete policy;
+		policy->release();
 		return 0;
 	}
 
@@ -204,7 +211,10 @@ UpstreamManager::upstream_main_address_list(const std::string& name)
 	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->get_policy(name.c_str()));
 
 	if (policy)
+	{
 		policy->get_main_address(address);
+		policy->release();
+	}
 
 	return address;
 }
@@ -218,6 +228,7 @@ int UpstreamManager::upstream_disable_server(const std::string& name,
 	if (policy)
 	{
 		policy->disable_server(address);
+		policy->release();
 		return 0;
 	}
 
@@ -234,6 +245,7 @@ int UpstreamManager::upstream_enable_server(const std::string& name,
 	if (policy)
 	{
 		policy->enable_server(address);
+		policy->release();
 		return 0;
 	}
 
@@ -251,6 +263,7 @@ int UpstreamManager::upstream_replace_server(const std::string& name,
 	if (policy)
 	{
 		policy->replace_server(address, address_params);
+		policy->release();
 		return 0;
 	}
 

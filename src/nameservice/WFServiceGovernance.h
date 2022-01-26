@@ -129,16 +129,25 @@ public:
 	static bool in_select_history(WFNSTracing *tracing, EndpointAddress *addr);
 
 public:
+	virtual void acquire() { this->ref++; }
+	virtual void release()
+	{
+		if (--this->ref == 0)
+			delete this;
+	}
+
+public:
 	WFServiceGovernance() :
+		ref(1),
 		breaker_lock(PTHREAD_MUTEX_INITIALIZER),
 		rwlock(PTHREAD_RWLOCK_INITIALIZER)
 	{
-		this->nalives = 0;
 		this->try_another = false;
 		this->mttr_second = MTTR_SECOND_DEFAULT;
 		INIT_LIST_HEAD(&this->breaker_list);
 	}
 
+protected:
 	virtual ~WFServiceGovernance()
 	{
 		for (EndpointAddress *addr : this->servers)
@@ -166,6 +175,7 @@ private:
 	void fuse_server_to_breaker(EndpointAddress *addr);
 	void check_breaker_locked(int64_t cur_time);
 
+	std::atomic<int> ref;
 	struct list_head breaker_list;
 	pthread_mutex_t breaker_lock;
 	unsigned int mttr_second;

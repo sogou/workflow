@@ -49,7 +49,6 @@ class UPSGroupPolicy : public WFServiceGovernance
 {
 public:
 	UPSGroupPolicy();
-	~UPSGroupPolicy();
 
 	virtual bool select(const ParsedURI& uri, WFNSTracing *tracing,
 						EndpointAddress **addr);
@@ -76,6 +75,9 @@ protected:
 								   bool flag, WFNSTracing *tracing);
 
 	bool is_alive(const EndpointAddress *addr) const;
+
+protected:
+	virtual ~UPSGroupPolicy();
 };
 
 class UPSWeightedRandomPolicy : public UPSGroupPolicy
@@ -102,6 +104,9 @@ private:
 	virtual void recover_one_server(const EndpointAddress *addr);
 	virtual void fuse_one_server(const EndpointAddress *addr);
 	static int select_history_weight(WFNSTracing *tracing);
+
+protected:
+	virtual ~UPSWeightedRandomPolicy() { }
 };
 
 class UPSVNSWRRPolicy : public UPSWeightedRandomPolicy
@@ -123,6 +128,9 @@ private:
 	std::vector<size_t> pre_generated_vec;
 	std::vector<int> current_weight_vec;
 	size_t cur_idx;
+
+protected:
+	virtual ~UPSVNSWRRPolicy() { }
 };
 
 class UPSConsistentHashPolicy : public UPSGroupPolicy
@@ -139,6 +147,9 @@ protected:
 
 private:
 	upstream_route_t consistent_hash;
+
+protected:
+	virtual ~UPSConsistentHashPolicy() { }
 };
 
 class UPSManualPolicy : public UPSGroupPolicy
@@ -160,6 +171,10 @@ public:
 private:
 	upstream_route_t manual_select;
 	upstream_route_t another_select;
+
+protected:
+	virtual ~UPSManualPolicy() { }
 };
 
 #endif
+

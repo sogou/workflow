@@ -103,7 +103,10 @@ WFNSPolicy *WFNameService::get_policy(const char *name)
 	pthread_rwlock_rdlock(&this->rwlock);
 	entry = this->get_policy_entry(name);
 	if (entry)
+	{
 		policy = entry->policy;
+		policy->acquire();
+	}
 
 	pthread_rwlock_unlock(&this->rwlock);
 	return policy;

@@ -90,6 +90,7 @@ public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
 											 router_callback_t callback) = 0;
 
+public:
 	virtual void success(RouteManager::RouteResult *result,
 						 WFNSTracing *tracing,
 						 CommTarget *target)
@@ -104,6 +105,10 @@ public:
 		if (target)
 			RouteManager::notify_unavailable(result->cookie, target);
 	}
+
+public:
+	virtual void acquire() { }
+	virtual void release() { }
 
 public:
 	virtual ~WFNSPolicy() { }

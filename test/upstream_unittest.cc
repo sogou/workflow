@@ -172,18 +172,18 @@ TEST(upstream_unittest, AddAndRemove)
 	int batch = MAX_FAILS + 50;
 	std::string url = "http://add_and_remove";
 	std::string name = "add_and_remove";
-	UPSWeightedRandomPolicy test_policy(false);
+	auto *test_policy = new UPSWeightedRandomPolicy(false);
 
 	AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
 
 	address_params.weight = 1000;
-	test_policy.add_server("127.0.0.1:8001", &address_params);
+	test_policy->add_server("127.0.0.1:8001", &address_params);
 
 	address_params.weight = 1;
-	test_policy.add_server("127.0.0.1:8002", &address_params);
+	test_policy->add_server("127.0.0.1:8002", &address_params);
 
 	auto *ns = WFGlobal::get_name_service();
-	EXPECT_EQ(ns->add_policy(name.c_str(), &test_policy), 0);
+	EXPECT_EQ(ns->add_policy(name.c_str(), test_policy), 0);
 
 	UpstreamManager::upstream_remove_server(name, "127.0.0.1:8001");
 	task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
@@ -195,7 +195,7 @@ TEST(upstream_unittest, AddAndRemove)
 
 	//test remove fused server
 	address_params.weight = 1000;
-	test_policy.add_server("127.0.0.1:8001", &address_params);
+	test_policy->add_server("127.0.0.1:8001", &address_params);
 	http_server1.stop();
 
 	fprintf(stderr, "server 1 stopped start %d tasks to fuse it\n", batch);
@@ -225,6 +225,7 @@ TEST(upstream_unittest, AddAndRemove)
 	EXPECT_TRUE(http_server1.start("127.0.0.1", 8001) == 0)
 				<< "http server start failed";
 	ns->del_policy(name.c_str());
+	test_policy->release();
 }
 
 TEST(upstream_unittest, FuseAndRecover)
@@ -237,18 +238,18 @@ TEST(upstream_unittest, FuseAndRecover)
 	int batch = MAX_FAILS + 50;
 	int timeout = (MTTR + 1) * 1000000;
 
-	UPSWeightedRandomPolicy test_policy(false);
-	test_policy.set_mttr_second(MTTR);
+	auto *test_policy = new UPSWeightedRandomPolicy(false);
+	test_policy->set_mttr_second(MTTR);
 	AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
 	
 	address_params.weight = 1000;
-	test_policy.add_server("127.0.0.1:8001", &address_params);
+	test_policy->add_server("127.0.0.1:8001", &address_params);
 
 	address_params.weight = 1;
-	test_policy.add_server("127.0.0.1:8002", &address_params);
+	test_policy->add_server("127.0.0.1:8002", &address_params);
 
 	auto *ns = WFGlobal::get_name_service();
-	EXPECT_EQ(ns->add_policy("test_policy", &test_policy), 0);
+	EXPECT_EQ(ns->add_policy("test_policy", test_policy), 0);
 
 	http_server1.stop();
 	fprintf(stderr, "server 1 stopped start %d tasks to fuse it\n", batch);
@@ -287,6 +288,7 @@ TEST(upstream_unittest, FuseAndRecover)
 	series->start();
 	wait_group.wait();
 	ns->del_policy("test_policy");
+	test_policy->release();
 }
 
 TEST(upstream_unittest, TryAnother)

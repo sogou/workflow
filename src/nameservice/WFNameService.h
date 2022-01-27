@@ -141,6 +141,8 @@ public:
 		this->root.rb_node = NULL;
 		this->default_policy = default_policy;
 	}
+
+	virtual ~WFNameService();
 };
 
 #endif

@@ -32,10 +32,10 @@ public:
 		return &kInstance;
 	}
 
-	void add_policy_name(const std::string& name)
+	void add_upstream_policy(UPSGroupPolicy *policy)
 	{
 		pthread_mutex_lock(&this->mutex);
-		this->upstream_names.push_back(name);
+		this->upstream_policies.push_back(policy);
 		pthread_mutex_unlock(&this->mutex);
 	}
 
@@ -47,14 +47,12 @@ private:
 
 	~__UpstreamManager()
 	{
-		WFNameService *ns = WFGlobal::get_name_service();
-
-		for (const std::string& name : this->upstream_names)
-			delete dynamic_cast<UPSGroupPolicy *>(ns->del_policy(name.c_str()));
+		for (UPSGroupPolicy *policy : this->upstream_policies)
+			delete policy;
 	}
 
 	pthread_mutex_t mutex;
-	std::vector<std::string> upstream_names;
+	std::vector<UPSGroupPolicy *> upstream_policies;
 };
 
 static unsigned int __default_consistent_hash(const char *path,
@@ -80,7 +78,7 @@ int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -96,7 +94,7 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -111,7 +109,7 @@ int UpstreamManager::upstream_create_vnswrr(const std::string& name)
 
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -132,7 +130,7 @@ int UpstreamManager::upstream_create_manual(const std::string& name,
 										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -183,10 +181,7 @@ int UpstreamManager::upstream_delete(const std::string& name)
 	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->del_policy(name.c_str()));
 
 	if (policy)
-	{
-		delete policy;
 		return 0;
-	}
 
 	errno = ENOENT;
 	return -1;

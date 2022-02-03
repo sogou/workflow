@@ -19,8 +19,7 @@
 #ifndef _MPOLLER_H_
 #define _MPOLLER_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <stddef.h>
 #include "poller.h"
 
 typedef struct __mpoller mpoller_t;
@@ -41,6 +40,7 @@ void mpoller_destroy(mpoller_t *mpoller);
 
 struct __mpoller
 {
+	void **nodes_buf;
 	unsigned int nthreads;
 	poller_t *poller[1];
 };

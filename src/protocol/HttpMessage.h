@@ -55,8 +55,6 @@ public:
 		return http_parser_set_version(version, this->parser) == 0;
 	}
 
-	/* is_chunked(), is_keep_alive() only reflect the parsed result.
-	 * set_header(), add_header() do not effect on it. */
 	bool is_chunked() const
 	{
 		return http_parser_chunked(this->parser);
@@ -95,6 +93,21 @@ public:
 									  this->parser) == 0;
 	}
 
+	bool has_connection_header() const
+	{
+		return http_parser_has_connection(this->parser);
+	}
+
+	bool has_content_length_header() const
+	{
+		return http_parser_has_content_length(this->parser);
+	}
+
+	bool has_keep_alive_header() const
+	{
+		return http_parser_has_keep_alive(this->parser);
+	}
+
 	bool get_parsed_body(const void **body, size_t *size) const
 	{
 		return http_parser_get_body(body, size, this->parser) == 0;
@@ -115,6 +128,7 @@ public:
 	bool append_output_body(const void *buf, size_t size);
 	bool append_output_body_nocopy(const void *buf, size_t size);
 	void clear_output_body();
+
 	size_t get_output_body_size() const
 	{
 		return this->output_body_size;
@@ -229,7 +243,7 @@ public:
 		return http_parser_set_uri(uri, this->parser) == 0;
 	}
 
-	/* std::stirng interface */
+	/* std::string interface */
 public:
 	bool get_method(std::string& method) const
 	{

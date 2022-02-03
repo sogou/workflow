@@ -14,38 +14,34 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <stdint.h>
 #include <chrono>
-#include "DNSCache.h"
+#include "DnsCache.h"
 
 #define GET_CURRENT_SECOND	std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
 #define CONFIDENT_INC		10
 #define	TTL_INC				10
 
-const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int type)
+const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port, int type)
 {
-	const DNSHandle *handle = cache_pool_.get(host_port);
+	int64_t cur_time = GET_CURRENT_SECOND;
+	std::lock_guard<std::mutex> lock(mutex_);
+	const DnsHandle *handle = cache_pool_.get(host_port);
 
 	if (handle)
 	{
-		int64_t cur_time = GET_CURRENT_SECOND;
-
 		switch (type)
 		{
 		case GET_TYPE_TTL:
 			if (cur_time > handle->value.expire_time)
 			{
-				std::lock_guard<std::mutex> lock(mutex_);
-
-				if (cur_time > handle->value.expire_time)
-				{
-					const_cast<DNSHandle *>(handle)->value.expire_time += TTL_INC;
-					cache_pool_.release(handle);
-					return NULL;
-				}
+				const_cast<DnsHandle *>(handle)->value.expire_time += TTL_INC;
+				cache_pool_.release(handle);
+				return NULL;
 			}
 
 			break;
@@ -53,14 +49,9 @@ const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int ty
 		case GET_TYPE_CONFIDENT:
 			if (cur_time > handle->value.confident_time)
 			{
-				std::lock_guard<std::mutex> lock(mutex_);
-
-				if (cur_time > handle->value.confident_time)
-				{
-					const_cast<DNSHandle *>(handle)->value.confident_time += CONFIDENT_INC;
-					cache_pool_.release(handle);
-					return NULL;
-				}
+				const_cast<DnsHandle *>(handle)->value.confident_time += CONFIDENT_INC;
+				cache_pool_.release(handle);
+				return NULL;
 			}
 
 			break;
@@ -73,7 +64,7 @@ const DNSCache::DNSHandle *DNSCache::get_inner(const HostPort& host_port, int ty
 	return handle;
 }
 
-const DNSCache::DNSHandle *DNSCache::put(const HostPort& host_port,
+const DnsCache::DnsHandle *DnsCache::put(const HostPort& host_port,
 										 struct addrinfo *addrinfo,
 										 unsigned int dns_ttl_default,
 										 unsigned int dns_ttl_min)
@@ -96,7 +87,6 @@ const DNSCache::DNSHandle *DNSCache::put(const HostPort& host_port,
 		expire_time = cur_time + dns_ttl_default;
 
 	std::lock_guard<std::mutex> lock(mutex_);
-
 	return cache_pool_.put(host_port, {addrinfo, confident_time, expire_time});
 }
 

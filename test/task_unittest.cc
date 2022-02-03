@@ -20,6 +20,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include <string.h>
 #include <string>
 #include <mutex>
@@ -30,7 +33,7 @@
 
 #define GET_CURRENT_MICRO	std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
-TEST(WFTimerTask, task_unittest)
+TEST(task_unittest, WFTimerTask)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -55,7 +58,7 @@ TEST(WFTimerTask, task_unittest)
 	EXPECT_LE(ed - st, 10000000) << "Timer Task too slow";
 }
 
-TEST(WFCounterTask1, task_unittest)
+TEST(task_unittest, WFCounterTask1)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -91,7 +94,7 @@ TEST(WFCounterTask1, task_unittest)
 	lock.unlock();
 }
 
-TEST(WFCounterTask2, task_unittest)
+TEST(task_unittest, WFCounterTask2)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -124,7 +127,7 @@ TEST(WFCounterTask2, task_unittest)
 	lock.unlock();
 }
 
-TEST(WFGoTask, task_unittest)
+TEST(task_unittest, WFGoTask)
 {
 	srand(time(NULL));
 	std::mutex mutex;
@@ -154,7 +157,7 @@ TEST(WFGoTask, task_unittest)
 	EXPECT_EQ(edit_inner, 100);
 }
 
-TEST(WFThreadTask, task_unittest)
+TEST(task_unittest, WFThreadTask)
 {
 	std::mutex mutex;
 	std::condition_variable cond;
@@ -194,7 +197,8 @@ TEST(WFThreadTask, task_unittest)
 	lock.unlock();
 }
 
-TEST(WFFileIOTask, task_unittest)
+#ifndef _WIN32
+TEST(task_unittest, WFFileIOTask)
 {
 	srand(time(NULL));
 	std::mutex mutex;
@@ -255,4 +259,62 @@ TEST(WFFileIOTask, task_unittest)
 	close(fd);
 	remove(file_path.c_str());
 }
+#endif
 
+#ifndef _WIN32
+TEST(task_unittest, WFFilePathIOTask)
+{
+	srand(time(NULL));
+	std::mutex mutex;
+	std::condition_variable cond;
+	bool done = false;
+	std::string file_path = "./" + std::to_string(time(NULL)) +
+							"__" + std::to_string(rand() % 4096);
+
+	char writebuf[] = "testtest";
+	char readbuf[16];
+
+	auto *write = WFTaskFactory::create_pwrite_task(file_path, writebuf, 8, 80, [](WFFileIOTask *task) {
+		auto state = task->get_state();
+
+		EXPECT_EQ(state, WFT_STATE_SUCCESS);
+		if (state == WFT_STATE_SUCCESS)
+		{
+			auto *args = task->get_args();
+			EXPECT_EQ(args->count, 8);
+			EXPECT_EQ(args->offset, 80);
+			EXPECT_TRUE(strncmp("testtest", (char *)args->buf, 8) == 0);
+		}
+	});
+
+	auto *read = WFTaskFactory::create_pread_task(file_path, readbuf, 8, 80, [](WFFileIOTask *task) {
+		auto state = task->get_state();
+
+		EXPECT_EQ(state, WFT_STATE_SUCCESS);
+		if (state == WFT_STATE_SUCCESS)
+		{
+			auto *args = task->get_args();
+			EXPECT_EQ(args->count, 8);
+			EXPECT_EQ(args->offset, 80);
+			EXPECT_TRUE(strncmp("testtest", (char *)args->buf, 8) == 0);
+		}
+	});
+
+	auto *series = Workflow::create_series_work(write, [&mutex, &cond, &done](const SeriesWork *series) {
+		mutex.lock();
+		done = true;
+		mutex.unlock();
+		cond.notify_one();
+	});
+
+	series->push_back(read);
+	series->start();
+	std::unique_lock<std::mutex> lock(mutex);
+	while (!done)
+		cond.wait(lock);
+
+	lock.unlock();
+
+	remove(file_path.c_str());
+}
+#endif

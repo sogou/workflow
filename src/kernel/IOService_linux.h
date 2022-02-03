@@ -22,6 +22,7 @@
 #include <sys/uio.h>
 #include <sys/eventfd.h>
 #include <stddef.h>
+#include <pthread.h>
 #include "list.h"
 
 #define IOS_STATE_SUCCESS	0

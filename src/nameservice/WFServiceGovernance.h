@@ -14,11 +14,13 @@
   limitations under the License.
 
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
-#ifndef _SERVICE_GOVERNANCE_H_
-#define _SERVICE_GOVERNANCE_H_
+#ifndef _WFSERVICEGOVERNANCE_H_
+#define _WFSERVICEGOVERNANCE_H_
 
+#include <stdint.h>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -27,7 +29,7 @@
 #include "RWLock.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFDNSResolver.h"
+#include "WFDnsResolver.h"
 #include "WFGlobal.h"
 #include "WFTaskError.h"
 
@@ -89,7 +91,7 @@ public:
 	std::string host;
 	std::string port;
 	unsigned int fail_count;
-	unsigned int ref;
+	std::atomic<int> ref;
 	long long broken_timeout;
 	PolicyAddrParams *params;
 
@@ -164,6 +166,7 @@ private:
 
 	void recover_server_from_breaker(EndpointAddress *addr);
 	void fuse_server_to_breaker(EndpointAddress *addr);
+	void check_breaker_locked(int64_t cur_time);
 
 	struct list_head breaker_list;
 	std::mutex breaker_lock;
@@ -175,7 +178,15 @@ protected:
 	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
 											  WFNSTracing *tracing);
 	void check_breaker();
-	void remove_server_from_breaker(EndpointAddress *addr);
+	void try_clear_breaker();
+	void pre_delete_server(EndpointAddress *addr);
+
+	struct TracingData
+	{
+		std::vector<EndpointAddress *> history;
+		WFServiceGovernance *sg;
+	};
+
 	static void tracing_deleter(void *data);
 
 	std::vector<EndpointAddress *> servers;

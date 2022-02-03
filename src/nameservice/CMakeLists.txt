@@ -3,7 +3,7 @@ project(nameservice)
 
 set(SRC
 	WFNameService.cc
-	WFDNSResolver.cc
+	WFDnsResolver.cc
 	WFServiceGovernance.cc
 	UpstreamPolicies.cc
 )

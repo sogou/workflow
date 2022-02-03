@@ -20,7 +20,6 @@
 #define _LRUCACHE_H_
 #include <assert.h>
 #include <map>
-#include <mutex>
 //#include <unordered_map>
 
 /**
@@ -101,8 +100,6 @@ public:
 
 	~LRUCache()
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-
 		// Error if caller has an unreleased handle
 		assert(in_use_.next == &in_use_);
 		for (Handle *e = not_use_.next; e != &not_use_; )
@@ -121,8 +118,6 @@ public:
 	// max_size means max cache number of key-value pairs
 	void set_max_size(size_t max_size)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-
 		max_size_ = max_size;
 	}
 
@@ -132,8 +127,6 @@ public:
 	// Remove all cache that are not actively in use.
 	void prune()
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-
 		while (not_use_.next != &not_use_)
 		{
 			Handle *e = not_use_.next;
@@ -147,12 +140,7 @@ public:
 	// release handle by get/put
 	void release(Handle *handle)
 	{
-		if (handle)
-		{
-			std::lock_guard<std::mutex> lock(mutex_);
-
-			unref(handle);
-		}
+		unref(handle);
 	}
 
 	void release(const Handle *handle)
@@ -164,7 +152,6 @@ public:
 	// Need call release when handle no longer needed
 	const Handle *get(const KEY& key)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
 		MapConstIterator it = cache_map_.find(key);
 
 		if (it != cache_map_.end())
@@ -183,8 +170,6 @@ public:
 		Handle *e = new Handle(key, value);
 
 		e->ref = 1;
-		std::lock_guard<std::mutex> lock(mutex_);
-
 		size_++;
 		e->in_cache = true;
 		e->ref++;
@@ -216,7 +201,6 @@ public:
 	// delete from cache, deleter delay called when all inuse-handle release.
 	void del(const KEY& key)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
 		MapConstIterator it = cache_map_.find(key);
 
 		if (it != cache_map_.end())
@@ -280,7 +264,6 @@ private:
 		unref(e);
 	}
 
-	std::mutex mutex_;
 	size_t max_size_;
 	size_t size_;
 

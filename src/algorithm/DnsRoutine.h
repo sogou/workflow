@@ -18,60 +18,80 @@
 
 #ifndef _DNSROUTINE_H_
 #define _DNSROUTINE_H_
+
 #include <string>
 #include "PlatformSocket.h"
 
-class DNSInput
+class DnsInput
 {
 public:
-	DNSInput():
-		port_(0)
+	DnsInput() :
+		port_(0),
+		numeric_host_(false)
+	{}
+
+	DnsInput(const std::string& host, unsigned short port,
+			 bool numeric_host) :
+		host_(host),
+		port_(port),
+		numeric_host_(numeric_host)
 	{}
 
 	//move constructor
-	DNSInput(DNSInput&& move) = default;
+	DnsInput(DnsInput&& move) = default;
 	//move operator
-	DNSInput& operator= (DNSInput &&move) = default;
+	DnsInput& operator= (DnsInput &&move) = default;
 
 	void reset(const std::string& host, unsigned short port)
 	{
 		host_.assign(host);
 		port_ = port;
+		numeric_host_ = false;
+	}
+
+	void reset(const std::string& host, unsigned short port,
+			   bool numeric_host)
+	{
+		host_.assign(host);
+		port_ = port;
+		numeric_host_ = numeric_host;
 	}
 
 	const std::string& get_host() const { return host_; }
 	unsigned short get_port() const { return port_; }
+	bool is_numeric_host() const { return numeric_host_; }
 
 protected:
 	std::string host_;
 	unsigned short port_;
+	bool numeric_host_;
 
-	friend class DNSRoutine;
+	friend class DnsRoutine;
 };
 
-class DNSOutput
+class DnsOutput
 {
 public:
-	DNSOutput():
+	DnsOutput():
 		error_(0),
 		addrinfo_(NULL)
 	{}
 
-	~DNSOutput()
+	~DnsOutput()
 	{
 		if (addrinfo_)
 			freeaddrinfo(addrinfo_);
 	}
 
 	//move constructor
-	DNSOutput(DNSOutput&& move);
+	DnsOutput(DnsOutput&& move);
 	//move operator
-	DNSOutput& operator= (DNSOutput&& move);
+	DnsOutput& operator= (DnsOutput&& move);
 
 	int get_error() const { return error_; }
 	const struct addrinfo *get_addrinfo() const { return addrinfo_; }
 
-	//if DONOT want DNSOutput release addrinfo, use move_addrinfo in callback
+	//if DONOT want DnsOutput release addrinfo, use move_addrinfo in callback
 	struct addrinfo *move_addrinfo()
 	{
 		struct addrinfo *p = addrinfo_;
@@ -83,16 +103,28 @@ protected:
 	int error_;
 	struct addrinfo *addrinfo_;
 
-	friend class DNSRoutine;
+	friend class DnsRoutine;
 };
 
-class DNSRoutine
+class DnsRoutine
 {
 public:
-	static void run(const DNSInput *in, DNSOutput *out);
+	static void run(const DnsInput *in, DnsOutput *out);
+	static void create(DnsOutput *out, int error, struct addrinfo *ai)
+	{
+		if (out->addrinfo_)
+			freeaddrinfo(out->addrinfo_);
+
+		out->error_ = error;
+		out->addrinfo_ = ai;
+	}
+#ifndef _WIN32
+private:
+	static void run_local_path(const std::string& path, DnsOutput *out);
+#endif // !_WIN32
 };
 
-//new WFDNSTask(queue, executor, dns_routine, callback)
+//new WFDnsTask(queue, executor, dns_routine, callback)
 //if donot want freeaddrinfo, please std::move output in callback
 
 #endif

@@ -48,7 +48,7 @@ endif ()
 
 set(INCLUDE_HEADERS
 	src/PlatformSocket.h
-	src/algorithm/DNSRoutine.h
+	src/algorithm/DnsRoutine.h
 	src/algorithm/MapReduce.h
 	src/algorithm/MapReduce.inl
 	src/protocol/ProtocolMessage.h
@@ -65,13 +65,18 @@ set(INCLUDE_HEADERS
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
 	src/protocol/mysql_byteorder.h
+	src/protocol/dns_parser.h
+	src/protocol/DnsMessage.h
+	src/protocol/DnsUtil.h
 	src/protocol/SSLWrapper.h
 	src/server/WFServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
+	src/server/WFDnsServer.h
 	src/client/WFMySQLConnection.h
-	src/manager/DNSCache.h
+	src/client/WFDnsClient.h
+	src/manager/DnsCache.h
 	src/manager/WFGlobal.h
 	src/manager/UpstreamManager.h
 	src/manager/RouteManager.h
@@ -96,8 +101,9 @@ set(INCLUDE_HEADERS
 	src/factory/WFAlgoTaskFactory.inl
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
+	src/factory/WFResourcePool.h
 	src/nameservice/WFNameService.h
-	src/nameservice/WFDNSResolver.h
+	src/nameservice/WFDnsResolver.h
 	src/nameservice/WFServiceGovernance.h
 	src/nameservice/UpstreamPolicies.h
 )

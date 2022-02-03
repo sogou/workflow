@@ -16,7 +16,9 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-#include <arpa/inet.h>
+// for std::min on windows
+#define NOMINMAX
+#include "PlatformSocket.h"
 #include <stdint.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -37,6 +39,42 @@
 #include "crc32c.h"
 #include "EncodeStream.h"
 #include "KafkaMessage.h"
+
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
+namespace {
+
+#define CLOCK_REALTIME            0 
+#define exp7           10000000i64     //1E+7     //C-file part
+#define exp9         1000000000i64     //1E+9
+#define w2ux 116444736000000000i64     //1.jan1601 to 1.jan1970
+
+	void unix_time(struct timespec* spec)
+	{
+		__int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
+		wintime -= w2ux;  spec->tv_sec = wintime / exp7;
+		spec->tv_nsec = wintime % exp7 * 100;
+	}
+	int clock_gettime(int, timespec* spec)
+	{
+		static  struct timespec startspec; static double ticks2nano;
+		static __int64 startticks, tps = 0;    __int64 tmp, curticks;
+		QueryPerformanceFrequency((LARGE_INTEGER*)&tmp); //some strange system can
+		if (tps != tmp) {
+			tps = tmp; //init ~~ONCE         //possibly change freq ?
+			QueryPerformanceCounter((LARGE_INTEGER*)&startticks);
+			unix_time(&startspec); ticks2nano = (double)exp9 / tps;
+		}
+		QueryPerformanceCounter((LARGE_INTEGER*)&curticks); curticks -= startticks;
+		spec->tv_sec = startspec.tv_sec + (curticks / tps);
+		spec->tv_nsec = startspec.tv_nsec + (double)(curticks % tps) * ticks2nano;
+		if (!(spec->tv_nsec < exp9)) { spec->tv_sec++; spec->tv_nsec -= exp9; }
+		return 0;
+	}
+}
 
 namespace protocol
 {
@@ -325,8 +363,8 @@ static inline int parse_varint_i32(void **buf, size_t *size, int32_t *val)
 
 static constexpr LZ4F_preferences_t kPrefs =
 {
-	.frameInfo = {LZ4F_default, LZ4F_blockIndependent, },
-	.compressionLevel = 0,
+	/*.frameInfo = */{LZ4F_default, LZ4F_blockIndependent, },
+	/*.compressionLevel = */0,
 };
 
 static int compress_buf(KafkaBlock *block, int compress_type, void *env)

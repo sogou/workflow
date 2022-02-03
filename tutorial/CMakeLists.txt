@@ -60,7 +60,23 @@ endforeach()
 
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
-	target_link_libraries("kafka_cli" wfkafka workflow z snappy lz4 zstd rt)
+	if(NOT WIN32)
+		target_link_libraries("kafka_cli" wfkafka workflow z snappy lz4 zstd rt)
+	else()
+		find_package(OpenSSL REQUIRED)
+		find_package(ZLIB REQUIRED)
+		find_package(Snappy CONFIG REQUIRED)
+		find_package(lz4 CONFIG REQUIRED)
+		find_package(zstd CONFIG REQUIRED)
+
+		target_link_libraries("kafka_cli" wfkafka ${WORKFLOW_LIB} OpenSSL::Crypto ZLIB::ZLIB Snappy::snappy lz4::lz4 zstd::libzstd_shared)
+		target_compile_definitions(
+			"kafka_cli" PRIVATE
+			strdup=_strdup
+			strcasecmp=_stricmp
+			strncasecmp=_strnicmp
+		)	
+	endif(NOT WIN32)
 endif ()
 
 set(DIR10 tutorial-10-user_defined_protocol)

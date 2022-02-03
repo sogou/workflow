@@ -19,12 +19,9 @@
 #ifndef _KAFKA_DATATYPES_H_
 #define _KAFKA_DATATYPES_H_
 
-
+#include "PlatformSocket.h"
 #include <assert.h>
 #include <algorithm>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <vector>
 #include <string>
 #include <string.h>

@@ -16,8 +16,9 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <stdint.h>
 #include <cstddef>
 #include <string.h>

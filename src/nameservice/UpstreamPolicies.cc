@@ -16,6 +16,9 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+// for std::min on windows
+#define NOMINMAX
+
 #include <mutex>
 #include <random>
 #include <algorithm>

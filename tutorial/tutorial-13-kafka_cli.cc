@@ -16,8 +16,10 @@
   Author: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
+#ifndef WIN32
 #include <netdb.h>
 #include <unistd.h>
+#endif
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>

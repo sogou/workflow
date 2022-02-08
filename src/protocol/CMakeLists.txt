@@ -28,3 +28,23 @@ if (WIN32)
 	)
 endif ()
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		kafka_parser.c
+		KafkaMessage.cc
+		KafkaDataTypes.cc
+		KafkaResult.cc
+	)
+	add_library("protocol_kafka" OBJECT ${SRC})
+	set_property(SOURCE KafkaMessage.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	set_property(SOURCE KafkaDataTypes.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	set_property(SOURCE KafkaResult.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	if (WIN32)
+		target_compile_definitions(
+			"protocol_kafka" PRIVATE
+			strdup=_strdup
+			strcasecmp=_stricmp
+			strncasecmp=_strnicmp
+		)
+	endif ()
+endif ()

@@ -22,3 +22,19 @@ if (WIN32)
 	)
 endif ()
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		KafkaTaskImpl.cc
+	)
+	add_library("factory_kafka" OBJECT ${SRC})
+	if(WIN32)
+		target_compile_definitions(
+			"factory_kafka" PRIVATE
+			strdup=_strdup
+			strcasecmp=_stricmp
+			strncasecmp=_strnicmp
+		)
+	else()
+		set_property(SOURCE KafkaTaskImpl.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	endif()
+endif ()

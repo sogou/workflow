@@ -141,7 +141,7 @@ protected:
 	virtual int append(const void *buf, size_t *size);
 	bool encode_reply(redis_reply_t *reply);
 
-	EncodeStream *stream_;
+	::EncodeStream *stream_;
 
 private:
 	size_t cur_size_;
@@ -306,7 +306,7 @@ inline void RedisValue::clear()
 
 inline RedisMessage::RedisMessage():
 	parser_(new redis_parser_t),
-	stream_(new EncodeStream),
+	stream_(new ::EncodeStream),
 	cur_size_(0),
 	asking_(false)
 {

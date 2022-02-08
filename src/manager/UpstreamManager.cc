@@ -107,7 +107,7 @@ int UpstreamManager::upstream_create_vnswrr(const std::string& name)
 
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 

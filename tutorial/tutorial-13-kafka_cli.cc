@@ -16,7 +16,7 @@
   Author: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <netdb.h>
 #include <unistd.h>
 #endif

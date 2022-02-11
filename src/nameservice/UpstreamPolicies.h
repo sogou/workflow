@@ -71,9 +71,10 @@ protected:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	EndpointAddress *consistent_hash_with_group(unsigned int hash);
+	EndpointAddress *consistent_hash_with_group(unsigned int hash,
+												WFNSTracing *tracing);
 	EndpointAddress *check_and_get(EndpointAddress *addr,
-								   bool flag, WFNSTracing *tracing);
+								   bool addr_failed, WFNSTracing *tracing);
 
 	bool is_alive(const EndpointAddress *addr) const;
 };

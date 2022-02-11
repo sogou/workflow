@@ -44,7 +44,7 @@
  * - Additional, we support Main-backup & Group for server and working well in any mode.
  *
  * @code{.cc}
-	upstream_create_weighted_random("abc.sogou", true);           //UPSTREAM_WIGHTED_RANDOM
+	upstream_create_weighted_random("abc.sogou", true);           //UPSTREAM_WEIGHTED_RANDOM
 	upstream_add_server("abc.sogou", "192.168.2.100:8081");       //weight=1, max_fails=200
 	upstream_add_server("abc.sogou", "192.168.2.100:9090");       //weight=1, max_fails=200
 	AddressParams params = ADDRESS_PARAMS_DEFAULT;

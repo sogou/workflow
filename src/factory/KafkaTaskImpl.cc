@@ -236,8 +236,9 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				}
 				else
 				{
-					toppar->set_offset(toppar->get_high_watermark());
+					toppar->set_offset(toppar->get_high_watermark() - 1);
 				}
+				continue;
 			}
 			else
 			{

@@ -204,7 +204,7 @@ EndpointAddress *UPSGroupPolicy::check_and_get(EndpointAddress *addr,
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
 
-	if (addr_failed == true) // means fail_count >= max_fails
+	if (addr_failed) // means fail_count >= max_fails
 	{
 		if (params->group_id == -1)
 			return NULL;

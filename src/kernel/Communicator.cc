@@ -239,6 +239,17 @@ int CommService::drain(int max)
 	return cnt;
 }
 
+inline void CommService::incref()
+{
+	__sync_add_and_fetch(&this->ref, 1);
+}
+
+inline void CommService::decref()
+{
+	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
+		this->handle_unbound();
+}
+
 class CommServiceTarget : public CommTarget
 {
 public:
@@ -305,7 +316,7 @@ CommSession::~CommSession()
 
 inline int Communicator::first_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 
 	if (timeout < 0 || (unsigned int)session->timeout <= (unsigned int)timeout)
 	{
@@ -321,7 +332,7 @@ inline int Communicator::first_timeout(CommSession *session)
 
 int Communicator::next_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 	struct timespec cur_time;
 	int time_used, time_left;
 
@@ -393,9 +404,20 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 
 	while (cnt > 0)
 	{
-		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
-		if (n < 0)
-			return errno == EAGAIN ? cnt : -1;
+		if (!entry->ssl)
+		{
+			n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
+			if (n < 0)
+				return errno == EAGAIN ? cnt : -1;
+		}
+		else if (vectors->iov_len > 0)
+		{
+			n = SSL_write(entry->ssl, vectors->iov_base, vectors->iov_len);
+			if (n <= 0)
+				return cnt;
+		}
+		else
+			n = 0;
 
 		for (i = 0; i < cnt; i++)
 		{
@@ -528,12 +550,9 @@ int Communicator::send_message(struct CommConnEntry *entry)
 	}
 
 	end = vectors + cnt;
-	if (!entry->ssl)
-	{
-		cnt = this->send_message_sync(vectors, cnt, entry);
-		if (cnt <= 0)
-			return cnt;
-	}
+	cnt = this->send_message_sync(vectors, cnt, entry);
+	if (cnt <= 0)
+		return cnt;
 
 	return this->send_message_async(end - cnt, cnt, entry);
 }
@@ -1520,7 +1539,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 			data.fd = entry->sockfd;
 			data.ssl = NULL;
 			data.context = entry;
-			timeout = session->connect_timeout();
+			timeout = session->target->connect_timeout;
 			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
 				break;
 

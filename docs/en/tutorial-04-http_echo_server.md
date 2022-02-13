@@ -50,15 +50,18 @@ public:
     int start(int family, const char *host, unsigned short port,
               const char *cert_file, const char *key_file);
     int start(const struct sockaddr *bind_addr, socklen_t addrlen,
-              const char *cert_file, const char *key_file);
-
-    /* For graceful restart. */
+              const char *cert_file, const char *key_file); 
+   
+    /* For graceful restart or multi-process server. */
     int serve(int listen_fd);
     int serve(int listen_fd, const char *cert_file, const char *key_file);
+
+    /* Get the listening address. Used when started a server on a random port. */
+    int get_listen_addr(struct sockaddr *addr, socklen_t *addrlen) const;
 };
 ~~~
-
-There interfaces are easy to understand. When you start an SSL server, the cert\_file and key\_file should be in PEM format.   
+There interfaces are easy to understand. If the **port** number is zero, the server will be started on a random port, and you may need to call **get_listen_addr** to abtain the actual listening address (mainly for the actual port) after the server is started.  
+When you start an SSL server, the cert\_file and key\_file should be in PEM format.  
 The last two **serve()** interfaces have the parameter **listen\_fd**, which is used for graceful restart or for building a simple non-TCP (such as SCTP) server.   
 Please note that one server object corresponds to one **listen\_fd**. If  the server is running on both IPv4 and IPv6 protocols, you should:
 

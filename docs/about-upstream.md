@@ -50,6 +50,7 @@ public:
                                       upstream_route_t select,
                                       bool try_another,
                                       upstream_route_t consitent_hash);
+    static int upstream_create_vnswrr(const std::string& name);
     static int upstream_delete(const std::string& name);
 
 public:
@@ -246,6 +247,26 @@ http_task->start();
 4. 组号可以区分哪些主备是在一起工作的
 5. 不同组之间的备是相互隔离的，只为本组的main服务
 6. 添加目标的默认组号-1，type为0，表示主节点。
+
+### 例8 NVSWRR平滑按权重选取策略
+~~~
+UpstreamManager::upstream_create_vnswrr("nvswrr.random");
+
+AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
+address_params.weight = 3;//权重为3
+UpstreamManager::upstream_add_server("weighted.random", "192.168.2.100:8081", &address_params);//权重3
+address_params.weight = 2;//权重为2
+UpstreamManager::upstream_add_server("weighted.random", "192.168.2.100:8082", &address_params);//权重2
+UpstreamManager::upstream_add_server("weighted.random", "abc.sogou.com");//权重1
+
+auto *http_task = WFTaskFactory::create_http_task("http://nvswrr.random:9090", 0, 0, nullptr);
+http_task->start();
+~~~
+基本原理
+1. 虚拟节点初始化顺序按照[SWRR算法](https://github.com/nginx/nginx/commit/52327e0627f49dbda1e8db695e63a4b0af4448b1)选取
+2. 虚拟节点运行时分批初始化，避免密集型计算集中，每批次虚拟节点使用完后再进行下一批次虚拟节点列表初始化
+3. 兼具[SWRR算法](https://github.com/nginx/nginx/commit/52327e0627f49dbda1e8db695e63a4b0af4448b1)的平滑、分散特点，又能具备O(1)的时间复杂度
+4. 算法具体细节参见[tengine](https://github.com/alibaba/tengine/pull/1306)
 
 # Upstream选择策略
 

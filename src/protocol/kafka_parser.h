@@ -202,6 +202,19 @@ enum
 	KAFKA_BROKER_INITED,
 };
 
+enum
+{
+    KAFKA_TIMESTAMP_EARLIEST = -2,
+    KAFKA_TIMESTAMP_LATEST = -1,
+    KAFKA_TIMESTAMP_UNINIT = 0,
+};
+
+enum
+{
+	KAFKA_OFFSET_UNINIT = -2,
+	KAFKA_OFFSET_OVERFLOW = -1,
+};
+
 typedef struct __kafka_api_version
 {
 	short api_key;
@@ -279,6 +292,7 @@ typedef struct __kafka_config
 	char *client_id;
 	int check_crcs;
 	int offset_store;
+	char *rack_id;
 
 	char *mechanisms;
 	char *username;
@@ -326,6 +340,7 @@ typedef struct __kafka_topic_partition
 	short error;
 	char *topic_name;
 	int partition;
+	int preferred_read_replica;
 	long long offset;
 	long long high_watermark;
 	long long low_watermark;

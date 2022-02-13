@@ -286,24 +286,6 @@ protected:
 	virtual int keep_alive_timeout() { return this->keep_alive_timeo; }
 
 protected:
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
-		{
-			this->state = WFT_STATE_SSL_ERROR;
-			this->error = -this->error;
-		}
-
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-		return series->pop();
-	}
-
-protected:
 	int send_timeo;
 	int receive_timeo;
 	int keep_alive_timeo;

@@ -28,9 +28,9 @@ set(BENCHMARK_LIST
 )
 
 if (APPLE)
-	set(WORKFLOW_LIB workflow pthread z OpenSSL::SSL OpenSSL::Crypto)
+	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
 else ()
-	set(WORKFLOW_LIB workflow ${LIBRT})
+	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto ${LIBRT})
 endif ()
 
 foreach(src ${BENCHMARK_LIST})

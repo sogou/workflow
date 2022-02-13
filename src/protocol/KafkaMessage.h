@@ -93,6 +93,16 @@ public:
 		return &this->meta_list;
 	}
 
+	KafkaMetaList *get_alien_meta_list()
+	{
+		return &this->alien_meta_list;
+	}
+
+	void set_alien()
+	{
+		this->alien = true;
+	}
+
 	void set_toppar_list(const KafkaTopparList& toppar_list)
 	{
 		this->toppar_list = toppar_list;
@@ -127,10 +137,12 @@ public:
 		this->cgroup = msg.cgroup;
 		this->broker = msg.broker;
 		this->meta_list = msg.meta_list;
+		this->alien_meta_list = msg.alien_meta_list;
 		this->broker_list = msg.broker_list;
 		this->toppar_list = msg.toppar_list;
 		this->sasl = msg.sasl;
 		this->api = msg.api;
+		this->alien = msg.alien;
 	}
 
 	void clear_buf()
@@ -151,7 +163,7 @@ protected:
 								 KafkaToppar *toppar);
 
 	static int parse_message_record(void **buf, size_t *size,
-									kafka_record_t *record);
+									kafka_record_t *kafka_record);
 
 	static int parse_record_batch(void **buf, size_t *size,
 								  bool check_crcs,
@@ -160,9 +172,7 @@ protected:
 								  KafkaToppar *toppar);
 
 	static int parse_records(void **buf, size_t *size, bool check_crcs,
-							 struct list_head *record_list,
-							 KafkaBuffer *uncompressed,
-							 KafkaToppar *toppar);
+							 KafkaBuffer *uncompressed, KafkaToppar *toppar);
 
 	static std::string get_member_assignment(kafka_member_t *member);
 
@@ -191,6 +201,7 @@ protected:
 	KafkaCgroup cgroup;
 	KafkaBroker broker;
 	KafkaMetaList meta_list;
+	KafkaMetaList alien_meta_list;
 	KafkaBrokerList broker_list;
 	KafkaTopparList toppar_list;
 	KafkaBuffer serialized;
@@ -207,6 +218,8 @@ protected:
 
 	kafka_sasl_t *sasl;
 	kafka_api_t *api;
+
+	bool alien;
 };
 
 class KafkaRequest : public KafkaMessage

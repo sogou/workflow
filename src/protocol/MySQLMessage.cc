@@ -123,6 +123,7 @@ int MySQLMessage::encode(struct iovec vectors[], int max)
 	const unsigned char *p = (unsigned char *)buf_.c_str();
 	size_t nleft = buf_.size();
 	uint8_t seqid_start = seqid_;
+	uint8_t seqid = seqid_;
 	unsigned char *head;
 	uint32_t length;
 	int i = 0;
@@ -131,9 +132,9 @@ int MySQLMessage::encode(struct iovec vectors[], int max)
 	{
 		length = (nleft >= MYSQL_PAYLOAD_MAX ? MYSQL_PAYLOAD_MAX
 											 : (uint32_t)nleft);
-		head = heads_[seqid_];
+		head = heads_[seqid];
 		int3store(head, length);
-		head[3] = seqid_++;
+		head[3] = seqid++;
 		vectors[i].iov_base = head;
 		vectors[i].iov_len = 4;
 		i++;
@@ -149,7 +150,7 @@ int MySQLMessage::encode(struct iovec vectors[], int max)
 
 		nleft -= MYSQL_PAYLOAD_MAX;
 		p += length;
-	} while (seqid_ != seqid_start);
+	} while (seqid != seqid_start);
 
 	errno = EOVERFLOW;
 	return -1;

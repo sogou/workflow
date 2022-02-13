@@ -16,8 +16,8 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#ifndef _UPSTREAM_POLICIES_H_
-#define _UPSTREAM_POLICIES_H_
+#ifndef _UPSTREAMPOLICIES_H_
+#define _UPSTREAMPOLICIES_H_
 
 #include <utility>
 #include <vector>
@@ -71,9 +71,10 @@ protected:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	EndpointAddress *consistent_hash_with_group(unsigned int hash);
+	EndpointAddress *consistent_hash_with_group(unsigned int hash,
+												WFNSTracing *tracing);
 	EndpointAddress *check_and_get(EndpointAddress *addr,
-								   bool flag, WFNSTracing *tracing);
+								   bool addr_failed, WFNSTracing *tracing);
 
 	bool is_alive(const EndpointAddress *addr) const;
 };
@@ -121,19 +122,14 @@ private:
 	void init();
 	void init_virtual_nodes();
 	std::vector<size_t> pre_generated_vec;
-	std::vector<size_t> current_weight_vec;
+	std::vector<int> current_weight_vec;
 	size_t cur_idx;
 };
 
 class UPSConsistentHashPolicy : public UPSGroupPolicy
 {
 public:
-	UPSConsistentHashPolicy() :
-		consistent_hash(UPSConsistentHashPolicy::default_consistent_hash)
-	{
-	}
-
-	UPSConsistentHashPolicy(upstream_route_t&& consistent_hash) :
+	UPSConsistentHashPolicy(upstream_route_t consistent_hash) :
 		consistent_hash(std::move(consistent_hash))
 	{
 	}
@@ -144,28 +140,15 @@ protected:
 
 private:
 	upstream_route_t consistent_hash;
-
-public:
-	static unsigned int default_consistent_hash(const char *path,
-												const char *query,
-												const char *fragment)
-	{
-	    static std::hash<std::string> std_hash;
-	    std::string str(path);
-
-    	str += query;
-    	str += fragment;
-    	return std_hash(str);
-	}
 };
 
 class UPSManualPolicy : public UPSGroupPolicy
 {
 public:
-	UPSManualPolicy(bool try_another, upstream_route_t&& select,
-					upstream_route_t&& try_another_select) :
+	UPSManualPolicy(bool try_another, upstream_route_t select,
+					upstream_route_t try_another_select) :
 		manual_select(std::move(select)),
-		try_another_select(std::move(try_another_select))
+		another_select(std::move(try_another_select))
 	{
 		this->try_another = try_another;
 	}
@@ -177,7 +160,7 @@ public:
 
 private:
 	upstream_route_t manual_select;
-	upstream_route_t try_another_select;
+	upstream_route_t another_select;
 };
 
 #endif

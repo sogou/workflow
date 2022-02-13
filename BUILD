@@ -1,3 +1,9 @@
+config_setting(
+	name = 'linux',
+	values = {'cpu': 'linux'},
+	visibility = ['//visibility:public'],
+)
+
 cc_library(
 	name = 'workflow_hdrs',
 	hdrs = glob(['src/include/workflow/*']),
@@ -52,9 +58,15 @@ cc_library(
 		'src/kernel/CommScheduler.cc',
 		'src/kernel/Communicator.cc',
 		'src/kernel/Executor.cc',
-		'src/kernel/IOService_linux.cc',
 		'src/kernel/SubTask.cc',
-	] + glob(['src/util/*.cc']),
+	] + select({
+		':linux': [
+			'src/kernel/IOService_linux.cc',
+		],
+		'//conditions:default': [
+			'src/kernel/IOService_thread.cc',
+		],
+	}) + glob(['src/util/*.cc']),
 	hdrs = glob(['src/*/*.h']) + glob(['src/*/*.inl']),
 	includes = [
 		'src/algorithm',

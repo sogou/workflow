@@ -14,6 +14,11 @@ find_package(workflow REQUIRED CONFIG HINTS ..)
 include_directories(${OPENSSL_INCLUDE_DIR} ${WORKFLOW_INCLUDE_DIR})
 link_directories(${WORKFLOW_LIB_DIR})
 
+if (KAFKA STREQUAL "y")
+	find_path(SNAPPY_INCLUDE_PATH NAMES snappy.h)
+	include_directories(${SNAPPY_INCLUDE_PATH})
+endif ()
+
 if (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /std:c++14")
@@ -32,13 +37,14 @@ set(TUTORIAL_LIST
 	tutorial-08-matrix_multiply
 	tutorial-09-http_file_server
 	tutorial-11-graph_task
+	tutorial-15-name_service
 	tutorial-20-reducer
 )
 
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
 else ()
-	set(WORKFLOW_LIB workflow ${LIBRT})
+	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto ${LIBRT})
 endif ()
 
 foreach(src ${TUTORIAL_LIST})
@@ -75,7 +81,7 @@ endif()
 
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
-	target_link_libraries("kafka_cli" wfkafka workflow z snappy lz4 zstd rt)
+	target_link_libraries("kafka_cli" wfkafka ${WORKFLOW_LIB} z snappy lz4 zstd)
 endif ()
 
 set(DIR10 tutorial-10-user_defined_protocol)

@@ -44,7 +44,7 @@ namespace protocol
 #define CHECK_RET(exp)	if (exp < 0) return exp
 
 #ifndef htonll
-static int64_t htonll(int64_t x)
+static uint64_t htonll(uint64_t x)
 {
 	if (1 == htonl(1))
 		return x;
@@ -221,6 +221,17 @@ static inline size_t append_varint_i64(std::string& buf, int64_t num)
 static inline size_t append_varint_i32(std::string& buf, int32_t num)
 {
 	return append_varint_i64(buf, num);
+}
+
+static size_t append_compact_string(std::string& buf, const char *str)
+{
+	if (!str || str[0] == '\0')
+		append_string(buf, "");
+
+	size_t len = strlen(str);
+	size_t r = append_varint_u64(buf, len + 1);
+	append_string_raw(buf, str, len);
+	return r + len;
 }
 
 static inline int parse_i8(void **buf, size_t *size, int8_t *val)
@@ -1124,7 +1135,7 @@ static int parse_varint_u64(void **buf, size_t *size, uint64_t *val)
 
 	do
 	{
-		if (*size - 1 == 0)
+		if (*size == 0)
 		{
 			*size = org_size;
 			errno = EBADMSG;
@@ -1174,93 +1185,79 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 		}
 	}
 
-	KafkaRecord *kafka_record = new KafkaRecord;
-	kafka_record_t *record = kafka_record->get_raw_ptr();
-
-	record->offset = offset;
-	record->toppar = toppar->get_raw_ptr();
-	record->key_is_move = 1;
-	record->value_is_move = 1;
-
 	int8_t magic;
 	int8_t attributes;
 
 	if (parse_i8(buf, size, &magic) < 0)
-	{
-		delete kafka_record;
 		return -1;
-	}
 
 	if (parse_i8(buf, size, &attributes) < 0)
-	{
-		delete kafka_record;
 		return -1;
-	}
 
-	if (msg_vers == 1)
-	{
-		if (parse_i64(buf, size, (int64_t *)&record->timestamp) < 0)
-		{
-			delete kafka_record;
+	int64_t timestamp;
+	if (msg_vers == 1 && parse_i64(buf, size, &timestamp) < 0)
 			return -1;
-		}
-	}
 
-	if (parse_bytes(buf, size, &record->key, &record->key_len) < 0)
-	{
-		delete kafka_record;
+	void *key;
+	size_t key_len;
+	if (parse_bytes(buf, size, &key, &key_len) < 0)
 		return -1;
-	}
 
 	void *payload;
 	size_t payload_len;
 
 	if (parse_bytes(buf, size, &payload, &payload_len) < 0)
-	{
-		delete kafka_record;
 		return -1;
-	}
 
-	int compress_type = attributes & 3;
-
-	if (compress_type == 0)
+	if (offset >= toppar->get_offset())
 	{
-		record->value = payload;
-		record->value_len = payload_len;
-		list_add_tail(kafka_record->get_list(), record_list);
-	}
-	else
-	{
-		delete kafka_record;
-		KafkaBlock block;
-
-		if (uncompress_buf(payload, payload_len, &block, compress_type) < 0)
-			return -1;
-
-		struct list_head *record_head = record_list->prev;
-		void *uncompressed_ptr = block.get_block();
-		size_t uncompressed_len = block.get_len();
-		parse_message_set(&uncompressed_ptr, &uncompressed_len, check_crcs,
-						  msg_vers, record_list, uncompressed, toppar);
-
-		uncompressed->add_item(std::move(block));
-
-		if (msg_vers == 1)
+		int compress_type = attributes & 3;
+		if (compress_type == 0)
 		{
-			struct list_head *pos;
-			KafkaRecord *record;
-			int n = 0;
+			KafkaRecord *kafka_record = new KafkaRecord;
+			kafka_record_t *record = kafka_record->get_raw_ptr();
+			record->key = key;
+			record->key_len = key_len;
+			record->timestamp = timestamp;
+			record->offset = offset;
+			record->toppar = toppar->get_raw_ptr();
+			record->key_is_move = 1;
+			record->value_is_move = 1;
+			record->value = payload;
+			record->value_len = payload_len;
+			list_add_tail(kafka_record->get_list(), record_list);
+		}
+		else
+		{
+			KafkaBlock block;
+			if (uncompress_buf(payload, payload_len, &block, compress_type) < 0)
+				return -1;
 
-			for (pos = record_head->next; pos != record_list; pos = pos->next)
-				n++;
+			struct list_head *record_head = record_list->prev;
+			void *uncompressed_ptr = block.get_block();
+			size_t uncompressed_len = block.get_len();
+			parse_message_set(&uncompressed_ptr, &uncompressed_len, check_crcs,
+							msg_vers, record_list, uncompressed, toppar);
 
-			for (pos = record_head->next; pos != record_list; pos = pos->next)
+			uncompressed->add_item(std::move(block));
+
+			if (msg_vers == 1)
 			{
-				int64_t fix_offset;
+				struct list_head *pos;
+				KafkaRecord *record;
+				int n = 0;
 
-				record = list_entry(pos, KafkaRecord, list);
-				fix_offset = offset + record->get_offset() - n + 1;
-				record->set_offset(fix_offset);
+				for (pos = record_head->next; pos != record_list; pos = pos->next)
+					n++;
+
+				for (pos = record_head->next; pos != record_list; pos = pos->next)
+				{
+					int64_t fix_offset;
+
+					record = list_entry(pos, KafkaRecord, list);
+					fix_offset = offset + record->get_offset() - n + 1;
+					record->set_offset(fix_offset);
+				}
 			}
 		}
 	}
@@ -1474,15 +1471,24 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 	for (int i = 0; i < hdr.record_count; ++i)
 	{
 		KafkaRecord *record = new KafkaRecord;
-
 		record->set_offset(hdr.base_offset);
 		record->set_timestamp(hdr.base_timestamp);
-		parse_message_record(&p, &n, record->get_raw_ptr());
 		record->get_raw_ptr()->key_is_move = 1;
 		record->get_raw_ptr()->value_is_move = 1;
 		record->get_raw_ptr()->toppar = toppar->get_raw_ptr();
-		toppar->set_offset(record->get_offset());
-		list_add_tail(record->get_list(), record_list);
+
+		switch (parse_message_record(&p, &n, record->get_raw_ptr()))
+		{
+			case -1:
+				delete record;
+				return -1;
+			case 0:
+				list_add_tail(record->get_list(), record_list);
+				break;
+			default:
+				delete record;
+				break;
+		}
 	}
 
 	if (hdr.attributes == 0)
@@ -1498,10 +1504,9 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 }
 
 int KafkaMessage::parse_records(void **buf, size_t *size, bool check_crcs,
-								struct list_head *record_list,
-								KafkaBuffer *uncompressed,
-								KafkaToppar *toppar)
+								KafkaBuffer *uncompressed, KafkaToppar *toppar)
 {
+	struct list_head *record_list = toppar->get_record();
 	int msg_set_size = 0;
 
 	if (parse_i32(buf, size, &msg_set_size) < 0)
@@ -1609,6 +1614,7 @@ KafkaMessage::KafkaMessage()
 	this->stream = new EncodeStream;
 	this->api_type = Kafka_Unknown;
 	this->cur_size = 0;
+	this->alien = false;
 }
 
 KafkaMessage::~KafkaMessage()
@@ -2132,8 +2138,12 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			KafkaBlock record_block;
 			struct timespec ts;
 
-			clock_gettime(CLOCK_REALTIME, &ts);
-			record->get_raw_ptr()->timestamp = (ts.tv_sec * 1000000000 + ts.tv_nsec) / 1000 / 1000;
+			if (record->get_timestamp() == 0)
+			{
+				clock_gettime(CLOCK_REALTIME, &ts);
+				record->set_timestamp((ts.tv_sec * 1000000000 +
+									   ts.tv_nsec) / 1000 / 1000);
+			}
 
 			if (batch_cnt == 0)
 			{
@@ -2399,7 +2409,12 @@ int KafkaRequest::encode_fetch(struct iovec vectors[], int max)
 
 	//rackid
 	if (this->api_version >= 11)
-		append_string(this->msgbuf, "");
+	{
+		if (this->config.get_rack_id())
+			append_compact_string(this->msgbuf, this->config.get_rack_id());
+		else
+			append_string(this->msgbuf, "");
+	}
 
 	this->cur_size = this->msgbuf.size();
 
@@ -2417,11 +2432,17 @@ int KafkaRequest::encode_metadata(struct iovec vectors[], int max)
 	else
 		append_i32(this->msgbuf, 0);
 
-	this->meta_list.rewind();
+	KafkaMetaList *p_meta_list;
+	if (this->alien)
+		p_meta_list = &this->alien_meta_list;
+	else
+		p_meta_list = &this->meta_list;
+
+	p_meta_list->rewind();
 	KafkaMeta *meta;
 	int topic_cnt = 0;
 
-	while ((meta = this->meta_list.get_next()) != NULL)
+	while ((meta = p_meta_list->get_next()) != NULL)
 	{
 		append_string(this->msgbuf, meta->get_topic());
 		++topic_cnt;
@@ -3039,8 +3060,14 @@ int KafkaResponse::parse_metadata(void **buf, size_t *size)
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &controller_id));
 
+	KafkaMetaList *p_meta_list;
+	if (this->alien)
+		p_meta_list = &this->alien_meta_list;
+	else
+		p_meta_list = &this->meta_list;
+
 	CHECK_RET(kafka_meta_parse_topic(buf, size, this->api_version,
-									 &this->meta_list, &this->broker_list));
+									 p_meta_list, &this->broker_list));
 
 	return 0;
 }
@@ -3189,6 +3216,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	int aborted_cnt;
 	int preferred_read_replica;
 	long long producer_id, first_offset;
+	int64_t high_watermark;
 
 	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
@@ -3208,10 +3236,10 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			kafka_topic_partition_t *ptr = toppar->get_raw_ptr();
 
 			CHECK_RET(parse_i16(buf, size, &ptr->error));
-			CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->high_watermark));
+			CHECK_RET(parse_i64(buf, size, &high_watermark));
 
-			if (ptr->high_watermark == ptr->offset && ptr->error == KAFKA_NONE)
-				ptr->error = KAFKA_OFFSET_OUT_OF_RANGE;
+			if (ptr->error == KAFKA_NONE)
+				ptr->high_watermark = high_watermark;
 
 			if (this->api_version >= 4)
 			{
@@ -3229,11 +3257,26 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			}
 
 			if (this->api_version >= 11)
+			{
 				CHECK_RET(parse_i32(buf, size, &preferred_read_replica));
+				ptr->preferred_read_replica = preferred_read_replica;
+			}
 
-			parse_records(buf, size, this->config.get_check_crcs(),
-						  toppar->get_record(),
-						  &this->uncompressed, toppar);
+			if (parse_records(buf, size, this->config.get_check_crcs(),
+							  &this->uncompressed, toppar) == 0)
+			{
+				if (toppar->get_record() != toppar->get_record()->prev)
+				{
+					KafkaRecord *tail = (KafkaRecord *)list_entry(
+					toppar->get_record()->prev, KafkaRecord, list);
+					toppar->set_offset(tail->get_offset());
+				}
+			}
+			else
+			{
+				ptr->error = KAFKA_CORRUPT_MESSAGE;
+				return -1;
+			}
 		}
 	}
 
@@ -3258,7 +3301,7 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 	std::string topic_name;
 	int partition_cnt;
 	int partition;
-	int64_t offset_timestamp;
+	int64_t offset_timestamp, offset;
 	int offset_cnt;
 
 	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
@@ -3282,26 +3325,13 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 			if (this->api_version == 1)
 			{
 				CHECK_RET(parse_i64(buf, size, &offset_timestamp));
+				CHECK_RET(parse_i64(buf, size, &offset));
 				if (ptr->offset_timestamp == -1)
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->high_watermark));
-					if (ptr->offset > ptr->high_watermark ||
-						this->config.get_offset_timestamp() == -1)
-						ptr->offset = ptr->high_watermark;
-				}
+					ptr->high_watermark = offset;
 				else if (ptr->offset_timestamp == -2)
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->low_watermark));
-					if (this->config.get_offset_timestamp() == -2 &&
-						ptr->offset < ptr->low_watermark)
-					{
-						ptr->offset = ptr->low_watermark;
-					}
-				}
+					ptr->low_watermark = offset;
 				else
-				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->offset));
-				}
+					ptr->offset = offset;
 			}
 			else if (this->api_version == 0)
 			{
@@ -3365,6 +3395,7 @@ static bool kafka_meta_find_topic(const std::string& topic_name,
 static int kafka_cgroup_parse_member(void **buf, size_t *size,
 									 KafkaCgroup *cgroup,
 									 KafkaMetaList *meta_list,
+									 KafkaMetaList *alien_meta_list,
 									 int api_version)
 {
 	int member_cnt = 0;
@@ -3380,7 +3411,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 		return -1;
 
 	kafka_member_t **member = cgroup->get_members();
-	std::set<std::string> missing_topic;
+	std::set<std::string> alien_topic;
 	int i;
 
 	for (i = 0; i < member_cnt; ++i)
@@ -3426,7 +3457,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 			list_add_tail(toppar->get_list(), &member[i]->toppar_list);
 
 			if (!kafka_meta_find_topic(topic_name, meta_list))
-				missing_topic.insert(topic_name);
+				alien_topic.insert(topic_name);
 		}
 
 		if (j != topic_cnt)
@@ -3436,19 +3467,19 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 	if (i != member_cnt)
 		return -1;
 
-	for (const auto& v : missing_topic)
+	for (const auto& v : alien_topic)
 	{
 		KafkaMeta *meta = new KafkaMeta;
-
-		meta_list->add_item(std::move(*meta));
 		if (!meta->set_topic(v))
 		{
 			delete meta;
 			return -1;
 		}
+
+		alien_meta_list->add_item(std::move(*meta));
 	}
 
-	if (!missing_topic.empty())
+	if (!alien_topic.empty())
 		cgroup->set_error(KAFKA_MISSING_TOPIC);
 
 	return 0;
@@ -3469,11 +3500,14 @@ int KafkaResponse::parse_joingroup(void **buf, size_t *size)
 	CHECK_RET(parse_string(buf, size, &cgroup->leader_id));
 	CHECK_RET(parse_string(buf, size, &cgroup->member_id));
 	CHECK_RET(kafka_cgroup_parse_member(buf, size, &this->cgroup,
-										&this->meta_list, this->api_version));
+										&this->meta_list,
+										&this->alien_meta_list,
+										this->api_version));
 
-	if (this->cgroup.is_leader())
+	if (cgroup->error != KAFKA_MISSING_TOPIC && this->cgroup.is_leader())
 	{
 		CHECK_RET(this->cgroup.run_assignor(&this->meta_list,
+											&this->alien_meta_list,
 											cgroup->protocol_name));
 	}
 

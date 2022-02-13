@@ -70,12 +70,6 @@ public:
 		this->data = NULL;
 		this->deleter = NULL;
 	}
-
-	~WFNSTracing()
-	{
-		if (this->deleter)
-			this->deleter(this->data);
-	}
 };
 
 struct WFNSParams
@@ -121,6 +115,17 @@ public:
 	int add_policy(const char *name, WFNSPolicy *policy);
 	WFNSPolicy *get_policy(const char *name);
 	WFNSPolicy *del_policy(const char *name);
+
+public:
+	WFNSPolicy *get_default_policy() const
+	{
+		return this->default_policy;
+	}
+
+	void set_default_policy(WFNSPolicy *policy)
+	{
+		this->default_policy = policy;
+	}
 
 private:
 	WFNSPolicy *default_policy;

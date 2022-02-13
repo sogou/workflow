@@ -495,6 +495,21 @@ public:
 		this->ptr->offset_store = offset_store;
 	}
 
+	const char *get_rack_id() const
+	{
+		return this->ptr->rack_id;
+	}
+	bool set_rack_id(const char *rack_id)
+	{
+		char *p = strdup(rack_id);
+		if (!p)
+			return false;
+
+		free(this->ptr->rack_id);
+		this->ptr->rack_id = p;
+		return true;
+	}
+
 	const char *get_sasl_mech() const
 	{
 		return this->ptr->mechanisms;
@@ -756,6 +771,11 @@ public:
 											this->ptr) == 0;
 	}
 
+	int get_preferred_read_replica() const
+	{
+		return this->ptr->preferred_read_replica;
+	}
+
 	bool set_topic(const char *topic)
 	{
 		this->ptr->topic_name = strdup(topic);
@@ -773,9 +793,12 @@ public:
 	void set_offset_timestamp(long long tm) { this->ptr->offset_timestamp = tm; }
 
 	long long get_high_watermark() const { return this->ptr->high_watermark; }
+	void set_high_watermark(long long offset) const { this->ptr->high_watermark = offset; }
 
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
+
+	bool reach_high_watermark() const { return this->ptr->offset == this->ptr->high_watermark; }
 
 public:
 	KafkaToppar()
@@ -1232,6 +1255,44 @@ private:
 	friend const KafkaMeta *get_meta(const char *topic, KafkaMetaList *meta_list);
 };
 
+class KafkaMetaSubscriber
+{
+public:
+	void set_meta(KafkaMeta *meta)
+	{
+		this->meta = meta;
+	}
+
+	const KafkaMeta *get_meta() const
+	{
+		return this->meta;
+	}
+
+	void add_member(kafka_member_t *member)
+	{
+		this->member_vec.push_back(member);
+	}
+
+	const std::vector<kafka_member_t *> *get_member() const
+	{
+		return &this->member_vec;
+	}
+
+	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
+	{
+		return strcmp(m1->member_id, m2->member_id) < 0;
+	}
+
+	void sort_by_member()
+	{
+		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
+	}
+
+private:
+	KafkaMeta *meta;
+	std::vector<kafka_member_t *> member_vec;
+};
+
 class KafkaCgroup
 {
 public:
@@ -1330,7 +1391,11 @@ public:
 		return this->coordinator;
 	}
 
-	int run_assignor(KafkaMetaList *meta_list, const char *protocol_name);
+	int run_assignor(KafkaMetaList *meta_list, KafkaMetaList *alien_meta_list, 
+					 const char *protocol_name);
+
+	void add_subscriber(KafkaMetaList *meta_list, 
+						std::vector<KafkaMetaSubscriber> *subscribers);
 
 	static int kafka_range_assignor(kafka_member_t **members,
 									int member_elements,
@@ -1441,44 +1506,6 @@ private:
 
 	friend class KafkaBuffer;
 	friend class KafkaList<KafkaBlock>;
-};
-
-class KafkaMetaSubscriber
-{
-public:
-	void set_meta(KafkaMeta *meta)
-	{
-		this->meta = meta;
-	}
-
-	const KafkaMeta *get_meta() const
-	{
-		return this->meta;
-	}
-
-	void add_member(kafka_member_t *member)
-	{
-		this->member_vec.push_back(member);
-	}
-
-	const std::vector<kafka_member_t *> *get_member() const
-	{
-		return &this->member_vec;
-	}
-
-	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
-	{
-		return strcmp(m1->member_id, m2->member_id) < 0;
-	}
-
-	void sort_by_member()
-	{
-		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
-	}
-
-private:
-	KafkaMeta *meta;
-	std::vector<kafka_member_t *> member_vec;
 };
 
 class KafkaBuffer

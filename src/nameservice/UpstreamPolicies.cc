@@ -169,11 +169,6 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 	}
 
 	this->check_breaker();
-	if (this->nalives == 0)
-	{
-		this->rwlock.unlock();
-		return false;
-	}
 
 	// select_addr == NULL will only happened in consistent_hash
 	EndpointAddress *select_addr = this->first_strategy(uri, tracing);
@@ -201,17 +196,17 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 }
 
 /*
- * flag true : return an available one. If not exists, return NULL.
- *      false: means addr maybe group-alive.
- *      	   If addr is not available, get one from addr->group.
+ * addr_failed true: return an available one. If not exists, return NULL.
+ * 			  false: means addr maybe group-alive.
+ * 					 If addr is not available, get one from addr->group.
  */
 EndpointAddress *UPSGroupPolicy::check_and_get(EndpointAddress *addr,
-											   bool flag,
+											   bool addr_failed,
 											   WFNSTracing *tracing)
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
 
-	if (flag == true) // && addr->fail_count >= addr->params->max_fails
+	if (addr_failed) // means fail_count >= max_fails
 	{
 		if (params->group_id == -1)
 			return NULL;
@@ -404,7 +399,8 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 	return ret;
 }
 
-EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash)
+EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash,
+															WFNSTracing *tracing)
 {
 	const UPSAddrParams *params;
 	EndpointAddress *addr = NULL;
@@ -434,7 +430,7 @@ EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash)
 	if (!addr)
 		return NULL;
 
-	return this->check_and_get(addr, false, NULL);
+	return this->check_and_get(addr, false, tracing);
 }
 
 void UPSWeightedRandomPolicy::add_server_locked(EndpointAddress *addr)
@@ -584,7 +580,7 @@ EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
 
 		break;
 	}
-	this->cur_idx = idx;
+	this->cur_idx = idx + 1;
 	return this->servers[idx];
 }
 

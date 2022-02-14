@@ -639,7 +639,7 @@ EndpointAddress *UPSConsistentHashPolicy::first_strategy(const ParsedURI& uri,
 										uri.path ? uri.path : "",
 										uri.query ? uri.query : "",
 										uri.fragment ? uri.fragment : "");
-	return this->consistent_hash_with_group(hash_value);
+	return this->consistent_hash_with_group(hash_value, tracing);
 }
 
 EndpointAddress *UPSManualPolicy::first_strategy(const ParsedURI& uri,
@@ -662,6 +662,6 @@ EndpointAddress *UPSManualPolicy::another_strategy(const ParsedURI& uri,
 										uri.path ? uri.path : "",
 										uri.query ? uri.query : "",
 										uri.fragment ? uri.fragment : "");
-	return this->consistent_hash_with_group(hash_value);
+	return this->consistent_hash_with_group(hash_value, tracing);
 }
 

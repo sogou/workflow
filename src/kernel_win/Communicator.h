@@ -54,9 +54,6 @@ public:
 		*addrlen = this->addrlen;
 	}
 
-	int get_connect_timeout() const { return this->connect_timeout; }
-	int get_response_timeout() const { return this->response_timeout; }
-
 protected:
 	void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
 	{
@@ -143,10 +140,6 @@ private:
 	virtual int first_timeout() { return 0; }	/* for client session only. */
 	virtual void handle(int state, int error) = 0;
 
-private:
-	virtual int connect_timeout() { return this->target->connect_timeout; }
-	virtual int response_timeout() { return this->target->response_timeout; }
-
 protected:
 	CommTarget *get_target() const { return this->target; }
 	CommConnection *get_connection() const { return this->conn; }
@@ -228,17 +221,9 @@ private:
 	int ssl_accept_timeout;
 	SSL_CTX *ssl_ctx;
 
-public:
-	void incref()
-	{
-		this->ref++;
-	}
-
-	void decref()
-	{
-		if (--this->ref == 0)
-			this->handle_unbound();
-	}
+private:
+	void incref();
+	void decref();
 
 private:
 	SOCKET listen_sockfd;
@@ -346,6 +331,8 @@ public:
 
 	int request(CommSession *session, CommTarget *target);
 	int reply(CommSession *session);
+
+	int push(const void *buf, size_t size, CommSession *session);
 
 	int bind(CommService *service);
 	void unbind(CommService *service);

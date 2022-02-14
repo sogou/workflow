@@ -16,6 +16,9 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+// for std::min on windows
+#define NOMINMAX
+
 #include <mutex>
 #include <random>
 #include <algorithm>
@@ -509,11 +512,16 @@ EndpointAddress *UPSWeightedRandomPolicy::first_strategy(const ParsedURI& uri,
 EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri,
 														   WFNSTracing *tracing)
 {
-	UPSAddrParams *params;
+	/* When all servers are down, recover all servers if any server
+	 * reaches fusing timeout. */
+	if (this->available_weight == 0)
+		this->try_clear_breaker();
+
 	int temp_weight = this->available_weight;
 	if (temp_weight == 0)
 		return NULL;
 
+	UPSAddrParams *params;
 	EndpointAddress *addr = NULL;
 	int x = rand() % temp_weight;
 	int s = 0;
@@ -582,16 +590,12 @@ EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
 
 void UPSVNSWRRPolicy::init_virtual_nodes()
 {
-	if (this->total_weight <= (int)this->pre_generated_vec.size())
-		return;
-
-	std::vector<size_t> loop;
 	UPSAddrParams *params;
-	size_t s = this->pre_generated_vec.size();
-	size_t e = this->total_weight - s;
-	this->pre_generated_vec.resize(s);
+	size_t start_pos = this->pre_generated_vec.size();
+	size_t end_pos = std::min(this->total_weight - start_pos, this->servers.size()) + start_pos;
+	this->pre_generated_vec.resize(end_pos);
 
-	for (size_t i = s; i < e; i++)
+	for (size_t i = start_pos; i < end_pos; i++)
 	{
 		for (size_t j = 0; j < this->servers.size(); j++)
 		{
@@ -599,10 +603,10 @@ void UPSVNSWRRPolicy::init_virtual_nodes()
 			params = static_cast<UPSAddrParams *>(server->params);
 			this->current_weight_vec[j] += params->weight;
 		}
-		std::vector<size_t>::iterator biggest = std::max_element(this->current_weight_vec.begin(),
+		std::vector<int>::iterator biggest = std::max_element(this->current_weight_vec.begin(),
 																 this->current_weight_vec.end());
 		this->pre_generated_vec[i] = std::distance(this->current_weight_vec.begin(), biggest);
-		this->current_weight_vec[loop[i]] -= this->total_weight;
+		this->current_weight_vec[this->pre_generated_vec[i]] -= this->total_weight;
 	}
 }
 
@@ -613,7 +617,7 @@ void UPSVNSWRRPolicy::init()
 
 	this->pre_generated_vec.clear();
 	this->cur_idx = rand() % this->total_weight;
-	std::vector<size_t> t(this->servers.size(), 0);
+	std::vector<int> t(this->servers.size(), 0);
 	this->current_weight_vec.swap(t);
 	this->init_virtual_nodes();
 }
@@ -635,16 +639,10 @@ int UPSVNSWRRPolicy::remove_server_locked(const std::string& address)
 EndpointAddress *UPSConsistentHashPolicy::first_strategy(const ParsedURI& uri,
 														 WFNSTracing *tracing)
 {
-	unsigned int hash_value;
-
-	if (this->consistent_hash)
-		hash_value = this->consistent_hash(uri.path ? uri.path : "",
-										   uri.query ? uri.query : "",
-										   uri.fragment ? uri.fragment : "");
-	else
-		hash_value = this->default_consistent_hash(uri.path ? uri.path : "",
-												   uri.query ? uri.query : "",
-												   uri.fragment ? uri.fragment : "");
+	unsigned int hash_value = this->consistent_hash(
+										uri.path ? uri.path : "",
+										uri.query ? uri.query : "",
+										uri.fragment ? uri.fragment : "");
 	return this->consistent_hash_with_group(hash_value);
 }
 
@@ -664,16 +662,10 @@ EndpointAddress *UPSManualPolicy::first_strategy(const ParsedURI& uri,
 EndpointAddress *UPSManualPolicy::another_strategy(const ParsedURI& uri,
 												   WFNSTracing *tracing)
 {
-	unsigned int hash_value;
-
-	if (this->try_another_select)
-		hash_value = this->try_another_select(uri.path ? uri.path : "",
-											  uri.query ? uri.query : "",
-											  uri.fragment ? uri.fragment : "");
-	else
-		hash_value = UPSConsistentHashPolicy::default_consistent_hash(uri.path ? uri.path : "",
-																   uri.query ? uri.query : "",
-																   uri.fragment ? uri.fragment : "");
+	unsigned int hash_value = this->another_select(
+										uri.path ? uri.path : "",
+										uri.query ? uri.query : "",
+										uri.fragment ? uri.fragment : "");
 	return this->consistent_hash_with_group(hash_value);
 }
 

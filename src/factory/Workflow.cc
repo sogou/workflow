@@ -162,22 +162,23 @@ SubTask *SeriesWork::pop_task()
 }
 
 ParallelWork::ParallelWork(parallel_callback_t&& cb) :
-	ParallelTask(NULL, 0),
+	ParallelTask(new SubTask *[2 * 4], 0),
 	callback(std::move(cb))
 {
-	this->all_series = NULL;
-	this->buf_size = 0;
+	this->buf_size = 4;
+	this->all_series = (SeriesWork **)&this->subtasks[4];
 	this->context = NULL;
 }
 
 ParallelWork::ParallelWork(SeriesWork *const all_series[], size_t n,
 						   parallel_callback_t&& cb) :
-	ParallelTask(new SubTask *[2 * n], n),
+	ParallelTask(new SubTask *[2 * (n >= 4 ? n : 4)], n),
 	callback(std::move(cb))
 {
 	size_t i;
 
-	this->all_series = (SeriesWork **)&this->subtasks[n];
+	this->buf_size = (n >= 4 ? n : 4);
+	this->all_series = (SeriesWork **)&this->subtasks[this->buf_size];
 	for (i = 0; i < n; i++)
 	{
 		assert(!all_series[i]->in_parallel);
@@ -186,7 +187,6 @@ ParallelWork::ParallelWork(SeriesWork *const all_series[], size_t n,
 		this->subtasks[i] = all_series[i]->first;
 	}
 
-	this->buf_size = n;
 	this->context = NULL;
 }
 
@@ -196,9 +196,6 @@ void ParallelWork::expand_buf()
 	size_t size;
 
 	this->buf_size *= 2;
-	if (this->buf_size == 0)
-		this->buf_size = 4;
-
 	buf = new SubTask *[2 * this->buf_size];
 	size = this->subtasks_nr * sizeof (void *);
 	memcpy(buf, this->subtasks, size);

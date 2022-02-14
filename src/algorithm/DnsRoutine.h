@@ -118,9 +118,10 @@ public:
 		out->error_ = error;
 		out->addrinfo_ = ai;
 	}
-
+#ifndef _WIN32
 private:
 	static void run_local_path(const std::string& path, DnsOutput *out);
+#endif // !_WIN32
 };
 
 //new WFDnsTask(queue, executor, dns_routine, callback)

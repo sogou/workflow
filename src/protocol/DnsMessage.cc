@@ -17,7 +17,7 @@
 */
 
 #include <errno.h>
-#include <arpa/inet.h>
+#include "PlatformSocket.h"
 #include "DnsMessage.h"
 
 #define DNS_LABELS_MAX				63

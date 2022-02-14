@@ -157,7 +157,6 @@ void CommTarget::deinit()
 int CommMessageIn::feedback(const void *buf, size_t size)
 {
 	struct CommConnEntry *entry = this->entry;
-	int error;
 	int ret;
 
 	if (!entry->ssl)
@@ -169,9 +168,9 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	ret = SSL_write(entry->ssl, buf, size);
 	if (ret <= 0)
 	{
-		error = SSL_get_error(entry->ssl, ret);
-		if (error != SSL_ERROR_SYSCALL)
-			errno = -error;
+		ret = SSL_get_error(entry->ssl, ret);
+		if (ret != SSL_ERROR_SYSCALL)
+			errno = -ret;
 
 		ret = -1;
 	}
@@ -240,6 +239,17 @@ int CommService::drain(int max)
 	return cnt;
 }
 
+inline void CommService::incref()
+{
+	__sync_add_and_fetch(&this->ref, 1);
+}
+
+inline void CommService::decref()
+{
+	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
+		this->handle_unbound();
+}
+
 class CommServiceTarget : public CommTarget
 {
 public:
@@ -306,7 +316,7 @@ CommSession::~CommSession()
 
 inline int Communicator::first_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 
 	if (timeout < 0 || (unsigned int)session->timeout <= (unsigned int)timeout)
 	{
@@ -322,7 +332,7 @@ inline int Communicator::first_timeout(CommSession *session)
 
 int Communicator::next_timeout(CommSession *session)
 {
-	int timeout = session->response_timeout();
+	int timeout = session->target->response_timeout;
 	struct timespec cur_time;
 	int time_used, time_left;
 
@@ -1521,7 +1531,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 			data.fd = entry->sockfd;
 			data.ssl = NULL;
 			data.context = entry;
-			timeout = session->connect_timeout();
+			timeout = session->target->connect_timeout;
 			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
 				break;
 
@@ -1633,7 +1643,7 @@ int Communicator::reply(CommSession *session)
 
 	if (session->passive != 1)
 	{
-		errno = session->passive ? ENOENT : EINVAL;
+		errno = session->passive ? ENOENT : EPERM;
 		return -1;
 	}
 
@@ -1657,6 +1667,49 @@ int Communicator::reply(CommSession *session)
 
 	errno = errno_bak;
 	return 0;
+}
+
+int Communicator::push(const void *buf, size_t size, CommSession *session)
+{
+	CommTarget *target = session->target;
+	struct CommConnEntry *entry;
+	int ret;
+
+	if (session->passive != 1)
+	{
+		errno = session->passive ? ENOENT : EPERM;
+		return -1;
+	}
+
+	pthread_mutex_lock(&target->mutex);
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		if (!entry->ssl)
+			ret = write(entry->sockfd, buf, size);
+		else if (size == 0)
+			ret = 0;
+		else
+		{
+			ret = SSL_write(entry->ssl, buf, size);
+			if (ret <= 0)
+			{
+				ret = SSL_get_error(entry->ssl, ret);
+				if (ret != SSL_ERROR_SYSCALL)
+					errno = -ret;
+
+				ret = -1;
+			}
+		}
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	pthread_mutex_unlock(&target->mutex);
+	return ret;
 }
 
 int Communicator::sleep(SleepSession *session)

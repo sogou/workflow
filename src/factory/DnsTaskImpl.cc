@@ -36,7 +36,11 @@ public:
 	ComplexDnsTask(int retry_max, dns_callback_t&& cb):
 		WFComplexClientTask(retry_max, std::move(cb))
 	{
+#ifdef _WIN32
+		this->set_transport_type(TT_TCP);
+#else
 		this->set_transport_type(TT_UDP);
+#endif
 	}
 
 protected:
@@ -51,14 +55,14 @@ private:
 
 struct addrinfo ComplexDnsTask::hints =
 {
-	.ai_flags     = AI_NUMERICSERV | AI_NUMERICHOST,
-	.ai_family    = AF_UNSPEC,
-	.ai_socktype  = SOCK_STREAM,
-	.ai_protocol  = 0,
-	.ai_addrlen   = 0,
-	.ai_addr      = NULL,
-	.ai_canonname = NULL,
-	.ai_next      = NULL
+	/*.ai_flags     =*/ AI_NUMERICSERV | AI_NUMERICHOST,
+	/*.ai_family    =*/ AF_UNSPEC,
+	/*.ai_socktype  =*/ SOCK_STREAM,
+	/*.ai_protocol  =*/ 0,
+	/*.ai_addrlen   =*/ 0,
+	/*.ai_addr      =*/ NULL,
+	/*.ai_canonname =*/ NULL,
+	/*.ai_next      =*/ NULL
 };
 
 CommMessageOut *ComplexDnsTask::message_out()

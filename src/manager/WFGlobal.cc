@@ -31,6 +31,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <fstream>
 #include "WFGlobal.h"
 #include "EndpointParams.h"
 #include "CommScheduler.h"
@@ -51,16 +52,6 @@ public:
 	{
 		static __WFGlobal kInstance;
 		return &kInstance;
-	}
-
-	const WFGlobalSettings *get_global_settings() const
-	{
-		return &settings_;
-	}
-
-	void set_global_settings(const WFGlobalSettings *settings)
-	{
-		settings_ = *settings;
 	}
 
 	const char *get_default_port(const std::string& scheme)
@@ -120,7 +111,6 @@ private:
 #endif
 
 private:
-	struct WFGlobalSettings settings_;
 	std::unordered_map<std::string, const char *> static_scheme_port_;
 	std::unordered_map<std::string, std::string> user_scheme_port_;
 	std::mutex user_scheme_port_mutex_;
@@ -129,7 +119,7 @@ private:
 	int sync_max_;
 };
 
-__WFGlobal::__WFGlobal() : settings_(GLOBAL_SETTINGS_DEFAULT)
+__WFGlobal::__WFGlobal()
 {
 	static_scheme_port_["dns"] = "53";
 	static_scheme_port_["Dns"] = "53";
@@ -266,10 +256,10 @@ private:
 	SSL_CTX *ssl_client_ctx_;
 };
 
-class IOServer : public IOService
+class __FileIOService : public IOService
 {
 public:
-	IOServer(CommScheduler *scheduler):
+	__FileIOService(CommScheduler *scheduler):
 		scheduler_(scheduler),
 		flag_(true)
 	{}
@@ -318,13 +308,19 @@ private:
 	bool flag_;
 };
 
-class __DnsManager
+class __ThreadDnsManager
 {
 public:
+	static __ThreadDnsManager *get_instance()
+	{
+		static __ThreadDnsManager kInstance;
+		return &kInstance;
+	}
+
 	ExecQueue *get_dns_queue() { return &dns_queue_; }
 	Executor *get_dns_executor() { return &dns_executor_; }
 
-	__DnsManager()
+	__ThreadDnsManager()
 	{
 		int ret;
 
@@ -332,14 +328,12 @@ public:
 		if (ret < 0)
 			abort();
 
-		ret = dns_executor_.init(__WFGlobal::get_instance()->
-											 get_global_settings()->
-											 dns_threads);
+		ret = dns_executor_.init(WFGlobal::get_global_settings()->dns_threads);
 		if (ret < 0)
 			abort();
 	}
 
-	~__DnsManager()
+	~__ThreadDnsManager()
 	{
 		dns_executor_.deinit();
 		dns_queue_.deinit();
@@ -360,116 +354,61 @@ public:
 	}
 
 	CommScheduler *get_scheduler() { return &scheduler_; }
-	RouteManager *get_route_manager() { return &route_manager_; }
 	IOService *get_io_service()
 	{
-		if (!io_flag_)
+		if (!fio_flag_)
 		{
-			io_mutex_.lock();
-			if (!io_flag_)
+			fio_mutex_.lock();
+			if (!fio_flag_)
 			{
-				io_server_ = new IOServer(&scheduler_);
+				fio_service_ = new __FileIOService(&scheduler_);
 				//todo EAGAIN 65536->2
-				if (io_server_->init(8192) < 0)
+				if (fio_service_->init(8192) < 0)
 					abort();
 
-				if (io_server_->bind() < 0)
+				if (fio_service_->bind() < 0)
 					abort();
 
-				io_flag_ = true;
+				fio_flag_ = true;
 			}
 
-			io_mutex_.unlock();
+			fio_mutex_.unlock();
 		}
 
-		return io_server_;
-	}
-
-	ExecQueue *get_dns_queue()
-	{
-		return get_dns_manager_safe()->get_dns_queue();
-	}
-
-	Executor *get_dns_executor()
-	{
-		return get_dns_manager_safe()->get_dns_executor();
+		return fio_service_;
 	}
 
 private:
 	__CommManager():
-		io_server_(NULL),
-		io_flag_(false),
-		dns_manager_(NULL),
-		dns_flag_(false)
+		fio_service_(NULL),
+		fio_flag_(false)
 	{
-#ifdef SIGPIPE
-		signal(SIGPIPE, SIG_IGN);
-#endif
-		const auto *settings = __WFGlobal::get_instance()->get_global_settings();
+		const auto *settings = WFGlobal::get_global_settings();
 		if (scheduler_.init(settings->poller_threads,
 							settings->handler_threads) < 0)
 			abort();
+
+#ifdef SIGPIPE
+		signal(SIGPIPE, SIG_IGN);
+#endif
 	}
 
 	~__CommManager()
 	{
-		if (dns_manager_)
-			delete dns_manager_;
-
+		// scheduler_.deinit() will triger fio_service to stop
 		scheduler_.deinit();
-		if (io_server_)
+		if (fio_service_)
 		{
-			io_server_->deinit();
-			delete io_server_;
+			fio_service_->deinit();
+			delete fio_service_;
 		}
-	}
-
-	__DnsManager *get_dns_manager_safe()
-	{
-		if (!dns_flag_)
-		{
-			dns_mutex_.lock();
-			if (!dns_flag_)
-			{
-				dns_manager_ = new __DnsManager();
-				dns_flag_ = true;
-			}
-
-			dns_mutex_.unlock();
-		}
-
-		return dns_manager_;
 	}
 
 private:
 	CommScheduler scheduler_;
-	RouteManager route_manager_;
-	IOServer *io_server_;
-	volatile bool io_flag_;
-	std::mutex io_mutex_;
-	__DnsManager *dns_manager_;
-	volatile bool dns_flag_;
-	std::mutex dns_mutex_;
-};
-
-class __DnsCache
-{
-public:
-	static __DnsCache *get_instance()
-	{
-		static __DnsCache kInstance;
-		return &kInstance;
-	}
-
-	DnsCache *get_dns_cache() { return &dns_cache_; }
-
-private:
-	__DnsCache() { }
-
-	~__DnsCache() { }
-
-private:
-	DnsCache dns_cache_;
+	__FileIOService *fio_service_;
+	volatile bool fio_flag_;
+	std::mutex fio_mutex_;
 };
 
 class __ExecManager
@@ -525,9 +464,7 @@ public:
 private:
 	__ExecManager()
 	{
-		int compute_threads = __WFGlobal::get_instance()->
-										  get_global_settings()->
-										  compute_threads;
+		int compute_threads = WFGlobal::get_global_settings()->compute_threads;
 
 		if (compute_threads <= 0)
 		{
@@ -555,27 +492,6 @@ private:
 	RWLock rwlock_;
 	ExecQueueMap queue_map_;
 	Executor compute_executor_;
-};
-
-class __NameServiceManager
-{
-public:
-	static __NameServiceManager *get_instance()
-	{
-		static __NameServiceManager kInstance;
-		return &kInstance;
-	}
-
-public:
-	WFDnsResolver *get_dns_resolver() { return &resolver_; }
-	WFNameService *get_name_service() { return &service_; }
-
-private:
-	WFDnsResolver resolver_;
-	WFNameService service_;
-
-public:
-	__NameServiceManager() : service_(&resolver_) { }
 };
 
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
@@ -659,28 +575,26 @@ static int __parse_resolv_conf(const char *path,
 							   std::string& url, std::string& search_list,
 							   int *ndots, int *attempts, bool *rotate)
 {
-	size_t bufsize = 0;
-	char *line = NULL;
-	FILE *fp;
+	std::string line;
 	int ret;
 
-	fp = fopen(path, "r");
-	if (!fp)
+	std::ifstream ifs;
+	ifs.open(path, ifs.in);
+	if (!ifs.is_open())
 		return -1;
 
-	while ((ret = getline(&line, &bufsize, fp)) > 0)
+	while (!(std::getline(ifs, line)).eof())
 	{
-		if (strncmp(line, "nameserver", 10) == 0)
-			__split_merge_str(line + 10, true, url);
-		else if (strncmp(line, "search", 6) == 0)
-			__split_merge_str(line + 6, false, search_list);
-		else if (strncmp(line, "options", 7) == 0)
-			__set_options(line + 7, ndots, attempts, rotate);
+		if (strncmp(line.c_str(), "nameserver", 10) == 0)
+			__split_merge_str(line.c_str() + 10, true, url);
+		else if (strncmp(line.c_str(), "search", 6) == 0)
+			__split_merge_str(line.c_str() + 6, false, search_list);
+		else if (strncmp(line.c_str(), "options", 7) == 0)
+			__set_options(line.c_str() + 7, ndots, attempts, rotate);
 	}
 
-	ret = ferror(fp) ? -1 : 0;
-	free(line);
-	fclose(fp);
+	ret = ifs.bad() ? -1 : 0;
+	ifs.close();
 	return ret;
 }
 
@@ -694,14 +608,16 @@ public:
 	}
 
 public:
-	WFDnsClient *get_dns_client() { return client; }
+	WFDnsClient *get_dns_client() { return client_; }
+	WFResourcePool *get_dns_respool() { return &respool_; };
 
 private:
-	__DnsClientManager()
+	__DnsClientManager() : respool_(WFGlobal::get_global_settings()->
+									dns_server_params.max_connections)
 	{
 		const char *path = WFGlobal::get_global_settings()->resolv_conf_path;
 
-		client = NULL;
+		client_ = NULL;
 		if (path && path[0])
 		{
 			int ndots = 1;
@@ -714,45 +630,37 @@ private:
 			if (url.size() == 0)
 				url = "8.8.8.8";
 
-			client = new WFDnsClient;
-			if (client->init(url, search, ndots, attempts, rotate) >= 0)
+			client_ = new WFDnsClient;
+			if (client_->init(url, search, ndots, attempts, rotate) >= 0)
 				return;
 
-			delete client;
-			client = NULL;
+			delete client_;
+			client_ = NULL;
 		}
 	}
 
 	~__DnsClientManager()
 	{
-		if (client)
+		if (client_)
 		{
-			client->deinit();
-			delete client;
+			client_->deinit();
+			delete client_;
 		}
 	}
 
-	WFDnsClient *client;
+	WFDnsClient *client_;
+	WFResourcePool respool_;
 };
 
-WFDnsClient *WFGlobal::get_dns_client()
-{
-	return __DnsClientManager::get_instance()->get_dns_client();
-}
+struct WFGlobalSettings WFGlobal::settings_ = GLOBAL_SETTINGS_DEFAULT;
+RouteManager WFGlobal::route_manager_;
+DnsCache WFGlobal::dns_cache_;
+WFDnsResolver WFGlobal::dns_resolver_;
+WFNameService WFGlobal::name_service_(&WFGlobal::dns_resolver_);
 
 CommScheduler *WFGlobal::get_scheduler()
 {
 	return __CommManager::get_instance()->get_scheduler();
-}
-
-DnsCache *WFGlobal::get_dns_cache()
-{
-	return __DnsCache::get_instance()->get_dns_cache();
-}
-
-RouteManager *WFGlobal::get_route_manager()
-{
-	return __CommManager::get_instance()->get_route_manager();
 }
 
 SSL_CTX *WFGlobal::get_ssl_client_ctx()
@@ -782,22 +690,22 @@ IOService *WFGlobal::get_io_service()
 
 ExecQueue *WFGlobal::get_dns_queue()
 {
-	return __CommManager::get_instance()->get_dns_queue();
+	return __ThreadDnsManager::get_instance()->get_dns_queue();
 }
 
 Executor *WFGlobal::get_dns_executor()
 {
-	return __CommManager::get_instance()->get_dns_executor();
+	return __ThreadDnsManager::get_instance()->get_dns_executor();
 }
 
-WFNameService *WFGlobal::get_name_service()
+WFDnsClient *WFGlobal::get_dns_client()
 {
-	return __NameServiceManager::get_instance()->get_name_service();
+	return __DnsClientManager::get_instance()->get_dns_client();
 }
 
-WFDnsResolver *WFGlobal::get_dns_resolver()
+WFResourcePool *WFGlobal::get_dns_respool()
 {
-	return __NameServiceManager::get_instance()->get_dns_resolver();
+	return __DnsClientManager::get_instance()->get_dns_respool();
 }
 
 const char *WFGlobal::get_default_port(const std::string& scheme)
@@ -809,16 +717,6 @@ void WFGlobal::register_scheme_port(const std::string& scheme,
 									unsigned short port)
 {
 	__WFGlobal::get_instance()->register_scheme_port(scheme, port);
-}
-
-const WFGlobalSettings *WFGlobal::get_global_settings()
-{
-	return __WFGlobal::get_instance()->get_global_settings();
-}
-
-void WORKFLOW_library_init(const WFGlobalSettings *settings)
-{
-	__WFGlobal::get_instance()->set_global_settings(settings);
 }
 
 void WFGlobal::sync_operation_begin()
@@ -997,5 +895,10 @@ const char *WFGlobal::get_error_string(int state, int error)
 	}
 
 	return "Unknown";
+}
+
+void WORKFLOW_library_init(const WFGlobalSettings *settings)
+{
+	WFGlobal::set_global_settings(settings);
 }
 

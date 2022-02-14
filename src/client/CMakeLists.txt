@@ -16,3 +16,19 @@ if (WIN32)
 	)
 endif ()
 
+if (KAFKA STREQUAL "y")
+	set(SRC
+		WFKafkaClient.cc
+	)
+	add_library("client_kafka" OBJECT ${SRC})
+	if (WIN32)
+		target_compile_definitions(
+			"client_kafka" PRIVATE
+			strdup=_strdup
+			strcasecmp=_stricmp
+			strncasecmp=_strnicmp
+		)
+    else()
+		set_property(SOURCE WFKafkaClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+	endif ()
+endif ()

@@ -14,8 +14,10 @@
   limitations under the License.
 
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <stdint.h>
 #include <vector>
 #include "URIParser.h"
 #include "StringUtil.h"
@@ -162,6 +164,10 @@ void WFServiceGovernance::tracing_deleter(void *data)
 bool WFServiceGovernance::in_select_history(WFNSTracing *tracing,
 											EndpointAddress *addr)
 {
+	/* 'tracing' is NULL in consistent hash. */
+	if (!tracing)
+		return false;
+
 	struct TracingData *tracing_data = (struct TracingData *)tracing->data;
 
 	if (!tracing_data)
@@ -247,35 +253,48 @@ void WFServiceGovernance::failed(RouteManager::RouteResult *result,
 	this->WFNSPolicy::failed(result, tracing, target);
 }
 
+void WFServiceGovernance::check_breaker_locked(int64_t cur_time)
+{
+	struct list_head *pos, *tmp;
+	struct EndpointAddress::address_entry *entry;
+	EndpointAddress *addr;
+
+	list_for_each_safe(pos, tmp, &this->breaker_list)
+	{
+		entry = list_entry(pos, struct EndpointAddress::address_entry, list);
+		addr = entry->ptr;
+
+		if (cur_time >= addr->broken_timeout)
+		{
+			addr->fail_count = addr->params->max_fails - 1;
+			this->recover_one_server(addr);
+			this->server_list_change(addr, RECOVER_SERVER);
+			list_del(pos);
+			pos->next = NULL;
+		}
+		else
+			break;
+	}
+}
 
 void WFServiceGovernance::check_breaker()
 {
 	this->breaker_lock.lock();
 	if (!list_empty(&this->breaker_list))
+		this->check_breaker_locked(GET_CURRENT_SECOND);
+	this->breaker_lock.unlock();
+}
+
+void WFServiceGovernance::try_clear_breaker()
+{
+	this->breaker_lock.lock();
+	if (!list_empty(&this->breaker_list))
 	{
-		int64_t cur_time = GET_CURRENT_SECOND;
-		struct list_head *pos, *tmp;
+		struct list_head *pos = this->breaker_list.next;
 		struct EndpointAddress::address_entry *entry;
-		EndpointAddress *addr;
-
-		list_for_each_safe(pos, tmp, &this->breaker_list)
-		{
-			entry = list_entry(pos, struct EndpointAddress::address_entry,
-							   list);
-			addr = entry->ptr;
-
-			if (cur_time >= addr->broken_timeout)
-			{
-				if (addr->fail_count >= addr->params->max_fails)
-				{
-					addr->fail_count = addr->params->max_fails - 1;
-					this->recover_one_server(addr);
-					this->server_list_change(addr, RECOVER_SERVER);
-				}
-				list_del(pos);
-				addr->entry.list.next = NULL;
-			}
-		}
+		entry = list_entry(pos, struct EndpointAddress::address_entry, list);
+		if (GET_CURRENT_SECOND >= entry->ptr->broken_timeout)
+			this->check_breaker_locked(INT64_MAX);
 	}
 	this->breaker_lock.unlock();
 }

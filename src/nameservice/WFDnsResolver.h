@@ -34,13 +34,6 @@ public:
 						 unsigned int dns_ttl_default, unsigned int dns_ttl_min,
 						 const struct EndpointParams *endpoint_params,
 						 router_callback_t&& callback);
-
-private:
-	WFResourcePool respool;
-
-public:
-	WFDnsResolver();
-	friend class WFResolverTask;
 };
 
 #endif

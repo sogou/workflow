@@ -18,6 +18,7 @@
 
 #include <openssl/ssl.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <chrono>
@@ -380,9 +381,8 @@ static uint64_t __generate_key(TransportType type,
 							   const struct EndpointParams *endpoint_params,
 							   const std::string& hostname)
 {
-	std::string str = "TT";
+	std::string str(std::to_string(type));
 
-	str += std::to_string(type);
 	str += '\n';
 	if (!other_info.empty())
 	{
@@ -396,17 +396,27 @@ static uint64_t __generate_key(TransportType type,
 		str += '\n';
 	}
 
-	std::vector<const struct addrinfo *> sorted_addr;
-
-	for (const struct addrinfo *p = addrinfo; p; p = p->ai_next)
-		sorted_addr.push_back(p);
-
-	std::sort(sorted_addr.begin(), sorted_addr.end(), __addr_less);
-	for (const struct addrinfo *p : sorted_addr)
+	if (addrinfo->ai_next)
 	{
-		str += std::string((const char *)p->ai_addr, p->ai_addrlen);
-		str += '\n';
+		std::vector<const struct addrinfo *> sorted_addr;
+
+		sorted_addr.push_back(addrinfo);
+		addrinfo = addrinfo->ai_next;
+		do
+		{
+			sorted_addr.push_back(addrinfo);
+			addrinfo = addrinfo->ai_next;
+		} while (addrinfo);
+
+		std::sort(sorted_addr.begin(), sorted_addr.end(), __addr_less);
+		for (const struct addrinfo *p : sorted_addr)
+		{
+			str += std::string((char *)p->ai_addr, p->ai_addrlen);
+			str += '\n';
+		}
 	}
+	else
+		str += std::string((char *)addrinfo->ai_addr, addrinfo->ai_addrlen);
 
 	return MD5Util::md5_integer_16(str);
 }
@@ -431,18 +441,11 @@ int RouteManager::get(TransportType type,
 					  const std::string& hostname,
 					  RouteResult& result)
 {
-	result.cookie = NULL;
-	result.request_object = NULL;
-	if (!addrinfo)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
 	uint64_t md5_16 = __generate_key(type, addrinfo, other_info,
 									 endpoint_params, hostname);
-	rb_node **p = &cache_.rb_node;
-	rb_node *parent = NULL;
+	struct rb_node **p = &cache_.rb_node;
+	struct rb_node *parent = NULL;
+	RouteResultEntry *bound = NULL;
 	RouteResultEntry *entry;
 	std::lock_guard<std::mutex> lock(mutex_);
 
@@ -450,19 +453,21 @@ int RouteManager::get(TransportType type,
 	{
 		parent = *p;
 		entry = rb_entry(*p, RouteResultEntry, rb);
-
-		if (md5_16 < entry->md5_16)
-			p = &(*p)->rb_left;
-		else if (md5_16 > entry->md5_16)
-			p = &(*p)->rb_right;
-		else
+		if (md5_16 <= entry->md5_16)
 		{
-			entry->check_breaker();
-			break;
+			bound = entry;
+			p = &(*p)->rb_left;
 		}
+		else
+			p = &(*p)->rb_right;
 	}
 
-	if (*p == NULL)
+	if (bound && bound->md5_16 == md5_16)
+	{
+		entry = bound;
+		entry->check_breaker();
+	}
+	else
 	{
 		int ssl_connect_timeout = 0;
 		SSL_CTX *ssl_ctx = NULL;
@@ -491,11 +496,8 @@ int RouteManager::get(TransportType type,
 		if (StringUtil::start_with(other_info, "?maxconn="))
 		{
 			int maxconn = atoi(other_info.c_str() + 9);
-
-			if (maxconn <= 0)
-				maxconn = 1;
-
-			params.max_connections = maxconn;
+			if (maxconn > 0)
+				params.max_connections = maxconn;
 		}
 
 		entry = new RouteResultEntry;
@@ -507,18 +509,13 @@ int RouteManager::get(TransportType type,
 		else
 		{
 			delete entry;
-			entry = NULL;
+			return -1;
 		}
 	}
 
-	if (entry)
-	{
-		result.cookie = entry;
-		result.request_object = entry->request_object;
-		return 0;
-	}
-
-	return -1;
+	result.cookie = entry;
+	result.request_object = entry->request_object;
+	return 0;
 }
 
 void RouteManager::notify_unavailable(void *cookie, CommTarget *target)

@@ -33,9 +33,20 @@ public:
 
 protected:
 	SSL *ssl;
+	int ssl_ex_data_index;
 
 public:
-	SSLHandshaker(SSL *ssl) { this->ssl = ssl; }
+	SSLHandshaker(SSL *ssl)
+	{
+		this->ssl = ssl;
+		this->ssl_ex_data_index = 0;
+	}
+
+	SSLHandshaker(SSL *ssl, int ssl_ex_data_index)
+	{
+		this->ssl = ssl;
+		this->ssl_ex_data_index = ssl_ex_data_index;
+	}
 
 public:
 	SSLHandshaker(SSLHandshaker&& handshaker) = default;
@@ -56,11 +67,21 @@ protected:
 
 protected:
 	SSL *ssl;
+	int ssl_ex_data_index;
 
 public:
-	SSLWrapper(ProtocolMessage *msg, SSL *ssl) : ProtocolWrapper(msg)
+	SSLWrapper(ProtocolMessage *msg, SSL *ssl) :
+		ProtocolWrapper(msg)
 	{
 		this->ssl = ssl;
+		this->ssl_ex_data_index = 0;
+	}
+
+	SSLWrapper(ProtocolMessage *msg, SSL *ssl, int ssl_ex_data_index) :
+		ProtocolWrapper(msg)
+	{
+		this->ssl = ssl;
+		this->ssl_ex_data_index = ssl_ex_data_index;
 	}
 
 public:

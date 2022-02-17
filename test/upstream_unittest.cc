@@ -61,7 +61,7 @@ void register_upstream_hosts()
 	UpstreamManager::upstream_create_consistent_hash(
 	"hash",
 	[](const char *path, const char *query, const char *fragment) -> unsigned int {
-		return 1;
+		return 1315634022;
 	});
 	UpstreamManager::upstream_add_server("hash", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("hash", "127.0.0.1:8002");

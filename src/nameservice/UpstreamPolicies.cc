@@ -56,9 +56,8 @@ UPSAddrParams::UPSAddrParams(const struct AddressParams *params,
 							 const std::string& address) :
 	PolicyAddrParams(params)
 {
-	static std::hash<std::string> std_hash;
 	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
-		this->consistent_hash[i] = std_hash(address + "|v" + std::to_string(i));
+		this->consistent_hash[i] = rand();
 
 	this->weight = params->weight;
 	this->server_type = params->server_type;

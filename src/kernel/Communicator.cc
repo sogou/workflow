@@ -119,6 +119,36 @@ static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
 	return -1;
 }
 
+#define SSL_WRITE_BUFSIZE	8192
+
+static int __ssl_writev(SSL *ssl, const struct iovec vectors[], int cnt)
+{
+	char buf[SSL_WRITE_BUFSIZE];
+	size_t nleft = SSL_WRITE_BUFSIZE;
+	char *p = buf;
+	size_t n;
+	int i;
+
+	if (vectors[0].iov_len >= SSL_WRITE_BUFSIZE || cnt == 1)
+		return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
+
+	for (i = 0; i < cnt; i++)
+	{
+		if (vectors[i].iov_len <= nleft)
+			n = vectors[i].iov_len;
+		else
+			n = nleft;
+
+		memcpy(p, vectors[i].iov_base, n);
+		p += n;
+		nleft -= n;
+		if (nleft == 0)
+			break;
+	}
+
+	return SSL_write(ssl, buf, p - buf);
+}
+
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 					 int connect_timeout, int response_timeout)
 {
@@ -404,9 +434,20 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 
 	while (cnt > 0)
 	{
-		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
-		if (n < 0)
-			return errno == EAGAIN ? cnt : -1;
+		if (!entry->ssl)
+		{
+			n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
+			if (n < 0)
+				return errno == EAGAIN ? cnt : -1;
+		}
+		else if (vectors->iov_len > 0)
+		{
+			n = __ssl_writev(entry->ssl, vectors, cnt);
+			if (n <= 0)
+				return cnt;
+		}
+		else
+			n = 0;
 
 		for (i = 0; i < cnt; i++)
 		{
@@ -539,12 +580,9 @@ int Communicator::send_message(struct CommConnEntry *entry)
 	}
 
 	end = vectors + cnt;
-	if (!entry->ssl)
-	{
-		cnt = this->send_message_sync(vectors, cnt, entry);
-		if (cnt <= 0)
-			return cnt;
-	}
+	cnt = this->send_message_sync(vectors, cnt, entry);
+	if (cnt <= 0)
+		return cnt;
 
 	return this->send_message_async(end - cnt, cnt, entry);
 }

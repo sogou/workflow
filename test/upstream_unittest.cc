@@ -73,7 +73,7 @@ void register_upstream_hosts()
 	},
 	true,
 	[](const char *path, const char *query, const char *fragment) -> unsigned int {
-		return 1; // according to consistent_hash this will hit server[0]
+		return 511702306; // according to consistent_hash this will hit server[0]
 	});
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8002");

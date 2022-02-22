@@ -235,8 +235,9 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				}
 				else
 				{
-					toppar->set_offset(toppar->get_high_watermark());
+					toppar->set_offset(toppar->get_high_watermark() - 1);
 				}
+				continue;
 			}
 			else
 			{
@@ -465,7 +466,7 @@ bool __ComplexKafkaTask::process_sync_group()
 		return false;
 	}
 	else
-	{	
+	{
 		this->get_req()->set_api_type(Kafka_OffsetFetch);
 		return true;
 	}

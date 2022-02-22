@@ -40,6 +40,8 @@
 #include "EncodeStream.h"
 #include "KafkaMessage.h"
 
+#ifdef _WIN32
+
 #if defined(_MSC_VER)
 #include <BaseTsd.h>
 typedef SSIZE_T ssize_t;
@@ -75,6 +77,8 @@ namespace {
 		return 0;
 	}
 }
+
+#endif
 
 namespace protocol
 {

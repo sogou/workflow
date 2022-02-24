@@ -56,6 +56,7 @@ int main()
 ### Get started (Linux, macOS):
 ~~~sh
 git clone https://github.com/sogou/workflow
+cd workflow
 make
 cd tutorial
 make

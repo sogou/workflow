@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.6)
 
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+if(ANDROID)
+	include_directories(${OPENSSL_INCLUDE_DIR})
+	link_directories(${OPENSSL_LINK_DIR})
+else()
 	find_package(OpenSSL REQUIRED)
 endif ()
 
@@ -64,7 +67,9 @@ add_library(
 	$<TARGET_OBJECTS:client>
 )
 
-if (APPLE)
+if(ANDROID)
+	target_link_libraries(${SHARED_LIB_NAME} ssl crypto c)
+else()
 	target_link_libraries(${SHARED_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
 endif ()
 

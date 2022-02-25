@@ -416,6 +416,33 @@ EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash,
 	return this->check_and_get(it->second, false, tracing);
 }
 
+void UPSGroupPolicy::hash_map_add_addr(EndpointAddress *addr)
+{
+	static std::hash<std::string> std_hash;
+	unsigned int hash_value;
+	size_t ip_count = this->server_map[addr->address].size();
+
+	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
+	{
+		hash_value = std_hash(addr->address + "|v" + std::to_string(i) +
+							  "|n" + std::to_string(ip_count));
+		this->addr_hash.insert(std::make_pair(hash_value, addr));
+	}
+}
+
+void UPSGroupPolicy::hash_map_remove_addr(const std::string& address)
+{
+	std::map<unsigned int, EndpointAddress *>::iterator it;
+
+	for (it = this->addr_hash.begin(); it != this->addr_hash.end();)
+	{
+		if (it->second->address == address)
+			this->addr_hash.erase(it++);
+		else
+			it++;
+	}
+}
+
 void UPSWeightedRandomPolicy::add_server_locked(EndpointAddress *addr)
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
@@ -629,24 +656,14 @@ EndpointAddress *UPSConsistentHashPolicy::first_strategy(const ParsedURI& uri,
 void UPSConsistentHashPolicy::add_server_locked(EndpointAddress *addr)
 {
 	UPSGroupPolicy::add_server_locked(addr);
-
-	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
-		this->addr_hash.insert(std::make_pair(rand(), addr));
+	this->hash_map_add_addr(addr);
 
 	return;
 }
 
 int UPSConsistentHashPolicy::remove_server_locked(const std::string& address)
 {
-	std::map<unsigned int, EndpointAddress *>::iterator it;
-
-	for (it = this->addr_hash.begin(); it != this->addr_hash.end();)
-	{
-		if (it->second->address == address)
-			this->addr_hash.erase(it++);
-		else
-			it++;
-	}
+	this->hash_map_remove_addr(address);
 
 	return UPSGroupPolicy::remove_server_locked(address);
 }
@@ -678,11 +695,8 @@ void UPSManualPolicy::add_server_locked(EndpointAddress *addr)
 {
 	UPSGroupPolicy::add_server_locked(addr);
 
-	if (!this->try_another)
-		return;
-
-	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
-		this->addr_hash.insert(std::make_pair(rand(), addr));
+	if (this->try_another)
+		this->hash_map_add_addr(addr);
 
 	return;
 }
@@ -690,16 +704,7 @@ void UPSManualPolicy::add_server_locked(EndpointAddress *addr)
 int UPSManualPolicy::remove_server_locked(const std::string& address)
 {
 	if (this->try_another)
-	{
-		std::map<unsigned int, EndpointAddress *>::iterator it;
-		for (it = this->addr_hash.begin(); it != this->addr_hash.end();)
-		{
-			if (it->second->address == address)
-				this->addr_hash.erase(it++);
-			else
-				it++;
-		}
-	}
+		this->hash_map_remove_addr(address);
 
 	return UPSGroupPolicy::remove_server_locked(address);
 }

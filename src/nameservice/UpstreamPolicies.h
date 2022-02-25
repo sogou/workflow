@@ -80,6 +80,8 @@ protected:
 protected:
 	EndpointAddress *consistent_hash_with_group(unsigned int hash,
 												WFNSTracing *tracing);
+	void hash_map_add_addr(EndpointAddress *addr);
+	void hash_map_remove_addr(const std::string& address);
 
 	std::map<unsigned int, EndpointAddress *> addr_hash;
 };

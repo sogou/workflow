@@ -61,8 +61,9 @@ void register_upstream_hosts()
 	UpstreamManager::upstream_create_consistent_hash(
 	"hash",
 	[](const char *path, const char *query, const char *fragment) -> unsigned int {
-		return 1315634022;
+		return 4250947057; // test skip from the end to the begin, hit 8002
 	});
+	UpstreamManager::upstream_add_server("hash", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("hash", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("hash", "127.0.0.1:8002");
 
@@ -73,7 +74,7 @@ void register_upstream_hosts()
 	},
 	true,
 	[](const char *path, const char *query, const char *fragment) -> unsigned int {
-		return 511702306; // according to consistent_hash this will hit server[0]
+		return 511702306; // test skip the non-alive server
 	});
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8002");
@@ -122,17 +123,24 @@ TEST(upstream_unittest, BasicPolicy)
 {
 	WFFacilities::WaitGroup wait_group(3);
 
-	char url[3][30] = {"http://weighted.random", "http://hash", "http://manual"};
+	char url[3][30] = {"http://weighted.random", "http://manual", "http://hash"};
 
-	http_callback_t cb = std::bind(basic_callback, std::placeholders::_1,
-								   std::string("server1"));
-	for (int i = 0; i < 3; i++)
+	http_callback_t cb1 = std::bind(basic_callback, std::placeholders::_1,
+								    std::string("server1"));
+	for (int i = 0; i < 2; i++)
 	{
 		WFHttpTask *task = WFTaskFactory::create_http_task(url[i],
-											  REDIRECT_MAX, RETRY_MAX, cb);
+											  REDIRECT_MAX, RETRY_MAX, cb1);
 		task->user_data = &wait_group;
 		task->start();
 	}
+
+	http_callback_t cb2 = std::bind(basic_callback, std::placeholders::_1,
+								    std::string("server2"));
+	WFHttpTask *task = WFTaskFactory::create_http_task(url[2],
+											REDIRECT_MAX, RETRY_MAX, cb2);
+	task->user_data = &wait_group;
+	task->start();
 
 	wait_group.wait();
 }

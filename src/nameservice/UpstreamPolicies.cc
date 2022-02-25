@@ -630,8 +630,16 @@ void UPSConsistentHashPolicy::add_server_locked(EndpointAddress *addr)
 {
 	UPSGroupPolicy::add_server_locked(addr);
 
+	static std::hash<std::string> std_hash;
+	unsigned int hash_value;
+	size_t ip_count = this->server_map[addr->address].size();
+
 	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
-		this->addr_hash.insert(std::make_pair(rand(), addr));
+	{
+		hash_value = std_hash(addr->address + "|v" + std::to_string(i) +
+							  "|n" + std::to_string(ip_count));
+		this->addr_hash.insert(std::make_pair(hash_value, addr));
+	}
 
 	return;
 }
@@ -681,8 +689,16 @@ void UPSManualPolicy::add_server_locked(EndpointAddress *addr)
 	if (!this->try_another)
 		return;
 
+	static std::hash<std::string> std_hash;
+	unsigned int hash_value;
+	size_t ip_count = this->server_map[addr->address].size();
+
 	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
-		this->addr_hash.insert(std::make_pair(rand(), addr));
+	{
+		hash_value = std_hash(addr->address + "|v" + std::to_string(i) +
+							  "|n" + std::to_string(ip_count));
+		this->addr_hash.insert(std::make_pair(hash_value, addr));
+	}
 
 	return;
 }

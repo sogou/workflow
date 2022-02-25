@@ -418,15 +418,20 @@ EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash,
 
 void UPSGroupPolicy::hash_map_add_addr(EndpointAddress *addr)
 {
-	static std::hash<std::string> std_hash;
-	unsigned int hash_value;
-	size_t ip_count = this->server_map[addr->address].size();
+	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
 
-	for (int i = 0; i < VIRTUAL_GROUP_SIZE; i++)
+	if (params->server_type == 0)
 	{
-		hash_value = std_hash(addr->address + "|v" + std::to_string(i) +
-							  "|n" + std::to_string(ip_count));
-		this->addr_hash.insert(std::make_pair(hash_value, addr));
+		static std::hash<std::string> std_hash;
+		unsigned int hash_value;
+		size_t ip_count = this->server_map[addr->address].size();
+
+		for (int i = 0; i < VIRTUAL_GROUP_SIZE * params->weight; i++)
+		{
+			hash_value = std_hash(addr->address + "|v" + std::to_string(i) +
+								  "|n" + std::to_string(ip_count));
+			this->addr_hash.insert(std::make_pair(hash_value, addr));
+		}
 	}
 }
 

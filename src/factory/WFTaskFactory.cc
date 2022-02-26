@@ -126,8 +126,6 @@ public:
 	void count(struct __CounterList *counters, struct __counter_node *node);
 	void remove(struct __CounterList *counters, struct __counter_node *node);
 
-	virtual ~__CounterMap();
-
 private:
 	void count_n_locked(struct __CounterList *counters, unsigned int n,
 						struct list_head *task_list);
@@ -169,28 +167,6 @@ private:
 	struct __CounterList *counters_;
 	friend class __CounterMap;
 };
-
-__CounterMap::~__CounterMap()
-{
-	struct __CounterList *counters;
-	struct __counter_node *node;
-	struct list_head *pos;
-	struct list_head *tmp;
-
-	while (counters_map_.rb_node)
-	{
-		counters = rb_entry(counters_map_.rb_node, struct __CounterList, rb);
-		list_for_each_safe(pos, tmp, &counters->head)
-		{
-			node = list_entry(pos, struct __counter_node, list);
-			counters->del(node);
-			delete node->task;
-		}
-
-		rb_erase(counters_map_.rb_node, &counters_map_);
-		delete counters;
-	}
-}
 
 WFCounterTask *__CounterMap::create(const std::string& name,
 									unsigned int target_value,

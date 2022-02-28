@@ -201,4 +201,3 @@ Finally, the context is destroyed in the callback of the series.
 Please note that the reply message is sent automatically after all other tasks in the series are finished, so there is no **task->reply()** interface.   
 However, there is a **task->noreply()**. If this interface is called for the server task, the connection will be closed directly at the original reply time. But the callback will still be called (its state is NOREPLY).   
 In the callback of a server task, you can also call **series\_of()** to get the series of that server task. Then, you can still add new tasks to this series, although the reply has finished.   
-If you needs to continue to add tasks to the series, please see the instructions in [About exit](/docs/en/about-exit.md), because doing so may cause unfinished tasks after the server is shut down.

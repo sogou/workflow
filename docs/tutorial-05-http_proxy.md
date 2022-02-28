@@ -192,4 +192,3 @@ server任务的callback和client一样，是在http交互完成之后被调用�
 这里需要说明一下，回复消息的时机是在series里所有其它任务被执行完后，自动回复，所以并没有task->reply()接口。  
 但是，有task->noreply()调用，如果对server任务执行了这个调用，在原本回复的时刻，直接关闭连接。但callback依然会被调用（状态为NOREPLY）。  
 在server任务的callback里，同样可以通过series_of()操作获得任务的series。那么，我们依然可以往这个series里追加新任务，虽然回复已经完成。  
-如果用户需要继续往series里追加任务，请务必参考[关于程序退出](./about-exit.md)的说明，因为这样做可能引起server关闭之后还有任务未完成的问题。

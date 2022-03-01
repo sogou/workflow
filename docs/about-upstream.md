@@ -3,7 +3,10 @@
 在nginx里，Upstream代表了反向代理的负载均衡配置。在这里，我们扩充Upstream的含义，让其具备以下几个特点：
 1. 每一个Upstream都是一个独立的反向代理
 2. 访问一个Upstream等价于，在一组服务/目标/上下游，使用合适的策略选择其中一个进行访问
-3. Upstream具备负载均衡、出错处理和服务治理能力
+3. Upstream具备负载均衡、出错处理、熔断和其他服务治理能力
+4. 对于同一个请求的多次重试，Upstream可以避开已试过的目标
+5. 通过Upstream可以对不同下游配置不同的连接参数
+6. 动态增删目标地址实时生效，方便对接任意的服务发现系统
 
 ### Upstream相对于域名DNS解析的优势
 
@@ -16,7 +19,11 @@ Upstream和域名DNS解析都可以将一组ip配置到一个Host，但是
 ### Workflow的Upstream
 
 这是一个本地反向代理模块，代理配置对server和client都生效。  
-代理支持动态配置。代理名不包括端口，但代理请求支持指定端口。  
+
+支持动态配置，可用于服务发现系统，目前[workflow-k8s](https://github.com/sogou/workflow-k8s)可以对接Kubernetes的API Server。  
+
+Upstream名不包括端口，但Upstream请求支持指定端口（如果使用非内置协议，Upstream名暂时需要加上端口号以保证构造时的解析成功）。  
+
 每一个Upstream配置自己的独立名称UpstreamName，并添加设定着一组Address，这些Address可以是：
 1. ip4
 2. ip6
@@ -127,10 +134,11 @@ http_task->start();
 ~~~
 基本原理
 1. 每1个main视为16个虚拟节点
-2. 框架会使用std::hash对所有节点的address+虚拟index进行运算，作为一致性哈希的node值
+2. 框架会使用std::hash对所有节点的address+虚拟index+此address加到此upstream的次数进行运算，作为一致性哈希的node值
 3. 框架会使用std::hash对path+query+fragment进行运算，作为一致性哈希data值
 4. 每次都选择存活node最近的值作为目标
 5. 对于每一个main、只要有存活group内main/有存活group内backup/有存活no group backup，即视为存活
+6. 如果upstream_add_server()时加上AddressParams，并配上权重weight，则每1个main视为16 * weight个虚拟节点，适用于带权一致性哈希或者希望一致性哈希标准差更小的场景
 
 ### 例4 自定义一致性哈希函数
 ~~~cpp
@@ -249,7 +257,7 @@ http_task->start();
 6. 添加目标的默认组号-1，type为0，表示主节点。
 
 ### 例8 NVSWRR平滑按权重选取策略
-~~~
+~~~cpp
 UpstreamManager::upstream_create_vnswrr("nvswrr.random");
 
 AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
@@ -328,7 +336,7 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
   * dns_ttl_default：dns cache中默认的ttl，单位秒，默认12小时，dns cache是针对当前进程的，即进程退出就会消失，配置也仅对当前进程有效
   * dns_ttl_min：dns最短生效时间，单位秒，默认3分钟，用于在通信失败重试时是否进行重新dns的决策
   * max_fails：触发熔断的【连续】失败次数（注：每次通信成功，计数会清零）
-  * weight：权重，默认1，仅对main有效，用于Upstream随机策略选取，权重越大越容易被选中；其他策略下此参数无意义
+  * weight：权重，默认1，仅对main有效，用于Upstream随机策略选取和一致性哈希选取，权重大越容易被选中
   * server_type：主备配置，默认主。无论什么时刻，同组的主优先级永远高于其他的备
   * group_id：分组依据，默认-1。-1代表无分组(游离)，游离的备可视为任何主的备，有组的备优先级永远高于游离的备。
 
@@ -348,7 +356,8 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
 ## 熔断机制
 
 当某一个目标的错误or异常触达到预先设定的阈值条件时，暂时认为这个目标不可用，剔除目标，即熔断开启进入熔断期  
-在熔断持续时间达到MTTR时长后，熔断关闭，(尝试)恢复目标  
+在熔断持续时间达到MTTR时长后，会进入半熔断状态，(尝试)恢复目标
+如果恢复的时候发现其他所有目标都被熔断，会同一时间把所有目标恢复
 熔断机制策略可以有效阻止雪崩效应
 
 ## Upstream熔断保护机制

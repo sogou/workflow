@@ -4,11 +4,14 @@ In nginx, Upstream represents the load balancing configuration of the reverse pr
 
 1. Each Upstream is an independent reverse proxy
 2. Accessing an Upstream is equivalent to using an appropriate strategy to select one in a group of services/targets/upstream and downstream for access
-3. Upstream has load balancing, error handling and service governance capabilities.
+3. Upstream has load balancing, error handling, circuit breaker and other service governance capabilities
+4. For multiple retries of the same request, Upstream can avoid addresses that already tried
+5. Different connection parameters can be configured for different addresses through Upstream
+6. Dynamically adding/removing target will take effect in real time, which is convenient for any service discovery system
 
 ### Advantages of Upstream over domain name DNS resolution
 
-Both upstream and domain name DNS resolution can configure a group of ip to a host, but
+Both Upstream and domain name DNS resolution can configure a group of ip to a host, but
 
 1. DNS domain name resolution doesn’t address port number. The service DNS domain names with the same IP and different ports cannot be configured together; but it is possible for Upstream.
 2. The set of addresses corresponding to DNS domain name resolution must be ip; while the set of addresses corresponding to Upstream can be ip, domain name or unix-domain-socket
@@ -19,7 +22,9 @@ Both upstream and domain name DNS resolution can configure a group of ip to a ho
 
 This is a local reverse proxy module, and the proxy configuration is effective for both server and client.
 
-Proxy supports dynamic configuration. Proxy name does not include port, but proxy request supports specified port.
+Support dynamic configuration and available for any service discovery system. Currently, [workflow-k8s](https://github.com/sogou/workflow-k8s) can be used to acquire Pods information from the API server of Kubernetes.
+
+Upstream name does not include port, but upstream request supports specified port. (However, for non-built-in protocols, Upstream name temporarily needs to be added with the port to ensure parsing during construction).
 
 Each Upstream is configured with its own independent name UpstreamName, and a set of Addresses is added and set. These Addresses can be:
 
@@ -149,10 +154,11 @@ http_task->start();
 Basic principles
 
 1. Each main server is regarded as 16 virtual nodes
-2. The framework will use std::hash to calculate the address + virtual index of all nodes as the node value of the consistent hash
+2. The framework will use std::hash to calculate "the address + virtual index of all nodes + the number of times for this address to add into this Upstream" as the node value of the consistent hash
 3. The framework will use std::hash to calculate path + query + fragment as a consistent hash data value
 4. Choose the value nearest to the surviving node as the target each time
 5. For each main, as long as there is a main in surviving group, or there is a backup in surviving group, or there is a surviving no group backup, it is regarded as surviving
+6. If weight on AddressParams is set with upstream_add_server(), each main server is regarded as 16 * weight virtual nodes. This is suitable for weighted consistent hash or shrinking the standard deviation of consistent hash
 
 ### Example 4 User-defined consistent hash function
 
@@ -280,7 +286,7 @@ Basic principles
 6. Add the default group number -1 of the target, and the type is main
 
 ### Example 8 NVSWRR selection weighting strategy
-~~~
+~~~cpp
 UpstreamManager::upstream_create_vnswrr("nvswrr.random");
 
 AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
@@ -303,7 +309,7 @@ http_task->start();
 When the URIHost of the url that initiates the request is filled with UpstreamName, it is regarded as a request to the Upstream corresponding to the name, and then it will be selected from the set of Addresses recorded by the Upstream:
 
 1. Weight random strategy: selection randomly according to weight
-2. Consistent hashing strategy: The framework uses a standard consistent hashing algorithm, and users can define the consistent hash function consistent_hash for the requested uri
+2. Consistent hash strategy: The framework uses a standard consistent hashing algorithm, and users can define the consistent hash function consistent_hash for the requested uri
 3. Manual strategy: make definite selection according to the select function that user provided for the requested uri, if the blown target is selected: **a.** If try_another is false, this request will return to failure **b.** If try_another is true, the framework uses standard consistent hash algorithm to make a second selection, and the user can define the consistent hash function consistent_hash for the requested uri
 4. Main-backup strategy: According to the priority of main first, backup next, select a main server as long as it can be used. This strategy can take effect concurrently with any of [1], [2], and [3], and they influence each other.
 
@@ -360,7 +366,7 @@ Each address can be configured with custom parameters:
   * dns_ttl_default: The default ttl in the dns cache in seconds, and the default value is 12 hours. The dns cache is for the current process, that is, the process will disappear after exiting, and the configuration is only valid for the current process
   * dns_ttl_min: The shortest effective time of dns in seconds, and the default value is 3 minutes. It is used to decide whether to perform dns again when communication fails and retry.
   * max_fails: the number of [continuous] failures that triggered fusing (Note: each time the communication is successful, the count will be cleared)
-  * Weight: weight, the default value is 1, which is only valid for main. It is used for Upstream random strategy selection, the larger the weight is, the easier it is to be selected; this parameter is meaningless under other strategies
+  * Weight: weight, the default value is 1, which is only valid for main. It is used for Upstream weighted random strategy selection and consistent hash strategy selection, the larger the weight is, the easier it is to be selected.
   * server_type: main/backup configuration, main by default (server_type=0). At any time, the main servers in the same group are always at higher priority than backups
   * group_id: basis for grouping, the default value is -1. -1 means no grouping (free). A free backup can be regarded as backup to any main server. Any backup with group is always at higher priority than any free backup.
 
@@ -383,7 +389,9 @@ As the fault is repaired, the effect will disappear, so the duration of the effe
 
 When the error or abnormal touch of a certain target meets the preset threshold condition, the target is temporarily considered unavailable, and the target is removed, namely fuse is started and enters the fuse period
 
-After the fuse duration reaches MTTR duration, the fuse is closed, (attempt to) restore the target
+After the fuse duration reaches MTTR duration, turn into half-open status, (attempt to) restore the target
+
+If all targets are found fused whenever recovering one target, all targets will be restored at the same time
 
 Fuse mechanism strategy can effectively prevent avalanche effect
 

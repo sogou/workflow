@@ -114,8 +114,8 @@ std::string HttpUtil::decode_chunked_body(const HttpMessage *msg)
 
 void HttpUtil::set_response_status(HttpResponse *resp, int status_code)
 {
-	char buf[8];
-	snprintf(buf, 8, "%d", status_code);
+	char buf[32];
+	sprintf(buf, "%d", status_code);
 	resp->set_status_code(buf);
 
 	switch (status_code)

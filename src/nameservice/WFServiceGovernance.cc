@@ -69,13 +69,13 @@ public:
 
 static void copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
 {
-	if (!addr->host.empty() && addr->host != uri.host)
+	if (!addr->host.empty())
 	{
 		free(uri.host);
 		uri.host = strdup(addr->host.c_str());
 	}
 
-	if (!addr->port.empty() && addr->port != uri.port)
+	if (!addr->port.empty())
 	{
 		free(uri.port);
 		uri.port = strdup(addr->port.c_str());

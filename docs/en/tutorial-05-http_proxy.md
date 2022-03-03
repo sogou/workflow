@@ -174,8 +174,8 @@ void http_callback(WFHttpTask *task)
         context->proxy_task->set_callback(reply_callback);
 
         /* Copy the remote webserver's response, to proxy response. */
-        if (resp->get_parsed_body(&body, &len))
-            resp->append_output_body_nocopy(body, len);
+        resp->get_parsed_body(&body, &len);
+        resp->append_output_body_nocopy(body, len);
         *proxy_resp = std::move(*resp);
         ...
     }

@@ -337,15 +337,32 @@ bool ComplexHttpTask::need_redirect(ParsedURI& uri)
 
 bool ComplexHttpTask::finish_once()
 {
+	if (this->state != WFT_STATE_SUCCESS)
+	{
+		this->get_resp()->end_parsing();
+		if (this->state == WFT_STATE_SYS_ERROR && this->error == ECONNRESET)
+		{
+			const http_parser_t *parser = this->get_resp()->get_parser();
+
+			/* Make it more compatible to some non-standard responses. */
+			if (http_parser_header_complete(parser) &&
+				!http_parser_keep_alive(parser) &&
+				!http_parser_chunked(parser) &&
+				!http_parser_has_content_length(parser))
+			{
+				this->state = WFT_STATE_SUCCESS;
+				this->error = 0;
+			}
+		}
+	}
+
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (need_redirect(uri_))
+		if (this->need_redirect(uri_))
 			this->set_redirect(uri_);
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();
 	}
-	else
-		this->get_resp()->end_parsing();
 
 	return true;
 }

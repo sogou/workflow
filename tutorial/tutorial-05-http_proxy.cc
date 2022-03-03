@@ -62,10 +62,6 @@ void http_callback(WFHttpTask *task)
 		(tutorial_series_context *)series->get_context();
 	auto *proxy_resp = context->proxy_task->get_resp();
 
-	/* Some servers may close the socket as the end of http response. */
-	if (state == WFT_STATE_SYS_ERROR && error == ECONNRESET)
-		state = WFT_STATE_SUCCESS;
-
 	if (state == WFT_STATE_SUCCESS)
 	{
 		const void *body;
@@ -84,7 +80,6 @@ void http_callback(WFHttpTask *task)
 	else
 	{
 		const char *err_string;
-		int error = task->get_error();
 
 		if (state == WFT_STATE_SYS_ERROR)
 			err_string = strerror(error);

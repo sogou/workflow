@@ -67,6 +67,7 @@ protected:
 	bool need_redirect(ParsedURI& uri);
 	bool redirect_url(HttpResponse *client_resp, ParsedURI& uri);
 	void set_empty_request();
+	void check_response();
 
 private:
 	int redirect_max_;
@@ -159,7 +160,7 @@ CommMessageOut *ComplexHttpTask::message_out()
 
 CommMessageIn *ComplexHttpTask::message_in()
 {
-	auto *resp = this->get_resp();
+	HttpResponse *resp = this->get_resp();
 
 	if (strcmp(this->get_req()->get_method(), HttpMethodHead) == 0)
 		resp->parse_zero_body();
@@ -334,26 +335,31 @@ bool ComplexHttpTask::need_redirect(ParsedURI& uri)
 	return false;
 }
 
+void ComplexHttpTask::check_response()
+{
+	HttpResponse *resp = this->get_resp();
+
+	resp->end_parsing();
+	if (this->state == WFT_STATE_SYS_ERROR && this->error == ECONNRESET)
+	{
+		const http_parser_t *parser = resp->get_parser();
+
+		/* Servers can end the message by closing the connection. */
+		if (http_parser_header_complete(parser) &&
+			!http_parser_keep_alive(parser) &&
+			!http_parser_chunked(parser) &&
+			!http_parser_has_content_length(parser))
+		{
+			this->state = WFT_STATE_SUCCESS;
+			this->error = 0;
+		}
+	}
+}
+
 bool ComplexHttpTask::finish_once()
 {
 	if (this->state != WFT_STATE_SUCCESS)
-	{
-		this->get_resp()->end_parsing();
-		if (this->state == WFT_STATE_SYS_ERROR && this->error == ECONNRESET)
-		{
-			const http_parser_t *parser = this->get_resp()->get_parser();
-
-			/* Make it more compatible to some non-standard responses. */
-			if (http_parser_header_complete(parser) &&
-				!http_parser_keep_alive(parser) &&
-				!http_parser_chunked(parser) &&
-				!http_parser_has_content_length(parser))
-			{
-				this->state = WFT_STATE_SUCCESS;
-				this->error = 0;
-			}
-		}
-	}
+		this->check_response();
 
 	if (this->state == WFT_STATE_SUCCESS)
 	{
@@ -746,6 +752,9 @@ bool ComplexHttpProxyTask::finish_once()
 		return false;
 	}
 
+	if (this->state != WFT_STATE_SUCCESS)
+		this->check_response();
+
 	if (this->state == WFT_STATE_SUCCESS)
 	{
 		if (this->need_redirect(user_uri_))
@@ -753,8 +762,6 @@ bool ComplexHttpProxyTask::finish_once()
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();
 	}
-	else
-		this->get_resp()->end_parsing();
 
 	return true;
 }

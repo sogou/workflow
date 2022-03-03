@@ -651,13 +651,13 @@ int http_parser_append_message(const void *buf, size_t *n,
 	return 1;
 }
 
-int http_parser_header_complete(http_parser_t *parser)
+int http_parser_header_complete(const http_parser_t *parser)
 {
 	return parser->header_state == HPS_HEADER_COMPLETE;
 }
 
 int http_parser_get_body(const void **body, size_t *size,
-						 http_parser_t *parser)
+						 const http_parser_t *parser)
 {
 	if (parser->complete && parser->header_state == HPS_HEADER_COMPLETE)
 	{

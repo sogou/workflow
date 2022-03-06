@@ -342,13 +342,11 @@ void ComplexHttpTask::check_response()
 	resp->end_parsing();
 	if (this->state == WFT_STATE_SYS_ERROR && this->error == ECONNRESET)
 	{
-		const http_parser_t *parser = resp->get_parser();
-
 		/* Servers can end the message by closing the connection. */
-		if (http_parser_header_complete(parser) &&
-			!http_parser_keep_alive(parser) &&
-			!http_parser_chunked(parser) &&
-			!http_parser_has_content_length(parser))
+		if (resp->is_header_complete() &&
+			!resp->is_keep_alive() &&
+			!resp->is_chunked() &&
+			!resp->has_content_length_header())
 		{
 			this->state = WFT_STATE_SUCCESS;
 			this->error = 0;

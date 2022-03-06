@@ -93,6 +93,11 @@ public:
 									  this->parser) == 0;
 	}
 
+	bool is_header_complete() const
+	{
+		return http_parser_header_complete(this->parser);
+	}
+
 	bool has_connection_header() const
 	{
 		return http_parser_has_connection(this->parser);

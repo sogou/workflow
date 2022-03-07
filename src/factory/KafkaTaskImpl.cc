@@ -536,6 +536,11 @@ bool __ComplexKafkaTask::process_produce()
 			this->get_req()->set_api_type(Kafka_Produce);
 			return true;
 		}
+		if (toppar->get_error() == KAFKA_NOT_LEADER_FOR_PARTITION)
+		{
+			this->get_req()->set_api_type(Kafka_Metadata);
+			return true;
+		}
 	}
 	return false;
 }

@@ -633,7 +633,6 @@ public:
 private:
 	kafka_config_t *ptr;
 	std::atomic<int> *ref;
-	std::string sasl_buf;
 };
 
 class KafkaRecord
@@ -1391,10 +1390,10 @@ public:
 		return this->coordinator;
 	}
 
-	int run_assignor(KafkaMetaList *meta_list, KafkaMetaList *alien_meta_list, 
+	int run_assignor(KafkaMetaList *meta_list, KafkaMetaList *alien_meta_list,
 					 const char *protocol_name);
 
-	void add_subscriber(KafkaMetaList *meta_list, 
+	void add_subscriber(KafkaMetaList *meta_list,
 						std::vector<KafkaMetaSubscriber> *subscribers);
 
 	static int kafka_range_assignor(kafka_member_t **members,

@@ -27,10 +27,13 @@
  * @brief  Dns toolbox
  */
 
+namespace protocol
+{
+
 class DnsUtil
 {
 public:
-	static int getaddrinfo(const protocol::DnsResponse *resp,
+	static int getaddrinfo(const DnsResponse *resp,
 						   unsigned short port,
 						   struct addrinfo **res);
 	static void freeaddrinfo(struct addrinfo *ai);
@@ -39,7 +42,7 @@ public:
 class DnsResultCursor
 {
 public:
-	DnsResultCursor(const protocol::DnsResponse *resp) :
+	DnsResultCursor(const DnsResponse *resp) :
 		parser(resp->get_parser())
 	{
 		dns_answer_cursor_init(&cursor, parser);
@@ -87,6 +90,8 @@ private:
 	dns_record_cursor_t cursor;
 	struct dns_record *record;
 };
+
+}
 
 #endif
 

@@ -23,7 +23,10 @@
 #include <string>
 #include "DnsUtil.h"
 
-int DnsUtil::getaddrinfo(const protocol::DnsResponse *resp,
+namespace protocol
+{
+
+int DnsUtil::getaddrinfo(const DnsResponse *resp,
 						 unsigned short port,
 						 struct addrinfo **addrinfo)
 {
@@ -138,5 +141,7 @@ void DnsUtil::freeaddrinfo(struct addrinfo *ai)
 		free(p->ai_canonname);
 		free(p);
 	}
+}
+
 }
 

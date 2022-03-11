@@ -45,7 +45,6 @@ cc_library(
 		'src/nameservice/WFNameService.cc',
 		'src/protocol/DnsMessage.cc',
 		'src/protocol/DnsUtil.cc',
-		'src/protocol/SSLWrapper.cc',
 		'src/protocol/dns_parser.c',
 		'src/server/WFServer.cc',
 		'src/kernel/CommRequest.cc',

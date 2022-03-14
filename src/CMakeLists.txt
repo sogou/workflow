@@ -108,6 +108,27 @@ if (KAFKA STREQUAL "y")
 	set_target_properties(${KAFKA_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka")
 endif ()
 
+if (CONSUL STREQUAL "y")
+	add_dependencies(client_consul LINK_HEADERS)
+
+	set(CONSUL_STATIC_LIB_NAME "wfconsul-static")
+	add_library(
+		${CONSUL_STATIC_LIB_NAME} STATIC
+		$<TARGET_OBJECTS:client_consul>
+	)
+	set_target_properties(${CONSUL_STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME "wfconsul")
+
+	set(CONSUL_SHARED_LIB_NAME "wfconsul-shared")
+	add_library(
+		${CONSUL_SHARED_LIB_NAME} SHARED
+		$<TARGET_OBJECTS:client_consul>
+	)
+	if (APPLE)
+		target_link_libraries(${CONSUL_SHARED_LIB_NAME} workflow } pthread)
+	endif ()
+	set_target_properties(${CONSUL_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfconsul")
+endif ()
+
 install(
 	TARGETS ${STATIC_LIB_NAME}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -133,3 +154,15 @@ if (KAFKA STREQUAL "y")
 	)
 endif ()
 
+if (CONSUL STREQUAL "y")
+	install(
+		TARGETS ${CONSUL_STATIC_LIB_NAME}
+		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		COMPONENT devel
+	)
+	install(
+		TARGETS ${CONSUL_SHARED_LIB_NAME}
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		COMPONENT devel
+	)
+endif ()

@@ -218,6 +218,29 @@ cc_library(
 	],
 )
 
+cc_library(
+	name = 'consul',
+	hdrs = [
+		'src/client/WFConsulClient.h',
+		'src/protocol/ConsulDataTypes.h',
+		'src/util/json_parser.h',
+	],
+	includes = [ 
+		'src/client',
+		'src/factory',
+		'src/protocol',
+		'src/util',
+	],
+	srcs = [ 
+		'src/client/WFConsulClient.cc',
+		'src/util/json_parser.c',
+	],
+	deps = [
+		':common',
+	],
+	visibility = ["//visibility:public"],
+)
+
 cc_binary(
 	 name = 'helloworld',
 	 srcs = ['tutorial/tutorial-00-helloworld.cc'],
@@ -317,4 +340,10 @@ cc_binary(
 	 srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
 	 deps = [':kafka', ':workflow_hdrs'],
 	 copts = ['-fno-rtti'],
+)
+
+cc_binary(
+	 name = 'consul_cli',
+	 srcs = ['tutorial/tutorial-14-consul_cli.cc'],
+	 deps = [':consul', ':workflow_hdrs', ':http'],
 )

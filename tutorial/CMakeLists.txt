@@ -90,6 +90,11 @@ if (KAFKA STREQUAL "y")
 	target_link_libraries("kafka_cli" wfkafka ${WORKFLOW_LIB} z snappy lz4 zstd)
 endif ()
 
+if (CONSUL STREQUAL "y")
+        add_executable("consul_cli" "tutorial-14-consul_cli.cc")
+        target_link_libraries("consul_cli" wfconsul ${WORKFLOW_LIB})
+endif ()
+
 set(DIR10 tutorial-10-user_defined_protocol)
 add_executable(server ${DIR10}/server.cc ${DIR10}/message.cc)
 add_executable(client ${DIR10}/client.cc ${DIR10}/message.cc)

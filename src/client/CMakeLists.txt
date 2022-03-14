@@ -21,3 +21,11 @@ if (KAFKA STREQUAL "y")
 	add_library("client_kafka" OBJECT ${SRC})
 	set_property(SOURCE WFKafkaClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
+
+if (CONSUL STREQUAL "y")
+	set(SRC
+		WFConsulClient.cc
+	)
+	add_library("client_consul" OBJECT ${SRC})
+	set_property(SOURCE WFConsulClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
+endif ()

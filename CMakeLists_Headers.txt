@@ -104,3 +104,12 @@ if(KAFKA STREQUAL "y")
 		src/factory/KafkaTaskImpl.inl
 	)
 endif()
+
+if(CONSUL STREQUAL "y")
+	set(INCLUDE_HEADERS
+		${INCLUDE_HEADERS}
+		src/protocol/ConsulDataTypes.h
+		src/client/WFConsulClient.h
+		src/util/json_parser.h
+	)
+endif()

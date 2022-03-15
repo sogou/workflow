@@ -246,10 +246,13 @@ public:
 
 	ConsulConfig& operator= (const ConsulConfig& copy)
 	{
-		this->~ConsulConfig();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++(*this->ref);
+		if (this != &copy)
+		{
+			this->~ConsulConfig();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++(*this->ref);
+		}
 
 		return *this;
 	}

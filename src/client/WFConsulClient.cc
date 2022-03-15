@@ -23,9 +23,9 @@
 #include <string.h>
 #include <iostream>
 #include "json_parser.h"
-#include "WFConsulClient.h"
 #include "StringUtil.h"
 #include "HttpUtil.h"
+#include "WFConsulClient.h"
 
 using namespace protocol;
 

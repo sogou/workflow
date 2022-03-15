@@ -341,9 +341,3 @@ cc_binary(
 	 deps = [':kafka', ':workflow_hdrs'],
 	 copts = ['-fno-rtti'],
 )
-
-cc_binary(
-	 name = 'consul_cli',
-	 srcs = ['tutorial/tutorial-14-consul_cli.cc'],
-	 deps = [':consul', ':workflow_hdrs', ':http'],
-)

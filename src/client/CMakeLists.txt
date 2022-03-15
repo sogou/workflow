@@ -12,6 +12,13 @@ if (NOT MYSQL STREQUAL "n")
 	)
 endif ()
 
+if (NOT CONSUL STREQUAL "n")
+	set(SRC
+		${SRC}
+		WFConsulClient.cc
+	)
+endif ()
+
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 
 if (KAFKA STREQUAL "y")
@@ -22,10 +29,3 @@ if (KAFKA STREQUAL "y")
 	set_property(SOURCE WFKafkaClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
 
-if (CONSUL STREQUAL "y")
-	set(SRC
-		WFConsulClient.cc
-	)
-	add_library("client_consul" OBJECT ${SRC})
-	set_property(SOURCE WFConsulClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
-endif ()

@@ -53,12 +53,14 @@ set(INCLUDE_HEADERS
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/ConsulDataTypes.h
 	src/server/WFServer.h
 	src/server/WFDnsServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
 	src/client/WFMySQLConnection.h
+	src/client/WFConsulClient.h
 	src/client/WFDnsClient.h
 	src/manager/DnsCache.h
 	src/manager/WFGlobal.h
@@ -105,11 +107,3 @@ if(KAFKA STREQUAL "y")
 	)
 endif()
 
-if(CONSUL STREQUAL "y")
-	set(INCLUDE_HEADERS
-		${INCLUDE_HEADERS}
-		src/protocol/ConsulDataTypes.h
-		src/client/WFConsulClient.h
-		src/util/json_parser.h
-	)
-endif()

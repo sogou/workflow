@@ -85,14 +85,21 @@ foreach(src ${TUTORIAL_LIST})
 endforeach()
 endif()
 
+if (NOT CONSUL STREQUAL "n")
+set(TUTORIAL_LIST
+	tutorial-14-consul_cli
+)
+foreach(src ${TUTORIAL_LIST})
+	string(REPLACE "-" ";" arr ${src})
+	list(GET arr -1 bin_name)
+	add_executable(${bin_name} ${src}.cc)
+	target_link_libraries(${bin_name} ${WORKFLOW_LIB})
+endforeach()
+endif()
+
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
 	target_link_libraries("kafka_cli" wfkafka ${WORKFLOW_LIB} z snappy lz4 zstd)
-endif ()
-
-if (CONSUL STREQUAL "y")
-        add_executable("consul_cli" "tutorial-14-consul_cli.cc")
-        target_link_libraries("consul_cli" wfconsul ${WORKFLOW_LIB})
 endif ()
 
 set(DIR10 tutorial-10-user_defined_protocol)

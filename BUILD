@@ -12,9 +12,9 @@ cc_library(
 	includes = ['src/include'],
 	visibility = ["//visibility:public"],
 	linkopts = [
-	    '-lpthread',
-	    '-lssl',
-	    '-lcrypto',
+		'-lpthread',
+		'-lssl',
+		'-lcrypto',
 	],
 )
 cc_library(
@@ -26,6 +26,7 @@ cc_library(
 		'src/kernel/rbtree.c',
 		'src/kernel/thrdpool.c',
 		'src/util/crc32c.c',
+		'src/util/json_parser.c',
 	],
 	hdrs = glob(['src/*/*.h']) + glob(['src/*/*.inl']),
 	includes = [

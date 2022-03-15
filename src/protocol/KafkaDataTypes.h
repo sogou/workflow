@@ -104,11 +104,14 @@ public:
 
 	KafkaList& operator= (const KafkaList& copy)
 	{
-		this->~KafkaList();
-		this->ref = copy.ref;
-		++*this->ref;
-		this->t_list = copy.t_list;
-		this->curpos = copy.curpos;
+		if (this != &copy)
+		{
+			this->~KafkaList();
+			this->ref = copy.ref;
+			++*this->ref;
+			this->t_list = copy.t_list;
+			this->curpos = copy.curpos;
+		}
 		return *this;
 	}
 
@@ -224,10 +227,13 @@ public:
 
 	KafkaMap& operator= (const KafkaMap& copy)
 	{
-		this->~KafkaMap();
-		this->ref = copy.ref;
-		++*this->ref;
-		this->t_map = copy.t_map;
+		if (this != &copy)
+		{
+			this->~KafkaMap();
+			this->ref = copy.ref;
+			++*this->ref;
+			this->t_map = copy.t_map;
+		}
 		return *this;
 	}
 
@@ -618,10 +624,13 @@ public:
 
 	KafkaConfig& operator= (const KafkaConfig& copy)
 	{
-		this->~KafkaConfig();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaConfig();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+		}
 		return *this;
 	}
 
@@ -721,10 +730,13 @@ public:
 
 	KafkaRecord& operator= (KafkaRecord& copy)
 	{
-		this->~KafkaRecord();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaRecord();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+		}
 		return *this;
 	}
 
@@ -848,13 +860,16 @@ public:
 
 	KafkaToppar& operator= (KafkaToppar& copy)
 	{
-		this->~KafkaToppar();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
-		this->curpos = copy.curpos;
-		this->startpos = copy.startpos;
-		this->endpos = copy.endpos;
+		if (this != &copy)
+		{
+			this->~KafkaToppar();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+			this->curpos = copy.curpos;
+			this->startpos = copy.startpos;
+			this->endpos = copy.endpos;
+		}
 		return *this;
 	}
 
@@ -1036,11 +1051,14 @@ public:
 
 	KafkaBroker& operator= (const KafkaBroker& copy)
 	{
-		this->~KafkaBroker();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		if (this->ref)
-			++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaBroker();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			if (this->ref)
+				++*this->ref;
+		}
 
 		return *this;
 	}
@@ -1197,10 +1215,13 @@ public:
 
 	KafkaMeta& operator= (KafkaMeta& copy)
 	{
-		this->~KafkaMeta();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaMeta();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+		}
 		return *this;
 	}
 

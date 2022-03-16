@@ -80,14 +80,6 @@ protected:
 	}
 
 protected:
-	WFConsulTask(const std::string& proxy_url,
-				 const std::string& service_namespace,
-				 const std::string& service_name,
-				 const std::string& service_id,
-				 int retry_max, consul_callback_t&& cb);
-
-	virtual ~WFConsulTask() {}
-
 	virtual void dispatch();
 	virtual SubTask *done();
 
@@ -117,7 +109,13 @@ protected:
 	long long consul_index;
 	consul_callback_t callback;
 
-private:
+protected:
+	WFConsulTask(const std::string& proxy_url,
+				 const std::string& service_namespace,
+				 const std::string& service_name,
+				 const std::string& service_id,
+				 int retry_max, consul_callback_t&& cb);
+	virtual ~WFConsulTask() {}
 	friend class WFConsulClient;
 };
 

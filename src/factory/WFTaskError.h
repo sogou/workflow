@@ -66,7 +66,7 @@ enum
 
 	//CONSUL
 	WFT_ERR_CONSUL_API_UNKNOWN = 6001,		///< api type not supported
-	WFT_ERR_CONSUL_CHECK_RESPONSE_ERROR = 6002,	///< Consul http code failed
+	WFT_ERR_CONSUL_CHECK_RESPONSE_FAILED = 6002,	///< Consul http code failed
 };
 
 #endif

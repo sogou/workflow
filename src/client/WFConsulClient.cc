@@ -330,7 +330,7 @@ bool WFConsulTask::check_task_result(WFHttpTask *task, WFConsulTask *consul_task
 	if (http_code < 200 || http_code >= 400)
 	{
 		consul_task->state = WFT_STATE_TASK_ERROR;
-		consul_task->error = WFT_ERR_CONSUL_CHECK_RESPONSE_ERROR;
+		consul_task->error = WFT_ERR_CONSUL_CHECK_RESPONSE_FAILED;
 		consul_task->error_reason = resp->get_reason_phrase();
 		return false;
 	}
@@ -409,7 +409,7 @@ int WFConsulClient::init(const std::string& proxy_url)
 int WFConsulClient::init(const std::string& proxy_url, ConsulConfig config)
 {
 	this->proxy_url = proxy_url;
-	this->config = config;
+	this->config = std::move(config);
 	return 0;
 }
 

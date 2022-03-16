@@ -1380,7 +1380,7 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 		list_add_tail(&header->list, &record->header_list);
 	}
 
-	return 0;
+	return record->offset < record->toppar->offset ? 1 : 0;
 }
 
 int KafkaMessage::parse_record_batch(void **buf, size_t *size,

@@ -49,7 +49,7 @@ typedef SSIZE_T ssize_t;
 
 namespace {
 
-#define CLOCK_REALTIME            0 
+#define CLOCK_REALTIME            0
 #define exp7           10000000i64     //1E+7     //C-file part
 #define exp9         1000000000i64     //1E+9
 #define w2ux 116444736000000000i64     //1.jan1601 to 1.jan1970
@@ -1422,7 +1422,7 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 		list_add_tail(&header->list, &record->header_list);
 	}
 
-	return 0;
+	return record->offset < record->toppar->offset ? 1 : 0;;
 }
 
 int KafkaMessage::parse_record_batch(void **buf, size_t *size,

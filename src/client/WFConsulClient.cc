@@ -16,19 +16,13 @@
   Authors: Wang Zhenpeng (wangzhenpeng@sogou-inc.com)
 */
 
-
-#include <unistd.h>
-#include <stdint.h>
-#include <cstddef>
 #include <string.h>
-#include <iostream>
 #include "json_parser.h"
 #include "StringUtil.h"
 #include "HttpUtil.h"
 #include "WFConsulClient.h"
 
 using namespace protocol;
-
 
 WFConsulTask::WFConsulTask(const std::string& proxy_url,
 						   const std::string& service_namespace,
@@ -208,7 +202,7 @@ std::string WFConsulTask::generate_discover_request()
 	std::string passing = this->config.get_passing() ? "true" : "false";
 	url += "&passing=" + passing;
 	url += "&token=" + this->config.get_token();
-	url += "&filter=" + this->config.get_filter_expression();
+	url += "&filter=" + this->config.get_filter_expr();
 
 	//consul blocking query
 	if (this->config.blocking_query())
@@ -253,7 +247,7 @@ static void print_json_value(const json_value_t *val, int depth,
 							 std::string& json_str);
 
 static bool create_register_request(const json_value_t *root,
-									const struct ConsulService& service,
+									const struct ConsulService *service,
 									const ConsulConfig& config);
 
 WFHttpTask *WFConsulTask::create_register_task()
@@ -263,7 +257,7 @@ WFHttpTask *WFConsulTask::create_register_task()
 
 	std::string url = this->proxy_url;
 	url += "/v1/agent/service/register?replace-existing-checks=";
-	std::string replace_checks = 
+	std::string replace_checks =
 					this->config.get_replace_checks() ? "true" : "false";
 	url += replace_checks;
 
@@ -280,7 +274,7 @@ WFHttpTask *WFConsulTask::create_register_task()
 	json_value_t *root = json_value_create(JSON_VALUE_OBJECT);
 	if (root)
 	{
-		ret = create_register_request(root, this->service, this->config);
+		ret = create_register_request(root, &this->service, this->config);
 		if (ret)
 		{
 			print_json_value(root, 0, payload);
@@ -314,8 +308,9 @@ WFHttpTask *WFConsulTask::create_deregister_task()
 	req->set_method(HttpMethodPut);
 	req->add_header_pair("Content-Type", "application/json");
 	
-	if (!this->config.get_token().empty())
-		req->add_header_pair("X-Consul-Token", this->config.get_token());
+	std::string token = this->config.get_token();
+	if (!token.empty())
+		req->add_header_pair("X-Consul-Token", token);
 
 	task->user_data = this;
 	return task;
@@ -371,7 +366,7 @@ void WFConsulTask::discover_callback(WFHttpTask *task)
 	}
 
 	protocol::HttpResponse *resp = task->get_resp();
-	long long consul_index = t->get_consul_index(resp);  
+	long long consul_index = t->get_consul_index(resp);
 	long long last_consul_index = t->get_consul_index();
 	t->set_consul_index(consul_index < last_consul_index ? 0 : consul_index);
 
@@ -418,10 +413,11 @@ int WFConsulClient::init(const std::string& proxy_url, ConsulConfig config)
 	return 0;
 }
 
-WFConsulTask *WFConsulClient::create_discover_task(const std::string& service_namespace, 
-												   const std::string& service_name,
-												   int retry_max, 
-												   consul_callback_t cb)
+WFConsulTask *WFConsulClient::create_discover_task(
+										const std::string& service_namespace,
+										const std::string& service_name,
+										int retry_max,
+										consul_callback_t cb)
 {
 	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace,
 										  service_name, "", retry_max,
@@ -431,9 +427,10 @@ WFConsulTask *WFConsulClient::create_discover_task(const std::string& service_na
 	return task;
 }
 
-WFConsulTask *WFConsulClient::create_list_service_task(const std::string& service_namespace, 
-												   	   int retry_max, 
-													   consul_callback_t cb)
+WFConsulTask *WFConsulClient::create_list_service_task(
+										const std::string& service_namespace,
+										int retry_max,
+										consul_callback_t cb)
 {
 	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace, "", "",
 										  retry_max, std::move(cb));
@@ -442,10 +439,11 @@ WFConsulTask *WFConsulClient::create_list_service_task(const std::string& servic
 	return task;
 }
 
-WFConsulTask *WFConsulClient::create_register_task(const std::string& service_namespace,
-												   const std::string& service_name,
-												   const std::string& service_id,
-												   int retry_max, consul_callback_t cb)
+WFConsulTask *WFConsulClient::create_register_task(
+										const std::string& service_namespace,
+										const std::string& service_name,
+										const std::string& service_id,
+										int retry_max, consul_callback_t cb)
 {
 	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace,
 										  service_name, service_id,
@@ -468,31 +466,28 @@ WFConsulTask *WFConsulClient::create_deregister_task(
 }
 
 #define CHECK_JSON_VALUE(value)         \
-	if (!value)	return false;                   
+	if (!value)	return false;
 
-#define CHECK_JSON_VALUE_NORETURN(value) \
-	if (!value)	return ;    
-
-
-static bool create_tagged_address(const struct ConsulAddress& consul_address,
+static bool create_tagged_address(const ConsulAddress& consul_address,
 								  const std::string& name,
 								  json_object_t *tagged_obj)
 {
-	if (consul_address.address.empty())
+	if (consul_address.first.empty())
 		return true;
-	
-	const json_value_t *val = json_object_append(tagged_obj, name.c_str(), JSON_VALUE_OBJECT);
+
+	const json_value_t *val = json_object_append(tagged_obj, name.c_str(),
+												 JSON_VALUE_OBJECT);
 	CHECK_JSON_VALUE(val)
 
 	json_object_t *obj = json_value_object(val);
 	CHECK_JSON_VALUE(obj)
 
 	if (!json_object_append(obj, "Address", JSON_VALUE_STRING,
-							consul_address.address.c_str()))
+							consul_address.first.c_str()))
 		return false;
 
 	if (!json_object_append(obj, "Port", JSON_VALUE_NUMBER,
-							static_cast<double>(consul_address.port)))
+							(double)consul_address.second))
 		return false;
 
 	return true;
@@ -500,85 +495,94 @@ static bool create_tagged_address(const struct ConsulAddress& consul_address,
 
 static bool create_health_check(const ConsulConfig& config, json_object_t *obj)
 {
-	if (!config.get_use_health_check())
+	const json_value_t *val;
+	json_object_t *check_obj;
+	std::string str;
+
+	if (!config.get_health_check())
 		return true;
 
-	const json_value_t *check_val = json_object_append(obj, "Check",
-													   JSON_VALUE_OBJECT);
-	CHECK_JSON_VALUE(check_val)
+	val = json_object_append(obj, "Check", JSON_VALUE_OBJECT);
+	CHECK_JSON_VALUE(val)
 
-	json_object_t *check_obj = json_value_object(check_val);
+	check_obj = json_value_object(val);
 	CHECK_JSON_VALUE(check_obj)
 
-	if (!json_object_append(check_obj, "Name", JSON_VALUE_STRING,
-							config.get_check_name().c_str()))
+	str = config.get_check_name();
+	if (!json_object_append(check_obj, "Name", JSON_VALUE_STRING, str.c_str()))
 		return false;
 
-	if (!json_object_append(check_obj, "Notes", JSON_VALUE_STRING,
-								config.get_check_notes().c_str()))
+	str = config.get_check_notes();
+	if (!json_object_append(check_obj, "Notes", JSON_VALUE_STRING, str.c_str()))
 		return false;
 
-	if (!config.get_check_http_url().empty())
+	str = config.get_check_http_url();
+	if (!str.empty())
 	{
 		if (!json_object_append(check_obj, "HTTP", JSON_VALUE_STRING,
-								config.get_check_http_url().c_str()))
+								str.c_str()))
 			return false;
 
+		str = config.get_check_http_method();
 		if (!json_object_append(check_obj, "Method", JSON_VALUE_STRING,
-								config.get_check_http_method().c_str()))
+								str.c_str()))
 			return false;
 
+		str = config.get_http_body();
 		if (!json_object_append(check_obj, "Body", JSON_VALUE_STRING,
-									config.get_http_body().c_str()))
+								str.c_str()))
 			return false;
 		
-		const json_value_t *http_header_val = json_object_append(check_obj,
-												"Header", JSON_VALUE_OBJECT);											
-		CHECK_JSON_VALUE(http_header_val)
+		const json_value_t *header_val = json_object_append(check_obj, "Header",
+															JSON_VALUE_OBJECT);
+		CHECK_JSON_VALUE(header_val)
 
-		json_object_t *http_header_obj = json_value_object(http_header_val);
-		CHECK_JSON_VALUE(http_header_obj)
+		json_object_t *header_obj = json_value_object(header_val);
+		CHECK_JSON_VALUE(header_obj)
 
 		for (const auto& header : *config.get_http_headers())
 		{
-			const json_value_t *values = json_object_append(http_header_obj,
-															header.first.c_str(),
-															JSON_VALUE_ARRAY);
-			CHECK_JSON_VALUE(values)
+			val = json_object_append(header_obj, header.first.c_str(),
+									 JSON_VALUE_ARRAY);
+			CHECK_JSON_VALUE(val)
 
-			json_array_t *val_array = json_value_array(values);
-			CHECK_JSON_VALUE(val_array)
+			json_array_t *array = json_value_array(val);
+			CHECK_JSON_VALUE(array)
 
-			for (const auto& val : header.second)
+			for (const auto& arr : header.second)
 			{
-				if (!json_array_append(val_array, JSON_VALUE_STRING, val.c_str()))
+				if (!json_array_append(array, JSON_VALUE_STRING, arr.c_str()))
 					return false;
 			}
 		}
 	}
 
-	if (!config.get_check_tcp().empty())
+	str = config.get_check_tcp();
+	if (!str.empty())
 	{
 		if (!json_object_append(check_obj, "TCP", JSON_VALUE_STRING,
-										config.get_check_tcp().c_str()))
+								str.c_str()))
 			return false;
 	}
 
+	str = config.get_initial_status();
 	if (!json_object_append(check_obj, "Status", JSON_VALUE_STRING,
-								config.get_initial_status().c_str()))
+							str.c_str()))
 		return false;
 
+	str = convert_time_to_str(config.get_auto_deregister_time());
 	if (!json_object_append(check_obj, "DeregisterCriticalServiceAfter",
-				JSON_VALUE_STRING,
-				convert_time_to_str(config.get_auto_deregister_time()).c_str()))
+							JSON_VALUE_STRING, str.c_str()))
 		return false;
 
+	str = convert_time_to_str(config.get_check_interval());
 	if (!json_object_append(check_obj, "Interval", JSON_VALUE_STRING,
-			convert_time_to_str(config.get_check_interval()).c_str()))
+							str.c_str()))
 		return false;
 
+	str = convert_time_to_str(config.get_check_timeout());
 	if (!json_object_append(check_obj, "Timeout", JSON_VALUE_STRING,
-					convert_time_to_str(config.get_check_timeout()).c_str()))
+							str.c_str()))
 		return false;
 
 	if (!json_object_append(check_obj, "SuccessBeforePassing",
@@ -595,91 +599,93 @@ static bool create_health_check(const ConsulConfig& config, json_object_t *obj)
 }
 
 static bool create_register_request(const json_value_t *root,
-									const struct ConsulService& service,
+									const struct ConsulService *service,
 									const ConsulConfig& config)
-{	
-	json_object_t *obj = json_value_object(root);
+{
+	json_object_t *obj;
+	const json_value_t *val;
+
+	obj = json_value_object(root);
 	CHECK_JSON_VALUE(obj)
 
 	if (!json_object_append(obj, "ID", JSON_VALUE_STRING,
-							service.service_id.c_str()))
+							service->service_id.c_str()))
 		return false;
 
 	if (!json_object_append(obj, "Name", JSON_VALUE_STRING,
-							service.service_name.c_str()))
+							service->service_name.c_str()))
 		return false;
 
-	if (!service.service_namespace.empty())
+	if (!service->service_namespace.empty())
 	{
 		if (!json_object_append(obj, "ns", JSON_VALUE_STRING,
-								service.service_namespace.c_str()))
+								service->service_namespace.c_str()))
 			return false;
 	}
 
-	const json_value_t *tags_val = json_object_append(obj, "Tags", JSON_VALUE_ARRAY);
-	CHECK_JSON_VALUE(tags_val)
+	val = json_object_append(obj, "Tags", JSON_VALUE_ARRAY);
+	CHECK_JSON_VALUE(val)
 
-	json_array_t *tags = json_value_array(tags_val);
+	json_array_t *tags = json_value_array(val);
 	CHECK_JSON_VALUE(tags)
 
-	for (const auto& tag : service.tags)
+	for (const auto& tag : service->tags)
 	{
 		if (!json_array_append(tags, JSON_VALUE_STRING, tag.c_str()))
 			return false;
 	}
 
 	if (!json_object_append(obj, "Address", JSON_VALUE_STRING,
-							service.service_address.address.c_str()))
+							service->service_address.first.c_str()))
 		return false;
 
 	if (!json_object_append(obj, "Port", JSON_VALUE_NUMBER,
-							(double)service.service_address.port))
+							(double)service->service_address.second))
 		return false;
 
-	const json_value_t *meta_val = json_object_append(obj, "Meta", JSON_VALUE_OBJECT);
-	CHECK_JSON_VALUE(meta_val)
+	val = json_object_append(obj, "Meta", JSON_VALUE_OBJECT);
+	CHECK_JSON_VALUE(val)
 
-	json_object_t *meta_obj = json_value_object(meta_val);
+	json_object_t *meta_obj = json_value_object(val);
 	CHECK_JSON_VALUE(meta_obj)
 
-	for (const auto& meta_kv : service.meta)
+	for (const auto& meta_kv : service->meta)
 	{
 		if (!json_object_append(meta_obj, meta_kv.first.c_str(),
 								JSON_VALUE_STRING, meta_kv.second.c_str()))
 			return false;
 	}
 
-	int type = service.tag_override ? JSON_VALUE_TRUE : JSON_VALUE_FALSE;
+	int type = service->tag_override ? JSON_VALUE_TRUE : JSON_VALUE_FALSE;
 
 	if (!json_object_append(obj, "EnableTagOverride", type))
 		return false;
 
-	const json_value_t *tagged_val = json_object_append(obj, "TaggedAddresses",
-														JSON_VALUE_OBJECT);
-	CHECK_JSON_VALUE(tagged_val)
+	val = json_object_append(obj, "TaggedAddresses", JSON_VALUE_OBJECT);
+	CHECK_JSON_VALUE(val)
 
-	json_object_t *tagged_obj = json_value_object(tagged_val);
+	json_object_t *tagged_obj = json_value_object(val);
 	CHECK_JSON_VALUE(tagged_obj)
 
-	if (!create_tagged_address(service.lan, "lan", tagged_obj))
+	if (!create_tagged_address(service->lan, "lan", tagged_obj))
 		return false;
 
-	if (!create_tagged_address(service.lan_ipv4, "lan_ipv4", tagged_obj))
+	if (!create_tagged_address(service->lan_ipv4, "lan_ipv4", tagged_obj))
 		return false;
 
-	if (!create_tagged_address(service.lan_ipv6, "lan_ipv6", tagged_obj))
+	if (!create_tagged_address(service->lan_ipv6, "lan_ipv6", tagged_obj))
 		return false;
 
-	if (!create_tagged_address(service.virtual_address, "virtual", tagged_obj))
+	if (!create_tagged_address(service->virtual_address, "virtual", tagged_obj))
 		return false;
 
-	if (!create_tagged_address(service.wan, "wan", tagged_obj))
+	if (!create_tagged_address(service->wan, "wan", tagged_obj))
 		return false;
 
-	if (!create_tagged_address(service.wan_ipv4, "wan_ipv4", tagged_obj))
+	if (!create_tagged_address(service->wan_ipv4, "wan_ipv4", tagged_obj))
 		return false;
 
-	if (!create_tagged_address(service.wan_ipv6, "wan_ipv6", tagged_obj))
+	if (!create_tagged_address(service->wan_ipv6, "wan_ipv6", tagged_obj))
 		return false;
 
 	// create health check
@@ -692,28 +698,29 @@ static bool create_register_request(const json_value_t *root,
 static bool parse_list_service_result(const json_value_t *root,
 									  std::vector<struct ConsulServiceTags>& result)
 {
-	const json_object_t *root_obj = json_value_object(root);
-	CHECK_JSON_VALUE(root_obj)
-
-	const json_value_t *value;
+	const json_object_t *obj;
+	const json_value_t *val;
+	const json_array_t *arr;
 	const char *key;
 	const char *tag_value;
 
-	json_object_for_each(key, value, root_obj)
+	obj = json_value_object(root);
+	CHECK_JSON_VALUE(obj)
+
+	json_object_for_each(key, val, obj)
 	{
 		struct ConsulServiceTags instance;
-		instance.tags.clear();
-		instance.service_name = key;
 
-		const json_array_t *arr = json_value_array(value);
+		instance.service_name = key;
+		arr = json_value_array(val);
 		CHECK_JSON_VALUE(arr)
 
-		const json_value_t *val;
-		json_array_for_each(val, arr)
+		const json_value_t *tag_val;
+		json_array_for_each(tag_val, arr)
 		{
-			tag_value = json_value_string(val);
+			tag_value = json_value_string(tag_val);
 			CHECK_JSON_VALUE(tag_value)
-			instance.tags.emplace_back(tag_value);	
+			instance.tags.emplace_back(tag_value);
 		}
 
 		result.emplace_back(std::move(instance));
@@ -722,273 +729,276 @@ static bool parse_list_service_result(const json_value_t *root,
 	return true;
 }
 
-static bool parse_discover_node(const json_object_t *obj_value,
-                                struct ConsulServiceInstance *instance)
+static bool parse_discover_node(const json_object_t *obj,
+								struct ConsulServiceInstance *instance)
 {
-	const json_value_t *node_obj = json_object_find("Node", obj_value);
+	const json_value_t *val;
+	const char *str;
+
+	val = json_object_find("Node", obj);
+	CHECK_JSON_VALUE(val)
+
+	const json_object_t *node_obj = json_value_object(val);
 	CHECK_JSON_VALUE(node_obj)
 
-	const json_object_t *node_obj_val = json_value_object(node_obj);
-	CHECK_JSON_VALUE(node_obj_val)
-
-	const json_value_t *node_id = json_object_find("ID", node_obj_val);
-	CHECK_JSON_VALUE(node_id)
-
-	const char *val = json_value_string(node_id);
+	val = json_object_find("ID", node_obj);
 	CHECK_JSON_VALUE(val)
-	instance->node_id = val;
 
-	const json_value_t *node_name = json_object_find("Node", node_obj_val);
-	CHECK_JSON_VALUE(node_name)
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	instance->node_id = str;
 
-	val = json_value_string(node_name);
+	val = json_object_find("Node", node_obj);
 	CHECK_JSON_VALUE(val)
-	instance->node_name = val;
 
-	const json_value_t *address = json_object_find("Address", node_obj_val);
-	CHECK_JSON_VALUE(address)
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	instance->node_name = str;
 
-	val = json_value_string(address);
+	val = json_object_find("Address", node_obj);
 	CHECK_JSON_VALUE(val)
-	instance->node_address = val;
 
-	const json_value_t *dc = json_object_find("Datacenter", node_obj_val);
-	CHECK_JSON_VALUE(dc)
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	instance->node_address = str;
 
-	val = json_value_string(dc);
+	val = json_object_find("Datacenter", node_obj);
 	CHECK_JSON_VALUE(val)
-	instance->dc = val;
 
-	const json_value_t *node_meta = json_object_find("Meta", node_obj_val);
-	CHECK_JSON_VALUE(node_meta)
-	const json_object_t *node_meta_val = json_value_object(node_meta);
-	CHECK_JSON_VALUE(node_meta_val)
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	instance->dc = str;
 
-	const char *node_meta_k;
-	const json_value_t *node_meta_v;
-	const char *meta_value;
+	val = json_object_find("Meta", node_obj);
+	CHECK_JSON_VALUE(val)
+	const json_object_t *meta_obj = json_value_object(val);
+	CHECK_JSON_VALUE(meta_obj)
 
-	json_object_for_each(node_meta_k, node_meta_v, node_meta_val)
+	const char *meta_k;
+	const json_value_t *meta_v;
+
+	json_object_for_each(meta_k, meta_v, meta_obj)
 	{
-		meta_value = json_value_string(node_meta_v);
-		CHECK_JSON_VALUE(meta_value)
-		instance->node_meta[node_meta_k] = meta_value;
+		str = json_value_string(meta_v);
+		CHECK_JSON_VALUE(str)
+		instance->node_meta[meta_k] = str;
 	}
 
-	const json_value_t *json_val;
+	val = json_object_find("CreateIndex", node_obj);
+	if (val)
+		instance->create_index = json_value_number(val);
 
-	json_val = json_object_find("CreateIndex", node_obj_val);
-	if (json_val)
-	{
-		
-		instance->create_index = json_value_number(json_val);
-	}
-
-	json_val = json_object_find("ModifyIndex", node_obj_val);
-	if (json_val)
-		instance->modify_index = json_value_number(json_val);
+	val = json_object_find("ModifyIndex", node_obj);
+	if (val)
+		instance->modify_index = json_value_number(val);
 
 	return true;
 }
 
 static bool parse_tagged_address(const char *name, 
-                        		const json_value_t *tagged,
-								ConsulAddress *tagged_address)
+								 const json_value_t *tagged_val,
+								 ConsulAddress& tagged_address)
 {
-	const json_object_t *tagged_obj = json_value_object(tagged);
-	CHECK_JSON_VALUE(tagged_obj)
+	const json_value_t *val;
+	const json_object_t *obj;
+	const char *str;
 
-	const json_value_t *type = json_object_find(name, tagged_obj);
-	CHECK_JSON_VALUE(type)
-	const json_object_t *obj = json_value_object(type);
+	obj = json_value_object(tagged_val);
 	CHECK_JSON_VALUE(obj)
 
-	const json_value_t *address = json_object_find("Address", obj);
-	CHECK_JSON_VALUE(address)
-	const json_value_t *port = json_object_find("Port", obj);
-	CHECK_JSON_VALUE(port)
+	val = json_object_find(name, obj);
+	CHECK_JSON_VALUE(val)
+	obj = json_value_object(val);
+	CHECK_JSON_VALUE(obj)
 
-	const char *address_val = json_value_string(address);
-	CHECK_JSON_VALUE(address_val)
-	tagged_address->address = address_val;
+	val = json_object_find("Address", obj);
+	CHECK_JSON_VALUE(val)
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	tagged_address.first = str;
 
-	tagged_address->port = json_value_number(port);
+	val = json_object_find("Port", obj);
+	CHECK_JSON_VALUE(val)
+	tagged_address.second = json_value_number(val);
 	return true;
 }
 
-static bool parse_service(const json_object_t *obj_value,
+static bool parse_service(const json_object_t *obj,
                           struct ConsulService *service)
 {
-	const char *val;
+	const json_object_t *service_obj;
+	const json_value_t *val;
+	const char *str;
 
-	const json_value_t *service_obj = json_object_find("Service", obj_value);
+	val = json_object_find("Service", obj);
+	CHECK_JSON_VALUE(val)
+
+	service_obj = json_value_object(val);
 	CHECK_JSON_VALUE(service_obj)
 
-	const json_object_t *service_obj_val = json_value_object(service_obj);
-	CHECK_JSON_VALUE(service_obj_val)
-
-	const json_value_t *id = json_object_find("ID", service_obj_val);
-	CHECK_JSON_VALUE(id)
-
-	val = json_value_string(id);
+	val = json_object_find("ID", service_obj);
 	CHECK_JSON_VALUE(val)
-	service->service_id = val;
 
-	const json_value_t *service_name = json_object_find("Service", service_obj_val);
-	CHECK_JSON_VALUE(service_name)
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	service->service_id = str;
 
-	val = json_value_string(service_name);
+	val = json_object_find("Service", service_obj);
 	CHECK_JSON_VALUE(val)
-	service->service_name = val;
 
-	const json_value_t *service_ns = json_object_find("Namespace", service_obj_val);
-	if (service_ns)
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	service->service_name = str;
+
+	val = json_object_find("Namespace", service_obj);
+	if (val)
 	{
-		val = json_value_string(service_ns);
-		CHECK_JSON_VALUE(val)
-		service->service_namespace = val;
+		str = json_value_string(val);
+		CHECK_JSON_VALUE(str)
+		service->service_namespace = str;
 	}
 
-	const json_value_t *address = json_object_find("Address", service_obj_val);
-	CHECK_JSON_VALUE(address)
-
-	val = json_value_string(address);
+	val = json_object_find("Address", service_obj);
 	CHECK_JSON_VALUE(val)
-	service->service_address.address = val;
 
-	const json_value_t *port = json_object_find("Port", service_obj_val);
-	CHECK_JSON_VALUE(port)
-	service->service_address.port = json_value_number(port);
+	str = json_value_string(val);
+	CHECK_JSON_VALUE(str)
+	service->service_address.first = str;
 
-	const json_value_t *tagged = json_object_find("TaggedAddresses", service_obj_val);
-	CHECK_JSON_VALUE(tagged)
-	parse_tagged_address("lan", tagged, &service->lan);
-	parse_tagged_address("lan_ipv4", tagged, &service->lan_ipv4);
-	parse_tagged_address("lan_ipv6", tagged, &service->lan_ipv6);
-	parse_tagged_address("virtual", tagged, &service->virtual_address);
-	parse_tagged_address("wan", tagged, &service->wan);
-	parse_tagged_address("wan_ipv4", tagged, &service->wan_ipv4);
-	parse_tagged_address("wan_ipv6", tagged, &service->wan_ipv6);
+	val = json_object_find("Port", service_obj);
+	CHECK_JSON_VALUE(val)
+	service->service_address.second = json_value_number(val);
 
-	const json_value_t *tags = json_object_find("Tags", service_obj_val);
-	CHECK_JSON_VALUE(tags)
-	const json_array_t *tags_arr = json_value_array(tags);
+	val = json_object_find("TaggedAddresses", service_obj);
+	CHECK_JSON_VALUE(val)
+	parse_tagged_address("lan", val, service->lan);
+	parse_tagged_address("lan_ipv4", val, service->lan_ipv4);
+	parse_tagged_address("lan_ipv6", val, service->lan_ipv6);
+	parse_tagged_address("virtual", val, service->virtual_address);
+	parse_tagged_address("wan", val, service->wan);
+	parse_tagged_address("wan_ipv4", val, service->wan_ipv4);
+	parse_tagged_address("wan_ipv6", val, service->wan_ipv6);
+
+	val = json_object_find("Tags", service_obj);
+	CHECK_JSON_VALUE(val)
+	const json_array_t *tags_arr = json_value_array(val);
 	if (tags_arr)
 	{
 		const json_value_t *tags_value;
 		json_array_for_each(tags_value, tags_arr)
 		{
-			val = json_value_string(tags_value);
-			CHECK_JSON_VALUE(val)
-			service->tags.emplace_back(val);
+			str = json_value_string(tags_value);
+			CHECK_JSON_VALUE(str)
+			service->tags.emplace_back(str);
 		}
 	}
 
-	const json_value_t *meta = json_object_find("Meta", service_obj_val);
-	CHECK_JSON_VALUE(meta)
-	const json_object_t *meta_val = json_value_object(meta);
-	CHECK_JSON_VALUE(meta_val)
+	val = json_object_find("Meta", service_obj);
+	CHECK_JSON_VALUE(val)
+	const json_object_t *meta_obj = json_value_object(val);
+	CHECK_JSON_VALUE(meta_obj)
+
 	const char *meta_k;
 	const json_value_t *meta_v;
-	json_object_for_each(meta_k, meta_v, meta_val)
+	json_object_for_each(meta_k, meta_v, meta_obj)
 	{
-		val = json_value_string(meta_v);
-		CHECK_JSON_VALUE(val)
-		service->meta[meta_k] = val; 
+		str = json_value_string(meta_v);
+		CHECK_JSON_VALUE(str)
+		service->meta[meta_k] = str; 
 	}
 
-	const json_value_t *tag_override = json_object_find("EnableTagOverride", service_obj_val);
-	if (tag_override)
-	{
-		int tag_value_type = json_value_type(tag_override);
-		service->tag_override = (tag_value_type == JSON_VALUE_TRUE);
-	}
+	val = json_object_find("EnableTagOverride", service_obj);
+	if (val)
+		service->tag_override = (json_value_type(val) == JSON_VALUE_TRUE);
 
 	return true;
 }
 
-static void parse_health_check(const json_object_t *obj_value,
-                               struct ConsulServiceInstance *instance)
+static bool parse_health_check(const json_object_t *obj,
+							   struct ConsulServiceInstance *instance)
 {
-	const json_value_t *check_val = NULL;
-	const char *val;
+	const json_value_t *val;
+	const json_object_t *check_obj;
+	const char *str;
 
-	const json_value_t *obj = json_object_find("Checks", obj_value);
-	CHECK_JSON_VALUE_NORETURN(obj)
+	val = json_object_find("Checks", obj);
+	CHECK_JSON_VALUE(val)
 
-	const json_array_t *check_arr = json_value_array(obj);
-	CHECK_JSON_VALUE_NORETURN(check_arr)
+	const json_array_t *check_arr = json_value_array(val);
+	CHECK_JSON_VALUE(check_arr)
 
-	json_array_for_each(check_val, check_arr)
+	const json_value_t *arr_val;
+	json_array_for_each(arr_val, check_arr)
 	{
-		const json_object_t *check_obj = json_value_object(check_val);
-		CHECK_JSON_VALUE_NORETURN(check_obj)
+		check_obj = json_value_object(arr_val);
+		CHECK_JSON_VALUE(check_obj)
 
-		const json_value_t *service_name = json_object_find("ServiceName", check_obj);
-		CHECK_JSON_VALUE_NORETURN(service_name)
+		val = json_object_find("ServiceName", check_obj);
+		CHECK_JSON_VALUE(val)
 
-		val = json_value_string(service_name);
-		CHECK_JSON_VALUE_NORETURN(val)
-		std::string check_service_name = val;
+		str = json_value_string(val);
+		CHECK_JSON_VALUE(str)
+		std::string check_service_name = str;
 
-		const json_value_t *service_id = json_object_find("ServiceID", check_obj);
-		CHECK_JSON_VALUE_NORETURN(service_id)
+		val = json_object_find("ServiceID", check_obj);
+		CHECK_JSON_VALUE(val)
 
-		val = json_value_string(service_id);
-		CHECK_JSON_VALUE_NORETURN(val)
-		std::string check_service_id = val;
+		str = json_value_string(val);
+		CHECK_JSON_VALUE(str)
+		std::string check_service_id = str;
 
 		if (check_service_id.empty() || check_service_name.empty())
-		{
 			continue;
-		}
 
-		const json_value_t *id = json_object_find("CheckID", check_obj);
-		CHECK_JSON_VALUE_NORETURN(id)
+		val = json_object_find("CheckID", check_obj);
+		CHECK_JSON_VALUE(val)
 
-		val = json_value_string(id);
-		CHECK_JSON_VALUE_NORETURN(val)
-		instance->check_id = val;
+		str = json_value_string(val);
+		CHECK_JSON_VALUE(str)
+		instance->check_id = str;
 
-		const json_value_t *name = json_object_find("Name", check_obj);
-		CHECK_JSON_VALUE_NORETURN(name)
+		val = json_object_find("Name", check_obj);
+		CHECK_JSON_VALUE(val)
 
-		val = json_value_string(name);
-		CHECK_JSON_VALUE_NORETURN(val)
-		instance->check_name = val;
+		str = json_value_string(val);
+		CHECK_JSON_VALUE(str)
+		instance->check_name = str;
 
-		const json_value_t *status = json_object_find("Status", check_obj);
-		CHECK_JSON_VALUE_NORETURN(status)
+		val = json_object_find("Status", check_obj);
+		CHECK_JSON_VALUE(val)
 
-		val = json_value_string(status);
-		CHECK_JSON_VALUE_NORETURN(val)
-		instance->check_status = val;
+		str = json_value_string(val);
+		CHECK_JSON_VALUE(str)
+		instance->check_status = str;
 
-		const json_value_t *notes = json_object_find("Notes", check_obj);
-		if (notes)
+		val = json_object_find("Notes", check_obj);
+		if (val)
 		{
-			val = json_value_string(notes);
-			CHECK_JSON_VALUE_NORETURN(val)
-			instance->check_notes = val;
+			str = json_value_string(val);
+			CHECK_JSON_VALUE(str)
+			instance->check_notes = str;
 		}
 
-		const json_value_t *output = json_object_find("Output", check_obj);
-		if (output)
+		val = json_object_find("Output", check_obj);
+		if (val)
 		{
-			val = json_value_string(output);
-			CHECK_JSON_VALUE_NORETURN(val)
-			instance->check_output = val;
+			str = json_value_string(val);
+			CHECK_JSON_VALUE(str)
+			instance->check_output = str;
 		}
 
-		const json_value_t *type = json_object_find("Type", check_obj);
-		if (type)
+		val = json_object_find("Type", check_obj);
+		if (val)
 		{
-			val = json_value_string(type);
-			CHECK_JSON_VALUE_NORETURN(val)
-			instance->check_type = val;
+			str = json_value_string(val);
+			CHECK_JSON_VALUE(str)
+			instance->check_type = str;
 		}
+
 		break; //only one effective service health check
 	}
+
+	return true;
 }
 
 static bool parse_discover_result(const json_value_t *root,
@@ -996,6 +1006,7 @@ static bool parse_discover_result(const json_value_t *root,
 {
 	const json_array_t *arr = json_value_array(root);
 	const json_value_t *val;
+	const json_object_t *obj;
 
 	if (!arr)
 		return false;
@@ -1003,8 +1014,8 @@ static bool parse_discover_result(const json_value_t *root,
 	json_array_for_each(val, arr)
 	{
 		struct ConsulServiceInstance instance;
-		init_consul_service_instance(&instance);
-		const json_object_t *obj = json_value_object(val);
+
+		obj = json_value_object(val);
 
 		if (!obj)
 			return false;
@@ -1016,13 +1027,15 @@ static bool parse_discover_result(const json_value_t *root,
 			return false;
 
 		parse_health_check(obj, &instance);
+
 		result.emplace_back(std::move(instance));
 	}
 
 	return true;
 }
 
-static void print_json_object(const json_object_t *obj, int depth, std::string& json_str)
+static void print_json_object(const json_object_t *obj, int depth,
+							  std::string& json_str)
 {
 	const char *name;
 	const json_value_t *val;
@@ -1033,16 +1046,12 @@ static void print_json_object(const json_object_t *obj, int depth, std::string& 
 	json_object_for_each(name, val, obj)
 	{
 		if (n != 0)
-		{
 			json_str += ",\n";
-		}
-			
+
 		n++;
 		for (i = 0; i < depth + 1; i++)
-		{
 			json_str += "    ";
-		}
-			
+
 		json_str += "\"";
 		json_str += name;
 		json_str += "\": ";
@@ -1051,14 +1060,13 @@ static void print_json_object(const json_object_t *obj, int depth, std::string& 
 
 	json_str += "\n";
 	for (i = 0; i < depth; i++)
-	{
 		json_str += "    ";
-	}
-		
+
 	json_str += "}";
 }
 
-static void print_json_array(const json_array_t *arr, int depth, std::string& json_str)
+static void print_json_array(const json_array_t *arr, int depth,
+							 std::string& json_str)
 {
 	const json_value_t *val;
 	int n = 0;
@@ -1068,24 +1076,18 @@ static void print_json_array(const json_array_t *arr, int depth, std::string& js
 	json_array_for_each(val, arr)
 	{
 		if (n != 0)
-		{
 			json_str += ",\n";
-		}
-			
+
 		n++;
 		for (i = 0; i < depth + 1; i++)
-		{
 			json_str += "    ";
-		}
-			
+
 		print_json_value(val, depth + 1, json_str);
 	}
 
 	json_str += "\n";
 	for (i = 0; i < depth; i++)
-	{
 		json_str += "    ";
-	}
 
 	json_str += "]";
 }
@@ -1132,23 +1134,22 @@ static void print_json_number(double number, std::string& json_str)
 	long long integer = number;
 
 	if (integer == number)
-	{
 		json_str += std::to_string(integer);
-	}
 	else
-	{
 		json_str += std::to_string(number);
-	}	
 }
 
-static void print_json_value(const json_value_t *val, int depth, std::string& json_str)
+static void print_json_value(const json_value_t *val, int depth,
+							 std::string& json_str)
 {
 	const char *val_str;
 	switch (json_value_type(val))
 	{
 	case JSON_VALUE_STRING:
 		val_str = json_value_string(val);
-		CHECK_JSON_VALUE_NORETURN(val_str)
+		if (!val_str)
+			return;
+
 		print_json_string(val_str, json_str);
 		break;
 	case JSON_VALUE_NUMBER:

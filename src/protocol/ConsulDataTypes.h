@@ -5,7 +5,7 @@
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
 
-	  http://www.apache.org/licenses/LICENSE-2.0
+      http://www.apache.org/licenses/LICENSE-2.0
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,12 +20,10 @@
 #define _CONSULDATATYPES_H_
 
 #include <assert.h>
-#include <algorithm>
 #include <atomic>
 #include <map>
 #include <vector>
 #include <string>
-#include <string.h>
 
 namespace protocol
 {
@@ -51,20 +49,20 @@ public:
 	}
 	std::string get_near_node() const { return this->ptr->near; }
 
-	void set_filter_expression(const std::string& filter_expression)
+	void set_filter_expr(const std::string& filter_expr)
 	{
-		this->ptr->filter = filter_expression;
+		this->ptr->filter = filter_expr;
 	}
-	std::string get_filter_expression() const { return this->ptr->filter; }
+	std::string get_filter_expr() const { return this->ptr->filter; }
 
 	// blocking query wait, limited to 10 minutes, default:5m, unit:ms
 	void set_wait_ttl(int wait_ttl) { this->ptr->wait_ttl = wait_ttl; }
 	int get_wait_ttl() const { return this->ptr->wait_ttl; }
 
-	// enable blocking query 
-	void set_blocking_query(bool enable_flag) 
-	{ 
-		this->ptr->blocking_query = enable_flag; 
+	// enable blocking query
+	void set_blocking_query(bool enable_flag)
+	{
+		this->ptr->blocking_query = enable_flag;
 	}
 	bool blocking_query() const { return this->ptr->blocking_query; }
 
@@ -84,24 +82,24 @@ public:
 		return this->ptr->replace_checks;
 	}
 	
-	void set_check_name(const std::string& check_name) 
-	{ 
-		this->ptr->check_cfg.check_name = check_name; 
+	void set_check_name(const std::string& check_name)
+	{
+		this->ptr->check_cfg.check_name = check_name;
 	}
 	std::string get_check_name() const { return this->ptr->check_cfg.check_name; }
 
-	void set_check_http_url(const std::string& http_url) 
-	{ 
-		this->ptr->check_cfg.http_url = http_url; 
+	void set_check_http_url(const std::string& http_url)
+	{
+		this->ptr->check_cfg.http_url = http_url;
 	}
 	std::string get_check_http_url() const
 	{
 		return this->ptr->check_cfg.http_url;
 	}
 
-	void set_check_http_method(const std::string& method) 
-	{ 
-		this->ptr->check_cfg.http_method = method; 
+	void set_check_http_method(const std::string& method)
+	{
+		this->ptr->check_cfg.http_method = method;
 	}
 	std::string get_check_http_method() const
 	{
@@ -124,31 +122,31 @@ public:
 	}
 	std::string get_http_body() const { return this->ptr->check_cfg.http_body; }
 
-	void set_check_interval(int interval) 
-	{ 
-		this->ptr->check_cfg.interval = interval; 
+	void set_check_interval(int interval)
+	{
+		this->ptr->check_cfg.interval = interval;
 	}
 	int get_check_interval() const { return this->ptr->check_cfg.interval; }
 
-	void set_check_timeout(int timeout) 
-	{ 
-		this->ptr->check_cfg.timeout = timeout; 
+	void set_check_timeout(int timeout)
+	{
+		this->ptr->check_cfg.timeout = timeout;
 	}
 	int get_check_timeout() const { return this->ptr->check_cfg.timeout; }
 
-	void set_check_notes(const std::string& notes) 
-	{ 
-		this->ptr->check_cfg.notes = notes; 
+	void set_check_notes(const std::string& notes)
+	{
+		this->ptr->check_cfg.notes = notes;
 	}
 	std::string get_check_notes() const { return this->ptr->check_cfg.notes; }
 
 	void set_check_tcp(const std::string& tcp_address)
-	{ 
-		this->ptr->check_cfg.tcp_address = tcp_address; 
+	{
+		this->ptr->check_cfg.tcp_address = tcp_address;
 	}
 	std::string get_check_tcp() const { return this->ptr->check_cfg.tcp_address; }
 
-	void set_initial_status(const std::string& initial_status) 
+	void set_initial_status(const std::string& initial_status)
 	{
 		this->ptr->check_cfg.initial_status = initial_status;
 	}
@@ -162,14 +160,14 @@ public:
 		this->ptr->check_cfg.auto_deregister_time = milliseconds;
 	}
 	int get_auto_deregister_time() const
-	{ 
-		return this->ptr->check_cfg.auto_deregister_time; 
+	{
+		return this->ptr->check_cfg.auto_deregister_time;
 	}
 
 	// set success times before passing, refer to success_before_passing, default:0
-	void set_success_times(int times)  
+	void set_success_times(int times)
 	{ 
-		this->ptr->check_cfg.success_times = times; 
+		this->ptr->check_cfg.success_times = times;
 	}
 	int get_success_times() const { return this->ptr->check_cfg.success_times; }
 
@@ -177,13 +175,13 @@ public:
 	void set_failure_times(int times) { this->ptr->check_cfg.failure_times = times; }
 	int get_failure_times() const { return this->ptr->check_cfg.failure_times; }
 
-	void set_use_health_check(bool enable_flag)
+	void set_health_check(bool enable_flag)
 	{
-		this->ptr->check_cfg.enable_health_check = enable_flag;
+		this->ptr->check_cfg.health_check = enable_flag;
 	}
-	bool get_use_health_check() const
+	bool get_health_check() const
 	{
-		return this->ptr->check_cfg.enable_health_check;
+		return this->ptr->check_cfg.health_check;
 	}
 
 public:
@@ -201,7 +199,7 @@ public:
 		this->ptr->check_cfg.auto_deregister_time = 10 * 60 * 1000;
 		this->ptr->check_cfg.success_times = 0;
 		this->ptr->check_cfg.failure_times = 0;
-		this->ptr->check_cfg.enable_health_check = false;
+		this->ptr->check_cfg.health_check = false;
 
 		this->ref = new std::atomic<int>(1);
 	}
@@ -258,7 +256,7 @@ public:
 	}
 
 	// register health check config
-	struct HealthCheckConfig 
+	struct HealthCheckConfig
 	{
 		std::string check_name;
 		std::string notes;
@@ -270,13 +268,13 @@ public:
 		std::map<std::string, std::vector<std::string>> headers;
 		int auto_deregister_time; // refer to deregister_critical_service_after
 		int interval;
-		int timeout;       // default 10000
-		int success_times; // default:0 success times before passing 
+		int timeout; // default 10000
+		int success_times; // default:0 success times before passing
 		int failure_times; // default:0 failure_before_critical
-		bool enable_health_check;
+		bool health_check;
 	};
 
-	struct Config 
+	struct Config
 	{
 		// common config
 		std::string token;
@@ -299,53 +297,26 @@ public:
 	std::atomic<int> *ref;
 };
 
-struct ConsulAddress 
-{
-	std::string address;
-	unsigned short port;
-};
-
-static void init_consul_address(struct ConsulAddress *ptr)
-{
-	ptr->address.clear();
-	ptr->port = 0;
-}
+// k:address, v:port
+using ConsulAddress = std::pair<std::string, unsigned short>;
 
 struct ConsulService
 {
 	std::string service_name;
 	std::string service_namespace;
-	std::string service_id; 
+	std::string service_id;
 	std::vector<std::string> tags;
-	struct ConsulAddress service_address; 
-	struct ConsulAddress lan;         
-	struct ConsulAddress lan_ipv4;    
-	struct ConsulAddress lan_ipv6;           
-	struct ConsulAddress virtual_address; 
-	struct ConsulAddress wan;         
-	struct ConsulAddress wan_ipv4;    
-	struct ConsulAddress wan_ipv6;
+	ConsulAddress service_address;
+	ConsulAddress lan;
+	ConsulAddress lan_ipv4;
+	ConsulAddress lan_ipv6;
+	ConsulAddress virtual_address; 
+	ConsulAddress wan;
+	ConsulAddress wan_ipv4;
+	ConsulAddress wan_ipv6;
 	std::map<std::string, std::string> meta;
 	bool tag_override;
 };
-
-static void init_consul_service(struct ConsulService *ptr)
-{
-	ptr->service_name.clear();
-	ptr->service_id.clear();
-	ptr->service_namespace.clear();
-	ptr->tags.clear();
-	init_consul_address(&ptr->service_address);
-	init_consul_address(&ptr->lan);
-	init_consul_address(&ptr->lan_ipv4);
-	init_consul_address(&ptr->lan_ipv6);
-	init_consul_address(&ptr->virtual_address);
-	init_consul_address(&ptr->wan);
-	init_consul_address(&ptr->wan_ipv4);
-	init_consul_address(&ptr->wan_ipv6);
-	ptr->meta.clear();
-	ptr->tag_override = false;
-}
 
 struct ConsulServiceInstance
 {
@@ -356,7 +327,7 @@ struct ConsulServiceInstance
 	std::string dc;
 	std::map<std::string, std::string> node_meta;
 	long long create_index;
-	long long modify_index; 
+	long long modify_index;
 
 	// service info
 	struct ConsulService service;
@@ -369,24 +340,6 @@ struct ConsulServiceInstance
 	std::string check_status;
 	std::string check_type;
 };
-
-static void init_consul_service_instance(struct ConsulServiceInstance *ptr)
-{
-	ptr->node_id.clear();
-	ptr->node_name.clear();
-	ptr->node_address.clear();
-	ptr->dc.clear();
-	ptr->node_meta.clear();
-	ptr->create_index = 0;
-	ptr->modify_index = 0;
-	init_consul_service(&ptr->service);
-	ptr->check_name.clear();
-	ptr->check_id.clear();
-	ptr->check_notes.clear();
-	ptr->check_output.clear();
-	ptr->check_status.clear();
-	ptr->check_type.clear();
-}
 
 struct ConsulServiceTags
 {

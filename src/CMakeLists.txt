@@ -132,3 +132,4 @@ if (KAFKA STREQUAL "y")
 		COMPONENT devel
 	)
 endif ()
+

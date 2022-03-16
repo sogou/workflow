@@ -19,7 +19,6 @@
 #ifndef _WFCONSULCLIENT_H_
 #define _WFCONSULCLIENT_H_
 
-#include <atomic>
 #include <string>
 #include <vector>
 #include <functional>
@@ -30,7 +29,7 @@
 class WFConsulTask;
 using consul_callback_t = std::function<void (WFConsulTask *)>;
 
-enum 
+enum
 {
 	CONSUL_API_TYPE_UNKNOWN = 0,
 	CONSUL_API_TYPE_DISCOVER,
@@ -56,7 +55,7 @@ public:
 	int get_api_type() const
 	{
 		return this->api_type;
-	}	
+	}
 
 	void set_callback(consul_callback_t cb)
 	{
@@ -131,20 +130,20 @@ public:
 	void deinit() { }
 
 	WFConsulTask *create_discover_task(const std::string& service_namespace,
-										const std::string& service_name,
-										int retry_max, consul_callback_t cb);
+									   const std::string& service_name,
+									   int retry_max, consul_callback_t cb);
 
 	WFConsulTask *create_list_service_task(const std::string& service_namespace,
-										int retry_max, consul_callback_t cb);
+										   int retry_max, consul_callback_t cb);
 
 	WFConsulTask *create_register_task(const std::string& service_namespace,
-					                   const std::string& service_name,
-					                   const std::string& service_id,
+									   const std::string& service_name,
+									   const std::string& service_id,
 									   int retry_max, consul_callback_t cb);
 
 	WFConsulTask *create_deregister_task(const std::string& service_namespace,
-					                     const std::string& service_id,
-					  	  		         int retry_max, consul_callback_t cb);
+										 const std::string& service_id,
+										 int retry_max, consul_callback_t cb);
 
 private:
 	std::string proxy_url;

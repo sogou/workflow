@@ -26,6 +26,7 @@ cc_library(
 		'src/kernel/rbtree.c',
 		'src/kernel/thrdpool.c',
 		'src/util/crc32c.c',
+		'src/util/json_parser.c',
 	],
 	hdrs = glob(['src/*/*.h']) + glob(['src/*/*.inl']),
 	includes = [
@@ -223,7 +224,6 @@ cc_library(
 	hdrs = [
 		'src/client/WFConsulClient.h',
 		'src/protocol/ConsulDataTypes.h',
-		'src/util/json_parser.h',
 	],
 	includes = [ 
 		'src/client',
@@ -233,7 +233,6 @@ cc_library(
 	],
 	srcs = [ 
 		'src/client/WFConsulClient.cc',
-		'src/util/json_parser.c',
 	],
 	deps = [
 		':common',

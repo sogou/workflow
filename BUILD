@@ -219,6 +219,27 @@ cc_library(
 	],
 )
 
+cc_library(
+	name = 'consul',
+	hdrs = [
+		'src/client/WFConsulClient.h',
+		'src/protocol/ConsulDataTypes.h',
+	],
+	includes = [ 
+		'src/client',
+		'src/factory',
+		'src/protocol',
+		'src/util',
+	],
+	srcs = [ 
+		'src/client/WFConsulClient.cc',
+	],
+	deps = [
+		':common',
+	],
+	visibility = ["//visibility:public"],
+)
+
 cc_binary(
 	 name = 'helloworld',
 	 srcs = ['tutorial/tutorial-00-helloworld.cc'],

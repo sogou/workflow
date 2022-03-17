@@ -63,6 +63,10 @@ enum
 	WFT_ERR_KAFKA_API_UNKNOWN = 5008,		   ///< api type not supported
 	WFT_ERR_KAFKA_VERSION_DISALLOWED = 5009,   ///< broker version not supported
 	WFT_ERR_KAFKA_SASL_DISALLOWED = 5010,   ///< sasl not supported
+
+	//CONSUL
+	WFT_ERR_CONSUL_API_UNKNOWN = 6001,		///< api type not supported
+	WFT_ERR_CONSUL_CHECK_RESPONSE_FAILED = 6002,	///< Consul http code failed
 };
 
 #endif

@@ -21,10 +21,11 @@
 
 #include <string>
 #include <vector>
+#include <utility>
 #include <functional>
 #include "HttpMessage.h"
-#include "ConsulDataTypes.h"
 #include "WFTaskFactory.h"
+#include "ConsulDataTypes.h"
 
 class WFConsulTask;
 using consul_callback_t = std::function<void (WFConsulTask *)>;
@@ -41,8 +42,11 @@ enum
 class WFConsulTask : public WFGenericTask
 {
 public:
-	bool get_discover_result(std::vector<struct protocol::ConsulServiceInstance>& result);
-	bool get_list_service_result(std::vector<struct protocol::ConsulServiceTags>& result);
+	bool get_discover_result(
+			std::vector<struct protocol::ConsulServiceInstance>& result);
+
+	bool get_list_service_result(
+			std::vector<struct protocol::ConsulServiceTags>& result);
 
 public:
 	void set_service(const struct protocol::ConsulService *service);
@@ -68,9 +72,9 @@ public:
 	}
 	long long get_consul_index() const { return this->consul_index; }
 
-	std::string get_error_reason() const
+	const protocol::HttpResponse *get_http_resp() const
 	{
-		return this->error_reason;
+		return &this->http_resp;
 	}
 
 protected:
@@ -100,13 +104,11 @@ protected:
 	protocol::ConsulConfig config;
 	struct protocol::ConsulService service;
 	std::string proxy_url;
-	std::string error_reason;
-	std::string discover_res;
-	std::string list_service_res;
 	int retry_max;
 	int api_type;
 	bool finish;
 	long long consul_index;
+	protocol::HttpResponse http_resp;
 	consul_callback_t callback;
 
 protected:
@@ -115,7 +117,7 @@ protected:
 				 const std::string& service_name,
 				 const std::string& service_id,
 				 int retry_max, consul_callback_t&& cb);
-	virtual ~WFConsulTask() {}
+	virtual ~WFConsulTask() { }
 	friend class WFConsulClient;
 };
 

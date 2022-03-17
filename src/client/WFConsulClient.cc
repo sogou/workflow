@@ -361,19 +361,16 @@ void WFConsulTask::discover_callback(WFHttpTask *task)
 {
 	WFConsulTask *t = (WFConsulTask*)task->user_data;
 
-	if (!WFConsulTask::check_task_result(task, t))
+	if (WFConsulTask::check_task_result(task, t))
 	{
-		t->finish = true;
-		return;
+		protocol::HttpResponse *resp = task->get_resp();
+		long long consul_index = t->get_consul_index(resp);
+		long long last_consul_index = t->get_consul_index();
+		t->set_consul_index(consul_index < last_consul_index ? 0 : consul_index);
+		t->state = task->get_state();
 	}
 
-	protocol::HttpResponse *resp = task->get_resp();
-	long long consul_index = t->get_consul_index(resp);
-	long long last_consul_index = t->get_consul_index();
-	t->set_consul_index(consul_index < last_consul_index ? 0 : consul_index);
-
-	t->http_resp = std::move(*resp);
-	t->state = task->get_state();
+	t->http_resp = std::move(*task->get_resp());
 	t->finish = true;
 }
 
@@ -381,14 +378,10 @@ void WFConsulTask::list_service_callback(WFHttpTask *task)
 {
 	WFConsulTask *t = (WFConsulTask*)task->user_data;
 
-	if (!WFConsulTask::check_task_result(task, t))
-	{
-		t->finish = true;
-		return;
-	}
+	if (WFConsulTask::check_task_result(task, t))
+		t->state = task->get_state();
 
 	t->http_resp = std::move(*task->get_resp());
-	t->state = task->get_state();
 	t->finish = true;
 }
 
@@ -399,6 +392,7 @@ void WFConsulTask::register_callback(WFHttpTask *task)
 	if (WFConsulTask::check_task_result(task, t))
 		t->state = task->get_state();
 
+	t->http_resp = std::move(*task->get_resp());
 	t->finish = true;
 }
 

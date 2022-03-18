@@ -3379,7 +3379,10 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 			{
 				CHECK_RET(parse_i32(buf, size, &offset_cnt));
 				for (int j = 0; j < offset_cnt; ++j)
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->offset));
+				{
+					CHECK_RET(parse_i64(buf, size, &offset));
+					ptr->offset = offset;
+				}
 
 				ptr->low_watermark = 0;
 			}

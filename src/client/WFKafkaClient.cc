@@ -671,11 +671,12 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 {
 	ComplexKafkaTask *t = (ComplexKafkaTask *)pwork->get_context();
 	t->finish = true;
-	t->state = WFT_STATE_SUCCESS;
+	t->state = WFT_STATE_TASK_ERROR;
 	t->error = 0;
 
 	std::pair<int, int> *state_error;
 	bool flag = false;
+	int error = 0;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
@@ -688,12 +689,18 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 				t->set_meta_status(META_UNINIT);
 				t->lock_status.get_mutex()->unlock();
 			}
-			t->state = state_error->first;
-			t->error = state_error->second;
+			error = state_error->second;
+		}
+		else
+		{
+			t->state = WFT_STATE_SUCCESS;
 		}
 
 		delete state_error;
 	}
+
+	if (t->state != WFT_STATE_SUCCESS)
+		t->error = error;
 }
 
 void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
@@ -731,7 +738,8 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
 
-	if (task->get_resp()->get_api_type() == Kafka_Fetch)
+	if (task->get_state() == WFT_STATE_SUCCESS &&
+		task->get_resp()->get_api_type() == Kafka_Fetch)
 	{
 		toppar_list->rewind();
 		KafkaToppar *task_toppar;

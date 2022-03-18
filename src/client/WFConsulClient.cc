@@ -23,6 +23,7 @@
 #include <functional>
 #include "json_parser.h"
 #include "StringUtil.h"
+#include "URIParser.h"
 #include "HttpUtil.h"
 #include "WFConsulClient.h"
 
@@ -32,7 +33,8 @@ WFConsulTask::WFConsulTask(const std::string& proxy_url,
 						   const std::string& service_namespace,
 						   const std::string& service_name,
 						   const std::string& service_id,
-						   int retry_max, consul_callback_t&& cb) :
+						   int retry_max,
+						   consul_callback_t&& cb) :
 	proxy_url(proxy_url),
 	callback(std::move(cb))
 {
@@ -147,11 +149,15 @@ void WFConsulTask::dispatch()
 
 	case CONSUL_API_TYPE_REGISTER:
 		task = create_register_task();
-		if (this->state == WFT_STATE_UNDEFINED)
+		if (task)
 			break;
-		
-		task->dismiss();
-		if (0)
+
+		if (1)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+		}
+		else
 		{
 	default:
 			this->state = WFT_STATE_TASK_ERROR;
@@ -257,13 +263,10 @@ static bool create_register_request(const json_value_t *root,
 WFHttpTask *WFConsulTask::create_register_task()
 {
 	std::string payload;
-	bool ret = false;
 
 	std::string url = this->proxy_url;
 	url += "/v1/agent/service/register?replace-existing-checks=";
-	std::string replace_checks =
-					this->config.get_replace_checks() ? "true" : "false";
-	url += replace_checks;
+	url += this->config.get_replace_checks() ? "true" : "false";
 
 	WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, this->retry_max,
 													   register_callback);
@@ -278,24 +281,19 @@ WFHttpTask *WFConsulTask::create_register_task()
 	json_value_t *root = json_value_create(JSON_VALUE_OBJECT);
 	if (root)
 	{
-		ret = create_register_request(root, &this->service, this->config);
-		if (ret)
-		{
+		if (create_register_request(root, &this->service, this->config))
 			print_json_value(root, 0, payload);
-			ret = req->append_output_body(payload);
-		}
 
 		json_value_destroy(root);
+		if (!payload.empty() && req->append_output_body(payload))
+		{
+			task->user_data = this;
+			return task;
+		}
 	}
 
-	if (!ret)
-	{
-		this->state = WFT_STATE_SYS_ERROR;
-		this->error = errno;
-	}
-
-	task->user_data = this;
-	return task;
+	task->dismiss();
+	return NULL;
 }
 
 WFHttpTask *WFConsulTask::create_deregister_task()
@@ -311,7 +309,7 @@ WFHttpTask *WFConsulTask::create_deregister_task()
 
 	req->set_method(HttpMethodPut);
 	req->add_header_pair("Content-Type", "application/json");
-	
+
 	std::string token = this->config.get_token();
 	if (!token.empty())
 		req->add_header_pair("X-Consul-Token", token);
@@ -396,17 +394,33 @@ void WFConsulTask::register_callback(WFHttpTask *task)
 	t->finish = true;
 }
 
-int WFConsulClient::init(const std::string& proxy_url)
-{
-	this->proxy_url = proxy_url;
-	return 0;
-}
-
 int WFConsulClient::init(const std::string& proxy_url, ConsulConfig config)
 {
-	this->proxy_url = proxy_url;
-	this->config = std::move(config);
-	return 0;
+	ParsedURI uri;
+
+	if (URIParser::parse(proxy_url, uri) >= 0)
+	{
+		this->proxy_url = uri.scheme;
+		this->proxy_url += "://";
+		this->proxy_url += uri.host;
+		if (uri.port)
+		{
+			this->proxy_url += ":";
+			this->proxy_url += uri.port;
+		}
+
+		this->config = std::move(config);
+		return 0;
+	}
+	else if (uri.state == URI_STATE_INVALID)
+		errno = EINVAL;
+
+	return -1;
+}
+
+int WFConsulClient::init(const std::string& proxy_url)
+{
+	return this->init(proxy_url, ConsulConfig());
 }
 
 WFConsulTask *WFConsulClient::create_discover_task(
@@ -428,8 +442,9 @@ WFConsulTask *WFConsulClient::create_list_service_task(
 										int retry_max,
 										consul_callback_t cb)
 {
-	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace, "", "",
-										  retry_max, std::move(cb));
+	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace,
+										  "", "", retry_max,
+										  std::move(cb));
 	task->set_api_type(CONSUL_API_TYPE_LIST_SERVICE);
 	task->set_config(this->config);
 	return task;
@@ -439,11 +454,12 @@ WFConsulTask *WFConsulClient::create_register_task(
 										const std::string& service_namespace,
 										const std::string& service_name,
 										const std::string& service_id,
-										int retry_max, consul_callback_t cb)
+										int retry_max,
+										consul_callback_t cb)
 {
 	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace,
-										  service_name, service_id,
-										  retry_max, std::move(cb));
+										  service_name, service_id, retry_max,
+										  std::move(cb));
 	task->set_api_type(CONSUL_API_TYPE_REGISTER);
 	task->set_config(this->config);
 	return task;
@@ -452,10 +468,12 @@ WFConsulTask *WFConsulClient::create_register_task(
 WFConsulTask *WFConsulClient::create_deregister_task(
 										const std::string& service_namespace,
 										const std::string& service_id,
-										int retry_max, consul_callback_t cb)
+										int retry_max,
+										consul_callback_t cb)
 {
-	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace, "",
-	                                      service_id, retry_max, std::move(cb));
+	WFConsulTask *task = new WFConsulTask(this->proxy_url, service_namespace,
+										  "", service_id, retry_max,
+										  std::move(cb));
 	task->set_api_type(CONSUL_API_TYPE_DEREGISTER);
 	task->set_config(this->config);
 	return task;
@@ -528,7 +546,7 @@ static bool create_health_check(const ConsulConfig& config, json_object_t *obj)
 		if (!json_object_append(obj, "Body", JSON_VALUE_STRING,
 								str.c_str()))
 			return false;
-		
+
 		val = json_object_append(obj, "Header", JSON_VALUE_OBJECT);
 		if (!val)
 			return false;
@@ -655,7 +673,6 @@ static bool create_register_request(const json_value_t *root,
 	}
 
 	int type = service->tag_override ? JSON_VALUE_TRUE : JSON_VALUE_FALSE;
-
 	if (!json_object_append(obj, "EnableTagOverride", type))
 		return false;
 
@@ -696,7 +713,7 @@ static bool create_register_request(const json_value_t *root,
 }
 
 static bool parse_list_service_result(const json_value_t *root,
-									  std::vector<struct ConsulServiceTags>& result)
+							std::vector<struct ConsulServiceTags>& result)
 {
 	const json_object_t *obj;
 	const json_value_t *val;
@@ -853,7 +870,7 @@ static bool parse_tagged_address(const char *name,
 }
 
 static bool parse_service(const json_object_t *obj,
-                          struct ConsulService *service)
+						  struct ConsulService *service)
 {
 	const json_value_t *val;
 	const char *str;
@@ -1004,7 +1021,6 @@ static bool parse_health_check(const json_object_t *obj,
 			return false;
 
 		std::string check_service_id = str;
-
 		if (check_service_id.empty() || check_service_name.empty())
 			continue;
 
@@ -1073,7 +1089,7 @@ static bool parse_health_check(const json_object_t *obj,
 }
 
 static bool parse_discover_result(const json_value_t *root,
-		std::vector<struct ConsulServiceInstance>& result)
+					std::vector<struct ConsulServiceInstance>& result)
 {
 	const json_array_t *arr = json_value_array(root);
 	const json_value_t *val;
@@ -1087,7 +1103,6 @@ static bool parse_discover_result(const json_value_t *root,
 		struct ConsulServiceInstance instance;
 
 		obj = json_value_object(val);
-
 		if (!obj)
 			return false;
 
@@ -1098,7 +1113,6 @@ static bool parse_discover_result(const json_value_t *root,
 			return false;
 
 		parse_health_check(obj, &instance);
-
 		result.emplace_back(std::move(instance));
 	}
 
@@ -1213,15 +1227,10 @@ static void print_json_number(double number, std::string& json_str)
 static void print_json_value(const json_value_t *val, int depth,
 							 std::string& json_str)
 {
-	const char *val_str;
 	switch (json_value_type(val))
 	{
 	case JSON_VALUE_STRING:
-		val_str = json_value_string(val);
-		if (!val_str)
-			return;
-
-		print_json_string(val_str, json_str);
+		print_json_string(json_value_string(val), json_str);
 		break;
 	case JSON_VALUE_NUMBER:
 		print_json_number(json_value_number(val), json_str);

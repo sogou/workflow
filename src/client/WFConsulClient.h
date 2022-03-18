@@ -50,7 +50,7 @@ public:
 
 public:
 	void set_service(const struct protocol::ConsulService *service);
-	
+
 	void set_api_type(int api_type)
 	{
 		this->api_type = api_type;
@@ -94,7 +94,7 @@ protected:
 
 	std::string generate_discover_request();
 	long long get_consul_index(protocol::HttpResponse *resp);
-	
+
 	static bool check_task_result(WFHttpTask *task, WFConsulTask *consul_task);
 	static void discover_callback(WFHttpTask *task);
 	static void list_service_callback(WFHttpTask *task);
@@ -131,19 +131,23 @@ public:
 
 	WFConsulTask *create_discover_task(const std::string& service_namespace,
 									   const std::string& service_name,
-									   int retry_max, consul_callback_t cb);
+									   int retry_max,
+									   consul_callback_t cb);
 
 	WFConsulTask *create_list_service_task(const std::string& service_namespace,
-										   int retry_max, consul_callback_t cb);
+										   int retry_max,
+										   consul_callback_t cb);
 
 	WFConsulTask *create_register_task(const std::string& service_namespace,
 									   const std::string& service_name,
 									   const std::string& service_id,
-									   int retry_max, consul_callback_t cb);
+									   int retry_max,
+									   consul_callback_t cb);
 
 	WFConsulTask *create_deregister_task(const std::string& service_namespace,
 										 const std::string& service_id,
-										 int retry_max, consul_callback_t cb);
+										 int retry_max,
+										 consul_callback_t cb);
 
 private:
 	std::string proxy_url;

@@ -516,7 +516,7 @@ bool __ComplexKafkaTask::process_fetch()
 	while ((toppar = this->get_resp()->get_toppar_list()->get_next()) != NULL)
 	{
 		if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE &&
-			toppar->get_offset() >= 0)
+			toppar->get_high_watermark() - toppar->get_low_watermark() > 0)
 		{
 			toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
 			toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);

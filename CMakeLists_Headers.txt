@@ -84,6 +84,7 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
+	src/util/json_parser.h
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h

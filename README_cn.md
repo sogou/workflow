@@ -86,6 +86,7 @@ make
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
     * [条件任务与资源池](docs/about-conditional.md)
+    * [DAG图任务](/docs/tutorial-11-graph_task.md)
   * 服务治理
     * [关于服务治理](docs/about-service-governance.md)
     * [Upstream更多文档](docs/about-upstream.md)

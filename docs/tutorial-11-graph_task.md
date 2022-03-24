@@ -5,7 +5,7 @@
 
 # 关于graph_task
 
-graph_task示例通过建立一个有向无环图，演示如果用workflow框架实现更加复杂的任务间依赖关系。
+graph_task示例通过建立一个有向无环图，演示如何用workflow框架实现更加复杂的任务间依赖关系。
 
 # 创建DAG中的任务
 
@@ -72,11 +72,15 @@ WFGraphTask的create_graph_node接口，产生一个图节点并返回节点的�
 }
 ~~~
 ~~~cpp
+{
     d<--b<--a;
     d<--c<--a;
+}
 ~~~
 ~~~cpp
+{
     d<--b<--a-->c-->d;
+}
 ~~~
 接下来直接运行graph，或者把graph放入任务流中就可以运行啦，和一般的任务没有区别。  
 当然，把一个图任务变成另一个图的节点，也是完全正确的行为。
@@ -84,3 +88,8 @@ WFGraphTask的create_graph_node接口，产生一个图节点并返回节点的�
 # 数据传递
 
 图节点之间目前没有统一的数据传递方法，它们并不共享某一个series。因此，节点间数据传递需要用户解决。
+
+# 致谢
+
+部分思路来自于[taskflow](https://github.com/taskflow/taskflow)项目。
+

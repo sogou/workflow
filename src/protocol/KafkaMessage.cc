@@ -774,10 +774,14 @@ static int zstd_decompress(void *buf, size_t n, KafkaBlock *block)
 			return 0;
 
 		if (ZSTD_getErrorCode(ret) == ZSTD_error_dstSize_tooSmall)
+		{
 			out_bufsize += out_bufsize * 2;
+		}
 		else
+		{
 			errno = EBADMSG;
 			return -1;
+		}
 	}
 }
 

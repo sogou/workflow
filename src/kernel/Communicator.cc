@@ -919,7 +919,6 @@ void Communicator::handle_listen_result(struct poller_result *res)
 	CommService *service = (CommService *)res->data.context;
 	struct CommConnEntry *entry;
 	CommServiceTarget *target;
-	int timeout;
 
 	switch (res->state)
 	{
@@ -928,6 +927,7 @@ void Communicator::handle_listen_result(struct poller_result *res)
 		entry = this->accept_conn(target, service);
 		if (entry)
 		{
+			int timeout = 0;
 			if (service->ssl_ctx)
 			{
 				if (__create_ssl(service->ssl_ctx, entry) >= 0 &&

@@ -401,7 +401,7 @@ int CommSchedGroup::remove(CommSchedTarget *target)
 CommTarget *CommSchedGroup::acquire(int wait_timeout)
 {
 	pthread_mutex_t *mutex = &this->mutex;
-	CommSchedTarget *target;
+	CommSchedTarget *target = nullptr;
 	int ret;
 
 	pthread_mutex_lock(mutex);

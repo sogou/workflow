@@ -255,6 +255,7 @@ public:
 		return *this;
 	}
 
+private:
 	// register health check config
 	struct HealthCheckConfig
 	{
@@ -292,7 +293,7 @@ public:
 		HealthCheckConfig check_cfg;
 	};
 
-// private:
+private:
 	struct Config *ptr;
 	std::atomic<int> *ref;
 };

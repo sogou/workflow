@@ -595,6 +595,11 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 	}
 	else
 	{
+		t->meta_list.rewind();
+		KafkaMeta *meta;
+		while ((meta = t->meta_list.get_next()) != NULL)
+			(*t->client->member->meta_map)[meta->get_topic()] = META_UNINIT;
+
 		t->state = WFT_STATE_TASK_ERROR;
 		t->error = WFT_ERR_KAFKA_META_FAILED;
 		t->finish = true;

@@ -398,7 +398,10 @@ static int __parse_json_value(const char *cursor, const char **end,
 
 		ret = __parse_json_string(cursor, end, val->value.string);
 		if (ret < 0)
+		{
+			free(val->value.string);
 			return ret;
+		}
 
 		val->type = JSON_VALUE_STRING;
 		break;

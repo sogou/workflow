@@ -41,7 +41,6 @@ public:
 
 protected:
 	virtual CommMessageOut *message_out();
-	virtual CommMessageIn *message_in();
 	virtual bool init_success();
 	virtual bool finish_once();
 
@@ -74,11 +73,6 @@ CommMessageOut *ComplexDnsTask::message_out()
 	resp->set_single_packet(type == TT_UDP);
 
 	return this->WFClientTask::message_out();
-}
-
-CommMessageIn *ComplexDnsTask::message_in()
-{
-	return this->WFClientTask::message_in();
 }
 
 bool ComplexDnsTask::init_success()

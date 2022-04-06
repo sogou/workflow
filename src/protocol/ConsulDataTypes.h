@@ -49,14 +49,14 @@ public:
 	}
 	std::string get_near_node() const { return this->ptr->near; }
 
-	void set_filter_expr(const std::string& filter_expr)
-	{
-		this->ptr->filter = filter_expr;
-	}
+	//void set_filter_expr(const std::string& filter_expr)
+	//{
+	//	this->ptr->filter = filter_expr;
+	//}
 	std::string get_filter_expr() const { return this->ptr->filter; }
 
-	// blocking query wait, limited to 10 minutes, default:5m, unit:ms
-	void set_wait_ttl(int wait_ttl) { this->ptr->wait_ttl = wait_ttl; }
+	// blocking query wait, limited to 10 minutes, default:5s, unit:ms
+	//void set_wait_ttl(int wait_ttl) { this->ptr->wait_ttl = wait_ttl; }
 	int get_wait_ttl() const { return this->ptr->wait_ttl; }
 
 	// enable blocking query
@@ -191,7 +191,7 @@ public:
 		this->ptr->blocking_query = false;
 		this->ptr->passing = false;
 		this->ptr->replace_checks = false;
-		this->ptr->wait_ttl = 300 * 1000;
+		this->ptr->wait_ttl = 5 * 1000;
 		this->ptr->check_cfg.interval = 5000; //default:5s
 	 	this->ptr->check_cfg.timeout = 10000;  //default:10s
 		this->ptr->check_cfg.http_method = "GET";

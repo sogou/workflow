@@ -224,15 +224,18 @@ cc_library(
 	hdrs = [
 		'src/client/WFConsulClient.h',
 		'src/protocol/ConsulDataTypes.h',
+		'src/manager/ConsulManager.h',
 	],
 	includes = [ 
 		'src/client',
 		'src/factory',
 		'src/protocol',
+		'src/manager',
 		'src/util',
 	],
 	srcs = [ 
 		'src/client/WFConsulClient.cc',
+		'src/manager/ConsulManager.cc',
 	],
 	deps = [
 		':common',
@@ -339,4 +342,9 @@ cc_binary(
 	 srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
 	 deps = [':kafka', ':workflow_hdrs'],
 	 copts = ['-fno-rtti'],
+)
+cc_binary(
+	 name = 'consul_cli',
+	 srcs = ['tutorial/tutorial-21-consul.cc'],
+	 deps = [':consul', ':workflow_hdrs', ':http', ':upstream'],
 )

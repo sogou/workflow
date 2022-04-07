@@ -224,7 +224,7 @@ cc_library(
 	hdrs = [
 		'src/client/WFConsulClient.h',
 		'src/protocol/ConsulDataTypes.h',
-		'src/manager/ConsulManager.h',
+		'src/manager/WFConsulManager.h',
 	],
 	includes = [ 
 		'src/client',
@@ -235,7 +235,7 @@ cc_library(
 	],
 	srcs = [ 
 		'src/client/WFConsulClient.cc',
-		'src/manager/ConsulManager.cc',
+		'src/manager/WFConsulManager.cc',
 	],
 	deps = [
 		':common',
@@ -345,6 +345,6 @@ cc_binary(
 )
 cc_binary(
 	 name = 'consul_cli',
-	 srcs = ['tutorial/tutorial-21-consul.cc'],
+	 srcs = ['tutorial/tutorial-21-consul_cli.cc'],
 	 deps = [':consul', ':workflow_hdrs', ':http', ':upstream'],
 )

@@ -16,8 +16,8 @@
   Authors: Wang Zhenpeng (wangzhenpeng@sogou-inc.com)
 */
 
-#ifndef _CONSULMANAGER_H_
-#define _CONSULMANAGER_H_
+#ifndef _WFConsulManager_H_
+#define _WFConsulManager_H_
 
 #include <map>
 #include <mutex>
@@ -33,15 +33,15 @@
 
 enum
 {
-	WF_CONSUL_UPSTREAM_WEIGHT           = 0,
-	WF_CONSUL_UPSTREAM_HASH             = 1,
-	WF_CONSUL_UPSTREAM_MANUAL           = 2,
-	WF_CONSUL_UPSTREAM_NVSWRR           = 3,
+	CONSUL_UPSTREAM_WEIGHT           = 0,
+	CONSUL_UPSTREAM_HASH             = 1,
+	CONSUL_UPSTREAM_MANUAL           = 2,
+	CONSUL_UPSTREAM_NVSWRR           = 3,
 };
 
 struct ConsulWatchParams
 {
-	//WF_CONSUL_UPSTREAM_WEIGHT or WF_CONSUL_UPSTREAM_HASH or WF_CONSUL_UPSTREAM_MANUAL or WF_CONSUL_UPSTREAM_NVSWRR
+	//CONSUL_UPSTREAM_WEIGHT or CONSUL_UPSTREAM_HASH or CONSUL_UPSTREAM_MANUAL or CONSUL_UPSTREAM_NVSWRR
 	int upstream_policy;
 	int connect_timeout;
 	int response_timeout;
@@ -50,7 +50,7 @@ struct ConsulWatchParams
 
 static constexpr struct ConsulWatchParams CONSUL_DISCOVER_PARAMS_DEFAULT =
 {
-	.upstream_policy    =    WF_CONSUL_UPSTREAM_WEIGHT,
+	.upstream_policy    =    CONSUL_UPSTREAM_WEIGHT,
 	.connect_timeout    =    10 * 1000,   //10s
 	.response_timeout   =    10 * 1000,   //10s
 	.max_fails          =    200,
@@ -64,21 +64,12 @@ struct ConsulRegisterParams
 	uint16_t port;
 };
 
-enum
-{
-	WF_CONSUL_INIT_FAILED       = -1,
-	WF_CONSUL_INIT_SUCCESS      = 0,
-	WF_CONSUL_DOUBLE_WATCH      = 1,
-	WF_CONSUL_NO_WATCHING_SERVICE   = 2,
-	WF_CONSUL_MANAGER_EXITED    = 3,
-};
-
-class __ConsulManager;
-class ConsulManager
+class __WFConsulManager;
+class WFConsulManager
 {
 public:
-	ConsulManager(const std::string& consul_url, protocol::ConsulConfig config);
-	~ConsulManager();
+	WFConsulManager(const std::string& consul_url, protocol::ConsulConfig config);
+	~WFConsulManager();
 
 	/**
      * @brief      watch service
@@ -152,7 +143,7 @@ public:
 	void set_consistent_hash(upstream_route_t consistent_hash);
 private:
 
-	__ConsulManager *ptr;
+	__WFConsulManager *ptr;
 };
 
 #endif

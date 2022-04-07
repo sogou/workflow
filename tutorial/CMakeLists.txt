@@ -43,6 +43,7 @@ set(TUTORIAL_LIST
 	tutorial-11-graph_task
 	tutorial-15-name_service
 	tutorial-20-reducer
+	tutorial-21-consul_cli
 )
 
 if (APPLE)

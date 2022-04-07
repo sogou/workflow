@@ -12,6 +12,10 @@ if (NOT UPSTREAM STREQUAL "n")
 		${SRC}
 		UpstreamManager.cc
 	)
+	set(SRC
+		${SRC}
+		WFConsulManager.cc
+	)
 endif ()
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

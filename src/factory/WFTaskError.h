@@ -65,8 +65,10 @@ enum
 	WFT_ERR_KAFKA_SASL_DISALLOWED = 5010,   ///< sasl not supported
 
 	//CONSUL
-	WFT_ERR_CONSUL_API_UNKNOWN = 6001,		///< api type not supported
+	WFT_ERR_CONSUL_API_UNKNOWN = 6001,		        ///< api type not supported
 	WFT_ERR_CONSUL_CHECK_RESPONSE_FAILED = 6002,	///< Consul http code failed
+	WFT_ERR_CONSUL_DOUBLE_WATCH = 6003,	            ///< Consul double watch 
+	WFT_ERR_CONSUL_NO_WATCHING_SERVICE = 6004,      ///< Consul no watch service
 };
 
 #endif

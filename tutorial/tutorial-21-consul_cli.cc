@@ -27,7 +27,7 @@
 #include "workflow/WFFacilities.h"
 #include "workflow/HttpMessage.h"
 #include "workflow/WFHttpServer.h"
-#include "workflow/ConsulManager.h"
+#include "workflow/WFConsulManager.h"
 #include "workflow/ConsulDataTypes.h"
 
 using namespace protocol;
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 		// http health check
 		config.set_check_http_url("http://" + host); 
 
-		ConsulManager cm(url, config);
+		WFConsulManager cm(url, config);
 
 		std::string address = host.substr(0, pos);
 		unsigned short port = atoi(host.substr(pos + 1).c_str());
@@ -116,16 +116,16 @@ int main(int argc, char *argv[])
 	{
 		config.set_passing(true);
 		config.set_blocking_query(true);
-		ConsulManager cm(url, config);
+		WFConsulManager cm(url, config);
 
 		struct ConsulWatchParams watch_params;
-		watch_params.upstream_policy = WF_CONSUL_UPSTREAM_WEIGHT;
-		//watch_params.upstream_policy = WF_CONSUL_UPSTREAM_MANUAL;
 		watch_params.connect_timeout = 100;
 		watch_params.response_timeout = 200;
-		auto select = [](const char *path, const char *query, const char *fragment) -> unsigned int {
-			return atoi(fragment);
-		};
+		watch_params.upstream_policy = CONSUL_UPSTREAM_WEIGHT;
+		//watch_params.upstream_policy = CONSUL_UPSTREAM_MANUAL;
+		//auto select = [](const char *path, const char *query, const char *fragment) -> unsigned int {
+		//	return atoi(fragment);
+		//};
 		//cm.set_select(select);
 
 		if (cm.watch_service(service_namespace, service_name, &watch_params) != 0)

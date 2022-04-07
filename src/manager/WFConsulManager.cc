@@ -19,11 +19,17 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
-#include "ConsulManager.h"
+#include "WFConsulManager.h"
 #include "WFConsulClient.h"
 #include "UpstreamManager.h"
 
 using namespace protocol;
+
+enum
+{
+    CONSUL_INIT_FAILED       = -1, 
+    CONSUL_INIT_SUCCESS      = 0,
+};
 
 class ConsulPolicy
 {
@@ -40,19 +46,19 @@ public:
 		
 		switch (this->params.upstream_policy)
 		{
-		case WF_CONSUL_UPSTREAM_WEIGHT:
+		case CONSUL_UPSTREAM_WEIGHT:
 			status = UpstreamManager::upstream_create_weighted_random(
 				this->policy_name, true);
 			break;
-		case WF_CONSUL_UPSTREAM_HASH:
+		case CONSUL_UPSTREAM_HASH:
 			status = UpstreamManager::upstream_create_consistent_hash(
 				this->policy_name, this->consistent_hash);
 			break;
-		case WF_CONSUL_UPSTREAM_MANUAL:
+		case CONSUL_UPSTREAM_MANUAL:
 			status = UpstreamManager::upstream_create_manual(this->policy_name,
 				this->select, true, this->consistent_hash);
 			break;
-		case WF_CONSUL_UPSTREAM_NVSWRR:
+		case CONSUL_UPSTREAM_NVSWRR:
 			status = UpstreamManager::upstream_create_vnswrr(this->policy_name);
 			break;
 		}
@@ -108,29 +114,29 @@ private:
 	int status;	
 };
 
-class __ConsulManager
+class __WFConsulManager
 {
 public:
-	__ConsulManager(const std::string& consul_url, ConsulConfig config) :
+	__WFConsulManager(const std::string& consul_url, ConsulConfig config) :
 		ref(1), consul_url(consul_url), config(std::move(config)),
-		retry_max(2)
+		retry_max(2), select(nullptr), consistent_hash(nullptr)
 	{
 		if (this->client.init(consul_url, this->config) == 0)
-			this->status = WF_CONSUL_INIT_SUCCESS;
+			this->status = CONSUL_INIT_SUCCESS;
 		else
-			this->status = WF_CONSUL_INIT_FAILED;
+			this->status = CONSUL_INIT_FAILED;
 
-		this->discover_cb = std::bind(&__ConsulManager::discover_callback, this,
+		this->discover_cb = std::bind(&__WFConsulManager::discover_callback, this,
 									  std::placeholders::_1);
-		this->register_cb = std::bind(&__ConsulManager::register_callback, this,
+		this->register_cb = std::bind(&__WFConsulManager::register_callback, this,
 									  std::placeholders::_1);
-		this->deregister_cb = std::bind(&__ConsulManager::register_callback, this,
+		this->deregister_cb = std::bind(&__WFConsulManager::register_callback, this,
 										std::placeholders::_1);
 	}
 
-	~__ConsulManager()
+	~__WFConsulManager()
 	{
-		if (this->status != WF_CONSUL_INIT_FAILED)
+		if (this->status != CONSUL_INIT_FAILED)
 			this->client.deinit();
 	}
 	
@@ -159,6 +165,13 @@ public:
 	void set_consistent_hash(upstream_route_t consistent_hash)
 	{
 		this->consistent_hash = consistent_hash;
+	}
+
+public:
+	void exit()
+	{
+		assert(--this->ref == 0);
+		delete this;
 	}
 
 	using ConsulInstances = std::vector<struct ConsulServiceInstance>;
@@ -217,38 +230,38 @@ struct WFConsulTaskContext
 	std::string service_name;
 };
 
-ConsulManager::ConsulManager(const std::string& consul_url,
+WFConsulManager::WFConsulManager(const std::string& consul_url,
 							 ConsulConfig config)
 {
-	ptr = new __ConsulManager(consul_url, std::move(config));
+	ptr = new __WFConsulManager(consul_url, std::move(config));
 }
 
-ConsulManager::~ConsulManager()
+WFConsulManager::~WFConsulManager()
 {
-	delete ptr;
+	ptr->exit();
 }
 
-int ConsulManager::watch_service(const std::string& service_namespace,
+int WFConsulManager::watch_service(const std::string& service_namespace,
 								 const std::string& service_name)
 {
 	struct ConsulWatchParams params = CONSUL_DISCOVER_PARAMS_DEFAULT;
 	return watch_service(service_namespace, service_name, &params);
 }
 
-int ConsulManager::watch_service(const std::string& service_namespace,
+int WFConsulManager::watch_service(const std::string& service_namespace,
 								 const std::string& service_name,
 								 const struct ConsulWatchParams *params)
 {
 	return this->ptr->watch_service(service_namespace, service_name, params);
 }
 
-int ConsulManager::unwatch_service(const std::string& service_namespace,
+int WFConsulManager::unwatch_service(const std::string& service_namespace,
 								   const std::string& service_name)
 {
 	return this->ptr->unwatch_service(service_namespace, service_name);
 }
 
-int ConsulManager::register_service(const std::string& service_namespace,
+int WFConsulManager::register_service(const std::string& service_namespace,
 									const std::string& service_name,
 									const std::string& service_id,
 									const struct ConsulRegisterParams *params)
@@ -257,33 +270,33 @@ int ConsulManager::register_service(const std::string& service_namespace,
 								 params);
 }
 
-int ConsulManager::deregister_service(const std::string& service_namespace,
+int WFConsulManager::deregister_service(const std::string& service_namespace,
 									  const std::string& service_id)
 {
 	return ptr->deregister_service(service_namespace, service_id);
 }
 
-void ConsulManager::get_watching_services(std::vector<std::string>& services)
+void WFConsulManager::get_watching_services(std::vector<std::string>& services)
 {
 	ptr->get_watching_services(services);
 }
 
-void ConsulManager::set_select(upstream_route_t select)
+void WFConsulManager::set_select(upstream_route_t select)
 {
 	ptr->set_select(select);
 }
 
-void ConsulManager::set_consistent_hash(upstream_route_t consistent_hash)
+void WFConsulManager::set_consistent_hash(upstream_route_t consistent_hash)
 {
 	ptr->set_consistent_hash(consistent_hash);
 }
 
-int __ConsulManager::watch_service(const std::string& service_namespace,
+int __WFConsulManager::watch_service(const std::string& service_namespace,
 								   const std::string& service_name,
 								   const struct ConsulWatchParams *params)
 {
-	if (this->status == WF_CONSUL_INIT_FAILED || !params)
-		return WF_CONSUL_INIT_FAILED;
+	if (this->status == CONSUL_INIT_FAILED || !params)
+		return CONSUL_INIT_FAILED;
 	
 	this->params = *params;
 		
@@ -318,17 +331,17 @@ int __ConsulManager::watch_service(const std::string& service_namespace,
 	return result.error;
 }
 
-int __ConsulManager::unwatch_service(const std::string& service_namespace,
+int __WFConsulManager::unwatch_service(const std::string& service_namespace,
 									 const std::string& service_name)
 {
-	if (this->status == WF_CONSUL_INIT_FAILED)
-		return WF_CONSUL_INIT_FAILED;
+	if (this->status == CONSUL_INIT_FAILED)
+		return CONSUL_INIT_FAILED;
 
 	std::string policy_name = get_policy_name(service_namespace, service_name);
 	std::unique_lock<std::mutex> lock(this->mutex);
 	auto iter = this->watch_status.find(policy_name);
 	if (iter == this->watch_status.end())
-		return WF_CONSUL_NO_WATCHING_SERVICE;	
+		return WFT_ERR_CONSUL_NO_WATCHING_SERVICE;	
 		
 	if (iter->second->watching)
 	{
@@ -349,13 +362,13 @@ int __ConsulManager::unwatch_service(const std::string& service_namespace,
 	return 0;
 }
 
-int __ConsulManager::register_service(const std::string& service_namespace,
+int __WFConsulManager::register_service(const std::string& service_namespace,
 									  const std::string& service_name,
 									  const std::string& service_id,
 									  const struct ConsulRegisterParams *params)
 {
-	if (this->status == WF_CONSUL_INIT_FAILED || !params)
-		return WF_CONSUL_INIT_FAILED;
+	if (this->status == CONSUL_INIT_FAILED || !params)
+		return CONSUL_INIT_FAILED;
 
 	WFFacilities::WaitGroup wait_group(1);
 	WFConsulTask *task = this->client.create_register_task(service_namespace,
@@ -381,11 +394,11 @@ int __ConsulManager::register_service(const std::string& service_namespace,
 	return result.error;
 }
 
-int __ConsulManager::deregister_service(const std::string& service_namespace,
+int __WFConsulManager::deregister_service(const std::string& service_namespace,
 										const std::string& service_id)
 {
-	if (this->status == WF_CONSUL_INIT_FAILED)
-		return WF_CONSUL_INIT_FAILED;
+	if (this->status == CONSUL_INIT_FAILED)
+		return CONSUL_INIT_FAILED;
 
 	WFFacilities::WaitGroup wait_group(1);
 	WFConsulTask *task = this->client.create_deregister_task(service_namespace,
@@ -403,7 +416,7 @@ int __ConsulManager::deregister_service(const std::string& service_namespace,
 	return result.error;
 }
 
-void __ConsulManager::get_watching_services(std::vector<std::string>& services)
+void __WFConsulManager::get_watching_services(std::vector<std::string>& services)
 {
 	std::unique_lock<std::mutex> lk(this->mutex);
 	for (const auto& kv : this->watch_status)
@@ -412,16 +425,8 @@ void __ConsulManager::get_watching_services(std::vector<std::string>& services)
 	}
 }
 
-void __ConsulManager::discover_callback(WFConsulTask *task)
+void __WFConsulManager::discover_callback(WFConsulTask *task)
 {
-	if (this->status == WF_CONSUL_MANAGER_EXITED)
-	{
-		if (--this->ref == 0)
-			delete this;
-
-		return;
-	}
-
 	int error = task->get_error();
 	int state = task->get_state();
 
@@ -460,7 +465,7 @@ void __ConsulManager::discover_callback(WFConsulTask *task)
 		{
 			if (result)
 			{
-				result->error = WF_CONSUL_DOUBLE_WATCH;
+				result->error = WFT_ERR_CONSUL_DOUBLE_WATCH;
 				result->wait_group->done();
 				return; 
 			}
@@ -497,7 +502,7 @@ void __ConsulManager::discover_callback(WFConsulTask *task)
 		}
 	}
 
-	auto timer_cb = std::bind(&__ConsulManager::timer_callback, this,
+	auto timer_cb = std::bind(&__WFConsulManager::timer_callback, this,
 							  std::placeholders::_1, consul_index);
 	WFTimerTask *timer_task;
 	if (this->config.blocking_query())
@@ -513,7 +518,7 @@ void __ConsulManager::discover_callback(WFConsulTask *task)
 
 }
 
-void __ConsulManager::timer_callback(WFTimerTask *task, long long consul_index)
+void __WFConsulManager::timer_callback(WFTimerTask *task, long long consul_index)
 {
 	auto *series_task = series_of(task);
 	struct WFConsulTaskContext *ctx =
@@ -528,7 +533,7 @@ void __ConsulManager::timer_callback(WFTimerTask *task, long long consul_index)
 	series_of(task)->push_back(discover_task);
 }
 
-void __ConsulManager::register_callback(WFConsulTask *task)
+void __WFConsulManager::register_callback(WFConsulTask *task)
 {
 	int error = task->get_error();
 
@@ -539,7 +544,7 @@ void __ConsulManager::register_callback(WFConsulTask *task)
 	return;
 }
 
-int __ConsulManager::update_upstream_and_instances(
+int __WFConsulManager::update_upstream_and_instances(
 								const std::string& policy_name,
 								const ConsulInstances& instances,
 								ConsulPolicy& policy,
@@ -572,13 +577,13 @@ int __ConsulManager::update_upstream_and_instances(
 	return ret;
 }
 
-std::string __ConsulManager::get_policy_name(const std::string& service_namespace,
+std::string __WFConsulManager::get_policy_name(const std::string& service_namespace,
 											 const std::string& service_name)
 {
 	return service_namespace + "." + service_name;
 }
 
-std::string __ConsulManager::get_address(const std::string& host,
+std::string __WFConsulManager::get_address(const std::string& host,
 										 unsigned short port)
 {
 	return host + ":" + std::to_string(port);

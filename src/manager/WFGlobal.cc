@@ -823,6 +823,12 @@ static inline const char *__get_task_error_string(int error)
 	case WFT_ERR_KAFKA_VERSION_DISALLOWED:
 		return "Kafka broker version not supported";
 
+	case WFT_ERR_CONSUL_API_UNKNOWN:
+		return "Consul api type unknown";
+
+	case WFT_ERR_CONSUL_CHECK_RESPONSE_FAILED:
+		return "Consul check response failed";
+
 	default:
 		break;
 	}

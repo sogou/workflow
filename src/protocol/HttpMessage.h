@@ -93,6 +93,11 @@ public:
 									  this->parser) == 0;
 	}
 
+	bool is_header_complete() const
+	{
+		return http_parser_header_complete(this->parser);
+	}
+
 	bool has_connection_header() const
 	{
 		return http_parser_has_connection(this->parser);
@@ -128,6 +133,7 @@ public:
 	bool append_output_body(const void *buf, size_t size);
 	bool append_output_body_nocopy(const void *buf, size_t size);
 	void clear_output_body();
+
 	size_t get_output_body_size() const
 	{
 		return this->output_body_size;

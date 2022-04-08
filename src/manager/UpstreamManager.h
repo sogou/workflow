@@ -44,7 +44,7 @@
  * - Additional, we support Main-backup & Group for server and working well in any mode.
  *
  * @code{.cc}
-	upstream_create_weighted_random("abc.sogou", true);           //UPSTREAM_WIGHTED_RANDOM
+	upstream_create_weighted_random("abc.sogou", true);           //UPSTREAM_WEIGHTED_RANDOM
 	upstream_add_server("abc.sogou", "192.168.2.100:8081");       //weight=1, max_fails=200
 	upstream_add_server("abc.sogou", "192.168.2.100:9090");       //weight=1, max_fails=200
 	AddressParams params = ADDRESS_PARAMS_DEFAULT;
@@ -126,14 +126,14 @@ public:
 									  upstream_route_t consitent_hash);
 
 	/**
-	 * @brief      MODE 4: VSWRR select
+	 * @brief      MODE 4: VNSWRR select
 	 * @param[in]  name             upstream name
 	 * @return     success/fail
 	 * @retval     0                success
 	 * @retval     -1               fail, more info see errno
 	 * @note
 	 */
-	static int upstream_create_vswrr(const std::string& name);
+	static int upstream_create_vnswrr(const std::string& name);
 
 	/**
 	 * @brief      Delete one upstream

@@ -501,7 +501,9 @@ void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		struct addrinfo *ai = NULL;
-		int ret = DnsUtil::getaddrinfo(dns_task->get_resp(), port_, &ai);
+		int ret;
+		
+		ret = protocol::DnsUtil::getaddrinfo(dns_task->get_resp(), port_, &ai);
 		DnsOutput out;
 		DnsRoutine::create(&out, ret, ai);
 		dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
@@ -529,7 +531,8 @@ void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
 	if (ctx->state == WFT_STATE_SUCCESS)
 	{
 		protocol::DnsResponse *resp = dns_task->get_resp();
-		ctx->eai_error = DnsUtil::getaddrinfo(resp, ctx->port, &ctx->ai);
+		ctx->eai_error = protocol::DnsUtil::getaddrinfo(resp, ctx->port,
+														&ctx->ai);
 	}
 	else
 		ctx->eai_error = EAI_NONAME;

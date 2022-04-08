@@ -58,11 +58,16 @@ void mysql_parser_deinit(mysql_parser_t *parser)
 	list_for_each_safe(pos, tmp, &parser->result_set_list)
 	{
 		result_set = list_entry(pos, struct __mysql_result_set, list);
-		for (i = 0; i < result_set->field_count; i++)
-			free(result_set->fields[i]);
-		if (result_set->field_count)
-			free(result_set->fields);
 		list_del(pos);
+
+		if (result_set->field_count)
+		{
+			for (i = 0; i < result_set->field_count; i++)
+				free(result_set->fields[i]);
+
+			free(result_set->fields);
+		}
+
 		free(result_set);
 	}
 }
@@ -361,16 +366,17 @@ static int parse_field_count(const void *buf, size_t len, mysql_parser_t *parser
 
 	if (field_count)
 	{
-		result_set = (struct __mysql_result_set *)malloc(sizeof(struct __mysql_result_set));
+		result_set = (struct __mysql_result_set *)malloc(sizeof (struct __mysql_result_set));
 		if (result_set == NULL)
 			return -1;
 
-		result_set->fields = (mysql_field_t **)malloc(sizeof(mysql_field_t *) * field_count);
+		result_set->fields = (mysql_field_t **)calloc(field_count, sizeof (mysql_field_t *));
 		if (result_set->fields == NULL)
 		{
 			free(result_set);
 			return -1;
 		}
+
 		result_set->field_count = field_count;
 		result_set->row_count = 0;
 		result_set->type = MYSQL_PACKET_GET_RESULT;

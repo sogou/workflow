@@ -127,3 +127,15 @@ WFNSPolicy *WFNameService::del_policy(const char *name)
 	return policy;
 }
 
+WFNameService::~WFNameService()
+{
+	struct WFNSPolicyEntry *entry;
+
+	while (this->root.rb_node)
+	{
+		entry = rb_entry(this->root.rb_node, struct WFNSPolicyEntry, rb);
+		rb_erase(&entry->rb, &this->root);
+		free(entry);
+	}
+}
+

@@ -49,7 +49,7 @@ int main()
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
 * 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
 
-#### 快速开始（Linux, maxOS）：
+#### 快速开始（Linux, macOS）：
 ~~~sh
 git clone https://github.com/sogou/workflow # From gitee: git clone https://gitee.com/sogou/workflow
 cd workflow
@@ -86,6 +86,7 @@ make
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
     * [条件任务与资源池](docs/about-conditional.md)
+    * [DAG图任务](/docs/tutorial-11-graph_task.md)
   * 服务治理
     * [关于服务治理](docs/about-service-governance.md)
     * [Upstream更多文档](docs/about-upstream.md)

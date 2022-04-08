@@ -146,7 +146,7 @@ private:
 			if (ai && (ai->ai_flags & AI_PASSIVE))
 				freeaddrinfo(ai);
 			else
-				DnsUtil::freeaddrinfo(ai);
+				protocol::DnsUtil::freeaddrinfo(ai);
 		}
 	};
 

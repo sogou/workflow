@@ -120,6 +120,14 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 	if (ret < 0)
 		return -1;
 
+	if (ret > 0)
+	{
+		if (SSL_set_ex_data(this->ssl, this->ssl_ex_data_index, ptr) <= 0)
+			return -1;
+
+		return 1;
+	}
+
 	if (len > 0)
 		n = this->feedback(ptr, len);
 	else
@@ -142,7 +150,12 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 	long len;
 	int ret;
 
-	if (BIO_reset(wbio) <= 0)
+	if (SSL_get_ex_data(this->ssl, this->ssl_ex_data_index))
+	{
+		if (SSL_set_ex_data(this->ssl, this->ssl_ex_data_index, NULL) <= 0)
+			return -1;
+	}
+	else if (BIO_reset(wbio) <= 0)
 		return -1;
 
 	ret = this->ProtocolWrapper::encode(vectors, max);

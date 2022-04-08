@@ -33,8 +33,8 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
     .poller_threads     =   4,
     .handler_threads    =   20,
     .compute_threads    =   -1,
-    .resolv_conf_path   =   NULL,   // use thread dns task for default
-    .hosts_path         =   NULL,
+    .resolv_conf_path   =   "/etc/resolv.conf",
+    .hosts_path         =   "/etc/hosts",
 };
 ~~~
 
@@ -80,9 +80,11 @@ int main()
 ~~~
 
 大多数参数的意义都比较清晰。注意dns ttl相关参数，单位是**秒**。endpoint相关超时参数单位是**毫秒**，并且可以用-1表示无限。  
-dns_threads表示并行访问dns的线程数。但目前我们默认使用我们自己的异步DNS解决，所以并不会创建DNS线程。  
-dns_server_params表示是我们访问DNS server的参数，包括最大并发连接，以及连接与响应超时。　
+dns_threads表示并行访问dns的线程数。但目前我们默认使用我们自己的异步DNS解析，所以并不会创建DNS线程（Window平台除外）。  
+dns_server_params表示是我们访问DNS server的参数，包括最大并发连接，以及连接与响应超时。  
 compute_threads表示用于计算的线程数，默认-1代表与当前节点CPU核数相同。  
+resolv_conf_path是dns配置文件的路径，unix平台下默认为"/etc/resolv.conf"。Windows下默认为NULL，将使用多线程dns解析。  
+hosts_path是hosts文件路径。unix平台下默认为"/etc/hosts“。只有配置了resolv_conf_path，这个配置才起作用。  
 
 与网络性能相关的两个参数为poller_threads和handler_threads：
 * poller线程主要负责epoll（kqueue）和消息反序列化。

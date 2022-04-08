@@ -107,11 +107,14 @@ public:
 
 	KafkaList& operator= (const KafkaList& copy)
 	{
-		this->~KafkaList();
-		this->ref = copy.ref;
-		++*this->ref;
-		this->t_list = copy.t_list;
-		this->curpos = copy.curpos;
+		if (this != &copy)
+		{
+			this->~KafkaList();
+			this->ref = copy.ref;
+			++*this->ref;
+			this->t_list = copy.t_list;
+			this->curpos = copy.curpos;
+		}
 		return *this;
 	}
 
@@ -227,10 +230,13 @@ public:
 
 	KafkaMap& operator= (const KafkaMap& copy)
 	{
-		this->~KafkaMap();
-		this->ref = copy.ref;
-		++*this->ref;
-		this->t_map = copy.t_map;
+		if (this != &copy)
+		{
+			this->~KafkaMap();
+			this->ref = copy.ref;
+			++*this->ref;
+			this->t_map = copy.t_map;
+		}
 		return *this;
 	}
 
@@ -621,10 +627,13 @@ public:
 
 	KafkaConfig& operator= (const KafkaConfig& copy)
 	{
-		this->~KafkaConfig();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaConfig();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+		}
 		return *this;
 	}
 
@@ -633,7 +642,6 @@ public:
 private:
 	kafka_config_t *ptr;
 	std::atomic<int> *ref;
-	std::string sasl_buf;
 };
 
 class KafkaRecord
@@ -725,10 +733,13 @@ public:
 
 	KafkaRecord& operator= (KafkaRecord& copy)
 	{
-		this->~KafkaRecord();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaRecord();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+		}
 		return *this;
 	}
 
@@ -793,9 +804,12 @@ public:
 	void set_offset_timestamp(long long tm) { this->ptr->offset_timestamp = tm; }
 
 	long long get_high_watermark() const { return this->ptr->high_watermark; }
+	void set_high_watermark(long long offset) const { this->ptr->high_watermark = offset; }
 
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
+
+	bool reach_high_watermark() const { return this->ptr->offset == this->ptr->high_watermark; }
 
 public:
 	KafkaToppar()
@@ -849,13 +863,16 @@ public:
 
 	KafkaToppar& operator= (KafkaToppar& copy)
 	{
-		this->~KafkaToppar();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
-		this->curpos = copy.curpos;
-		this->startpos = copy.startpos;
-		this->endpos = copy.endpos;
+		if (this != &copy)
+		{
+			this->~KafkaToppar();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+			this->curpos = copy.curpos;
+			this->startpos = copy.startpos;
+			this->endpos = copy.endpos;
+		}
 		return *this;
 	}
 
@@ -1037,11 +1054,14 @@ public:
 
 	KafkaBroker& operator= (const KafkaBroker& copy)
 	{
-		this->~KafkaBroker();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		if (this->ref)
-			++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaBroker();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			if (this->ref)
+				++*this->ref;
+		}
 
 		return *this;
 	}
@@ -1198,10 +1218,13 @@ public:
 
 	KafkaMeta& operator= (KafkaMeta& copy)
 	{
-		this->~KafkaMeta();
-		this->ptr = copy.ptr;
-		this->ref = copy.ref;
-		++*this->ref;
+		if (this != &copy)
+		{
+			this->~KafkaMeta();
+			this->ptr = copy.ptr;
+			this->ref = copy.ref;
+			++*this->ref;
+		}
 		return *this;
 	}
 
@@ -1250,6 +1273,44 @@ private:
 	friend class KafkaList<KafkaMeta>;
 
 	friend const KafkaMeta *get_meta(const char *topic, KafkaMetaList *meta_list);
+};
+
+class KafkaMetaSubscriber
+{
+public:
+	void set_meta(KafkaMeta *meta)
+	{
+		this->meta = meta;
+	}
+
+	const KafkaMeta *get_meta() const
+	{
+		return this->meta;
+	}
+
+	void add_member(kafka_member_t *member)
+	{
+		this->member_vec.push_back(member);
+	}
+
+	const std::vector<kafka_member_t *> *get_member() const
+	{
+		return &this->member_vec;
+	}
+
+	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
+	{
+		return strcmp(m1->member_id, m2->member_id) < 0;
+	}
+
+	void sort_by_member()
+	{
+		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
+	}
+
+private:
+	KafkaMeta *meta;
+	std::vector<kafka_member_t *> member_vec;
 };
 
 class KafkaCgroup
@@ -1350,7 +1411,11 @@ public:
 		return this->coordinator;
 	}
 
-	int run_assignor(KafkaMetaList *meta_list, const char *protocol_name);
+	int run_assignor(KafkaMetaList *meta_list, KafkaMetaList *alien_meta_list,
+					 const char *protocol_name);
+
+	void add_subscriber(KafkaMetaList *meta_list,
+						std::vector<KafkaMetaSubscriber> *subscribers);
 
 	static int kafka_range_assignor(kafka_member_t **members,
 									int member_elements,
@@ -1461,44 +1526,6 @@ private:
 
 	friend class KafkaBuffer;
 	friend class KafkaList<KafkaBlock>;
-};
-
-class KafkaMetaSubscriber
-{
-public:
-	void set_meta(KafkaMeta *meta)
-	{
-		this->meta = meta;
-	}
-
-	const KafkaMeta *get_meta() const
-	{
-		return this->meta;
-	}
-
-	void add_member(kafka_member_t *member)
-	{
-		this->member_vec.push_back(member);
-	}
-
-	const std::vector<kafka_member_t *> *get_member() const
-	{
-		return &this->member_vec;
-	}
-
-	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
-	{
-		return strcmp(m1->member_id, m2->member_id) < 0;
-	}
-
-	void sort_by_member()
-	{
-		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
-	}
-
-private:
-	KafkaMeta *meta;
-	std::vector<kafka_member_t *> member_vec;
 };
 
 class KafkaBuffer

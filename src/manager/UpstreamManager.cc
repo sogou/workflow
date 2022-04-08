@@ -17,6 +17,7 @@
 */
 
 #include <pthread.h>
+#include <functional>
 #include "UpstreamManager.h"
 #include "WFNameService.h"
 #include "WFGlobal.h"
@@ -31,10 +32,10 @@ public:
 		return &kInstance;
 	}
 
-	void add_policy_name(const std::string& name)
+	void add_upstream_policy(UPSGroupPolicy *policy)
 	{
 		pthread_mutex_lock(&this->mutex);
-		this->upstream_names.push_back(name);
+		this->upstream_policies.push_back(policy);
 		pthread_mutex_unlock(&this->mutex);
 	}
 
@@ -43,32 +44,41 @@ private:
 		mutex(PTHREAD_MUTEX_INITIALIZER)
 	{
 	}
-	
+
 	~__UpstreamManager()
 	{
-		WFNSPolicy *policy;
-		WFNameService *ns = WFGlobal::get_name_service();
-
-		for (const std::string& name : this->upstream_names)
-		{
-			policy = ns->del_policy(name.c_str());
+		for (UPSGroupPolicy *policy : this->upstream_policies)
 			delete policy;
-		}
 	}
 
 	pthread_mutex_t mutex;
-	std::vector<std::string> upstream_names;
+	std::vector<UPSGroupPolicy *> upstream_policies;
 };
+
+static unsigned int __default_consistent_hash(const char *path,
+											  const char *query,
+											  const char *fragment)
+{
+	static std::hash<std::string> std_hash;
+	std::string str(path);
+
+	str += query;
+	str += fragment;
+	return std_hash(str);
+}
 
 int UpstreamManager::upstream_create_consistent_hash(const std::string& name,
 													 upstream_route_t consistent_hash)
 {
 	auto *ns = WFGlobal::get_name_service();
-	UPSConsistentHashPolicy *policy = new UPSConsistentHashPolicy(std::move(consistent_hash));
+	UPSConsistentHashPolicy *policy;
 
+	policy = new UPSConsistentHashPolicy(
+						consistent_hash ? std::move(consistent_hash) :
+										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -84,7 +94,7 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -92,14 +102,14 @@ int UpstreamManager::upstream_create_weighted_random(const std::string& name,
 	return -1;
 }
 
-int UpstreamManager::upstream_create_vswrr(const std::string& name)
+int UpstreamManager::upstream_create_vnswrr(const std::string& name)
 {
 	auto *ns = WFGlobal::get_name_service();
 	UPSWeightedRandomPolicy *policy = new UPSVNSWRRPolicy();
 
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -110,15 +120,17 @@ int UpstreamManager::upstream_create_vswrr(const std::string& name)
 int UpstreamManager::upstream_create_manual(const std::string& name,
 											upstream_route_t select,
 											bool try_another,
-											upstream_route_t consitent_hash)
+											upstream_route_t consistent_hash)
 {
 	auto *ns = WFGlobal::get_name_service();
-	UPSManualPolicy *policy = new UPSManualPolicy(try_another,
-												  std::move(select),
-												  std::move(consitent_hash));
+	UPSManualPolicy *policy;
+
+	policy = new UPSManualPolicy(try_another, std::move(select),
+						consistent_hash ? std::move(consistent_hash) :
+										  __default_consistent_hash);
 	if (ns->add_policy(name.c_str(), policy) >= 0)
 	{
-		__UpstreamManager::get_instance()->add_policy_name(name);
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
 		return 0;
 	}
 
@@ -166,13 +178,10 @@ int UpstreamManager::upstream_remove_server(const std::string& name,
 int UpstreamManager::upstream_delete(const std::string& name)
 {
 	WFNameService *ns = WFGlobal::get_name_service();
-	WFNSPolicy *policy = ns->del_policy(name.c_str());
+	UPSGroupPolicy *policy = dynamic_cast<UPSGroupPolicy *>(ns->del_policy(name.c_str()));
 
 	if (policy)
-	{
-		delete policy;
 		return 0;
-	}
 
 	errno = ENOENT;
 	return -1;

@@ -818,6 +818,7 @@ enum MetaStatus ComplexKafkaTask::get_meta_status()
 		case META_INITED:
 			this->meta_list.del_cur();
 			delete meta;
+			ret = META_INITED;
 			break;
 
 		case META_UNINIT:
@@ -890,12 +891,16 @@ void ComplexKafkaTask::dispatch()
 		break;
 
 	case META_EMPTY:
-		this->state = WFT_STATE_TASK_ERROR;
-		this->error = WFT_ERR_KAFKA_META_FAILED;
-		this->finish = true;
-		this->lock_status.get_mutex()->unlock();
-		this->subtask_done();
-		return;
+		if (this->api_type != Kafka_OffsetCommit && 
+			this->api_type != Kafka_LeaveGroup)
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_KAFKA_META_FAILED;
+			this->finish = true;
+			this->lock_status.get_mutex()->unlock();
+			this->subtask_done();
+			return;
+		}
 	}
 
 	if (*this->lock_status.get_status() & KAFKA_CGROUP_DOING)

@@ -774,10 +774,14 @@ static int zstd_decompress(void *buf, size_t n, KafkaBlock *block)
 			return 0;
 
 		if (ZSTD_getErrorCode(ret) == ZSTD_error_dstSize_tooSmall)
+		{
 			out_bufsize += out_bufsize * 2;
+		}
 		else
+		{
 			errno = EBADMSG;
 			return -1;
+		}
 	}
 }
 
@@ -1380,7 +1384,7 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 		list_add_tail(&header->list, &record->header_list);
 	}
 
-	return 0;
+	return record->offset < record->toppar->offset ? 1 : 0;
 }
 
 int KafkaMessage::parse_record_batch(void **buf, size_t *size,
@@ -3337,7 +3341,10 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 			{
 				CHECK_RET(parse_i32(buf, size, &offset_cnt));
 				for (int j = 0; j < offset_cnt; ++j)
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->offset));
+				{
+					CHECK_RET(parse_i64(buf, size, &offset));
+					ptr->offset = offset;
+				}
 
 				ptr->low_watermark = 0;
 			}

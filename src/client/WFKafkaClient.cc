@@ -40,6 +40,7 @@ using KafkaComplexTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
 
 enum MetaStatus
 {
+	META_EMPTY = -1,
 	META_UNINIT,
 	META_DOING,
 	META_INITED,
@@ -595,6 +596,11 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 	}
 	else
 	{
+		t->meta_list.rewind();
+		KafkaMeta *meta;
+		while ((meta = t->meta_list.get_next()) != NULL)
+			(*t->client->member->meta_map)[meta->get_topic()] = META_UNINIT;
+
 		t->state = WFT_STATE_TASK_ERROR;
 		t->error = WFT_ERR_KAFKA_META_FAILED;
 		t->finish = true;
@@ -670,11 +676,12 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 {
 	ComplexKafkaTask *t = (ComplexKafkaTask *)pwork->get_context();
 	t->finish = true;
-	t->state = WFT_STATE_SUCCESS;
+	t->state = WFT_STATE_TASK_ERROR;
 	t->error = 0;
 
 	std::pair<int, int> *state_error;
 	bool flag = false;
+	int error = 0;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
@@ -687,12 +694,18 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 				t->set_meta_status(META_UNINIT);
 				t->lock_status.get_mutex()->unlock();
 			}
-			t->state = state_error->first;
-			t->error = state_error->second;
+			error = state_error->second;
+		}
+		else
+		{
+			t->state = WFT_STATE_SUCCESS;
 		}
 
 		delete state_error;
 	}
+
+	if (t->state != WFT_STATE_SUCCESS)
+		t->error = error;
 }
 
 void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
@@ -730,7 +743,8 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
 
-	if (task->get_resp()->get_api_type() == Kafka_Fetch)
+	if (task->get_state() == WFT_STATE_SUCCESS &&
+		task->get_resp()->get_api_type() == Kafka_Fetch)
 	{
 		toppar_list->rewind();
 		KafkaToppar *task_toppar;
@@ -793,7 +807,7 @@ enum MetaStatus ComplexKafkaTask::get_meta_status()
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
-	enum MetaStatus ret = META_INITED;
+	enum MetaStatus ret = META_EMPTY;
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		switch((*this->client->member->meta_map)[meta->get_topic()])
@@ -809,6 +823,9 @@ enum MetaStatus ComplexKafkaTask::get_meta_status()
 		case META_UNINIT:
 			ret = META_UNINIT;
 			(*this->client->member->meta_map)[meta->get_topic()] = META_DOING;
+			break;
+
+		default:
 			break;
 		}
 	}
@@ -871,6 +888,14 @@ void ComplexKafkaTask::dispatch()
 
 	case META_INITED:
 		break;
+
+	case META_EMPTY:
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_KAFKA_META_FAILED;
+		this->finish = true;
+		this->lock_status.get_mutex()->unlock();
+		this->subtask_done();
+		return;
 	}
 
 	if (*this->lock_status.get_status() & KAFKA_CGROUP_DOING)
@@ -893,6 +918,8 @@ void ComplexKafkaTask::dispatch()
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 			this->finish = true;
+			this->lock_status.get_mutex()->unlock();
+			this->subtask_done();
 			return;
 		}
 

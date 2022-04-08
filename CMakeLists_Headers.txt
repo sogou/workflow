@@ -17,11 +17,7 @@ set(COMMON_KERNEL_HEADERS
 	src/kernel/thrdpool.h
 )
 
-if (WIN32)
-	set(INCLUDE_KERNEL_HEADERS
-		src/kernel_win/list.h
-	)
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android")
 	set(INCLUDE_KERNEL_HEADERS
 		${COMMON_KERNEL_HEADERS}
 		src/kernel/IOService_linux.h
@@ -57,12 +53,14 @@ set(INCLUDE_HEADERS
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/ConsulDataTypes.h
 	src/server/WFServer.h
 	src/server/WFDnsServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
 	src/client/WFMySQLConnection.h
+	src/client/WFConsulClient.h
 	src/client/WFDnsClient.h
 	src/manager/DnsCache.h
 	src/manager/WFGlobal.h
@@ -72,6 +70,7 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
+	src/util/json_parser.h
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h
@@ -107,3 +106,4 @@ if(KAFKA STREQUAL "y")
 		src/factory/KafkaTaskImpl.inl
 	)
 endif()
+

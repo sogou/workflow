@@ -467,7 +467,7 @@ bool __ComplexKafkaTask::process_sync_group()
 		return false;
 	}
 	else
-	{	
+	{
 		this->get_req()->set_api_type(Kafka_OffsetFetch);
 		return true;
 	}
@@ -515,7 +515,8 @@ bool __ComplexKafkaTask::process_fetch()
 	this->get_resp()->get_toppar_list()->rewind();
 	while ((toppar = this->get_resp()->get_toppar_list()->get_next()) != NULL)
 	{
-		if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
+		if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE &&
+			toppar->get_high_watermark() - toppar->get_low_watermark() > 0)
 		{
 			toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
 			toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
@@ -535,6 +536,19 @@ bool __ComplexKafkaTask::process_produce()
 		if (!toppar->record_reach_end())
 		{
 			this->get_req()->set_api_type(Kafka_Produce);
+			return true;
+		}
+
+		switch (toppar->get_error())
+		{
+		case KAFKA_UNKNOWN_TOPIC_OR_PARTITION:
+		case KAFKA_LEADER_NOT_AVAILABLE:
+		case KAFKA_NOT_LEADER_FOR_PARTITION:
+		case KAFKA_BROKER_NOT_AVAILABLE:
+		case KAFKA_REPLICA_NOT_AVAILABLE:
+		case KAFKA_KAFKA_STORAGE_ERROR:
+		case KAFKA_FENCED_LEADER_EPOCH:
+			this->get_req()->set_api_type(Kafka_Metadata);
 			return true;
 		}
 	}
@@ -645,13 +659,8 @@ bool __ComplexKafkaTask::finish_once()
 			return false;
 		}
 
-		if (this->get_resp()->get_api_type() == Kafka_Fetch ||
-			this->get_resp()->get_api_type() == Kafka_Produce ||
-			this->get_resp()->get_api_type() == Kafka_ApiVersions)
-		{
-			if (*get_mutable_ctx())
-				(*get_mutable_ctx())(this);
-		}
+		if (*get_mutable_ctx())
+			(*get_mutable_ctx())(this);
 	}
 	else
 	{

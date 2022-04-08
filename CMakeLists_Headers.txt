@@ -62,6 +62,7 @@ set(INCLUDE_HEADERS
 	src/protocol/MySQLMessage.inl
 	src/protocol/MySQLResult.h
 	src/protocol/MySQLResult.inl
+	src/protocol/MySQLUtil.h
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
 	src/protocol/mysql_byteorder.h

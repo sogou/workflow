@@ -24,6 +24,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -51,7 +52,7 @@ struct CommConnEntry
 #define CONN_STATE_KEEPALIVE	5
 #define CONN_STATE_CLOSING		6
 #define CONN_STATE_ERROR		7
-	short state;
+	int state;
 	int error;
 	int ref;
 	struct iovec *write_iov;
@@ -119,43 +120,34 @@ static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
 	return -1;
 }
 
-#ifndef IOV_MAX
-# ifdef UIO_MAXIOV
-#  define IOV_MAX	UIO_MAXIOV
-# else
-#  define IOV_MAX	1024
-# endif
-#endif
+#define SSL_WRITE_BUFSIZE	8192
 
-static int __send_vectors(struct iovec vectors[], int cnt,
-						  struct CommConnEntry *entry)
+static int __ssl_writev(SSL *ssl, const struct iovec vectors[], int cnt)
 {
-	ssize_t n;
+	char buf[SSL_WRITE_BUFSIZE];
+	size_t nleft = SSL_WRITE_BUFSIZE;
+	char *p = buf;
+	size_t n;
 	int i;
 
-	while (cnt > 0)
+	if (vectors[0].iov_len >= SSL_WRITE_BUFSIZE || cnt == 1)
+		return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
+
+	for (i = 0; i < cnt; i++)
 	{
-		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
-		if (n < 0)
-			return errno == EAGAIN ? cnt : -1;
+		if (vectors[i].iov_len <= nleft)
+			n = vectors[i].iov_len;
+		else
+			n = nleft;
 
-		for (i = 0; i < cnt; i++)
-		{
-			if ((size_t)n >= vectors[i].iov_len)
-				n -= vectors[i].iov_len;
-			else
-			{
-				vectors[i].iov_base = (char *)vectors[i].iov_base + n;
-				vectors[i].iov_len -= n;
-				break;
-			}
-		}
-
-		vectors += i;
-		cnt -= i;
+		memcpy(p, vectors[i].iov_base, n);
+		p += n;
+		nleft -= n;
+		if (nleft == 0)
+			break;
 	}
 
-	return 0;
+	return SSL_write(ssl, buf, p - buf);
 }
 
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
@@ -276,6 +268,17 @@ int CommService::drain(int max)
 	pthread_mutex_unlock(&this->mutex);
 	errno = errno_bak;
 	return cnt;
+}
+
+inline void CommService::incref()
+{
+	__sync_add_and_fetch(&this->ref, 1);
+}
+
+inline void CommService::decref()
+{
+	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
+		this->handle_unbound();
 }
 
 class CommServiceTarget : public CommTarget
@@ -436,6 +439,48 @@ void Communicator::shutdown_service(CommService *service)
 # endif
 #endif
 
+static int __send_vectors(struct iovec vectors[], int cnt,
+						  struct CommConnEntry *entry)
+{
+	ssize_t n;
+	int i;
+
+	while (cnt > 0)
+	{
+		if (!entry->ssl)
+		{
+			n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
+			if (n < 0)
+				return errno == EAGAIN ? cnt : -1;
+		}
+		else if (vectors->iov_len > 0)
+		{
+			n = __ssl_writev(entry->ssl, vectors, cnt);
+			if (n <= 0)
+				return cnt;
+		}
+		else
+			n = 0;
+
+		for (i = 0; i < cnt; i++)
+		{
+			if ((size_t)n >= vectors[i].iov_len)
+				n -= vectors[i].iov_len;
+			else
+			{
+				vectors[i].iov_base = (char *)vectors[i].iov_base + n;
+				vectors[i].iov_len -= n;
+				break;
+			}
+		}
+
+		vectors += i;
+		cnt -= i;
+	}
+
+	return 0;
+}
+
 int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 									struct CommConnEntry *entry)
 {
@@ -562,12 +607,9 @@ int Communicator::send_message(struct CommConnEntry *entry)
 	}
 
 	end = vectors + cnt;
-	if (!entry->ssl || cnt == 0)
-	{
-		cnt = this->send_message_sync(vectors, cnt, entry);
-		if (cnt <= 0)
-			return cnt;
-	}
+	cnt = this->send_message_sync(vectors, cnt, entry);
+	if (cnt <= 0)
+		return cnt;
 
 	return this->send_message_async(end - cnt, cnt, entry);
 }

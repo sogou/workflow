@@ -16,6 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
@@ -45,6 +46,8 @@ int WFMySQLConnection::init(const std::string& url)
 			return 0;
 		}
 	}
+	else if (uri.state == URI_STATE_INVALID)
+		errno = EINVAL;
 
 	return -1;
 }

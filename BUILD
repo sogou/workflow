@@ -1,12 +1,20 @@
+config_setting(
+	name = 'linux',
+	constraint_values = [
+		"@platforms//os:linux",
+	],
+	visibility = ['//visibility:public'],
+)
+
 cc_library(
 	name = 'workflow_hdrs',
 	hdrs = glob(['src/include/workflow/*']),
 	includes = ['src/include'],
 	visibility = ["//visibility:public"],
 	linkopts = [
-	    '-lpthread',
-	    '-lssl',
-	    '-lcrypto',
+		'-lpthread',
+		'-lssl',
+		'-lcrypto',
 	],
 )
 cc_library(
@@ -18,6 +26,7 @@ cc_library(
 		'src/kernel/rbtree.c',
 		'src/kernel/thrdpool.c',
 		'src/util/crc32c.c',
+		'src/util/json_parser.c',
 	],
 	hdrs = glob(['src/*/*.h']) + glob(['src/*/*.inl']),
 	includes = [
@@ -52,9 +61,15 @@ cc_library(
 		'src/kernel/CommScheduler.cc',
 		'src/kernel/Communicator.cc',
 		'src/kernel/Executor.cc',
-		'src/kernel/IOService_linux.cc',
 		'src/kernel/SubTask.cc',
-	] + glob(['src/util/*.cc']),
+	] + select({
+		':linux': [
+			'src/kernel/IOService_linux.cc',
+		],
+		'//conditions:default': [
+			'src/kernel/IOService_thread.cc',
+		],
+	}) + glob(['src/util/*.cc']),
 	hdrs = glob(['src/*/*.h']) + glob(['src/*/*.inl']),
 	includes = [
 		'src/algorithm',
@@ -202,6 +217,27 @@ cc_library(
 	    '-lz',
 	    '-lzstd',
 	],
+)
+
+cc_library(
+	name = 'consul',
+	hdrs = [
+		'src/client/WFConsulClient.h',
+		'src/protocol/ConsulDataTypes.h',
+	],
+	includes = [ 
+		'src/client',
+		'src/factory',
+		'src/protocol',
+		'src/util',
+	],
+	srcs = [ 
+		'src/client/WFConsulClient.cc',
+	],
+	deps = [
+		':common',
+	],
+	visibility = ["//visibility:public"],
 )
 
 cc_binary(

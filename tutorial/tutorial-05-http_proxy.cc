@@ -59,10 +59,6 @@ void http_callback(WFHttpTask *task)
 		(tutorial_series_context *)series->get_context();
 	auto *proxy_resp = context->proxy_task->get_resp();
 
-	/* Some servers may close the socket as the end of http response. */
-	if (state == WFT_STATE_SYS_ERROR && error == ECONNRESET)
-		state = WFT_STATE_SUCCESS;
-
 	if (state == WFT_STATE_SUCCESS)
 	{
 		const void *body;
@@ -72,8 +68,8 @@ void http_callback(WFHttpTask *task)
 		context->proxy_task->set_callback(reply_callback);
 
 		/* Copy the remote webserver's response, to proxy response. */
-		if (resp->get_parsed_body(&body, &len))
-			resp->append_output_body_nocopy(body, len);
+		resp->get_parsed_body(&body, &len);
+		resp->append_output_body_nocopy(body, len);
 		*proxy_resp = std::move(*resp);
 		if (!context->is_keep_alive)
 			proxy_resp->set_header_pair("Connection", "close");
@@ -81,7 +77,6 @@ void http_callback(WFHttpTask *task)
 	else
 	{
 		const char *err_string;
-		int error = task->get_error();
 
 		if (state == WFT_STATE_SYS_ERROR)
 			err_string = strerror(error);
@@ -93,8 +88,7 @@ void http_callback(WFHttpTask *task)
 			err_string = "URL error (Cannot be a HTTPS proxy)";
 
 		fprintf(stderr, "%s: Fetch failed. state = %d, error = %d: %s\n",
-				context->url.c_str(), state, task->get_error(),
-				err_string);
+				context->url.c_str(), state, error, err_string);
 
 		/* As a tutorial, make it simple. And ignore reply status. */
 		proxy_resp->set_status_code("404");

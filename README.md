@@ -56,9 +56,37 @@ int main()
 ### Get started (Linux, macOS):
 ~~~sh
 git clone https://github.com/sogou/workflow
+cd workflow
 make
 cd tutorial
 make
+~~~~
+
+### Get started (Debian Linux):
+Sogou C++ Workflow has been packaged for Debian. It is currently in Debian sid (unstable) but will eventually be placed into the stable repository.
+
+In order to access the unstable repository, you will need to edit your /etc/apt/sources.list file.
+
+Simply add the 'unstable' sub branch to your repo:
+~~~~sh
+deb http://deb.debian.org/ main contrib non-free 
+--> 
+deb http://deb.debian.org/ unstable main contrib non-free
+~~~~
+
+Once that is added, update your repo list and then you should be able to install it:
+~~~~sh
+sudo apt-get update
+~~~~
+
+To install the Workflow library for development purposes:
+~~~~sh
+sudo apt-get install libworkflow-dev
+~~~~
+
+To install the Workflow library for deployment:
+~~~~sh
+sudo apt-get install libworkflow1
 ~~~~
 
 # Tutorials
@@ -89,6 +117,7 @@ make
 * Timing tasks and counting tasks
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
+  * [Conditional and resource pool](docs/en/about-conditional.md)
 * Service governance
   * [About service governance](docs/en/about-service-governance.md)
   * [More documents about upstream](docs/en/about-upstream.md)

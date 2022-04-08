@@ -53,6 +53,8 @@ set(INCLUDE_HEADERS
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/WebSocketMessage.h
+	src/protocol/websocket_parser.h
 	src/protocol/ConsulDataTypes.h
 	src/server/WFServer.h
 	src/server/WFDnsServer.h
@@ -60,6 +62,7 @@ set(INCLUDE_HEADERS
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
 	src/client/WFMySQLConnection.h
+	src/client/WFWebSocketClient.h
 	src/client/WFConsulClient.h
 	src/client/WFDnsClient.h
 	src/manager/DnsCache.h
@@ -70,6 +73,7 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
+	src/manager/WFCondition.h
 	src/util/json_parser.h
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
@@ -80,14 +84,18 @@ set(INCLUDE_HEADERS
 	src/factory/WFTask.h
 	src/factory/WFTask.inl
 	src/factory/WFGraphTask.h
+	src/factory/WFCondTask.h
 	src/factory/WFTaskError.h
 	src/factory/WFTaskFactory.h
 	src/factory/WFTaskFactory.inl
 	src/factory/WFAlgoTaskFactory.h
 	src/factory/WFAlgoTaskFactory.inl
+	src/factory/WFCondTaskFactory.h
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
 	src/factory/WFResourcePool.h
+	src/factory/WFChannel.h
+	src/factory/WFChannel.inl
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h
 	src/nameservice/WFServiceGovernance.h

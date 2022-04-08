@@ -23,6 +23,8 @@
 #include "workflow/WFTask.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFResourcePool.h"
+#include "workflow/WFCondition.h"
+#include "workflow/WFCondTaskFactory.h"
 #include "workflow/WFFacilities.h"
 
 TEST(resource_unittest, resource_pool)
@@ -51,5 +53,96 @@ TEST(resource_unittest, resource_pool)
 	}
 
 	wg.wait();
+}
+
+TEST(condition_unittest, signal)
+{
+	WFCondition cond;
+	std::mutex mutex;
+	WFFacilities::WaitGroup wg(1);
+	int ret = 3;
+	int *ptr = &ret;
+
+	auto *task1 = WFCondTaskFactory::create_wait_task(&cond, [&wg, &ptr](WFMailboxTask *) {
+		*ptr = 1;
+		wg.done();
+	});
+
+	auto *task2 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+		*ptr = 2;
+	});
+
+	SeriesWork *series1 = Workflow::create_series_work(task1, nullptr);
+	SeriesWork *series2 = Workflow::create_series_work(task2, nullptr);
+
+	series1->start();
+	series2->start();
+
+	mutex.lock();
+	cond.signal(NULL);
+	mutex.unlock();
+	wg.wait();
+	EXPECT_EQ(ret, 1);
+	cond.signal(NULL);
+	usleep(1000);
+	EXPECT_EQ(ret, 2);
+}
+
+TEST(condition_unittest, broadcast)
+{
+	WFCondition cond;
+	std::mutex mutex;
+	int ret = 0;
+	int *ptr = &ret;
+
+	auto *task1 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+		(*ptr)++;
+	});
+	SeriesWork *series1 = Workflow::create_series_work(task1, nullptr);
+
+	auto *task2 = WFCondTaskFactory::create_wait_task(&cond, [&ptr](WFMailboxTask *) {
+		(*ptr)++;
+	});
+	SeriesWork *series2 = Workflow::create_series_work(task2, nullptr);
+
+	series1->start();
+	series2->start();
+
+	cond.broadcast(NULL);
+	usleep(1000);
+	EXPECT_EQ(ret, 2);
+}
+
+TEST(condition_unittest, timedwait)
+{
+	WFFacilities::WaitGroup wait_group(2);
+	struct timespec ts;
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+
+	auto *task1 = WFCondTaskFactory::create_timedwait_task("timedwait1", &ts,
+		[&wait_group](WFMailboxTask *task) {
+		EXPECT_EQ(task->get_error(), ETIMEDOUT);
+		wait_group.done();
+	});
+
+	auto *task2 = WFCondTaskFactory::create_timedwait_task("timedwait2", &ts,
+		[&wait_group](WFMailboxTask *task) {
+		EXPECT_EQ(task->get_error(), 0);
+		void **msg;
+		size_t n;
+		msg = task->get_mailbox(&n);
+		EXPECT_EQ(n, 1);
+		EXPECT_TRUE(strcmp((char *)*msg, "wake up!!") == 0);
+		wait_group.done();
+	});
+
+	Workflow::start_series_work(task1, nullptr);
+	Workflow::start_series_work(task2, nullptr);
+
+	usleep(1000);
+	char msg[10] = "wake up!!";
+	WFCondTaskFactory::signal_by_name("timedwait2", msg);
+	wait_group.wait();
 }
 

@@ -65,5 +65,21 @@ std::string MySQLUtil::escape_string(const std::string& str)
 	return res;
 }
 
+std::string MySQLUtil::escape_string_quote(const std::string& str, char quote)
+{
+	std::string res;
+	size_t i;
+
+	for (i = 0; i < str.size(); i++)
+	{
+		if (str[i] == quote)
+			res.push_back(quote);
+
+		res.push_back(str[i]);
+	}
+
+	return res;
+}
+
 }
 

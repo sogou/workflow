@@ -28,6 +28,7 @@ class MySQLUtil
 {
 public:
 	static std::string escape_string(const std::string& str);
+	static std::string escape_string_quote(const std::string& str, char quote);
 };
 
 }

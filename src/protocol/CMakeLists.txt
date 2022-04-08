@@ -19,6 +19,7 @@ if (NOT MYSQL STREQUAL "n")
 		mysql_byteorder.c
 		MySQLMessage.cc
 		MySQLResult.cc
+		MySQLUtil.cc
 	)
 endif ()
 

@@ -41,6 +41,7 @@ using KafkaComplexTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
 
 enum MetaStatus
 {
+	META_EMPTY = -1,
 	META_UNINIT,
 	META_DOING,
 	META_INITED,
@@ -807,7 +808,7 @@ enum MetaStatus ComplexKafkaTask::get_meta_status()
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
-	enum MetaStatus ret = META_INITED;
+	enum MetaStatus ret = META_EMPTY;
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		switch((*this->client->member->meta_map)[meta->get_topic()])
@@ -818,11 +819,15 @@ enum MetaStatus ComplexKafkaTask::get_meta_status()
 		case META_INITED:
 			this->meta_list.del_cur();
 			delete meta;
+			ret = META_INITED;
 			break;
 
 		case META_UNINIT:
 			ret = META_UNINIT;
 			(*this->client->member->meta_map)[meta->get_topic()] = META_DOING;
+			break;
+
+		default:
 			break;
 		}
 	}
@@ -885,6 +890,18 @@ void ComplexKafkaTask::dispatch()
 
 	case META_INITED:
 		break;
+
+	case META_EMPTY:
+		if (this->api_type != Kafka_OffsetCommit && 
+			this->api_type != Kafka_LeaveGroup)
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_KAFKA_META_FAILED;
+			this->finish = true;
+			this->lock_status.get_mutex()->unlock();
+			this->subtask_done();
+			return;
+		}
 	}
 
 	if (*this->lock_status.get_status() & KAFKA_CGROUP_DOING)
@@ -907,6 +924,8 @@ void ComplexKafkaTask::dispatch()
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 			this->finish = true;
+			this->lock_status.get_mutex()->unlock();
+			this->subtask_done();
 			return;
 		}
 

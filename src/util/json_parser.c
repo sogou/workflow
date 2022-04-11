@@ -567,8 +567,6 @@ static void __destroy_json_members(json_object_t *obj)
 	list_for_each_safe(pos, tmp, &obj->head)
 	{
 		memb = list_entry(pos, json_member_t, list);
-		list_del(pos);
-		rb_erase(&memb->rb, &obj->root);
 		__destroy_json_value(&memb->value);
 		free(memb);
 	}

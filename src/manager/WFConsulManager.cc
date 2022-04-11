@@ -42,24 +42,24 @@ public:
 	{
 		this->select = select;
 		this->consistent_hash = consistent_hash;
-		status = -1;
+		this->status = -1;
 		
 		switch (this->params.upstream_policy)
 		{
 		case CONSUL_UPSTREAM_WEIGHT:
-			status = UpstreamManager::upstream_create_weighted_random(
+			this->status = UpstreamManager::upstream_create_weighted_random(
 				this->policy_name, true);
 			break;
 		case CONSUL_UPSTREAM_HASH:
-			status = UpstreamManager::upstream_create_consistent_hash(
+			this->status = UpstreamManager::upstream_create_consistent_hash(
 				this->policy_name, this->consistent_hash);
 			break;
 		case CONSUL_UPSTREAM_MANUAL:
-			status = UpstreamManager::upstream_create_manual(this->policy_name,
+			this->status = UpstreamManager::upstream_create_manual(this->policy_name,
 				this->select, true, this->consistent_hash);
 			break;
 		case CONSUL_UPSTREAM_NVSWRR:
-			status = UpstreamManager::upstream_create_vnswrr(this->policy_name);
+			this->status = UpstreamManager::upstream_create_vnswrr(this->policy_name);
 			break;
 		}
 	}
@@ -71,7 +71,7 @@ public:
 
 	int add_servers(const std::vector<std::string>& addresses)
 	{
-		if (status == -1)
+		if (this->status == -1)
 			return -1;
 	
 		AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
@@ -92,7 +92,7 @@ public:
 
 	int remove_servers(const std::vector<std::string>& addresses)
 	{
-		if (status == -1)
+		if (this->status == -1)
 			return -1;
 		
 		for (const auto& address : addresses)
@@ -121,7 +121,7 @@ public:
 		ref(1), consul_url(consul_url), config(std::move(config)),
 		retry_max(2), select(nullptr), consistent_hash(nullptr)
 	{
-		if (this->client.init(consul_url, this->config) == 0)
+		if (this->client.init(this->consul_url, this->config) == 0)
 			this->status = CONSUL_INIT_SUCCESS;
 		else
 			this->status = CONSUL_INIT_FAILED;
@@ -233,19 +233,19 @@ struct WFConsulTaskContext
 WFConsulManager::WFConsulManager(const std::string& consul_url,
 							 ConsulConfig config)
 {
-	ptr = new __WFConsulManager(consul_url, std::move(config));
+	this->ptr = new __WFConsulManager(consul_url, std::move(config));
 }
 
 WFConsulManager::~WFConsulManager()
 {
-	ptr->exit();
+	this->ptr->exit();
 }
 
 int WFConsulManager::watch_service(const std::string& service_namespace,
 								 const std::string& service_name)
 {
 	struct ConsulWatchParams params = CONSUL_DISCOVER_PARAMS_DEFAULT;
-	return watch_service(service_namespace, service_name, &params);
+	return this->watch_service(service_namespace, service_name, &params);
 }
 
 int WFConsulManager::watch_service(const std::string& service_namespace,
@@ -266,29 +266,29 @@ int WFConsulManager::register_service(const std::string& service_namespace,
 									const std::string& service_id,
 									const struct ConsulRegisterParams *params)
 {
-	return ptr->register_service(service_namespace, service_name, service_id,
-								 params);
+	return this->ptr->register_service(service_namespace, service_name,
+									   service_id, params);
 }
 
 int WFConsulManager::deregister_service(const std::string& service_namespace,
 									  const std::string& service_id)
 {
-	return ptr->deregister_service(service_namespace, service_id);
+	return this->ptr->deregister_service(service_namespace, service_id);
 }
 
 void WFConsulManager::get_watching_services(std::vector<std::string>& services)
 {
-	ptr->get_watching_services(services);
+	this->ptr->get_watching_services(services);
 }
 
 void WFConsulManager::set_select(upstream_route_t select)
 {
-	ptr->set_select(select);
+	this->ptr->set_select(select);
 }
 
 void WFConsulManager::set_consistent_hash(upstream_route_t consistent_hash)
 {
-	ptr->set_consistent_hash(consistent_hash);
+	this->ptr->set_consistent_hash(consistent_hash);
 }
 
 int __WFConsulManager::watch_service(const std::string& service_namespace,
@@ -404,7 +404,7 @@ int __WFConsulManager::deregister_service(const std::string& service_namespace,
 	WFConsulTask *task = this->client.create_deregister_task(service_namespace,
 															 service_id,
 															 this->retry_max,
-															 this->register_cb);
+															 this->deregister_cb);
 
 	struct ConsulCallBackResult result;
 	result.wait_group = &wait_group;

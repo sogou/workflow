@@ -341,10 +341,4 @@ cc_binary(
 	srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
 	deps = [':kafka', ':workflow_hdrs'],
 	copts = ['-fno-rtti'],
-	linkopts = [
-		'-fsanitize=address',
-		'-fno-omit-frame-pointer',
-		'-fsanitize=leak',
-		'-use-after-free',
-	],
 )

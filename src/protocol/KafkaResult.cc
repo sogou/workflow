@@ -78,9 +78,6 @@ void KafkaResult::fetch_toppars(std::vector<KafkaToppar *>& toppars)
 	KafkaToppar *toppar = NULL;
 	for (size_t i = 0; i < this->resp_num; ++i)
 	{
-		if (this->resp_vec[i].get_api_type() != Kafka_OffsetCommit)
-			continue;
-
 		this->resp_vec[i].get_toppar_list()->rewind();
 
 		while ((toppar = this->resp_vec[i].get_toppar_list()->get_next()) != NULL)

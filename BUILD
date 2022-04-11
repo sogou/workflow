@@ -214,10 +214,10 @@ cc_library(
 	],
 	visibility = ["//visibility:public"],
 	linkopts = [
-	    '-lsnappy',
-	    '-llz4',
-	    '-lz',
-	    '-lzstd',
+		'-lsnappy',
+		'-llz4',
+		'-lz',
+		'-lzstd',
 	],
 )
 
@@ -243,61 +243,61 @@ cc_library(
 )
 
 cc_binary(
-	 name = 'helloworld',
-	 srcs = ['tutorial/tutorial-00-helloworld.cc'],
-	 deps = [':http'],
+	name = 'helloworld',
+	srcs = ['tutorial/tutorial-00-helloworld.cc'],
+	deps = [':http'],
 )
 cc_binary(
-	 name = 'wget',
-	 srcs = ['tutorial/tutorial-01-wget.cc'],
-	 deps = [':http'],
+	name = 'wget',
+	srcs = ['tutorial/tutorial-01-wget.cc'],
+	deps = [':http'],
 )
 cc_binary(
-	 name = 'redis_cli',
-	 srcs = ['tutorial/tutorial-02-redis_cli.cc'],
-	 deps = [':redis'],
-)
-
-cc_binary(
-	 name = 'wget_to_redis',
-	 srcs = ['tutorial/tutorial-03-wget_to_redis.cc'],
-	 deps = [':http', 'redis'],
+	name = 'redis_cli',
+	srcs = ['tutorial/tutorial-02-redis_cli.cc'],
+	deps = [':redis'],
 )
 
 cc_binary(
-	 name = 'http_echo_server',
-	 srcs = ['tutorial/tutorial-04-http_echo_server.cc'],
-	 deps = [':http'],
+	name = 'wget_to_redis',
+	srcs = ['tutorial/tutorial-03-wget_to_redis.cc'],
+	deps = [':http', 'redis'],
 )
 
 cc_binary(
-	 name = 'http_proxy',
-	 srcs = ['tutorial/tutorial-05-http_proxy.cc'],
-	 deps = [':http'],
+	name = 'http_echo_server',
+	srcs = ['tutorial/tutorial-04-http_echo_server.cc'],
+	deps = [':http'],
 )
 
 cc_binary(
-	 name = 'parallel_wget',
-	 srcs = ['tutorial/tutorial-06-parallel_wget.cc'],
-	 deps = [':http'],
+	name = 'http_proxy',
+	srcs = ['tutorial/tutorial-05-http_proxy.cc'],
+	deps = [':http'],
 )
 
 cc_binary(
-	 name = 'sort_task',
-	 srcs = ['tutorial/tutorial-07-sort_task.cc'],
-	 deps = [':common'],
+	name = 'parallel_wget',
+	srcs = ['tutorial/tutorial-06-parallel_wget.cc'],
+	deps = [':http'],
 )
 
 cc_binary(
-	 name = 'matrix_multiply',
-	 srcs = ['tutorial/tutorial-08-matrix_multiply.cc'],
-	 deps = [':common'],
+	name = 'sort_task',
+	srcs = ['tutorial/tutorial-07-sort_task.cc'],
+	deps = [':common'],
 )
 
 cc_binary(
-	 name = 'http_file_server',
-	 srcs = ['tutorial/tutorial-09-http_file_server.cc'],
-	 deps = [':http'],
+	name = 'matrix_multiply',
+	srcs = ['tutorial/tutorial-08-matrix_multiply.cc'],
+	deps = [':common'],
+)
+
+cc_binary(
+	name = 'http_file_server',
+	srcs = ['tutorial/tutorial-09-http_file_server.cc'],
+	deps = [':http'],
 )
 
 cc_library(
@@ -307,38 +307,44 @@ cc_library(
 )
 
 cc_binary(
-	 name = 'server',
-	 srcs = [
-	 	  'tutorial/tutorial-10-user_defined_protocol/server.cc',
-		  'tutorial/tutorial-10-user_defined_protocol/message.cc',
-	 ],
-	 deps = [':common', ':user_hdrs'],
+	name = 'server',
+	srcs = [
+		'tutorial/tutorial-10-user_defined_protocol/server.cc',
+		'tutorial/tutorial-10-user_defined_protocol/message.cc',
+	],
+	deps = [':common', ':user_hdrs'],
 )
 
 cc_binary(
-	 name = 'client',
-	 srcs = [
-	 	  'tutorial/tutorial-10-user_defined_protocol/client.cc',
-		  'tutorial/tutorial-10-user_defined_protocol/message.cc',
-	 ],
-	 deps = [':common', ':user_hdrs'],
+	name = 'client',
+	srcs = [
+		'tutorial/tutorial-10-user_defined_protocol/client.cc',
+		'tutorial/tutorial-10-user_defined_protocol/message.cc',
+	],
+	deps = [':common', ':user_hdrs'],
 )
 
 cc_binary(
-	 name = 'graph_task',
-	 srcs = ['tutorial/tutorial-11-graph_task.cc'],
-	 deps = [':http'],
+	name = 'graph_task',
+	srcs = ['tutorial/tutorial-11-graph_task.cc'],
+	deps = [':http'],
 )
 
 cc_binary(
-	 name = 'mysql_cli',
-	 srcs = ['tutorial/tutorial-12-mysql_cli.cc'],
-	 deps = [':mysql'],
+	name = 'mysql_cli',
+	srcs = ['tutorial/tutorial-12-mysql_cli.cc'],
+	deps = [':mysql'],
 )
 
 cc_binary(
-	 name = 'kafka_cli',
-	 srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
-	 deps = [':kafka', ':workflow_hdrs'],
-	 copts = ['-fno-rtti'],
+	name = 'kafka_cli',
+	srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
+	deps = [':kafka', ':workflow_hdrs'],
+	copts = ['-fno-rtti'],
+	linkopts = [
+		'-fsanitize=address',
+		'-fno-omit-frame-pointer',
+		'-fsanitize=leak',
+		'-use-after-free',
+	],
 )

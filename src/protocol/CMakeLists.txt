@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.6)
 project(protocol)
 
 set(SRC
+	PackageWrapper.cc
+	SSLWrapper.cc
 	dns_parser.c
 	DnsMessage.cc
 	DnsUtil.cc
-	SSLWrapper.cc
 	http_parser.c
 	HttpMessage.cc
 	HttpUtil.cc

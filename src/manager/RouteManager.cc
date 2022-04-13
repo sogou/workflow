@@ -29,6 +29,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <random>
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
@@ -247,29 +248,41 @@ int RouteResultEntry::add_group_targets(const struct RouteParams *params)
 	{
 		target = this->create_target(params, addr);
 		if (target)
-		{
-			if (this->group->add(target) >= 0)
-			{
-				this->targets.push_back(target);
-				this->nleft++;
-				continue;
-			}
-
-			target->deinit();
-			delete target;
-		}
-
-		for (auto *target : this->targets)
-		{
-			this->group->remove(target);
-			target->deinit();
-			delete target;
-		}
-
-		return -1;
+			this->targets.push_back(target);
+		else
+			break;
 	}
 
-	return 0;
+	if (!addr)
+	{
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::shuffle(this->targets.begin(), this->targets.end(), gen);
+		for (auto *target : this->targets)
+		{
+			if (this->group->add(target) >= 0)
+				this->nleft++;
+			else
+				break;
+		}
+
+		if ((size_t)this->nleft == this->targets.size())
+			return 0;
+
+		while (this->nleft > 0)
+		{
+			target = this->targets[--this->nleft];
+			this->group->remove(target);
+		}
+	}
+
+	for (auto *target : this->targets)
+	{
+		target->deinit();
+		delete target;
+	}
+
+	return -1;
 }
 
 void RouteResultEntry::deinit()

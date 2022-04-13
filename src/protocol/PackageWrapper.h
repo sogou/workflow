@@ -40,6 +40,10 @@ public:
 	PackageWrapper(ProtocolMessage *msg) : ProtocolWrapper(msg)
 	{
 	}
+
+public:
+	PackageWrapper(PackageWrapper&& wrapper) = default;
+	PackageWrapper& operator = (PackageWrapper&& wrapper) = default;
 };
 
 }

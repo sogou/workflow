@@ -806,8 +806,6 @@ public:
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
 
-	bool reach_high_watermark() const { return this->ptr->offset == this->ptr->high_watermark; }
-
 public:
 	KafkaToppar()
 	{
@@ -1408,8 +1406,7 @@ public:
 		return this->coordinator;
 	}
 
-	int run_assignor(KafkaMetaList *meta_list, KafkaMetaList *alien_meta_list,
-					 const char *protocol_name);
+	int run_assignor(KafkaMetaList *meta_list, const char *protocol_name);
 
 	void add_subscriber(KafkaMetaList *meta_list,
 						std::vector<KafkaMetaSubscriber> *subscribers);

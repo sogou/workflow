@@ -245,12 +245,10 @@ void KafkaCgroup::add_subscriber(KafkaMetaList *meta_list,
 }
 
 int KafkaCgroup::run_assignor(KafkaMetaList *meta_list,
-							  KafkaMetaList *alien_meta_list,
 							  const char *protocol_name)
 {
 	std::vector<KafkaMetaSubscriber> subscribers;
 	this->add_subscriber(meta_list, &subscribers);
-	this->add_subscriber(alien_meta_list, &subscribers);
 
 	struct list_head *pos;
 	kafka_group_protocol_t *protocol;

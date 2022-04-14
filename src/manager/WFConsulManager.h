@@ -19,57 +19,27 @@
 #ifndef _WFConsulManager_H_
 #define _WFConsulManager_H_
 
-#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
 #include <functional>
 #include <condition_variable>
+#include <unordered_map>
+#include <unordered_set>
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 #include "WFFacilities.h"
-#include "ConsulDataTypes.h"
 #include "UpstreamPolicies.h"
+#include "UpstreamManager.h"
+#include "WFConsulClient.h"
+#include "ConsulDataTypes.h"
 
-enum
-{
-	CONSUL_UPSTREAM_WEIGHT           = 0,
-	CONSUL_UPSTREAM_HASH             = 1,
-	CONSUL_UPSTREAM_MANUAL           = 2,
-	CONSUL_UPSTREAM_NVSWRR           = 3,
-};
-
-struct ConsulWatchParams
-{
-	//CONSUL_UPSTREAM_WEIGHT or CONSUL_UPSTREAM_HASH or CONSUL_UPSTREAM_MANUAL or CONSUL_UPSTREAM_NVSWRR
-	int upstream_policy;
-	int connect_timeout;
-	int response_timeout;
-	int max_fails;
-};
-
-static constexpr struct ConsulWatchParams CONSUL_DISCOVER_PARAMS_DEFAULT =
-{
-	.upstream_policy    =    CONSUL_UPSTREAM_WEIGHT,
-	.connect_timeout    =    10 * 1000,   //10s
-	.response_timeout   =    10 * 1000,   //10s
-	.max_fails          =    200,
-};
-
-struct ConsulRegisterParams
-{
-	std::vector<std::string> tags;	
-	std::map<std::string, std::string> meta;
-	std::string address;
-	uint16_t port;
-};
-
-class __WFConsulManager;
 class WFConsulManager
 {
 public:
-	WFConsulManager(const std::string& consul_url, protocol::ConsulConfig config);
-	~WFConsulManager();
+	int init(const std::string& proxy_url);
+	int init(const std::string& proxy_url, protocol::ConsulConfig config);
+	void deinit();
 
 	/**
      * @brief      watch service
@@ -85,7 +55,7 @@ public:
 					  const std::string& service_name);
 	int watch_service(const std::string& service_namespace,
 					  const std::string& service_name,
-					  const struct ConsulWatchParams *params);
+					  const struct AddressParams *address_params);
 
 	/**
      * @brief      unwatch service
@@ -102,10 +72,7 @@ public:
 
 	/**
      * @brief      register service
-     * @param[in]  service_namespace  consul service namespace
-     * @param[in]  service_name       consul service name
-     * @param[in]  service_id         consul service id
-     * @param[in]  params             consul register params
+     * @param[in]  service            consul service
      * @retval     success/fail
      * @retval     0                  success
      * @retval     -1                 fail, more info see errno
@@ -113,10 +80,7 @@ public:
      * service_namespace: if consul not enterprise, you must set it empty string
      * service_id: it must be globally unique
      */
-	int register_service(const std::string& service_namespace,
-						 const std::string& service_name,
-						 const std::string& service_id,
-                         const struct ConsulRegisterParams *params);
+	int register_service(const struct protocol::ConsulService *service);
 
 	/**
      * @brief      deregister service
@@ -138,12 +102,55 @@ public:
      */
 	void get_watching_services(std::vector<std::string>& services);
 
-	void set_select(upstream_route_t select);
+public:
+	virtual ~WFConsulManager() { }
 
-	void set_consistent_hash(upstream_route_t consistent_hash);
 private:
+	using ConsulInstances = std::vector<struct protocol::ConsulServiceInstance>;
+    void discover_callback(WFConsulTask *task);
+    void register_callback(WFConsulTask *task);
+    void deregister_callback(WFConsulTask *task);
+    void timer_callback(WFTimerTask *task, long long consul_index);
+    int update_upstream_and_instances(
+							const std::string& policy_name,
+							const ConsulInstances& instances,
+							const struct AddressParams *address_params,
+							std::unordered_set<std::string>& cached_addresses);
+    std::string get_policy_name(const std::string& service_namespace,
+								const std::string& service_name);
+    std::string get_address(const std::string& ip, unsigned short port);
+	int add_servers(const std::string& policy_name,
+					const std::vector<std::string>& addresses,
+					const struct AddressParams *address_params);
+	int remove_servers(const std::string& policy_name,
+					   const std::vector<std::string>& addresses);
+private:
+	std::string proxy_url;
+	protocol::ConsulConfig config;
+	WFConsulClient client;
+	std::mutex mutex;
 
-	__WFConsulManager *ptr;
+	struct WatchInfo
+	{
+		bool watching;
+		long long consul_index;
+		std::condition_variable cond;
+		std::unordered_set<std::string> cached_addresses;
+    };
+
+	struct ConsulCallBackResult
+	{
+		WFFacilities::WaitGroup *wait_group;
+		int error;
+	};
+
+	struct WatchContext
+	{
+		std::string service_namespace;
+		std::string service_name;
+		struct AddressParams address_params;
+	};
+	std::unordered_map<std::string, struct WatchInfo *> watch_status;
 };
 
 #endif

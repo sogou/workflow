@@ -32,8 +32,6 @@
 
 using namespace protocol;
 
-std::string url;
-
 void print_services_result(std::vector<std::string>& services)
 {
 	fprintf(stderr, "watching services:");
@@ -48,15 +46,15 @@ void sig_handler(int signo) { }
 
 int main(int argc, char *argv[])
 {
-	if (argc < 5)
+	if (argc < 6)
 	{
-		fprintf(stderr, "USAGE: %s url api_type(register or watch) service_name host<p/c> \n", argv[0]);
+		fprintf(stderr, "USAGE: %s url api_type(register or watch) service_name address port <p/c> \n", argv[0]);
 		exit(1);
 	}
 
 	signal(SIGINT, sig_handler);
 
-	url = argv[1];
+	std::string url = argv[1];
 	if (strncmp(argv[1], "http://", 7) != 0)
 		url = "http://" + url;
 
@@ -70,41 +68,46 @@ int main(int argc, char *argv[])
 	if (api_type == "register")
 	{
 		WFFacilities::WaitGroup wait_group(1);
-		std::string host = argv[4];
-		auto pos = host.find_first_of(":");
-		if (pos == std::string::npos)
-		{
-			fprintf(stderr, "host param error\n");
-			exit(1);
-		}
+		std::string address = argv[4];
+		unsigned short port = atoi(argv[5]);
 
 		config.set_health_check(true);
 		// http health check
-		config.set_check_http_url("http://" + host); 
+		config.set_check_http_url("http://" + address + ":" + std::to_string(port));
 
-		WFConsulManager cm(url, config);
+		WFConsulManager cm;
+		if (cm.init(url, config) != 0)
+		{
+			fprintf(stderr, "init failed\n");
+			exit(1);
+		}
 
-		std::string address = host.substr(0, pos);
-		unsigned short port = atoi(host.substr(pos + 1).c_str());
-		std::string service_id = service_namespace + "." + service_name + host;
-		WFHttpServer server([port](WFHttpTask *task) {
+		std::string service_id = service_namespace + "." + service_name;
+		service_id += address;
+		service_id += std::to_string(port);
+		WFHttpServer server([port](WFHttpTask *task)
+		{
 			task->get_resp()->append_output_body(
 				"Response from instance 127.0.0.1:" + std::to_string(port));
 		});
 
-		if (server.start(port) != 0) {
+		if (server.start(port) != 0)
+		{
 			fprintf(stderr, "start server error\n");
 			exit(1);
 		}
 
-		struct ConsulRegisterParams register_params;
-		register_params.tags.emplace_back("v1");
-		register_params.meta["k1"] = "v1";
-		register_params.meta["k2"] = "v2";
-		register_params.address = address;
-		register_params.port = port;
-		if (cm.register_service(service_namespace, service_name, service_id,
-								&register_params) != 0)
+		struct protocol::ConsulService service;
+		service.service_namespace = service_namespace;
+		service.service_name = service_name;
+		service.service_id = service_id;
+		service.tags.emplace_back("v1");
+		service.meta["k1"] = "v1";
+		service.meta["k2"] = "v2";
+		service.service_address.first = address;
+		service.service_address.second = port;
+		service.tag_override = true;
+		if (cm.register_service(&service) != 0)
 		{
 			fprintf(stderr, "register service failed\n");
 			exit(1);
@@ -116,19 +119,18 @@ int main(int argc, char *argv[])
 	{
 		config.set_passing(true);
 		config.set_blocking_query(true);
-		WFConsulManager cm(url, config);
+		WFConsulManager cm;
+		if (cm.init(url, config) != 0)
+		{
+			fprintf(stderr, "init failed\n");
+			exit(1);
+		}
 
-		struct ConsulWatchParams watch_params;
-		watch_params.connect_timeout = 100;
-		watch_params.response_timeout = 200;
-		watch_params.upstream_policy = CONSUL_UPSTREAM_WEIGHT;
-		//watch_params.upstream_policy = CONSUL_UPSTREAM_MANUAL;
-		//auto select = [](const char *path, const char *query, const char *fragment) -> unsigned int {
-		//	return atoi(fragment);
-		//};
-		//cm.set_select(select);
+		struct AddressParams address_params;
+		address_params.endpoint_params.connect_timeout = 100;
+		address_params.endpoint_params.response_timeout = 200;
 
-		if (cm.watch_service(service_namespace, service_name, &watch_params) != 0)
+		if (cm.watch_service(service_namespace, service_name, &address_params) != 0)
 		{
 			fprintf(stderr, "watch service failed\n");
 			exit(1);
@@ -140,9 +142,8 @@ int main(int argc, char *argv[])
 		cm.get_watching_services(services);
 		print_services_result(services);		
 
-		const int test_times = 5;
-		WFFacilities::WaitGroup wait_group(test_times);
-
+		const int times = 200;
+		WFFacilities::WaitGroup wait_group(times);
 		auto cb = [&wait_group](WFHttpTask *task) {
 			const void *body;
 			size_t body_len;
@@ -159,9 +160,9 @@ int main(int argc, char *argv[])
 		request_url += service_namespace;
 		request_url += ".";
 		request_url += service_name;
-		request_url += ":8080#1";
+		request_url += ":8080"; // port can be any
 
-		for (int i = 0; i < test_times; ++i)
+		for (int i = 0; i < times; ++i)
 		{
 			WFHttpTask *task = WFTaskFactory::create_http_task(request_url,
 														   3, /* REDIRECT_MAX */

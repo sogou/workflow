@@ -56,7 +56,7 @@ public:
 	std::string get_filter_expr() const { return this->ptr->filter; }
 
 	// blocking query wait, limited to 10 minutes, default:5s, unit:ms
-	//void set_wait_ttl(int wait_ttl) { this->ptr->wait_ttl = wait_ttl; }
+	void set_wait_ttl(int wait_ttl) { this->ptr->wait_ttl = wait_ttl; }
 	int get_wait_ttl() const { return this->ptr->wait_ttl; }
 
 	// enable blocking query

@@ -49,10 +49,10 @@ public:
 	}
 	std::string get_near_node() const { return this->ptr->near; }
 
-	//void set_filter_expr(const std::string& filter_expr)
-	//{
-	//	this->ptr->filter = filter_expr;
-	//}
+	void set_filter_expr(const std::string& filter_expr)
+	{
+		this->ptr->filter = filter_expr;
+	}
 	std::string get_filter_expr() const { return this->ptr->filter; }
 
 	// blocking query wait, limited to 10 minutes, default:5s, unit:ms

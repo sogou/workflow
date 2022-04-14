@@ -38,10 +38,8 @@ public:
 	__ComplexKafkaTask(int retry_max, __kafka_callback_t&& callback) :
 		WFComplexClientTask(retry_max, std::move(callback))
 	{
-		update_metadata_ = false;
 		is_user_request_ = true;
 		is_redirect_ = false;
-		need_retry_ = false;
 	}
 
 protected:
@@ -107,16 +105,16 @@ private:
 	bool process_produce();
 	bool process_fetch();
 	bool process_metadata();
+	bool process_list_offsets();
 	bool process_find_coordinator();
 	bool process_join_group();
 	bool process_sync_group();
 	bool process_sasl_authenticate();
 	bool process_sasl_handshake();
 
-	bool update_metadata_;
 	bool is_user_request_;
 	bool is_redirect_;
-	bool need_retry_;
+	std::string user_info_;
 };
 
 CommMessageOut *__ComplexKafkaTask::message_out()
@@ -194,7 +192,8 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 		(KafkaConnectionInfo *)this->get_connection()->get_context();
 	this->get_req()->set_api(&conn_info->api);
 
-	if (this->get_req()->get_api_type() == Kafka_Fetch)
+	if (this->get_req()->get_api_type() == Kafka_Fetch ||
+		this->get_req()->get_api_type() == Kafka_ListOffsets)
 	{
 		KafkaRequest *req = this->get_req();
 		req->get_toppar_list()->rewind();
@@ -294,7 +293,7 @@ bool __ComplexKafkaTask::init_success()
 		}
 	}
 
-	std::string username, password, sasl;
+	std::string username, password, sasl, client;
 	if (uri_.userinfo)
 	{
 		const char *pos = strchr(uri_.userinfo, ':');
@@ -307,28 +306,36 @@ bool __ComplexKafkaTask::init_success()
 			{
 				password = std::string(pos + 1, pos1 - pos - 1);
 				StringUtil::url_decode(password);
-				sasl = std::string(pos1 + 1);
+				const char *pos2 = strchr(pos1 + 1, ':');
+				if (pos2)
+				{
+					sasl = std::string(pos1 + 1, pos2 - pos1 - 1);
+					client = std::string(pos1 + 1);
+				}
 			}
 		}
 
-		if (username.empty() || password.empty() || sasl.empty())
+		if (username.empty() || password.empty() || sasl.empty() || client.empty())
 		{
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_URI_SCHEME_INVALID;
 			return false;
 		}
+
+		user_info_ = uri_.userinfo;
+		size_t info_len = username.size() + password.size() + sasl.size() +
+			client.size() + 50;
+		char *info = new char[info_len];
+
+		snprintf(info, info_len, "%s|user:%s|pass:%s|sasl:%s|client:%s|", "kafka",
+				username.c_str(), password.c_str(), sasl.c_str(), client.c_str());
+
+		this->WFComplexClientTask::set_info(info);
+		delete []info;
 	}
 
-	size_t info_len = username.size() + password.size() + sasl.size() + 50;
-	char *info = new char[info_len];
-
-	snprintf(info, info_len, "%s|user:%s|pass:%s|sasl:%s|", "kafka",
-			 username.c_str(), password.c_str(), sasl.c_str());
-
-	this->WFComplexClientTask::set_info(info);
 	this->WFComplexClientTask::set_transport_type(type);
 
-	delete []info;
 	return true;
 }
 
@@ -379,11 +386,13 @@ bool __ComplexKafkaTask::check_redirect()
 			socklen_t addrlen_coord;
 
 			coordinator->get_broker_addr(&addr_coord, &addrlen_coord);
-			set_redirect(TT_TCP, addr_coord, addrlen_coord, "");
+			set_redirect(TT_TCP, addr_coord, addrlen_coord,
+						 this->WFComplexClientTask::info_);
 		}
 		else
 		{
 			std::string url = "kafka://";
+			url += user_info_ + "@";
 			url += coordinator->get_host();
 			url += ":" + std::to_string(coordinator->get_port());
 
@@ -396,7 +405,7 @@ bool __ComplexKafkaTask::check_redirect()
 	}
 	else
 	{
-		this->init(TT_TCP, paddr, addrlen, "");
+		this->init(TT_TCP, paddr, addrlen, this->WFComplexClientTask::info_);
 		return false;
 	}
 }
@@ -430,31 +439,27 @@ bool __ComplexKafkaTask::process_join_group()
 		msg->get_cgroup()->get_coordinator()->set_to_addr(1);
 	}
 
-	if (msg->get_cgroup()->get_error() == KAFKA_MISSING_TOPIC)
+	switch(msg->get_cgroup()->get_error())
 	{
-		this->get_req()->set_api_type(Kafka_Metadata);
-		this->get_req()->set_alien();
-		update_metadata_ = true;
-	}
-	else if (msg->get_cgroup()->get_error() == KAFKA_MEMBER_ID_REQUIRED)
-	{
+	case KAFKA_MEMBER_ID_REQUIRED:
 		this->get_req()->set_api_type(Kafka_JoinGroup);
-	}
-	else if (msg->get_cgroup()->get_error() == KAFKA_UNKNOWN_MEMBER_ID)
-	{
+		break;
+
+	case KAFKA_UNKNOWN_MEMBER_ID:
 		msg->get_cgroup()->set_member_id("");
 		this->get_req()->set_api_type(Kafka_JoinGroup);
-	}
-	else if (msg->get_cgroup()->get_error())
-	{
+		break;
+
+	case KAFKA_NONE:
+		this->get_req()->set_api_type(Kafka_Metadata);
+		break;
+
+	default:
 		this->error = msg->get_cgroup()->get_error();
 		this->state = WFT_STATE_TASK_ERROR;
 		return false;
 	}
-	else
-	{
-		this->get_req()->set_api_type(Kafka_SyncGroup);
-	}
+
 	return true;
 }
 
@@ -476,36 +481,43 @@ bool __ComplexKafkaTask::process_sync_group()
 bool __ComplexKafkaTask::process_metadata()
 {
 	KafkaResponse *msg = this->get_resp();
-	if (update_metadata_)
+	msg->get_meta_list()->rewind();
+	KafkaMeta *meta;
+	while ((meta = msg->get_meta_list()->get_next()) != NULL)
 	{
-		KafkaCgroup *cgroup = msg->get_cgroup();
-		if (cgroup->run_assignor(msg->get_meta_list(),
-								 msg->get_alien_meta_list(),
-								 cgroup->get_protocol_name()) < 0)
+		switch (meta->get_error())
 		{
-			this->error = errno;
+		case KAFKA_LEADER_NOT_AVAILABLE:
+			this->get_req()->set_api_type(Kafka_Metadata);
+			return true;
+		case KAFKA_NONE:
+			break;
+		default:
+			this->error = meta->get_error();
 			this->state = WFT_STATE_TASK_ERROR;
+			return false;
 		}
-		else
-		{
-			this->get_req()->set_api_type(Kafka_SyncGroup);
-		}
-		return true;
 	}
-	else
+
+	if (msg->get_cgroup()->get_group())
 	{
-		msg->get_meta_list()->rewind();
-		KafkaMeta *meta;
-		while ((meta = msg->get_meta_list()->get_next()) != NULL)
+		if (msg->get_cgroup()->is_leader())
 		{
-			if (meta->get_error() == KAFKA_LEADER_NOT_AVAILABLE)
+			KafkaCgroup *cgroup = msg->get_cgroup();
+			if (cgroup->run_assignor(msg->get_meta_list(),
+									 cgroup->get_protocol_name()) < 0)
 			{
-				this->get_req()->set_api_type(Kafka_Metadata);
-				return true;
+				this->error = WFT_ERR_KAFKA_CGROUP_ASSIGN_FAILED;
+				this->state = WFT_STATE_TASK_ERROR;
+				return false;
 			}
 		}
-		return false;
+
+		this->get_req()->set_api_type(Kafka_SyncGroup);
+		return true;
 	}
+
+	return false;
 }
 
 bool __ComplexKafkaTask::process_fetch()
@@ -520,11 +532,46 @@ bool __ComplexKafkaTask::process_fetch()
 		{
 			toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
 			toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);
-			need_retry_ = true;
+			toppar->set_high_watermark(KAFKA_OFFSET_UNINIT);
 			ret = true;
+		}
+
+		switch (toppar->get_error())
+		{
+		case KAFKA_UNKNOWN_TOPIC_OR_PARTITION:
+		case KAFKA_LEADER_NOT_AVAILABLE:
+		case KAFKA_NOT_LEADER_FOR_PARTITION:
+		case KAFKA_BROKER_NOT_AVAILABLE:
+		case KAFKA_REPLICA_NOT_AVAILABLE:
+		case KAFKA_KAFKA_STORAGE_ERROR:
+		case KAFKA_FENCED_LEADER_EPOCH:
+			this->get_req()->set_api_type(Kafka_Metadata);
+			return true;
+		case KAFKA_NONE:
+		case KAFKA_OFFSET_OUT_OF_RANGE:
+			break;
+		default:
+			this->error = toppar->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+			return false;
 		}
 	}
 	return ret;
+}
+
+bool __ComplexKafkaTask::process_list_offsets()
+{
+	KafkaToppar *toppar;
+	this->get_resp()->get_toppar_list()->rewind();
+	while ((toppar = this->get_resp()->get_toppar_list()->get_next()) != NULL)
+	{
+		if (toppar->get_error())
+		{
+			this->error = toppar->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+		}
+	}
+	return false;
 }
 
 bool __ComplexKafkaTask::process_produce()
@@ -550,6 +597,12 @@ bool __ComplexKafkaTask::process_produce()
 		case KAFKA_FENCED_LEADER_EPOCH:
 			this->get_req()->set_api_type(Kafka_Metadata);
 			return true;
+		case KAFKA_NONE:
+			break;
+		default:
+			this->error = toppar->get_error();
+			this->state = WFT_STATE_TASK_ERROR;
+			return false;
 		}
 	}
 	return false;
@@ -575,6 +628,7 @@ bool __ComplexKafkaTask::process_sasl_authenticate()
 	}
 	return false;
 }
+
 bool __ComplexKafkaTask::has_next()
 {
 	struct sockaddr_storage addr;
@@ -607,72 +661,74 @@ bool __ComplexKafkaTask::has_next()
 		return this->process_sasl_handshake();
 	case Kafka_SaslAuthenticate:
 		return this->process_sasl_authenticate();
+	case Kafka_ListOffsets:
+		return this->process_list_offsets();
 	case Kafka_OffsetCommit:
 	case Kafka_OffsetFetch:
-	case Kafka_ListOffsets:
-	case Kafka_Heartbeat:
 	case Kafka_LeaveGroup:
+	case Kafka_DescribeGroups:
+	case Kafka_Heartbeat:
+		this->error = this->get_resp()->get_cgroup()->get_error();
+		if (this->error)
+			this->state = WFT_STATE_TASK_ERROR;
+		break;
 	case Kafka_ApiVersions:
-		return false;
+		this->error = errno;
+		if (this->error)
+			this->state = WFT_STATE_TASK_ERROR;
+		break;
 	default:
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_KAFKA_API_UNKNOWN;
-		return false;
+		break;
 	}
+	return false;
 }
 
 bool __ComplexKafkaTask::finish_once()
 {
+	bool finish = true;
+	if (this->state == WFT_STATE_SUCCESS)
+		finish = !has_next();
+
+	if (!is_user_request_)
+	{
+		delete this->get_message_out();
+		this->get_resp()->clear_buf();
+	}
+
+	if (is_redirect_ && this->state == WFT_STATE_UNDEFINED)
+	{
+		this->get_req()->clear_buf();
+		is_redirect_ = false;
+		return true;
+	}
+
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (has_next())
-		{
-			if (!is_user_request_)
-			{
-				delete this->get_message_out();
-				this->get_resp()->clear_buf();
-				return false;
-			}
-
-			this->get_req()->clear_buf();
-			if (is_redirect_)
-			{
-				is_redirect_ = false;
-				return true;
-			}
-
-			if (need_retry_)
-			{
-				is_user_request_ = false;
-				need_retry_ = false;
-			}
-
-			this->clear_resp();
-			return false;
-		}
-
 		if (!is_user_request_)
 		{
 			is_user_request_ = true;
-			delete this->get_message_out();
-			this->get_resp()->clear_buf();
 			return false;
 		}
 
-		if (*get_mutable_ctx())
-			(*get_mutable_ctx())(this);
+		if (!finish)
+		{
+			this->get_req()->clear_buf();
+			this->get_resp()->clear_buf();
+			return false;
+		}
 	}
 	else
 	{
 		this->disable_retry();
-
 		this->get_resp()->set_api_type(this->get_req()->get_api_type());
 		this->get_resp()->set_api_version(this->get_req()->get_api_version());
 		this->get_resp()->duplicate(*this->get_req());
-
-		if (*get_mutable_ctx())
-			(*get_mutable_ctx())(this);
 	}
+
+	if (*get_mutable_ctx())
+		(*get_mutable_ctx())(this);
 
 	return true;
 }

@@ -47,11 +47,14 @@ public:
 	virtual bool add_produce_record(const std::string& topic, int partition,
 									protocol::KafkaRecord record) = 0;
 
+	virtual bool add_offset_toppar(const protocol::KafkaToppar& toppar) = 0;
+
 	void add_commit_record(const protocol::KafkaRecord& record)
 	{
 		protocol::KafkaToppar toppar;
 		toppar.set_topic_partition(record.get_topic(), record.get_partition());
 		toppar.set_offset(record.get_offset());
+		toppar.set_error(KAFKA_NONE);
 		this->toppar_list.add_item(std::move(toppar));
 	}
 
@@ -60,6 +63,7 @@ public:
 		protocol::KafkaToppar toppar_t;
 		toppar_t.set_topic_partition(toppar.get_topic(), toppar.get_partition());
 		toppar_t.set_offset(toppar.get_offset());
+		toppar_t.set_error(KAFKA_NONE);
 		this->toppar_list.add_item(std::move(toppar_t));
 	}
 

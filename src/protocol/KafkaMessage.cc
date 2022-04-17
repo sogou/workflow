@@ -1618,7 +1618,6 @@ KafkaMessage::KafkaMessage()
 	this->stream = new EncodeStream;
 	this->api_type = Kafka_Unknown;
 	this->cur_size = 0;
-	this->alien = false;
 }
 
 KafkaMessage::~KafkaMessage()
@@ -2086,6 +2085,7 @@ KafkaRequest::KafkaRequest()
 	this->api_mver_map[Kafka_ApiVersions] = 0;
 	this->api_mver_map[Kafka_SaslHandshake] = 1;
 	this->api_mver_map[Kafka_SaslAuthenticate] = 0;
+	this->api_mver_map[Kafka_DescribeGroups] = 0;
 }
 
 int KafkaRequest::encode_produce(struct iovec vectors[], int max)
@@ -2436,17 +2436,11 @@ int KafkaRequest::encode_metadata(struct iovec vectors[], int max)
 	else
 		append_i32(this->msgbuf, 0);
 
-	KafkaMetaList *p_meta_list;
-	if (this->alien)
-		p_meta_list = &this->alien_meta_list;
-	else
-		p_meta_list = &this->meta_list;
-
-	p_meta_list->rewind();
+	this->meta_list.rewind();
 	KafkaMeta *meta;
 	int topic_cnt = 0;
 
-	while ((meta = p_meta_list->get_next()) != NULL)
+	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		append_string(this->msgbuf, meta->get_topic());
 		++topic_cnt;
@@ -2587,10 +2581,9 @@ int KafkaRequest::encode_syncgroup(struct iovec vectors[], int max)
 	if (this->api_version >= 3)
 		append_nullable_string(this->msgbuf, "", 0);
 
-	append_i32(this->msgbuf, this->cgroup.get_member_elements());
-
 	if (this->cgroup.is_leader())
 	{
+		append_i32(this->msgbuf, this->cgroup.get_member_elements());
 		for (int i = 0; i < this->cgroup.get_member_elements(); ++i)
 		{
 			kafka_member_t *member = this->cgroup.get_members()[i];
@@ -2599,7 +2592,10 @@ int KafkaRequest::encode_syncgroup(struct iovec vectors[], int max)
 		}
 	}
 	else
+	{
+		append_i32(this->msgbuf, 0);
 		append_bytes(this->msgbuf, "");
+	}
 
 	this->cur_size = this->msgbuf.size();
 
@@ -3064,14 +3060,8 @@ int KafkaResponse::parse_metadata(void **buf, size_t *size)
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &controller_id));
 
-	KafkaMetaList *p_meta_list;
-	if (this->alien)
-		p_meta_list = &this->alien_meta_list;
-	else
-		p_meta_list = &this->meta_list;
-
 	CHECK_RET(kafka_meta_parse_topic(buf, size, this->api_version,
-									 p_meta_list, &this->broker_list));
+									 &this->meta_list, &this->broker_list));
 
 	return 0;
 }
@@ -3192,6 +3182,10 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 
 int KafkaResponse::parse_fetch(void **buf, size_t *size)
 {
+	this->toppar_list.rewind();
+	KafkaToppar *toppar;
+	while ((toppar = this->toppar_list.get_next()) != NULL)
+		toppar->clear_records();
 	int throttle_time;
 
 	if (this->api_version >= 1)
@@ -3242,7 +3236,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			CHECK_RET(parse_i16(buf, size, &ptr->error));
 			CHECK_RET(parse_i64(buf, size, &high_watermark));
 
-			if (ptr->error == KAFKA_NONE)
+			if (high_watermark > ptr->low_watermark)
 				ptr->high_watermark = high_watermark;
 
 			if (this->api_version >= 4)
@@ -3267,16 +3261,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			}
 
 			if (parse_records(buf, size, this->config.get_check_crcs(),
-							  &this->uncompressed, toppar) == 0)
-			{
-				if (toppar->get_record() != toppar->get_record()->prev)
-				{
-					KafkaRecord *tail = (KafkaRecord *)list_entry(
-					toppar->get_record()->prev, KafkaRecord, list);
-					toppar->set_offset(tail->get_offset());
-				}
-			}
-			else
+							  &this->uncompressed, toppar) != 0)
 			{
 				ptr->error = KAFKA_CORRUPT_MESSAGE;
 				return -1;
@@ -3380,29 +3365,37 @@ int KafkaResponse::parse_findcoordinator(void **buf, size_t *size)
 	return 0;
 }
 
-static bool kafka_meta_find_topic(const std::string& topic_name,
-								  KafkaMetaList *meta_list)
+static bool kafka_meta_find_or_add_topic(const std::string& topic_name,
+										 KafkaMetaList *meta_list)
 {
 	meta_list->rewind();
-	bool ret = false;
+	bool find = false;
 	KafkaMeta *meta;
 
 	while ((meta = meta_list->get_next()) != NULL)
 	{
 		if (topic_name == meta->get_topic())
 		{
-			ret = true;
+			find = true;
 			break;
 		}
 	}
 
-	return ret;
+	if (!find)
+	{
+		KafkaMeta tmp;
+		if (!tmp.set_topic(topic_name))
+			return false;
+
+		meta_list->add_item(tmp);
+	}
+
+	return true;
 }
 
 static int kafka_cgroup_parse_member(void **buf, size_t *size,
 									 KafkaCgroup *cgroup,
 									 KafkaMetaList *meta_list,
-									 KafkaMetaList *alien_meta_list,
 									 int api_version)
 {
 	int member_cnt = 0;
@@ -3418,7 +3411,6 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 		return -1;
 
 	kafka_member_t **member = cgroup->get_members();
-	std::set<std::string> alien_topic;
 	int i;
 
 	for (i = 0; i < member_cnt; ++i)
@@ -3463,8 +3455,8 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 
 			list_add_tail(toppar->get_list(), &member[i]->toppar_list);
 
-			if (!kafka_meta_find_topic(topic_name, meta_list))
-				alien_topic.insert(topic_name);
+			if (!kafka_meta_find_or_add_topic(topic_name, meta_list))
+				return -1;
 		}
 
 		if (j != topic_cnt)
@@ -3473,21 +3465,6 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 
 	if (i != member_cnt)
 		return -1;
-
-	for (const auto& v : alien_topic)
-	{
-		KafkaMeta *meta = new KafkaMeta;
-		if (!meta->set_topic(v))
-		{
-			delete meta;
-			return -1;
-		}
-
-		alien_meta_list->add_item(std::move(*meta));
-	}
-
-	if (!alien_topic.empty())
-		cgroup->set_error(KAFKA_MISSING_TOPIC);
 
 	return 0;
 }
@@ -3508,15 +3485,7 @@ int KafkaResponse::parse_joingroup(void **buf, size_t *size)
 	CHECK_RET(parse_string(buf, size, &cgroup->member_id));
 	CHECK_RET(kafka_cgroup_parse_member(buf, size, &this->cgroup,
 										&this->meta_list,
-										&this->alien_meta_list,
 										this->api_version));
-
-	if (cgroup->error != KAFKA_MISSING_TOPIC && this->cgroup.is_leader())
-	{
-		CHECK_RET(this->cgroup.run_assignor(&this->meta_list,
-											&this->alien_meta_list,
-											cgroup->protocol_name));
-	}
 
 	return 0;
 }
@@ -3583,9 +3552,12 @@ int KafkaResponse::parse_syncgroup(void **buf, size_t *size)
 	this->cgroup.set_error(error);
 
 	CHECK_RET(parse_bytes(buf, size, member_assignment));
-	CHECK_RET(kafka_parse_member_assignment(member_assignment.c_str(),
-											member_assignment.size(),
-											&this->cgroup));
+	if (!member_assignment.empty())
+	{
+		CHECK_RET(kafka_parse_member_assignment(member_assignment.c_str(),
+												member_assignment.size(),
+												&this->cgroup));
+	}
 
 	return 0;
 }
@@ -3674,17 +3646,7 @@ int KafkaResponse::parse_offsetcommit(void **buf, size_t *size)
 		for (int i = 0 ; i < partition_cnt; ++i)
 		{
 			CHECK_RET(parse_i32(buf, size, &partition));
-
-			KafkaToppar *toppar = find_toppar_by_name(topic_name, partition,
-													  this->cgroup.get_assigned_toppar_list());
-			if (!toppar)
-				return -1;
-
-			kafka_topic_partition_t *ptr = toppar->get_raw_ptr();
-
-			CHECK_RET(parse_i16(buf, size, &ptr->error));
-			if (ptr->error)
-				this->cgroup.set_error(ptr->error);
+			CHECK_RET(parse_i16(buf, size, &this->cgroup.get_raw_ptr()->error));
 		}
 	}
 
@@ -3719,7 +3681,6 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	CHECK_RET(parse_i32(buf, size, &api_cnt));
-
 	if (api_cnt < 0)
 	{
 		errno = EBADMSG;

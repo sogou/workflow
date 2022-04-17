@@ -93,16 +93,6 @@ public:
 		return &this->meta_list;
 	}
 
-	KafkaMetaList *get_alien_meta_list()
-	{
-		return &this->alien_meta_list;
-	}
-
-	void set_alien()
-	{
-		this->alien = true;
-	}
-
 	void set_toppar_list(const KafkaTopparList& toppar_list)
 	{
 		this->toppar_list = toppar_list;
@@ -137,12 +127,10 @@ public:
 		this->cgroup = msg.cgroup;
 		this->broker = msg.broker;
 		this->meta_list = msg.meta_list;
-		this->alien_meta_list = msg.alien_meta_list;
 		this->broker_list = msg.broker_list;
 		this->toppar_list = msg.toppar_list;
 		this->sasl = msg.sasl;
 		this->api = msg.api;
-		this->alien = msg.alien;
 	}
 
 	void clear_buf()
@@ -153,6 +141,7 @@ public:
 		kafka_parser_init(this->parser);
 		this->cur_size = 0;
 		this->serialized = KafkaBuffer();
+		this->uncompressed = KafkaBuffer();
 	}
 
 protected:
@@ -201,7 +190,6 @@ protected:
 	KafkaCgroup cgroup;
 	KafkaBroker broker;
 	KafkaMetaList meta_list;
-	KafkaMetaList alien_meta_list;
 	KafkaBrokerList broker_list;
 	KafkaTopparList toppar_list;
 	KafkaBuffer serialized;
@@ -218,8 +206,6 @@ protected:
 
 	kafka_sasl_t *sasl;
 	kafka_api_t *api;
-
-	bool alien;
 };
 
 class KafkaRequest : public KafkaMessage

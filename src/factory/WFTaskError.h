@@ -60,9 +60,12 @@ enum
 	WFT_ERR_KAFKA_COMMIT_FAILED = 5005,
 	WFT_ERR_KAFKA_META_FAILED = 5006,
 	WFT_ERR_KAFKA_LEAVEGROUP_FAILED = 5007,
-	WFT_ERR_KAFKA_API_UNKNOWN = 5008,		   ///< api type not supported
-	WFT_ERR_KAFKA_VERSION_DISALLOWED = 5009,   ///< broker version not supported
-	WFT_ERR_KAFKA_SASL_DISALLOWED = 5010,   ///< sasl not supported
+	WFT_ERR_KAFKA_API_UNKNOWN = 5008,			///< api type not supported
+	WFT_ERR_KAFKA_VERSION_DISALLOWED = 5009,	///< broker version not supported
+	WFT_ERR_KAFKA_SASL_DISALLOWED = 5010,		///< sasl not supported
+	WFT_ERR_KAFKA_ARRANGE_FAILED = 5011,		///< arrange toppar failed
+	WFT_ERR_KAFKA_LIST_OFFSETS_FAILED = 5012,
+	WFT_ERR_KAFKA_CGROUP_ASSIGN_FAILED = 5013,
 
 	//CONSUL
 	WFT_ERR_CONSUL_API_UNKNOWN = 6001,		///< api type not supported

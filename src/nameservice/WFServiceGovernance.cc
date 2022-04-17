@@ -17,6 +17,8 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 #include <vector>
 #include <chrono>
@@ -82,8 +84,7 @@ public:
 	WFSGResolverTask(const struct WFNSParams *params,
 					 WFServiceGovernance *sg,
 					 router_callback_t&& cb) :
-		WFResolverTask(std::move(cb)),
-		params_(*params)
+		WFResolverTask(params, std::move(cb))
 	{
 		sg_ = sg;
 	}
@@ -92,16 +93,30 @@ protected:
 	virtual void dispatch();
 
 protected:
-	const struct WFNSParams params_;
 	WFServiceGovernance *sg_;
 };
 
+static void copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
+{
+	if (!addr->host.empty())
+	{
+		free(uri.host);
+		uri.host = strdup(addr->host.c_str());
+	}
+
+	if (!addr->port.empty())
+	{
+		free(uri.port);
+		uri.port = strdup(addr->port.c_str());
+	}
+}
+
 void WFSGResolverTask::dispatch()
 {
-	WFNSTracing *tracing = params_.tracing;
+	WFNSTracing *tracing = ns_params_.tracing;
 	EndpointAddress *addr;
 
-	if (sg_->select(params_.uri, tracing, &addr))
+	if (sg_->select(ns_params_.uri, tracing, &addr))
 	{
 		auto *tracing_data = (WFServiceGovernance::TracingData *)tracing->data;
 		if (!tracing_data)
@@ -114,24 +129,10 @@ void WFSGResolverTask::dispatch()
 
 		tracing_data->history.push_back(addr);
 
-		type_ = params_.type;
-		if (!addr->host.empty())
-			host_ = addr->host;
-		else
-			host_ = params_.uri.host ? params_.uri.host : "";
-
-		if (!addr->port.empty())
-			port_ = atoi(addr->port.c_str());
-		else
-			port_ = params_.uri.port ? atoi(params_.uri.port) : 0;
-
-		info_ = params_.info;
-		dns_cache_level_ = params_.retry_times == 0 ? DNS_CACHE_LEVEL_2 :
-													  DNS_CACHE_LEVEL_1;
+		copy_host_port(ns_params_.uri, addr);
 		dns_ttl_default_ = addr->params->dns_ttl_default;
 		dns_ttl_min_ = addr->params->dns_ttl_min;
-		endpoint_params_ = addr->params->endpoint_params;
-		first_addr_only_ = params_.fixed_addr;
+		ep_params_ = addr->params->endpoint_params;
 		this->WFResolverTask::dispatch();
 		return;
 	}

@@ -30,13 +30,22 @@
 class WFResolverTask : public WFRouterTask
 {
 public:
-	WFResolverTask(const struct WFNSParams *params, int dns_cache_level,
+	WFResolverTask(const struct WFNSParams *ns_params,
 				   unsigned int dns_ttl_default, unsigned int dns_ttl_min,
-				   const struct EndpointParams *endpoint_params,
-				   router_callback_t&& cb);
+				   const struct EndpointParams *ep_params,
+				   router_callback_t&& cb) :
+		WFRouterTask(std::move(cb)),
+		ns_params_(*ns_params),
+		ep_params_(*ep_params)
+	{
+		dns_ttl_default_ = dns_ttl_default;
+		dns_ttl_min_ = dns_ttl_min;
+	}
 
-	WFResolverTask(router_callback_t&& cb) :
-		WFRouterTask(std::move(cb))
+	WFResolverTask(const struct WFNSParams *ns_params,
+				   router_callback_t&& cb) :
+		WFRouterTask(std::move(cb)),
+		ns_params_(*ns_params)
 	{
 	}
 
@@ -57,16 +66,15 @@ private:
 							   unsigned int ttl_min);
 
 protected:
-	TransportType type_;
-	std::string host_;
-	std::string info_;
-	unsigned short port_;
-	bool first_addr_only_;
-	bool query_dns_;
-	int dns_cache_level_;
+	struct WFNSParams ns_params_;
 	unsigned int dns_ttl_default_;
 	unsigned int dns_ttl_min_;
-	struct EndpointParams endpoint_params_;
+	struct EndpointParams ep_params_;
+	bool query_dns_;
+
+private:
+	unsigned short port_;
+	const char *host_;
 };
 
 class WFDnsResolver : public WFNSPolicy

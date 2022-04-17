@@ -19,21 +19,61 @@
 #ifndef _WFDNSRESOLVER_H_
 #define _WFDNSRESOLVER_H_
 
+#include <string>
+#include <functional>
+#include "Workflow.h"
+#include "DnsMessage.h"
+#include "DnsRoutine.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFResourcePool.h"
+
+class WFResolverTask : public WFRouterTask
+{
+public:
+	WFResolverTask(const struct WFNSParams *params, int dns_cache_level,
+				   unsigned int dns_ttl_default, unsigned int dns_ttl_min,
+				   const struct EndpointParams *endpoint_params,
+				   router_callback_t&& cb);
+
+	WFResolverTask(router_callback_t&& cb) :
+		WFRouterTask(std::move(cb))
+	{
+	}
+
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
+private:
+	using DnsTask_thrd = WFThreadTask<DnsInput, DnsOutput>;
+	using DnsTask_net = WFNetworkTask<protocol::DnsRequest,
+									  protocol::DnsResponse>;
+	void thread_dns_callback(DnsTask_thrd *dns_task);
+	void dns_single_callback(DnsTask_net *dns_task);
+	static void dns_partial_callback(DnsTask_net *dns_task);
+	void dns_parallel_callback(const ParallelWork *pwork);
+	void dns_callback_internal(DnsOutput *dns_task,
+							   unsigned int ttl_default,
+							   unsigned int ttl_min);
+
+protected:
+	TransportType type_;
+	std::string host_;
+	std::string info_;
+	unsigned short port_;
+	bool first_addr_only_;
+	bool query_dns_;
+	int dns_cache_level_;
+	unsigned int dns_ttl_default_;
+	unsigned int dns_ttl_min_;
+	struct EndpointParams endpoint_params_;
+};
 
 class WFDnsResolver : public WFNSPolicy
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
 											 router_callback_t callback);
-
-public:
-	WFRouterTask *create(const struct WFNSParams *params, int dns_cache_level,
-						 unsigned int dns_ttl_default, unsigned int dns_ttl_min,
-						 const struct EndpointParams *endpoint_params,
-						 router_callback_t&& callback);
 };
 
 #endif

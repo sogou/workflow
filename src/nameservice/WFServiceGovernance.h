@@ -193,6 +193,7 @@ protected:
 	pthread_rwlock_t rwlock;
 	std::atomic<int> nalives;
 	bool try_another;
+	friend class WFSGResolverTask;
 };
 
 #endif

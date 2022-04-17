@@ -427,7 +427,6 @@ SubTask *WFResolverTask::done()
 	return series->pop();
 }
 
-
 void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 										   unsigned int ttl_default,
 										   unsigned int ttl_min)

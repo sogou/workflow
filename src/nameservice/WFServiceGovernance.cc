@@ -49,36 +49,7 @@ PolicyAddrParams::PolicyAddrParams(const struct AddressParams *params) :
 	this->dns_ttl_min = params->dns_ttl_min;
 	this->max_fails = params->max_fails;
 }
-/*
-class WFSelectorFailTask : public WFRouterTask
-{
-public:
-	WFSelectorFailTask(router_callback_t&& cb) :
-		WFRouterTask(std::move(cb))
-	{
-	}
 
-	virtual void dispatch()
-	{
-		return this->subtask_done();
-	}
-};
-
-static void copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
-{
-	if (!addr->host.empty())
-	{
-		free(uri.host);
-		uri.host = strdup(addr->host.c_str());
-	}
-
-	if (!addr->port.empty())
-	{
-		free(uri.port);
-		uri.port = strdup(addr->port.c_str());
-	}
-}
-*/
 EndpointAddress::EndpointAddress(const std::string& address,
 								 PolicyAddrParams *address_params)
 {
@@ -104,9 +75,6 @@ EndpointAddress::EndpointAddress(const std::string& address,
 	else
 		this->port = arr[1];
 }
-
-using sg_select_t = std::function<bool (const struct WFNSParams *params,
-										EndpointAddress **addr)>;
 
 class WFSGResolverTask : public WFResolverTask
 {
@@ -180,37 +148,6 @@ WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *p
 													  router_callback_t callback)
 {
 	return new WFSGResolverTask(params, this, std::move(callback));
-/*
-	if (this->select(params->uri, tracing, &addr))
-	{
-		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
-		unsigned int dns_ttl_min = addr->params->dns_ttl_min;
-		const struct EndpointParams *endpoint_params = &addr->params->endpoint_params;
-		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
-														 DNS_CACHE_LEVEL_1;
-		copy_host_port(params->uri, addr);
-
-		task = resolver->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
-								endpoint_params, std::move(callback));
-
-		task = resolver->create(params, std::move(sg_select), std::move(callback));
-
-		struct TracingData *tracing_data = (struct TracingData *)tracing->data;
-		if (!tracing_data)
-		{
-			tracing_data = new TracingData;
-			tracing_data->sg = this;
-			tracing->data = tracing_data;
-			tracing->deleter = WFServiceGovernance::tracing_deleter;
-		}
-
-		tracing_data->history.push_back(addr);
-	}
-	else
-		task = new WFSelectorFailTask(std::move(callback));
-
-	return task;
-*/
 }
 
 void WFServiceGovernance::tracing_deleter(void *data)

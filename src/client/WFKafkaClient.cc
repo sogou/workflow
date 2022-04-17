@@ -731,11 +731,11 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
-			if (task_toppar->get_error() == KAFKA_NONE)
-				toppar->set_offset(task_toppar->get_offset() + 1);
-			else
-				toppar->set_offset(task_toppar->get_offset());
-
+			long long offset = task_toppar->get_offset() - 1;
+			KafkaRecord *last_record = task_toppar->get_tail_record();
+			if (last_record)
+				offset = last_record->get_offset();
+			toppar->set_offset(offset + 1);
 			toppar->set_low_watermark(task_toppar->get_low_watermark());
 			toppar->set_high_watermark(task_toppar->get_high_watermark());
 		}
@@ -762,8 +762,11 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 			kafka_process_toppar_offset(task_toppar);
 	}
 
-	long idx = (long)(task->user_data);
-	this->result.set_resp(std::move(*task->get_resp()), idx);
+	if (task->get_state() == WFT_STATE_SUCCESS)
+	{
+		long idx = (long)(task->user_data);
+		this->result.set_resp(std::move(*task->get_resp()), idx);
+	}
 }
 
 void ComplexKafkaTask::generate_info()

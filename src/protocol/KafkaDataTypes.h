@@ -809,6 +809,13 @@ public:
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
 
+	void clear_records()
+	{
+		INIT_LIST_HEAD(&this->ptr->record_list);
+		this->curpos = &this->ptr->record_list;
+		this->startpos = this->endpos = this->curpos;
+	}
+
 public:
 	KafkaToppar()
 	{
@@ -946,6 +953,19 @@ public:
 	void record_rollback()
 	{
 		this->curpos = this->curpos->prev;
+	}
+
+	KafkaRecord *get_tail_record()
+	{
+		if (&this->ptr->record_list != this->ptr->record_list.prev)
+		{
+			return (KafkaRecord *)list_entry(this->ptr->record_list.prev,
+					KafkaRecord, list);
+		}
+		else
+		{
+			return NULL;
+		}
 	}
 
 private:

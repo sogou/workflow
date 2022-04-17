@@ -3224,6 +3224,10 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 
 int KafkaResponse::parse_fetch(void **buf, size_t *size)
 {
+	this->toppar_list.rewind();
+	KafkaToppar *toppar;
+	while ((toppar = this->toppar_list.get_next()) != NULL)
+		toppar->clear_records();
 	int throttle_time;
 
 	if (this->api_version >= 1)
@@ -3274,6 +3278,9 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			CHECK_RET(parse_i16(buf, size, &ptr->error));
 			CHECK_RET(parse_i64(buf, size, &high_watermark));
 
+			if (high_watermark > ptr->low_watermark)
+				ptr->high_watermark = high_watermark;
+
 			if (this->api_version >= 4)
 			{
 				CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->last_stable_offset));
@@ -3296,16 +3303,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 			}
 
 			if (parse_records(buf, size, this->config.get_check_crcs(),
-							  &this->uncompressed, toppar) == 0)
-			{
-				if (toppar->get_record() != toppar->get_record()->prev)
-				{
-					KafkaRecord *tail = (KafkaRecord *)list_entry(
-					toppar->get_record()->prev, KafkaRecord, list);
-					toppar->set_offset(tail->get_offset());
-				}
-			}
-			else
+							  &this->uncompressed, toppar) != 0)
 			{
 				ptr->error = KAFKA_CORRUPT_MESSAGE;
 				return -1;

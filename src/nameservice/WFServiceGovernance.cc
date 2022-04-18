@@ -140,7 +140,6 @@ void WFSGResolverTask::dispatch()
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_UPSTREAM_UNAVAILABLE;
-		query_dns_ = false;
 		return this->subtask_done();
 	}
 }

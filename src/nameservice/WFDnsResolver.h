@@ -40,6 +40,7 @@ public:
 	{
 		dns_ttl_default_ = dns_ttl_default;
 		dns_ttl_min_ = dns_ttl_min;
+		query_dns_ = false;
 	}
 
 	WFResolverTask(const struct WFNSParams *ns_params,
@@ -47,6 +48,7 @@ public:
 		WFRouterTask(std::move(cb)),
 		ns_params_(*ns_params)
 	{
+		query_dns_ = false;
 	}
 
 protected:
@@ -70,11 +72,11 @@ protected:
 	unsigned int dns_ttl_default_;
 	unsigned int dns_ttl_min_;
 	struct EndpointParams ep_params_;
-	bool query_dns_;
 
 private:
-	unsigned short port_;
 	const char *host_;
+	unsigned short port_;
+	bool query_dns_;
 };
 
 class WFDnsResolver : public WFNSPolicy

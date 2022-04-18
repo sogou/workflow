@@ -249,7 +249,6 @@ void WFResolverTask::dispatch()
 			this->state = WFT_STATE_SUCCESS;
 
 		dns_cache->release(addr_handle);
-		query_dns_ = false;
 		this->subtask_done();
 		return;
 	}
@@ -278,7 +277,6 @@ void WFResolverTask::dispatch()
 			DnsRoutine::run(&dns_in, &dns_out);
 			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
-			query_dns_ = false;
 			this->subtask_done();
 			return;
 		}
@@ -296,7 +294,6 @@ void WFResolverTask::dispatch()
 			DnsRoutine::create(&out, ret, ai);
 			__add_passive_flags((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
-			query_dns_ = false;
 			this->subtask_done();
 			return;
 		}

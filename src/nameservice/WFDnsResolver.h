@@ -19,21 +19,71 @@
 #ifndef _WFDNSRESOLVER_H_
 #define _WFDNSRESOLVER_H_
 
+#include <string>
+#include <functional>
+#include "Workflow.h"
+#include "DnsMessage.h"
+#include "DnsRoutine.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFResourcePool.h"
+
+class WFResolverTask : public WFRouterTask
+{
+public:
+	WFResolverTask(const struct WFNSParams *ns_params,
+				   unsigned int dns_ttl_default, unsigned int dns_ttl_min,
+				   const struct EndpointParams *ep_params,
+				   router_callback_t&& cb) :
+		WFRouterTask(std::move(cb)),
+		ns_params_(*ns_params),
+		ep_params_(*ep_params)
+	{
+		dns_ttl_default_ = dns_ttl_default;
+		dns_ttl_min_ = dns_ttl_min;
+		query_dns_ = false;
+	}
+
+	WFResolverTask(const struct WFNSParams *ns_params,
+				   router_callback_t&& cb) :
+		WFRouterTask(std::move(cb)),
+		ns_params_(*ns_params)
+	{
+		query_dns_ = false;
+	}
+
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
+private:
+	using DnsTask_thrd = WFThreadTask<DnsInput, DnsOutput>;
+	using DnsTask_net = WFNetworkTask<protocol::DnsRequest,
+									  protocol::DnsResponse>;
+	void thread_dns_callback(DnsTask_thrd *dns_task);
+	void dns_single_callback(DnsTask_net *dns_task);
+	static void dns_partial_callback(DnsTask_net *dns_task);
+	void dns_parallel_callback(const ParallelWork *pwork);
+	void dns_callback_internal(DnsOutput *dns_task,
+							   unsigned int ttl_default,
+							   unsigned int ttl_min);
+
+protected:
+	struct WFNSParams ns_params_;
+	unsigned int dns_ttl_default_;
+	unsigned int dns_ttl_min_;
+	struct EndpointParams ep_params_;
+
+private:
+	const char *host_;
+	unsigned short port_;
+	bool query_dns_;
+};
 
 class WFDnsResolver : public WFNSPolicy
 {
 public:
 	virtual WFRouterTask *create_router_task(const struct WFNSParams *params,
 											 router_callback_t callback);
-
-public:
-	WFRouterTask *create(const struct WFNSParams *params, int dns_cache_level,
-						 unsigned int dns_ttl_default, unsigned int dns_ttl_min,
-						 const struct EndpointParams *endpoint_params,
-						 router_callback_t&& callback);
 };
 
 #endif

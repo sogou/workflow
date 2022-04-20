@@ -21,9 +21,6 @@
 
 #include <string>
 #include <functional>
-#include "Workflow.h"
-#include "DnsMessage.h"
-#include "DnsRoutine.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
 
@@ -56,14 +53,11 @@ protected:
 	virtual SubTask *done();
 
 private:
-	using DnsTask_thrd = WFThreadTask<DnsInput, DnsOutput>;
-	using DnsTask_net = WFNetworkTask<protocol::DnsRequest,
-									  protocol::DnsResponse>;
-	void thread_dns_callback(DnsTask_thrd *dns_task);
-	void dns_single_callback(DnsTask_net *dns_task);
-	static void dns_partial_callback(DnsTask_net *dns_task);
-	void dns_parallel_callback(const ParallelWork *pwork);
-	void dns_callback_internal(DnsOutput *dns_task,
+	void thread_dns_callback(void *thrd_dns_task);
+	void dns_single_callback(void *net_dns_task);
+	static void dns_partial_callback(void *net_dns_task);
+	void dns_parallel_callback(const void *parallel);
+	void dns_callback_internal(void *thrd_dns_output,
 							   unsigned int ttl_default,
 							   unsigned int ttl_min);
 

@@ -214,8 +214,8 @@ private:
 	void clear_prev_state();
 	void init_with_uri();
 	bool set_port();
-	void router_callback(WFRouterTask *task);
-	void switch_callback(WFTimerTask *task);
+	void router_callback(void *t);
+	void switch_callback(void *t);
 };
 
 template<class REQ, class RESP, typename CTX>
@@ -356,12 +356,14 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		ns_policy_ = ns->get_policy(uri_.host ? uri_.host : "");
 	}
 
-	return ns_policy_->create_router_task(&params, cb);
+	return ns_policy_->create_router_task(&params, std::move(cb));
 }
 
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
+void WFComplexClientTask<REQ, RESP, CTX>::router_callback(void *t)
 {
+	WFRouterTask *task = (WFRouterTask *)t;
+
 	this->state = task->get_state();
 	if (this->state == WFT_STATE_SUCCESS)
 		route_result_ = std::move(*task->get_result());
@@ -404,7 +406,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 }
 
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
+void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(void *t)
 {
 	if (!redirect_)
 	{

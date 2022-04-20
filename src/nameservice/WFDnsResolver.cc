@@ -381,10 +381,11 @@ SubTask *WFResolverTask::done()
 	return series->pop();
 }
 
-void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
+void WFResolverTask::dns_callback_internal(void *thrd_dns_output,
 										   unsigned int ttl_default,
 										   unsigned int ttl_min)
 {
+	DnsOutput *dns_out = (DnsOutput *)thrd_dns_output;
 	int dns_error = dns_out->get_error();
 
 	if (dns_error)
@@ -424,8 +425,9 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 	}
 }
 
-void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
+void WFResolverTask::dns_single_callback(void *net_dns_task)
 {
+	WFDnsTask *dns_task = (WFDnsTask *)net_dns_task;
 	WFGlobal::get_dns_respool()->post(NULL);
 
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
@@ -450,8 +452,9 @@ void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 	delete this;
 }
 
-void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
+void WFResolverTask::dns_partial_callback(void *net_dns_task)
 {
+	WFDnsTask *dns_task = (WFDnsTask *)net_dns_task;
 	WFGlobal::get_dns_respool()->post(NULL);
 
 	struct DnsContext *ctx = (struct DnsContext *)dns_task->user_data;
@@ -468,8 +471,9 @@ void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
 		ctx->eai_error = EAI_NONAME;
 }
 
-void WFResolverTask::dns_parallel_callback(const ParallelWork *pwork)
+void WFResolverTask::dns_parallel_callback(const void *parallel)
 {
+	const ParallelWork *pwork = (const ParallelWork *)parallel;
 	struct DnsContext *c4 = (struct DnsContext *)(pwork->get_context());
 	struct DnsContext *c6 = c4 + 1;
 	DnsOutput out;
@@ -511,8 +515,10 @@ void WFResolverTask::dns_parallel_callback(const ParallelWork *pwork)
 	delete this;
 }
 
-void WFResolverTask::thread_dns_callback(ThreadDnsTask *dns_task)
+void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
 {
+	ThreadDnsTask *dns_task = (ThreadDnsTask *)thrd_dns_task;
+
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		DnsOutput *out = dns_task->get_output();

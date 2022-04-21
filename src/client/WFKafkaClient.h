@@ -127,15 +127,13 @@ private:
 class WFKafkaClient
 {
 public:
-	WFKafkaClient();
-
 	// example: kafka://10.160.23.23:9000
 	// example: kafka://kafka.sogou
 	// example: kafka.sogou:9090
 	// example: kafka://10.160.23.23:9000,10.123.23.23,kafka://kafka.sogou
-	int init(const std::string& broker_url);
+	void init(const std::string& broker_url);
 
-	int init(const std::string& broker_url, const std::string& group);
+	void init(const std::string& broker_url, const std::string& group);
 
 	void deinit();
 
@@ -147,14 +145,14 @@ public:
 
 	WFKafkaTask *create_kafka_task(int retry_max, kafka_callback_t cb);
 
+	void set_config(protocol::KafkaConfig conf);
+
 public:
 	/* If you don't leavegroup manually, rebalance would be triggered */
 	WFKafkaTask *create_leavegroup_task(int retry_max,
 										kafka_callback_t callback);
 
 public:
-	virtual ~WFKafkaClient();
-
 	protocol::KafkaMetaList *get_meta_list();
 
 	protocol::KafkaBrokerList *get_broker_list();

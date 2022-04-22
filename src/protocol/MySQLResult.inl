@@ -16,6 +16,7 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <math.h>
 #include <string>
 #include <utility>
 #include "mysql_byteorder.h"
@@ -187,7 +188,7 @@ inline bool MySQLCell::is_float() const
 inline float MySQLCell::as_float() const
 {
 	if (!this->is_float())
-		return 0;
+		return NAN;
 
 	std::string num((char *)this->data, this->len);
 	return strtof(num.c_str(), NULL);
@@ -201,7 +202,7 @@ inline bool MySQLCell::is_double() const
 inline double MySQLCell::as_double() const
 {
 	if (!this->is_double())
-		return 0;
+		return NAN;
 
 	std::string num((char *)this->data, this->len);
 	return strtod(num.c_str(), NULL);
@@ -215,7 +216,7 @@ inline bool MySQLCell::is_ulonglong() const
 inline unsigned long long MySQLCell::as_ulonglong() const
 {
 	if (!this->is_ulonglong())
-		return 0;
+		return (unsigned long long)-1;
 
 	std::string num((char *)this->data, this->len);
 	return strtoull(num.c_str(), NULL, 10);

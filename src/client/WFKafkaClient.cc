@@ -1480,7 +1480,7 @@ SubTask *WFKafkaTask::done()
 	return series->pop();
 }
 
-void WFKafkaClient::init(const std::string& broker)
+int WFKafkaClient::init(const std::string& broker)
 {
 	std::vector<std::string> broker_hosts;
 	std::string::size_type pos = broker.find(',');
@@ -1514,21 +1514,24 @@ void WFKafkaClient::init(const std::string& broker)
 
 	this->member = new KafkaMember;
 	this->member->broker_hosts = std::move(broker_hosts);
+	return 0;
 }
 
-void WFKafkaClient::init(const std::string& broker, const std::string& group)
+int WFKafkaClient::init(const std::string& broker, const std::string& group)
 {
 	this->init(broker);
 	this->member->cgroup.set_group(group);
 	this->member->status |= KAFKA_CGROUP_INIT | KAFKA_HEARTBEAT_INIT;
+	return 0;
 }
 
-void WFKafkaClient::deinit()
+int WFKafkaClient::deinit()
 {
 	this->member->mutex.lock();
 	this->member->status |= KAFKA_DEINIT;
 	this->member->decref();
 	this->member->mutex.unlock();
+	return 0;
 }
 
 WFKafkaTask *WFKafkaClient::create_kafka_task(const std::string& query,

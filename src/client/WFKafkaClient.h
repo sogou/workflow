@@ -131,11 +131,11 @@ public:
 	// example: kafka://kafka.sogou
 	// example: kafka.sogou:9090
 	// example: kafka://10.160.23.23:9000,10.123.23.23,kafka://kafka.sogou
-	void init(const std::string& broker_url);
+	int init(const std::string& broker_url);
 
-	void init(const std::string& broker_url, const std::string& group);
+	int init(const std::string& broker_url, const std::string& group);
 
-	void deinit();
+	int deinit();
 
 	// example: topic=xxx&topic=yyy&api=fetch
 	// example: api=commit

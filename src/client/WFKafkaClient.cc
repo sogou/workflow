@@ -99,7 +99,9 @@ public:
 
 	virtual ~ComplexKafkaTask()
 	{
+		this->member->mutex.lock();
 		this->member->decref();
+		this->member->mutex.unlock();
 	}
 
 	std::string *get_url() { return &this->url; }

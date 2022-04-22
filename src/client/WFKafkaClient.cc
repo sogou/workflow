@@ -71,7 +71,7 @@ public:
 	std::map<std::string, enum MetaStatus> meta_map;
 	std::mutex mutex;
 	int status;
-	int ref;
+	std::atomic<int> ref;
 };
 
 class ComplexKafkaTask : public WFKafkaTask
@@ -86,8 +86,8 @@ public:
 		this->member = client->member;
 		this->query = query;
 
-		this->member->mutex.lock();
 		this->member->incref();
+		this->member->mutex.lock();
 		this->config = client->member->config;
 		if (!this->member->broker_hosts.empty())
 		{
@@ -99,9 +99,7 @@ public:
 
 	virtual ~ComplexKafkaTask()
 	{
-		this->member->mutex.lock();
 		this->member->decref();
-		this->member->mutex.unlock();
 	}
 
 	std::string *get_url() { return &this->url; }
@@ -239,8 +237,8 @@ void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
 	member->mutex.lock();
 	if (member->status & KAFKA_DEINIT)
 	{
+		member->mutex.unlock();
 		member->decref();
-		member->mutex.lock();
 		return;
 	}
 
@@ -318,8 +316,8 @@ void ComplexKafkaTask::kafka_heartbeat_callback(__WFKafkaTask *task)
 	member->mutex.lock();
 	if (member->status & KAFKA_DEINIT)
 	{
-		member->decref();
 		member->mutex.unlock();
+		member->decref();
 		return;
 	}
 
@@ -350,8 +348,8 @@ void ComplexKafkaTask::kafka_timer_callback(WFTimerTask *task)
 	member->mutex.lock();
 	if (member->status & KAFKA_DEINIT)
 	{
-		member->decref();
 		member->mutex.unlock();
+		member->decref();
 		return;
 	}
 
@@ -1532,8 +1530,8 @@ int WFKafkaClient::deinit()
 {
 	this->member->mutex.lock();
 	this->member->status |= KAFKA_DEINIT;
-	this->member->decref();
 	this->member->mutex.unlock();
+	this->member->decref();
 	return 0;
 }
 

@@ -208,6 +208,13 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	return ret;
 }
 
+void CommMessageIn::renew()
+{
+	CommSession *session = this->entry->session;
+	session->timeout = -1;
+	session->begin_time.tv_nsec = -1;
+}
+
 int CommService::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 					  int listen_timeout, int response_timeout)
 {

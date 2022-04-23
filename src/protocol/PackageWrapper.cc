@@ -55,11 +55,17 @@ int PackageWrapper::append(const void *buf, size_t *size)
 {
 	int ret = this->ProtocolWrapper::append(buf, size);
 
-	if (ret <= 0)
-		return ret;
+	if (ret > 0)
+	{
+		this->msg = this->next(this->msg);
+		if (this->msg)
+		{
+			this->renew();
+			ret = 0;
+		}
+	}
 
-	this->msg = this->next(this->msg);
-	return !this->msg;
+	return ret;
 }
 
 }

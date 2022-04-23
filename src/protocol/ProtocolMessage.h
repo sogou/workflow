@@ -81,6 +81,14 @@ protected:
 			return this->CommMessageIn::feedback(buf, size);
 	}
 
+	virtual void renew()
+	{
+		if (this->wrapper)
+			return this->wrapper->renew();
+		else
+			return this->CommMessageIn::renew();
+	}
+
 protected:
 	size_t size_limit;
 

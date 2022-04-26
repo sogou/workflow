@@ -116,6 +116,23 @@ void WFSGResolverTask::dispatch()
 	WFNSTracing *tracing = ns_params_.tracing;
 	EndpointAddress *addr;
 
+	if (sg_->pre_select_)
+	{
+		WFConditional *cond = sg_->pre_select_(this);
+		if (cond)
+		{
+			series_of(this)->push_front(cond);
+			this->set_has_next();
+			this->subtask_done();
+			return;
+		}
+		else if (this->state != WFT_STATE_UNDEFINED)
+		{
+			this->subtask_done();
+			return;
+		}
+	}
+
 	if (sg_->select(ns_params_.uri, tracing, &addr))
 	{
 		auto *tracing_data = (WFServiceGovernance::TracingData *)tracing->data;
@@ -134,13 +151,12 @@ void WFSGResolverTask::dispatch()
 		dns_ttl_min_ = addr->params->dns_ttl_min;
 		ep_params_ = addr->params->endpoint_params;
 		this->WFResolverTask::dispatch();
-		return;
 	}
 	else
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_UPSTREAM_UNAVAILABLE;
-		return this->subtask_done();
+		this->subtask_done();
 	}
 }
 

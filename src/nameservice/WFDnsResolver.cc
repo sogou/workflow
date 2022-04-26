@@ -362,7 +362,7 @@ void WFResolverTask::dispatch()
 		series_of(this)->push_front(dns_task);
 	}
 
-	query_dns_ = true;
+	has_next_ = true;
 	this->subtask_done();
 }
 
@@ -370,13 +370,15 @@ SubTask *WFResolverTask::done()
 {
 	SeriesWork *series = series_of(this);
 
-	if (!query_dns_)
+	if (!has_next_)
 	{
 		if (this->callback)
 			this->callback(this);
 
 		delete this;
 	}
+	else
+		has_next_ = false;
 
 	return series->pop();
 }

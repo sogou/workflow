@@ -37,7 +37,7 @@ public:
 	{
 		dns_ttl_default_ = dns_ttl_default;
 		dns_ttl_min_ = dns_ttl_min;
-		query_dns_ = false;
+		has_next_ = false;
 	}
 
 	WFResolverTask(const struct WFNSParams *ns_params,
@@ -45,12 +45,13 @@ public:
 		WFRouterTask(std::move(cb)),
 		ns_params_(*ns_params)
 	{
-		query_dns_ = false;
+		has_next_ = false;
 	}
 
 protected:
 	virtual void dispatch();
 	virtual SubTask *done();
+	void set_has_next() { has_next_ = true; }
 
 private:
 	void thread_dns_callback(void *thrd_dns_task);
@@ -70,7 +71,7 @@ protected:
 private:
 	const char *host_;
 	unsigned short port_;
-	bool query_dns_;
+	bool has_next_;
 };
 
 class WFDnsResolver : public WFNSPolicy

@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 #include <atomic>
+#include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
@@ -129,6 +130,14 @@ public:
 	static bool in_select_history(WFNSTracing *tracing, EndpointAddress *addr);
 
 public:
+	using pre_select_t = std::function<WFConditional *(WFRouterTask *)>;
+
+	void set_pre_select(pre_select_t pre_select)
+	{
+		pre_select_ = std::move(pre_select);
+	}
+
+public:
 	WFServiceGovernance() :
 		breaker_lock(PTHREAD_MUTEX_INITIALIZER),
 		rwlock(PTHREAD_RWLOCK_INITIALIZER)
@@ -166,9 +175,11 @@ private:
 	void fuse_server_to_breaker(EndpointAddress *addr);
 	void check_breaker_locked(int64_t cur_time);
 
+private:
 	struct list_head breaker_list;
 	pthread_mutex_t breaker_lock;
 	unsigned int mttr_second;
+	pre_select_t pre_select_;
 
 protected:
 	virtual EndpointAddress *first_strategy(const ParsedURI& uri,

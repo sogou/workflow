@@ -35,6 +35,10 @@ class WFRouterTask : public WFGenericTask
 public:
 	RouteManager::RouteResult *get_result() { return &this->result; }
 
+public:
+	void set_state(int state) { this->state = state; }
+	void set_error(int error) { this->error = error; }
+
 protected:
 	RouteManager::RouteResult result;
 	std::function<void (WFRouterTask *)> callback;

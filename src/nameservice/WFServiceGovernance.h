@@ -133,6 +133,14 @@ public:
 	static bool in_select_history(WFNSTracing *tracing, EndpointAddress *addr);
 
 public:
+	using pre_select_t = std::function<WFConditional *(WFRouterTask *)>;
+
+	void set_pre_select(pre_select_t pre_select)
+	{
+		pre_select_ = std::move(pre_select);
+	}
+
+public:
 	WFServiceGovernance()
 	{
 		this->nalives = 0;
@@ -171,6 +179,7 @@ private:
 	struct list_head breaker_list;
 	std::mutex breaker_lock;
 	unsigned int mttr_second;
+	pre_select_t pre_select_;
 
 protected:
 	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
@@ -195,6 +204,7 @@ protected:
 	RWLock rwlock;
 	std::atomic<int> nalives;
 	bool try_another;
+	friend class WFSGResolverTask;
 };
 
 #endif

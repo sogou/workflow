@@ -186,8 +186,9 @@ cc_library(
 	],
 	visibility = ["//visibility:public"],
 )
+
 cc_library(
-	name = 'kafka',
+	name = 'kafka_client',
 	hdrs = [
 		'src/client/WFKafkaClient.h',
 		'src/factory/KafkaTaskImpl.inl',
@@ -203,15 +204,43 @@ cc_library(
 	],
 	srcs = [
 		'src/client/WFKafkaClient.cc',
-		'src/factory/KafkaTaskImpl.cc',
 		'src/protocol/KafkaDataTypes.cc',
-		'src/protocol/KafkaMessage.cc',
 		'src/protocol/KafkaResult.cc',
 		'src/protocol/kafka_parser.c',
+	],
+	deps = [
+		':common',
+	],
+)
+
+cc_library(
+	name = 'kafka_message',
+	hdrs = [
+		'src/factory/KafkaTaskImpl.inl',
+		'src/protocol/KafkaDataTypes.h',
+		'src/protocol/KafkaMessage.h',
+		'src/protocol/KafkaResult.h',
+		'src/protocol/kafka_parser.h',
+	],
+	includes = [
+		'src/factory',
+		'src/protocol',
+	],
+	srcs = [
+		'src/factory/KafkaTaskImpl.cc',
+		'src/protocol/KafkaMessage.cc',
 	],
 	copts = ['-fno-rtti'],
 	deps = [
 		':common',
+	],
+)
+
+cc_library(
+	name = 'kafka',
+	deps = [
+		':kafka_client',
+		':kafka_message',
 	],
 	visibility = ["//visibility:public"],
 	linkopts = [
@@ -341,5 +370,4 @@ cc_binary(
 	 name = 'kafka_cli',
 	 srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
 	 deps = [':kafka', ':workflow_hdrs'],
-	 copts = ['-fno-rtti'],
 )

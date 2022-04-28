@@ -26,6 +26,5 @@ if (KAFKA STREQUAL "y")
 		WFKafkaClient.cc
 	)
 	add_library("client_kafka" OBJECT ${SRC})
-	set_property(SOURCE WFKafkaClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()
 

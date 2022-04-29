@@ -192,8 +192,8 @@ public:
 		this->ptr->passing = false;
 		this->ptr->replace_checks = false;
 		this->ptr->wait_ttl = 300 * 1000;
-		this->ptr->check_cfg.interval = 5000; //default:5s
-	 	this->ptr->check_cfg.timeout = 10000;  //default:10s
+		this->ptr->check_cfg.interval = 5000;
+		this->ptr->check_cfg.timeout = 10000;
 		this->ptr->check_cfg.http_method = "GET";
 		this->ptr->check_cfg.initial_status = "critical";
 		this->ptr->check_cfg.auto_deregister_time = 10 * 60 * 1000;

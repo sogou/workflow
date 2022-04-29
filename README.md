@@ -62,19 +62,8 @@ cd tutorial
 make
 ~~~~
 
-### Get started (Debian Linux):
-Sogou C++ Workflow has been packaged for Debian. It is currently in Debian sid (unstable) but will eventually be placed into the stable repository.
-
-In order to access the unstable repository, you will need to edit your /etc/apt/sources.list file.
-
-Simply add the 'unstable' sub branch to your repo:
-~~~~sh
-deb http://deb.debian.org/ main contrib non-free 
---> 
-deb http://deb.debian.org/ unstable main contrib non-free
-~~~~
-
-Once that is added, update your repo list and then you should be able to install it:
+### Get started (Debian Linux, ubuntu 22.04):
+Sogou C++ Workflow has been packaged for Debian.en you should be able to install it:
 ~~~~sh
 sudo apt-get update
 ~~~~

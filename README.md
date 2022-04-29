@@ -63,11 +63,7 @@ make
 ~~~~
 
 ### Get started (Debian Linux, ubuntu 22.04):
-Sogou C++ Workflow has been packaged for Debian.en you should be able to install it:
-~~~~sh
-sudo apt-get update
-~~~~
-
+Sogou C++ Workflow has been packaged for Debian Linux and ubuntu 22.04.
 To install the Workflow library for development purposes:
 ~~~~sh
 sudo apt-get install libworkflow-dev

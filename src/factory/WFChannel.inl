@@ -506,6 +506,9 @@ public:
 	{
 		this->auto_gen_mkey = auto_gen_mkey;
 	}
+
+private:
+	bool check_handshake(const protocol::HttpResponse *resp);
 };
 
 class ComplexWebSocketOutTask : public ComplexChannelOutTask<protocol::WebSocketFrame>

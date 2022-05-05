@@ -22,8 +22,15 @@
 
 #define WS_HTTP_SEC_KEY_K		"Sec-WebSocket-Key"
 #define WS_HTTP_SEC_KEY_V		"dGhlIHNhbXBsZSBub25jZQ=="
+
 #define WS_HTTP_SEC_PROTOCOL_K	"Sec-WebSocket-Protocol"
+#define WS_HTTP_SEC_PROTOCOL_V	"chat"
+
 #define WS_HTTP_SEC_VERSION_K	"Sec-WebSocket-Version"
+#define WS_HTTP_SEC_VERSION_V	"13"
+
+#define WS_HTTP_SEC_ACCEPT_K	"Sec-WebSocket-Accept"
+#define WS_HTTP_SEC_ACCEPT_V	"s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
 
 using namespace protocol;
 
@@ -166,6 +173,8 @@ SubTask *ComplexWebSocketOutTask::upgrade()
 	req->add_header_pair("Upgrade", "websocket");
 	req->add_header_pair("Connection", "Upgrade");
 	req->add_header_pair(WS_HTTP_SEC_KEY_K, WS_HTTP_SEC_KEY_V);
+	req->add_header_pair(WS_HTTP_SEC_PROTOCOL_K, WS_HTTP_SEC_PROTOCOL_V);
+	req->add_header_pair(WS_HTTP_SEC_VERSION_K, WS_HTTP_SEC_VERSION_V);
 
 	if (channel->get_sec_protocol())
 		req->add_header_pair(WS_HTTP_SEC_PROTOCOL_K, channel->get_sec_protocol());
@@ -193,7 +202,7 @@ void ComplexWebSocketChannel::handle_in(CommMessageIn *in)
 	{
 		HttpResponse *resp = static_cast<HttpResponse *>(in);
 
-		if (strcmp(resp->get_status_code(), "101") == 0)
+		if (this->check_handshake(resp))
 			this->state = WFT_STATE_SUCCESS;
 		else
 			this->state = WFT_STATE_TASK_ERROR;
@@ -230,5 +239,36 @@ WFWebSocketTask *ComplexWebSocketChannel::new_session()
 	Workflow::create_series_work(task, nullptr);
 	task->get_msg()->set_size_limit(this->size_limit);
 	return task;
+}
+
+bool ComplexWebSocketChannel::check_handshake(const HttpResponse *resp)
+{
+	if (strcmp(resp->get_status_code(), "101"))
+		return false;
+
+	std::string name;
+	std::string value;
+	HttpHeaderCursor resp_cursor(resp);
+	int flag = 0;
+
+	while (resp_cursor.next(name, value) && flag != 7)
+	{
+		if (name.compare("Upgrade") == 0 && value.compare("websocket") == 0)
+		{
+			flag |= 1;
+		}
+		else if (name.compare("Connection") == 0 &&
+				 value.compare("Upgrade") == 0)
+		{
+			flag |= (1 << 1);
+		}
+		else if (name.compare(WS_HTTP_SEC_ACCEPT_K) == 0 &&
+				 value.compare(WS_HTTP_SEC_ACCEPT_V) == 0)
+		{
+			flag |= (1 << 2);
+		}
+	}
+
+	return flag == 7;
 }
 

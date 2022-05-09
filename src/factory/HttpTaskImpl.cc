@@ -374,38 +374,19 @@ bool ComplexHttpTask::finish_once()
 
 static int __encode_auth(const char *p, std::string& auth)
 {
-	static SSL_CTX *init_ssl = WFGlobal::get_ssl_client_ctx();
-	(void)init_ssl;
-	BUF_MEM *bptr;
-	BIO *bmem;
-	BIO *b64;
+	size_t len = strlen(p);
+	size_t base64_len = (len + 2) / 3 * 4;
+	char *base64 = (char *)malloc(base64_len + 1);
 
-	b64 = BIO_new(BIO_f_base64());
-	if (b64)
-	{
-		bmem = BIO_new(BIO_s_mem());
-		if (bmem)
-		{
-			BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-			b64 = BIO_push(b64, bmem);
-			BIO_write(b64, p, strlen(p));
-			(void)BIO_flush(b64);
-			BIO_get_mem_ptr(b64, &bptr);
+	if (!base64)
+		return -1;
 
-			if (bptr->length > 0)
-			{
-				auth.append("Basic ");
-				auth.append(bptr->data, bptr->length);
-			}
+	EVP_EncodeBlock((unsigned char *)base64, (const unsigned char *)p, len);
+	auth.append("Basic ");
+	auth.append(base64, base64_len);
 
-			BIO_free_all(b64);
-			return 0;
-		}
-
-		BIO_free_all(b64);
-	}
-
-	return -1;
+	free(base64);
+	return 0;
 }
 
 static SSL *__create_ssl(SSL_CTX *ssl_ctx)

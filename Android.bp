@@ -1,0 +1,169 @@
+cc_defaults{
+    name: "libworkflow_common_c_defaults",
+    srcs: [
+        "src/kernel/mpoller.c",
+        "src/kernel/msgqueue.c",
+        "src/kernel/poller.c",
+        "src/kernel/rbtree.c",
+        "src/kernel/thrdpool.c",
+        "src/util/crc32c.c",
+    ],
+    local_include_dirs:[
+        "src/kernel",
+        "src/util",
+    ],
+}
+cc_defaults{
+    name: "libworkflow_common_defaults",
+    srcs: [
+        "src/algorithm/DnsRoutine.cc",
+        "src/client/WFDnsClient.cc",
+        "src/factory/DnsTaskImpl.cc",
+        "src/factory/FileTaskImpl.cc",
+        "src/factory/WFGraphTask.cc",
+        "src/factory/WFResourcePool.cc",
+        "src/factory/WFTaskFactory.cc",
+        "src/factory/Workflow.cc",
+        "src/manager/DnsCache.cc",
+        "src/manager/RouteManager.cc",
+        "src/manager/WFGlobal.cc",
+        "src/nameservice/WFDnsResolver.cc",
+        "src/nameservice/WFNameService.cc",
+        "src/protocol/DnsMessage.cc",
+        "src/protocol/DnsUtil.cc",
+        "src/protocol/SSLWrapper.cc",
+        "src/protocol/dns_parser.c",
+        "src/server/WFServer.cc",
+        "src/kernel/CommRequest.cc",
+        "src/kernel/CommScheduler.cc",
+        "src/kernel/Communicator.cc",
+        "src/kernel/Executor.cc",
+        "src/kernel/IOService_linux.cc",
+        "src/kernel/SubTask.cc",
+        "src/util/EncodeStream.cc",
+        "src/util/MD5Util.cc",
+        "src/util/StringUtil.cc",
+        "src/util/URIParser.cc",
+    ],
+    local_include_dirs: [
+        "src/algorithm",
+        "src/client",
+        "src/factory",
+        "src/kernel",
+        "src/manager",
+        "src/nameservice",
+        "src/protocol",
+        "src/server",
+        "src/util",
+    ]
+}
+
+cc_defaults{
+    name: "libworkflow_http_defaults",
+    srcs: [
+        "src/factory/HttpTaskImpl.cc",
+        "src/protocol/HttpMessage.cc",
+        "src/protocol/HttpUtil.cc",
+        "src/protocol/http_parser.c",
+    ],
+    local_include_dirs: [
+        "src/protocol",
+        "src/server",
+    ]
+}
+
+cc_defaults{
+    name: "libworkflow_redis_defaults",
+    srcs: [
+        "src/factory/RedisTaskImpl.cc",
+        "src/protocol/RedisMessage.cc",
+        "src/protocol/redis_parser.c",
+    ],
+    local_include_dirs: [
+        "src/protocol",
+        "src/server",
+    ],
+}
+
+cc_defaults{
+    name: "libworkflow_mysql_defaults",
+    srcs: [
+        "src/client/WFMySQLConnection.cc",
+        "src/factory/MySQLTaskImpl.cc",
+        "src/protocol/MySQLMessage.cc",
+        "src/protocol/MySQLResult.cc",
+        "src/protocol/mysql_byteorder.c",
+        "src/protocol/mysql_parser.c",
+        "src/protocol/mysql_stream.c",
+    ],
+    local_include_dirs: [
+        "src/protocol",
+        "src/client",
+        "src/server",
+    ],
+}
+
+cc_defaults{
+    name: "libworkflow_upstream_defaults",
+    srcs: [
+        "src/manager/UpstreamManager.cc",
+        "src/nameservice/UpstreamPolicies.cc",
+        "src/nameservice/WFServiceGovernance.cc",
+    ],
+    local_include_dirs:[
+        "src/manager",
+        "src/nameservice",
+    ],
+}
+
+cc_defaults{
+    name: "libwfkafka_defaults",
+    srcs: [
+        "src/client/WFKafkaClient.cc",
+        "src/util/crc32c.c",
+        "src/protocol/kafka_parser.c",
+        "src/protocol/KafkaMessage.cc",
+        "src/protocol/KafkaDataTypes.cc",
+        "src/protocol/KafkaResult.cc",
+        "src/factory/KafkaTaskImpl.cc",
+    ],
+    local_include_dirs: [
+		"src/client",
+		"src/factory",
+		"src/protocol",
+    ],
+    defaults: [
+        "libworkflow_common_defaults",
+    ]
+}
+
+cc_defaults{
+    name: "libworkflow_defaults",
+    defaults: [
+        "libworkflow_common_c_defaults",
+        "libworkflow_common_defaults",
+        "libworkflow_http_defaults",
+        "libworkflow_redis_defaults",
+        "libworkflow_mysql_defaults",
+        "libworkflow_upstream_defaults",
+    ],
+    cflags: [
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-implicit-fallthrough",
+    ],
+    rtti: true,
+}
+
+cc_library{
+    name: "libworkflow",
+    vendor_available: true,
+    shared_libs: [
+        "libssl", 
+        "libcrypto"
+    ],
+    export_include_dirs: [
+        "src/include",
+    ],
+    defaults: ["libworkflow_defaults"],
+}

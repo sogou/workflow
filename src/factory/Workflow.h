@@ -105,7 +105,7 @@ public:
 	}
 
 public:
-	/* The next 3 methods are intended for task implementations only. */
+	/* The following functions are intended for task implementations only. */
 	SubTask *pop();
 
 	void set_last_task(SubTask *last)
@@ -116,6 +116,10 @@ public:
 
 	void unset_last_task() { this->last = NULL; }
 
+	void set_in_parallel() { this->in_parallel = true; }
+
+	void dismiss_recursive();
+
 protected:
 	void *context;
 	series_callback_t callback;
@@ -123,7 +127,6 @@ protected:
 private:
 	SubTask *pop_task();
 	void expand_queue();
-	void dismiss_recursive();
 
 private:
 	SubTask *first;
@@ -237,13 +240,15 @@ public:
 protected:
 	virtual SubTask *done();
 
+public:
+	void dismiss_recursive();
+
 protected:
 	void *context;
 	parallel_callback_t callback;
 
 private:
 	void expand_buf();
-	void dismiss_recursive();
 
 private:
 	size_t buf_size;
@@ -254,7 +259,6 @@ protected:
 	ParallelWork(SeriesWork *const all_series[], size_t n,
 				 parallel_callback_t&& callback);
 	virtual ~ParallelWork() { delete []this->subtasks; }
-	friend class SeriesWork;
 	friend class Workflow;
 };
 

@@ -733,13 +733,13 @@ public:
 	void dismiss()
 	{
 		assert(!series_of(this));
-		this->dismiss_recursive();
+		delete this;
 	}
 
 public:
-	SeriesWork *as_series() { return this; }
+	SeriesWork *sub_series() { return this; }
 
-	const SeriesWork *as_series() const { return this; }
+	const SeriesWork *sub_series() const { return this; }
 
 public:
 	void *user_data;
@@ -752,28 +752,38 @@ protected:
 		if (this->callback)
 			this->callback(this);
 
+		this->first = NULL;
 		delete this;
 		return series->pop();
 	}
 
 protected:
-	SubTask *subtask;
+	SubTask *first;
 	std::function<void (const WFModuleTask *)> callback;
 
 public:
 	WFModuleTask(SubTask *first,
 				 std::function<void (const WFModuleTask *)>&& cb) :
 		SeriesWork(first, nullptr),
-		ParallelTask(&this->subtask, 1),
+		ParallelTask(&this->first, 1),
 		callback(std::move(cb))
 	{
-		this->subtask = first;
+		this->first = first;
 		this->set_in_parallel();
 		this->user_data = NULL;
 	}
 
 protected:
-	virtual ~WFModuleTask() { }
+	virtual ~WFModuleTask()
+	{
+		SubTask *task = this->first;
+
+		while (task)
+		{
+			delete task;
+			task = this->pop_task();
+		}
+	}
 };
 
 #include "WFTask.inl"

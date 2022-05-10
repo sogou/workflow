@@ -778,10 +778,14 @@ protected:
 	{
 		SubTask *task = this->first;
 
-		while (task)
+		if (task)
 		{
-			delete task;
-			task = this->pop_task();
+			this->SeriesWork::callback = nullptr;
+			do
+			{
+				delete task;
+				task = this->pop_task();
+			} while (task);
 		}
 	}
 };

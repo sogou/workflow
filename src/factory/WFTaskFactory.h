@@ -300,6 +300,14 @@ public:
 	{
 		return new WFModuleTask(first, std::move(callback));
 	}
+
+	static WFModuleTask *create_module_task(SubTask *first, SubTask *last,
+											module_callback_t callback)
+	{
+		WFModuleTask *task = new WFModuleTask(first, std::move(callback));
+		task->sub_series()->set_last_task(last);
+		return task;
+	}
 };
 
 template<class REQ, class RESP>

@@ -105,7 +105,7 @@ public:
 	}
 
 public:
-	/* Call only in tasks' done() implementation. */
+	/* Call only in tasks' done() implementations. */
 	SubTask *pop();
 
 public:

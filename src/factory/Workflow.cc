@@ -33,6 +33,7 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->back = 0;
 	this->in_parallel = false;
 	this->canceled = false;
+	assert(!series_of(first));
 	first->set_pointer(this);
 	this->first = first;
 	this->last = NULL;

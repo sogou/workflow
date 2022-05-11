@@ -25,7 +25,7 @@ module callback参数要求是const指针。这主要是防止用户在callback�
 因为我们把模块也定义成这一种任务，所以，可以像使用其它任务一样使用模块。但模块没有state和error域。  
 在[WFTask.h](/src/factory/WFTask.h)里，定义了WFModuleTask类。
 ~~~cpp
-class ModuleTask : protected SeriesWork, public ParallelTask // 不必关注这个派生关系
+class ModuleTask : public ParallelTask, protected SeriesWork // 不必关注这个派生关系
 {
 public:
     void start() { .. }

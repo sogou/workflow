@@ -101,6 +101,8 @@ using WFEmptyTask = WFGenericTask;
 using WFDynamicTask = WFGenericTask;
 using dynamic_create_t = std::function<SubTask *(WFDynamicTask *)>;
 
+using module_callback_t = std::function<void (const WFModuleTask *)>;
+
 class WFTaskFactory
 {
 public:
@@ -291,6 +293,21 @@ public:
 	}
 
 	static WFDynamicTask *create_dynamic_task(dynamic_create_t create);
+
+public:
+	static WFModuleTask *create_module_task(SubTask *first,
+											module_callback_t callback)
+	{
+		return new WFModuleTask(first, std::move(callback));
+	}
+
+	static WFModuleTask *create_module_task(SubTask *first, SubTask *last,
+											module_callback_t callback)
+	{
+		WFModuleTask *task = new WFModuleTask(first, std::move(callback));
+		task->sub_series()->set_last_task(last);
+		return task;
+	}
 };
 
 template<class REQ, class RESP>

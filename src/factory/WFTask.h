@@ -299,12 +299,12 @@ protected:
 		CommRequest(object, scheduler),
 		callback(std::move(cb))
 	{
-		this->user_data = NULL;
 		this->send_timeo = -1;
 		this->receive_timeo = -1;
 		this->keep_alive_timeo = 0;
 		this->target = NULL;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
+		this->user_data = NULL;
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
 	}
@@ -719,6 +719,75 @@ public:
 
 protected:
 	virtual ~WFGoTask() { }
+};
+
+class WFModuleTask : protected SeriesWork, public ParallelTask
+{
+public:
+	void start()
+	{
+		assert(!series_of(this));
+		Workflow::start_series_work(this, nullptr);
+	}
+
+	void dismiss()
+	{
+		assert(!series_of(this));
+		delete this;
+	}
+
+public:
+	SeriesWork *sub_series() { return this; }
+
+	const SeriesWork *sub_series() const { return this; }
+
+public:
+	void *user_data;
+
+protected:
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+
+		if (this->callback)
+			this->callback(this);
+
+		this->first = NULL;
+		delete this;
+		return series->pop();
+	}
+
+protected:
+	SubTask *first;
+	std::function<void (const WFModuleTask *)> callback;
+
+public:
+	WFModuleTask(SubTask *first,
+				 std::function<void (const WFModuleTask *)>&& cb) :
+		SeriesWork(first, nullptr),
+		ParallelTask(&this->first, 1),
+		callback(std::move(cb))
+	{
+		this->first = first;
+		this->set_in_parallel();
+		this->user_data = NULL;
+	}
+
+protected:
+	virtual ~WFModuleTask()
+	{
+		SubTask *task = this->first;
+
+		if (task)
+		{
+			this->SeriesWork::callback = nullptr;
+			do
+			{
+				delete task;
+				task = this->pop_task();
+			} while (task);
+		}
+	}
 };
 
 #include "WFTask.inl"

@@ -33,6 +33,7 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->back = 0;
 	this->in_parallel = false;
 	this->canceled = false;
+	assert(!series_of(first));
 	first->set_pointer(this);
 	this->first = first;
 	this->last = NULL;
@@ -47,13 +48,7 @@ void SeriesWork::dismiss_recursive()
 	this->callback = nullptr;
 	do
 	{
-		ParallelWork *parallel = dynamic_cast<ParallelWork *>(task);
-
-		if (parallel)
-			parallel->dismiss_recursive();
-		else
-			delete task;
-
+		delete task;
 		task = this->pop_task();
 	} while (task);
 }
@@ -118,13 +113,7 @@ SubTask *SeriesWork::pop()
 
 	while (task)
 	{
-		ParallelWork *parallel = dynamic_cast<ParallelWork *>(task);
-
-		if (parallel)
-			parallel->dismiss_recursive();
-		else
-			delete task;
-
+		delete task;
 		task = this->pop_task();
 	}
 
@@ -218,16 +207,6 @@ void ParallelWork::add_series(SeriesWork *series)
 	this->subtasks_nr++;
 }
 
-void ParallelWork::dismiss_recursive()
-{
-	size_t i;
-
-	for (i = 0; i < this->subtasks_nr; i++)
-		this->all_series[i]->dismiss_recursive();
-
-	delete this;
-}
-
 SubTask *ParallelWork::done()
 {
 	SeriesWork *series = series_of(this);
@@ -239,7 +218,18 @@ SubTask *ParallelWork::done()
 	for (i = 0; i < this->subtasks_nr; i++)
 		delete this->all_series[i];
 
+	this->subtasks_nr = 0;
 	delete this;
 	return series->pop();
+}
+
+ParallelWork::~ParallelWork()
+{
+	size_t i;
+
+	for (i = 0; i < this->subtasks_nr; i++)
+		this->all_series[i]->dismiss_recursive();
+
+	delete []this->subtasks;
 }
 

@@ -105,11 +105,9 @@ public:
 	}
 
 public:
-	/* Call only in tasks' done() implementations. */
+	/* The next 3 functions are intended for task implementations only. */
 	SubTask *pop();
 
-public:
-	/* The following functions are intended for internal usages only. */
 	void set_last_task(SubTask *last)
 	{
 		last->set_pointer(this);
@@ -118,9 +116,10 @@ public:
 
 	void unset_last_task() { this->last = NULL; }
 
-	void set_in_parallel() { this->in_parallel = true; }
-
+protected:
 	SubTask *pop_task();
+
+	void set_in_parallel() { this->in_parallel = true; }
 
 	void dismiss_recursive();
 

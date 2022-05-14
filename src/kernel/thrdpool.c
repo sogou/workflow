@@ -82,12 +82,13 @@ static void *__thrdpool_routine(void *arg)
 	/* One thread joins another. Don't need to keep all thread IDs. */
 	tid = pool->tid;
 	pool->tid = pthread_self();
-	if (--pool->nthreads == 0)
-		pthread_cond_signal(pool->terminate);
 
 	pthread_mutex_unlock(&pool->mutex);
 	if (memcmp(&tid, &__zero_tid, sizeof (pthread_t)) != 0)
 		pthread_join(tid, NULL);
+	
+	if (--pool->nthreads == 0)
+		pthread_cond_signal(pool->terminate);
 
 	return NULL;
 }

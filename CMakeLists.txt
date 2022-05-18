@@ -17,6 +17,12 @@ if (MINGW)
 	message(FATAL_ERROR "Sorry, DO NOT support MinGW")
 endif ()
 
+###Options
+
+if (WIN32)
+	option(WORKFLOW_BUILD_STATIC_RUNTIME "Use static runtime" ON)
+endif ()
+
 include(GNUInstallDirs)
 
 set(CMAKE_CONFIG_INSTALL_FILE ${PROJECT_BINARY_DIR}/config.toinstall.cmake)
@@ -32,7 +38,7 @@ add_custom_target(
 	COMMENT "link headers..."
 )
 
-include(CMakeLists_Headers.txt)
+INCLUDE(CMakeLists_Headers.txt)
 
 macro(makeLink src dest target)
 	add_custom_command(
@@ -53,6 +59,25 @@ foreach(header_file ${INCLUDE_HEADERS} ${INCLUDE_KERNEL_HEADERS})
 	makeLink(${PROJECT_SOURCE_DIR}/${header_file} ${INC_DIR}/${PROJECT_NAME}/${file_name} LINK_HEADERS)
 endforeach()
 
+if (WIN32)
+	if (SRPC_TUTORIAL_BUILD_STATIC_RUNTIME)
+		set(CompilerFlags
+				CMAKE_CXX_FLAGS
+				CMAKE_CXX_FLAGS_DEBUG
+				CMAKE_CXX_FLAGS_RELEASE
+				CMAKE_CXX_FLAGS_MINSIZEREL
+				CMAKE_C_FLAGS
+				CMAKE_C_FLAGS_DEBUG
+				CMAKE_C_FLAGS_RELEASE
+				CMAKE_C_FLAGS_MINSIZEREL
+				)
+		foreach(CompilerFlag ${CompilerFlags})
+			string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+		endforeach ()
+	endif ()
+endif ()
+
+
 message("CMAKE_C_FLAGS_DEBUG is ${CMAKE_C_FLAGS_DEBUG}")
 message("CMAKE_C_FLAGS_RELEASE is ${CMAKE_C_FLAGS_RELEASE}")
 message("CMAKE_C_FLAGS_RELWITHDEBINFO is ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
@@ -65,7 +90,7 @@ message("CMAKE_CXX_FLAGS_MINSIZEREL is ${CMAKE_CXX_FLAGS_MINSIZEREL}")
 
 if (WIN32)
 	set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /Zc:__cplusplus /std:c++14")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /std:c++14")
 else ()
 	set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -fPIC -pipe -std=gnu90")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++11 -fno-exceptions -Wno-invalid-offsetof")
@@ -94,11 +119,23 @@ configure_package_config_file(
 	PATH_VARS CONFIG_INC_DIR CONFIG_LIB_DIR
 )
 
+write_basic_package_version_file(
+	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+	VERSION ${WORKFLOW_VERSION}
+	COMPATIBILITY AnyNewerVersion 
+)
+
 install(
 	FILES ${CMAKE_CONFIG_INSTALL_FILE}
 	DESTINATION ${CMAKE_CONFIG_INSTALL_DIR}
 	COMPONENT devel
 	RENAME ${PROJECT_NAME}-config.cmake
+)
+
+install(
+	FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+	DESTINATION ${CMAKE_CONFIG_INSTALL_DIR}
+	COMPONENT devel
 )
 
 install(

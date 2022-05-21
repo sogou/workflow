@@ -218,12 +218,25 @@ public:
 	void set_context(void *context) { this->context = context; }
 
 public:
+	SeriesWork *series_at(size_t index)
+	{
+		if (index < this->subtasks_nr)
+			return this->all_series[index];
+		else
+			return NULL;
+	}
+
 	const SeriesWork *series_at(size_t index) const
 	{
 		if (index < this->subtasks_nr)
 			return this->all_series[index];
 		else
 			return NULL;
+	}
+
+	SeriesWork& operator[] (size_t index)
+	{
+		return *this->series_at(index);
 	}
 
 	const SeriesWork& operator[] (size_t index) const

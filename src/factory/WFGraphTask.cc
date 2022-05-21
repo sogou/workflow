@@ -94,7 +94,7 @@ WFGraphTask::~WFGraphTask()
 	{
 		for (i = 0; i < this->parallel->size(); i++)
 		{
-			series = const_cast<SeriesWork *>(this->parallel->series_at(i));
+			series = this->parallel->series_at(i);
 			series->unset_last_task();
 		}
 

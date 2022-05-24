@@ -136,6 +136,18 @@ public:
 	static int upstream_create_vnswrr(const std::string& name);
 
 	/**
+	 * @brief      MODE 5: round robin select
+	 * @param[in]  name             upstream name
+	 * @param[in]  try_another      when first choice is failed, try another one or not
+	 * @return     success/fail
+	 * @retval     0                success
+	 * @retval     -1               fail, more info see errno
+	 * @note
+	 */
+	static int upstream_create_round_robin(const std::string& name,
+										   bool try_another);
+
+	/**
 	 * @brief      Delete one upstream
 	 * @param[in]  name             upstream name
 	 * @return     success/fail

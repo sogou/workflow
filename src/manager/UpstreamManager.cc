@@ -138,6 +138,22 @@ int UpstreamManager::upstream_create_manual(const std::string& name,
 	return -1;
 }
 
+int UpstreamManager::upstream_create_round_robin(const std::string& name,
+												 bool try_another)
+{
+	auto *ns = WFGlobal::get_name_service();
+	UPSRoundRobinPolicy *policy = new UPSRoundRobinPolicy(try_another);
+
+	if (ns->add_policy(name.c_str(), policy) >= 0)
+	{
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
+		return 0;
+	}
+
+	delete policy;
+	return -1;
+}
+
 int UpstreamManager::upstream_add_server(const std::string& name,
 										 const std::string& address)
 {

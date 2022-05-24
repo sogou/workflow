@@ -714,3 +714,49 @@ int UPSManualPolicy::remove_server_locked(const std::string& address)
 	return UPSGroupPolicy::remove_server_locked(address);
 }
 
+EndpointAddress *UPSRoundRobinPolicy::first_strategy(const ParsedURI& uri,
+													 WFNSTracing *tracing)
+{
+	size_t idx;
+	size_t i;
+	size_t n = this->servers.size();
+
+	pthread_mutex_lock(&this->idx_lock);
+	idx = this->cur_idx + 1;
+	if (idx >= n)
+		idx = 0;
+	this->cur_idx = idx;
+	pthread_mutex_unlock(&this->idx_lock);
+
+	for (i = idx; i < idx + n; i ++)
+	{
+		if (WFServiceGovernance::in_select_history(tracing, this->servers[i % n]))
+			continue;
+	}
+
+	return this->servers[i % n];
+}
+
+EndpointAddress *UPSRoundRobinPolicy::another_strategy(const ParsedURI& uri,
+													   WFNSTracing *tracing)
+{
+	/* When all servers are down, recover all servers if any server
+	 * reaches fusing timeout. */
+	if (this->available_weight == 0)
+		this->try_clear_breaker();
+
+	if (this->available_weight == 0)
+		return NULL;
+
+	size_t idx = this->cur_idx;
+	size_t n = this->servers.size();
+
+	for (size_t i = idx; i < idx + n; i++)
+	{
+		if (this->is_alive(this->servers[i % n]))
+			return this->check_and_get(this->servers[i % n], false, tracing);
+	}
+
+	return NULL;
+}
+

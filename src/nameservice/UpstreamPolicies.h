@@ -174,4 +174,23 @@ private:
 	upstream_route_t another_select;
 };
 
+class UPSRoundRobinPolicy : public UPSWeightedRandomPolicy
+{
+public:
+	UPSRoundRobinPolicy(bool try_another) :
+		UPSWeightedRandomPolicy(try_another),
+		idx_lock(PTHREAD_MUTEX_INITIALIZER)
+	{
+		this->cur_idx = (size_t)-1;
+	}
+
+	EndpointAddress *first_strategy(const ParsedURI& uri,
+									WFNSTracing *tracing);
+	EndpointAddress *another_strategy(const ParsedURI& uri,
+									  WFNSTracing *tracing);
+private:
+	size_t cur_idx;
+	pthread_mutex_t idx_lock;
+};
+
 #endif

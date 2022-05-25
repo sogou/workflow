@@ -168,8 +168,8 @@ public:
 	}
 
 protected:
-	EndpointAddress *first_strategy(const ParsedURI& uri,
-									WFNSTracing *tracing);
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
 
 private:
 	virtual void add_server_locked(EndpointAddress *addr);

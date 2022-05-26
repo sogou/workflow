@@ -165,7 +165,7 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 	this->check_breaker();
 
-	// select_addr == NULL will only happened in consistent_hash
+	// select_addr == NULL will happen in consistent_hash
 	EndpointAddress *select_addr = this->first_strategy(uri, tracing);
 
 	if (!select_addr || select_addr->fail_count >= select_addr->params->max_fails)
@@ -331,8 +331,6 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 		group->backups.push_back(addr);
 	pthread_mutex_unlock(&group->mutex);
 	this->server_list_change(addr, ADD_SERVER);
-
-	return;
 }
 
 int UPSGroupPolicy::remove_server_locked(const std::string& address)
@@ -448,6 +446,19 @@ void UPSGroupPolicy::hash_map_remove_addr(const std::string& address)
 	}
 }
 
+EndpointAddress *UPSRoundRobinPolicy::first_strategy(const ParsedURI& uri,
+													 WFNSTracing *tracing)
+{
+	return this->servers[this->cur_idx++ % this->servers.size()];
+}
+
+EndpointAddress *UPSRoundRobinPolicy::another_strategy(const ParsedURI& uri,
+													   WFNSTracing *tracing)
+{
+	EndpointAddress *addr = this->servers[this->cur_idx++ % this->servers.size()];
+	return this->check_and_get(addr, false, tracing);
+}
+
 void UPSWeightedRandomPolicy::add_server_locked(EndpointAddress *addr)
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);
@@ -455,8 +466,6 @@ void UPSWeightedRandomPolicy::add_server_locked(EndpointAddress *addr)
 	UPSGroupPolicy::add_server_locked(addr);
 	if (params->server_type == 0)
 		this->total_weight += params->weight;
-
-	return;
 }
 
 int UPSWeightedRandomPolicy::remove_server_locked(const std::string& address)
@@ -638,7 +647,6 @@ void UPSVNSWRRPolicy::add_server_locked(EndpointAddress *addr)
 {
 	UPSWeightedRandomPolicy::add_server_locked(addr);
 	init();
-	return;
 }
 
 int UPSVNSWRRPolicy::remove_server_locked(const std::string& address)
@@ -662,8 +670,6 @@ void UPSConsistentHashPolicy::add_server_locked(EndpointAddress *addr)
 {
 	UPSGroupPolicy::add_server_locked(addr);
 	this->hash_map_add_addr(addr);
-
-	return;
 }
 
 int UPSConsistentHashPolicy::remove_server_locked(const std::string& address)
@@ -702,8 +708,6 @@ void UPSManualPolicy::add_server_locked(EndpointAddress *addr)
 
 	if (this->try_another)
 		this->hash_map_add_addr(addr);
-
-	return;
 }
 
 int UPSManualPolicy::remove_server_locked(const std::string& address)

@@ -78,6 +78,21 @@ class UpstreamManager
 {
 public:
 	/**
+	 * @brief      MODE 0: round-robin select
+	 * @param[in]  name             upstream name
+	 * @param[in]  try_another      when first choice is failed, try another one or not
+	 * @return     success/fail
+	 * @retval     0                success
+	 * @retval     -1               fail, more info see errno
+	 * @note
+	 * when first choose server is already down:
+	 * - if try_another==false, request will be failed
+	 * - if try_another==true, upstream will choose the next
+	 */
+	static int upstream_create_round_robin(const std::string& name,
+										   bool try_another);
+
+	/**
 	 * @brief      MODE 1: consistent-hashing select
 	 * @param[in]  name             upstream name
 	 * @param[in]  consitent_hash   consistent-hash functional

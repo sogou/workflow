@@ -23,13 +23,16 @@
 #include <utility>
 #include <map>
 #include <vector>
+#include <atomic>
 #include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
 #include "WFServiceGovernance.h"
 
-using upstream_route_t = std::function<unsigned int (const char *, const char *, const char *)>;
+using upstream_route_t = std::function<unsigned int (const char *path,
+													 const char *query,
+													 const char *fragment)>;
 
 class EndpointGroup;
 class UPSGroupPolicy;
@@ -50,8 +53,9 @@ class UPSGroupPolicy : public WFServiceGovernance
 {
 public:
 	UPSGroupPolicy();
-	~UPSGroupPolicy();
+	virtual ~UPSGroupPolicy();
 
+public:
 	virtual bool select(const ParsedURI& uri, WFNSTracing *tracing,
 						EndpointAddress **addr);
 	virtual void add_server(const std::string& address,
@@ -72,8 +76,8 @@ protected:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	EndpointAddress *check_and_get(EndpointAddress *addr,
-								   bool addr_failed, WFNSTracing *tracing);
+	EndpointAddress *check_and_get(EndpointAddress *addr, bool addr_failed,
+								   WFNSTracing *tracing);
 
 	bool is_alive(const EndpointAddress *addr) const;
 
@@ -86,6 +90,24 @@ protected:
 	std::map<unsigned int, EndpointAddress *> addr_hash;
 };
 
+class UPSRoundRobinPolicy : public UPSGroupPolicy
+{
+public:
+	UPSRoundRobinPolicy(bool try_another)
+	{
+		this->try_another = try_another;
+	}
+
+protected:
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
+	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
+											  WFNSTracing *tracing);
+
+protected:
+	std::atomic<size_t> cur_idx;
+};
+
 class UPSWeightedRandomPolicy : public UPSGroupPolicy
 {
 public:
@@ -95,10 +117,12 @@ public:
 		this->available_weight = 0;
 		this->try_another = try_another;
 	}
-	EndpointAddress *first_strategy(const ParsedURI& uri,
-									WFNSTracing *tracing);
-	EndpointAddress *another_strategy(const ParsedURI& uri,
-									  WFNSTracing *tracing);
+
+protected:
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
+	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
+											  WFNSTracing *tracing);
 
 protected:
 	virtual void add_server_locked(EndpointAddress *addr);
@@ -120,8 +144,10 @@ public:
 		this->cur_idx = 0;
 		this->try_another = false;
 	};
-	EndpointAddress *first_strategy(const ParsedURI& uri,
-									WFNSTracing *tracing);
+
+protected:
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
 
 private:
 	virtual void add_server_locked(EndpointAddress *addr);
@@ -142,8 +168,8 @@ public:
 	}
 
 protected:
-	EndpointAddress *first_strategy(const ParsedURI& uri,
-									WFNSTracing *tracing);
+	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
+											WFNSTracing *tracing);
 
 private:
 	virtual void add_server_locked(EndpointAddress *addr);

@@ -79,6 +79,10 @@ void register_upstream_hosts()
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8001");
 	UpstreamManager::upstream_add_server("manual", "127.0.0.1:8002");
 
+	UpstreamManager::upstream_create_round_robin("round.robin", true);
+	UpstreamManager::upstream_add_server("round.robin", "127.0.0.1:8001");
+	UpstreamManager::upstream_add_server("round.robin", "127.0.0.1:8002");
+
 	UpstreamManager::upstream_create_manual(
 	"try_another",
 	[](const char *path, const char *query, const char *fragment) -> unsigned int {
@@ -121,26 +125,42 @@ void basic_callback(WFHttpTask *task, std::string& message)
 
 TEST(upstream_unittest, BasicPolicy)
 {
-	WFFacilities::WaitGroup wait_group(3);
+	WFFacilities::WaitGroup wait_group(5);
+	WFHttpTask *task1;
+	WFHttpTask *task2;
 
-	char url[3][30] = {"http://weighted.random", "http://manual", "http://hash"};
+	char url[4][30] = {"http://weighted.random", "http://manual",
+						"http://hash", "http://round.robin"};
 
 	http_callback_t cb1 = std::bind(basic_callback, std::placeholders::_1,
 								    std::string("server1"));
 	for (int i = 0; i < 2; i++)
 	{
-		WFHttpTask *task = WFTaskFactory::create_http_task(url[i],
-											  REDIRECT_MAX, RETRY_MAX, cb1);
-		task->user_data = &wait_group;
-		task->start();
+		task1 = WFTaskFactory::create_http_task(url[i], REDIRECT_MAX,
+												RETRY_MAX, cb1);
+		task1->user_data = &wait_group;
+		task1->start();
 	}
 
 	http_callback_t cb2 = std::bind(basic_callback, std::placeholders::_1,
 								    std::string("server2"));
-	WFHttpTask *task = WFTaskFactory::create_http_task(url[2],
-											REDIRECT_MAX, RETRY_MAX, cb2);
-	task->user_data = &wait_group;
-	task->start();
+
+	task2 = WFTaskFactory::create_http_task(url[2], REDIRECT_MAX,
+											RETRY_MAX, cb2);
+	task2->user_data = &wait_group;
+	task2->start();
+
+	task1 = WFTaskFactory::create_http_task(url[3], REDIRECT_MAX,
+											RETRY_MAX, cb1);
+	task1->user_data = &wait_group;
+
+	task2 = WFTaskFactory::create_http_task(url[3], REDIRECT_MAX,
+											RETRY_MAX, cb2);
+	task2->user_data = &wait_group;
+
+	SeriesWork *series = Workflow::create_series_work(task1, nullptr);
+	series->push_back(task2);
+	series->start();
 
 	wait_group.wait();
 }
@@ -153,7 +173,7 @@ TEST(upstream_unittest, EnableAndDisable)
 
 	std::string url = "http://weighted.random";
 	WFHttpTask *task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-											  		   [&wait_group, &url](WFHttpTask *task){
+										[&wait_group, &url](WFHttpTask *task){
 		int state = task->get_state();
 		EXPECT_EQ(state, WFT_STATE_TASK_ERROR);
 		EXPECT_EQ(task->get_error(), WFT_ERR_UPSTREAM_UNAVAILABLE);
@@ -299,19 +319,27 @@ TEST(upstream_unittest, FuseAndRecover)
 
 TEST(upstream_unittest, TryAnother)
 {
-	WFFacilities::WaitGroup wait_group(2);
+	WFFacilities::WaitGroup wait_group(3);
 
 	UpstreamManager::upstream_disable_server("manual", "127.0.0.1:8001");
+	UpstreamManager::upstream_disable_server("round.robin", "127.0.0.1:8001");
 	UpstreamManager::upstream_disable_server("try_another", "127.0.0.1:8001");
+
+	http_callback_t cb2 = std::bind(basic_callback, std::placeholders::_1,
+								    std::string("server2"));
 
 	WFHttpTask *task = WFTaskFactory::create_http_task("http://manual",
 													   REDIRECT_MAX, RETRY_MAX,
-													   std::bind(basic_callback,
-													  			 std::placeholders::_1,
-								   								 std::string("server2")));
+													   cb2);
 	task->user_data = &wait_group;
 	task->start();
-		
+
+	// this->cur_idx == 1. Will skip 8001 and try 8002.
+	task = WFTaskFactory::create_http_task("http://round.robin",
+										   REDIRECT_MAX, RETRY_MAX, cb2);
+	task->user_data = &wait_group;
+	task->start();
+
 	task = WFTaskFactory::create_http_task("http://try_another",
 										   REDIRECT_MAX, RETRY_MAX,
 										   [&wait_group](WFHttpTask *task){
@@ -324,6 +352,7 @@ TEST(upstream_unittest, TryAnother)
 
 	wait_group.wait();
 	UpstreamManager::upstream_enable_server("manual", "127.0.0.1:8001");
+	UpstreamManager::upstream_enable_server("round.robin", "127.0.0.1:8001");
 	UpstreamManager::upstream_enable_server("try_another", "127.0.0.1:8001");
 }
 
@@ -359,6 +388,25 @@ TEST(upstream_unittest, Tracing)
 	EXPECT_TRUE(http_server1.start("127.0.0.1", 8001) == 0)
 				<< "http server start failed";
 	UpstreamManager::upstream_enable_server("test_tracing", "127.0.0.1:8003");
+}
+
+
+TEST(upstream_unittest, RoundRobin)
+{
+	WFFacilities::WaitGroup wait_group(1);
+
+	// this->cur_idx = 0. When 8002 is removed, we will try 8001.
+	UpstreamManager::upstream_remove_server("round.robin", "127.0.0.1:8002");
+	WFHttpTask *task = WFTaskFactory::create_http_task("http://round.robin",
+													REDIRECT_MAX, RETRY_MAX,
+													std::bind(basic_callback,
+													std::placeholders::_1,
+													std::string("server1")));
+	task->user_data = &wait_group;
+	task->start();
+
+	wait_group.wait();
+	UpstreamManager::upstream_add_server("round.robin", "127.0.0.1:8002");
 }
 
 int main(int argc, char* argv[])

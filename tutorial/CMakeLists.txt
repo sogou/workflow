@@ -42,6 +42,7 @@ set(TUTORIAL_LIST
 	tutorial-09-http_file_server
 	tutorial-11-graph_task
 	tutorial-15-name_service
+	tutorial-17-dns_client
 	tutorial-20-reducer
 )
 

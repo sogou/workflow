@@ -97,6 +97,7 @@ make
   * 内置客户端
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
     * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
+    * [异步DNS客户端：dns_cli](docs/tutorial-17-dns_cli.md)
 
 #### 系统设计特点
 

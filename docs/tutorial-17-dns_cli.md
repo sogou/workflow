@@ -3,7 +3,7 @@
 
 [about-dns](about-dns.md)中介绍了如何配置DNS相关参数，而本篇文档的重点在于介绍如何创建DNS任务以及获取解析结果。
 
-[tutorial-17-dns_cli.cc](/tutorial/tutorial-17-dns_client.cc)
+[tutorial-17-dns_cli.cc](/tutorial/tutorial-17-dns_cli.cc)
 
 ## 使用WFDnsClient创建任务
 WFDnsClient是经过封装的高级接口，其行为类似于系统提供的`resolv.conf`配置文件，帮助用户代理了重试、search列表拼接、server轮换等功能，使用起来非常简单。WFDnsClient的初始化方式有以下几种情况，当函数返回0时表示初始化成功

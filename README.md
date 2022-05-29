@@ -102,7 +102,7 @@ sudo apt-get install libworkflow1
 * Timing tasks and counting tasks
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
-  * [Conditional and resource pool](docs/en/about-conditional.md)
+  * [About resource pool](docs/en/about-resource-pool.md)
   * [About module](docs/en/about-module.md)
 * Service governance
   * [About service governance](docs/en/about-service-governance.md)

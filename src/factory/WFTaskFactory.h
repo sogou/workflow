@@ -250,6 +250,14 @@ public:
 		return new WFConditional(task);
 	}
 
+	static WFConditional *create_conditional(const std::string& cond_name,
+											 SubTask *task, void **msgbuf);
+
+	static WFConditional *create_conditional(const std::string& cond_name,
+											 SubTask *task);
+
+	static void signal_by_name(const std::string& cond_name, void *msg);
+
 public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,

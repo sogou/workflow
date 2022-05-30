@@ -20,7 +20,7 @@ static const std::map<std::string, int> qtype_map =
 };
 WFFacilities::WaitGroup wait_group(1);
 
-void show_result(protocol::DnsResultCursor &cursor)
+void show_result(protocol::DnsResultCursor& cursor)
 {
 	char information[1024];
 	const char *info;
@@ -66,6 +66,7 @@ void show_result(protocol::DnsResultCursor &cursor)
 			break;
 		default:
 			info = "Unknown";
+			break;
 		}
 
 		printf("%s\t%d\t%s\t%s\t%s\n",
@@ -130,26 +131,25 @@ void dns_callback(WFDnsTask *task)
 
 int main(int argc, char *argv[])
 {
-	const char *domain = "www.sogou.com";
-	int qtype = DNS_TYPE_ALL;
+	int qtype = DNS_TYPE_A;
+	const char *domain;
 
-	if (argc > 3)
+	if (argc == 1 || argc > 3)
 	{
-		fprintf(stderr, "USAGE: %s <domain> <query type>\n", argv[0]);
+		fprintf(stderr, "USAGE: %s <domain> [query type]\n", argv[0]);
 		return 1;
 	}
 
-	if (argc > 1)
-		domain = argv[1];
+	domain = argv[1];
 
-	if (argc > 2)
+	if (argc == 3)
 	{
 		auto it = qtype_map.find(argv[2]);
 		if (it != qtype_map.end())
 			qtype = it->second;
 	}
 
-	std::string url = "dns://119.29.29.29/";
+	std::string url = "dns://8.8.8.8/";
 	WFDnsTask *task = WFTaskFactory::create_dns_task(url, 0, dns_callback);
 
 	protocol::DnsRequest *req = task->get_req();

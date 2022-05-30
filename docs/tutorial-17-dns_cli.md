@@ -10,9 +10,9 @@ WFDnsClient是经过封装的高级接口，其行为类似于系统提供的`re
 
 - 使用一个DNS IPv4地址初始化，下述两种写法等价
 ```cpp
-client.init("119.29.29.29");
+client.init("8.8.8.8");
 // or
-client.init("dns://119.29.29.29/");
+client.init("dns://8.8.8.8/");
 ```
 - 使用一个DNS IPv6地址初始化
 ```cpp
@@ -24,16 +24,16 @@ client.init("dnss://120.53.53.53/");
 ```
 - 使用多个由逗号分隔的DNS地址初始化
 ```cpp
-client.init("8.8.8.8,dns://119.29.29.29/");
+client.init("dns://8.8.8.8/,119.29.29.29");
 ```
 - 显式指定重试策略的初始化，示例代码等价于下述`resolv.conf`描述的策略
 ```
-nameserver 119.29.29.29
+nameserver 8.8.8.8
 search sogou.com tencent.com
 options nodts:1 attempts:2 rotate
 ```
 ```cpp
-client.init("119.29.29.29", "sogou.com,tencent.com", 1, 2, true);
+client.init("8.8.8.8", "sogou.com,tencent.com", 1, 2, true);
 ```
 
 使用WFDnsClient创建的任务默认为`DNS_TYPE_A`、`DNS_CLASS_IN`类型的解析请求，且已经设置了递归解析的选项，即`task->get_req()->set_rd(1)`。了解了`WFDnsClient`的初始化的方式，仅需八行即可发起一个DNS解析任务
@@ -42,7 +42,7 @@ client.init("119.29.29.29", "sogou.com,tencent.com", 1, 2, true);
 int main()
 {
     WFDnsClient client;
-    client.init("119.29.29.29");
+    client.init("8.8.8.8");
 
     WFDnsTask *task = client.create_dns_task("www.sogou.com", dns_callback);
     task->start();
@@ -60,7 +60,7 @@ int main()
 使用工厂函数创建任务时，可以在`url path`中指定要被解析的域名，工厂函数创建的任务默认为`DNS_TYPE_A`、`DNS_CLASS_IN`类型的解析请求，创建后可以通过`set_question_type`和`set_question_class`修改，例如
 
 ```cpp
-std::string url = "dns://119.29.29.29/www.sogou.com";
+std::string url = "dns://8.8.8.8/www.sogou.com";
 WFDnsTask *task = WFTaskFactory::create_dns_task(url, 0, dns_callback);
 protocol::DnsRequest *req = task->get_req();
 req->set_rd(1);
@@ -71,7 +71,7 @@ req->set_question_class(DNS_CLASS_IN);
 若不在创建任务时指定要被解析的域名(此时默认的任务是对根域名`.`进行解析)，在创建任务后可以使用`set_question`函数设置域名等参数，例如
 
 ```cpp
-std::string url = "dns://119.29.29.29/";
+std::string url = "dns://8.8.8.8/";
 WFDnsTask *task = WFTaskFactory::create_dns_task(url, 0, dns_callback);
 protocol::DnsRequest *req = task->get_req();
 req->set_rd(1);

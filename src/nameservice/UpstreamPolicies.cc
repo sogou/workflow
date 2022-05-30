@@ -592,12 +592,6 @@ EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
 	int idx = this->cur_idx;
 	for (int i = 0; i < this->total_weight; i++)
 	{
-		if (this->cur_idx >= this->pre_generated_vec.size() &&
-			(int)this->pre_generated_vec.size() < this->total_weight)
-		{
-			this->init_virtual_nodes();
-		}
-
 		idx = (this->cur_idx + i) % this->pre_generated_vec.size();
 		int pos = this->pre_generated_vec[idx];
 		if (WFServiceGovernance::in_select_history(tracing, this->servers[pos]))
@@ -613,7 +607,7 @@ void UPSVNSWRRPolicy::init_virtual_nodes()
 {
 	UPSAddrParams *params;
 	size_t start_pos = this->pre_generated_vec.size();
-	size_t end_pos = std::min(this->total_weight - start_pos, this->servers.size()) + start_pos;
+	size_t end_pos = this->total_weight;
 	this->pre_generated_vec.resize(end_pos);
 
 	for (size_t i = start_pos; i < end_pos; i++)

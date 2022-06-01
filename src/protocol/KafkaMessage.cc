@@ -1198,9 +1198,9 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 	if (parse_i8(buf, size, &attributes) < 0)
 		return -1;
 
-	int64_t timestamp;
+	int64_t timestamp = -1;
 	if (msg_vers == 1 && parse_i64(buf, size, &timestamp) < 0)
-			return -1;
+		return -1;
 
 	void *key;
 	size_t key_len;

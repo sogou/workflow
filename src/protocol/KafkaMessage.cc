@@ -301,7 +301,7 @@ static int parse_bytes(void **buf, size_t *size,
 
 static int parse_varint_u64(void **buf, size_t *size, uint64_t *val);
 
-static inline int parse_varint_i64(void **buf, size_t *size, int64_t *val)
+int parse_varint_i64(void **buf, size_t *size, int64_t *val)
 {
 	uint64_t n;
 	int ret = parse_varint_u64(buf, size, &n);

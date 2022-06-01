@@ -148,14 +148,6 @@ static size_t append_nullable_string(std::string& buf, const char *str, size_t l
 		return append_string(buf, str, len);
 }
 
-static size_t append_nullable_string(std::string& buf, const char *str)
-{
-	if (!str)
-		return append_nullable_string(buf, str, 0);
-	else
-		return append_nullable_string(buf, str, strlen(str));
-}
-
 static size_t append_string_raw(void **buf, const char *str, size_t len)
 {
 	memcpy(*buf, str, len);
@@ -1328,8 +1320,8 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 {
 	int64_t length;
 	int8_t attributes;
-	long long timestamp_delta = 0;
-	long long offset_delta = 0;
+	int64_t timestamp_delta;
+	int64_t offset_delta;
 	int hdr_size;
 
 	if (parse_varint_i64(buf, size, &length) < 0)
@@ -1338,10 +1330,10 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 	if (parse_i8(buf, size, &attributes) < 0)
 		return -1;
 
-	if (parse_varint_i64(buf, size, (int64_t *)&timestamp_delta) < 0)
+	if (parse_varint_i64(buf, size, &timestamp_delta) < 0)
 		return -1;
 
-	if (parse_varint_i64(buf, size, (int64_t *)&offset_delta) < 0)
+	if (parse_varint_i64(buf, size, &offset_delta) < 0)
 		return -1;
 
 	record->timestamp += timestamp_delta;

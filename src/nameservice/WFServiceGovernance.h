@@ -61,14 +61,6 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
 	.group_id			=	-1,
 };
 
-enum ServerChangeState
-{
-	ADD_SERVER		=	0,
-	REMOVE_SERVER	=	1,
-	RECOVER_SERVER	=	2,
-	FUSE_SERVER		=	3,
-};
-
 class PolicyAddrParams
 {
 public:
@@ -124,10 +116,6 @@ public:
 	void enable_server(const std::string& address);
 	void disable_server(const std::string& address);
 	virtual void get_current_address(std::vector<std::string>& addr_list);
-	virtual void server_list_change(const EndpointAddress *address,
-									enum ServerChangeState state)
-	{
-	}
 
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
 	static bool in_select_history(WFNSTracing *tracing, EndpointAddress *addr);

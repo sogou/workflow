@@ -165,7 +165,7 @@ bool UPSGroupPolicy::select(const ParsedURI& uri, WFNSTracing *tracing,
 
 	this->check_breaker();
 
-	// select_addr == NULL will happen in consistent_hash
+	// select_addr == NULL will happen only in consistent_hash
 	EndpointAddress *select_addr = this->first_strategy(uri, tracing);
 
 	if (!select_addr || select_addr->fail_count >= select_addr->params->max_fails)
@@ -444,6 +444,22 @@ void UPSGroupPolicy::hash_map_remove_addr(const std::string& address)
 		else
 			it++;
 	}
+}
+
+int UPSRoundRobinPolicy::remove_server_locked(const std::string& address)
+{
+	if (servers.size() != 0)
+	{
+		size_t cur_idx = this->cur_idx % servers.size();
+
+		for (size_t i = 0; i < cur_idx; i++)
+		{
+			if (this->servers[i]->address == address)
+				this->cur_idx--;
+		}
+	}
+
+	return UPSGroupPolicy::remove_server_locked(address);
 }
 
 EndpointAddress *UPSRoundRobinPolicy::first_strategy(const ParsedURI& uri,

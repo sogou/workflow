@@ -93,7 +93,8 @@ protected:
 class UPSRoundRobinPolicy : public UPSGroupPolicy
 {
 public:
-	UPSRoundRobinPolicy(bool try_another)
+	UPSRoundRobinPolicy(bool try_another) :
+		cur_idx(0)
 	{
 		this->try_another = try_another;
 	}
@@ -103,6 +104,9 @@ protected:
 											WFNSTracing *tracing);
 	virtual EndpointAddress *another_strategy(const ParsedURI& uri,
 											  WFNSTracing *tracing);
+
+protected:
+	virtual int remove_server_locked(const std::string& address);
 
 protected:
 	std::atomic<size_t> cur_idx;

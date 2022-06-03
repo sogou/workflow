@@ -210,7 +210,6 @@ void WFServiceGovernance::recover_server_from_breaker(EndpointAddress *addr)
 		list_del(&addr->entry.list);
 		addr->entry.list.next = NULL;
 		this->recover_one_server(addr);
-		this->server_list_change(addr, RECOVER_SERVER);
 	}
 	pthread_mutex_unlock(&this->breaker_lock);
 }
@@ -223,7 +222,6 @@ void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 		addr->broken_timeout = GET_CURRENT_SECOND + this->mttr_second;
 		list_add_tail(&addr->entry.list, &this->breaker_list);
 		this->fuse_one_server(addr);
-		this->server_list_change(addr, FUSE_SERVER);
 	}
 	pthread_mutex_unlock(&this->breaker_lock);
 }
@@ -287,7 +285,6 @@ void WFServiceGovernance::check_breaker_locked(int64_t cur_time)
 		{
 			addr->fail_count = addr->params->max_fails - 1;
 			this->recover_one_server(addr);
-			this->server_list_change(addr, RECOVER_SERVER);
 			list_del(pos);
 			pos->next = NULL;
 		}
@@ -375,7 +372,6 @@ void WFServiceGovernance::add_server_locked(EndpointAddress *addr)
 	this->server_map[addr->address].push_back(addr);
 	this->servers.push_back(addr);
 	this->recover_one_server(addr);
-	this->server_list_change(addr, ADD_SERVER);
 }
 
 int WFServiceGovernance::remove_server_locked(const std::string& address)
@@ -397,7 +393,6 @@ int WFServiceGovernance::remove_server_locked(const std::string& address)
 	{
 		for (EndpointAddress *addr : map_it->second)
 		{
-			this->server_list_change(addr, REMOVE_SERVER);
 			if (--addr->ref == 0)
 			{
 				this->pre_delete_server(addr);

@@ -44,8 +44,9 @@ But we don't recommend setting a callback for sub_series, use module task’s ca
 
 In the processing logic of an http server, we design all processing logic as a module.
 ~~~cpp
-struct ModuleCtx {
-    std::string body; };
+struct ModuleCtx {
+    std::string body;
+};
 
 void http_callback(WFHttpTask *http_task)
 {

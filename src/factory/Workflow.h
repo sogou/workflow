@@ -92,7 +92,7 @@ public:
 	 * that belongs to the series. All subsequent tasks in the series will be
 	 * destroyed immediately and recursively (ParallelWork), without callback.
 	 * But the callback of this canceled series will still be called. */
-	void cancel() { this->canceled = true; }
+	virtual void cancel() { this->canceled = true; }
 
 	/* Parallel work's callback may check the cancellation state of each
 	 * sub-series, and cancel it's super-series recursively. */
@@ -118,6 +118,8 @@ public:
 
 protected:
 	SubTask *pop_task();
+
+	SubTask *get_last_task() const { return this->last; }
 
 	void set_in_parallel() { this->in_parallel = true; }
 

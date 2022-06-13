@@ -51,6 +51,23 @@ int main(void)
 唯一一点不同，是go task创建时不传callback，但和其它任务一样可以set_callback。  
 如果go task函数的某个参数是引用，需要使用std::ref，否则会变成值传递，这是c++11的特征。
 
+# 带执行时间限制的go task
+WFGoTask是到目前为止，唯一支持带执行时限的一种任务。通过create_timedgo_task接口，可以创建带时间限制的go task：
+~~~cpp
+class WFTaskFactory
+{
+    /* Create 'Go' task with running time limit in seconds plus nanoseconds.
+     * If time exceeded, WFT_STATE_ABORTED will be got in callback. */
+	template<class FUNC, class... ARGS>
+    static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
+                                         const std::string& queue_name,
+                                         FUNC&& func, ARGS&&... args);
+};
+~~~
+相比创建普通的go task，create_timedgo_task函数需要多传两个参数，seconds和nanoseconds。  
+如果func的运行时间到达seconds+nanosconds时限，task直接callback，且state为WFT_STATE_ABORTED。  
+注意，框架无法中断用户执行中的任务。func依然会继续执行到结束，但不会再次callback。另外，nanoseconds取值区间在\[0,10亿）。  
+
 # 把workflow当成线程池
 
 用户可以只使用go task，这样可以将workflow退化成一个线程池，而且线程数量默认等于机器cpu数。  

@@ -28,6 +28,7 @@
 #include <string>
 #include <functional>
 #include <utility>
+#include <atomic>
 #include "WFGlobal.h"
 #include "Workflow.h"
 #include "WFTask.h"
@@ -57,6 +58,35 @@ public:
 	}
 };
 
+class __WFTimedGoTask : public __WFGoTask
+{
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
+protected:
+	virtual void handle(int state, int error);
+
+protected:
+	static void timer_callback(WFTimerTask *timer);
+
+protected:
+	time_t seconds;
+	long nanoseconds;
+	std::atomic<int> ref;
+
+public:
+	__WFTimedGoTask(time_t seconds, long nanoseconds,
+					ExecQueue *queue, Executor *executor,
+					std::function<void ()>&& func) :
+		__WFGoTask(queue, executor, std::move(func)),
+		ref(4)
+	{
+		this->seconds = seconds;
+		this->nanoseconds = nanoseconds;
+	}
+};
+
 template<class FUNC, class... ARGS>
 inline WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
 											   FUNC&& func, ARGS&&... args)
@@ -66,6 +96,19 @@ inline WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
 	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
 						  WFGlobal::get_compute_executor(),
 						  std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
+											 const std::string& queue_name,
+											 FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   WFGlobal::get_exec_queue(queue_name),
+							   WFGlobal::get_compute_executor(),
+							   std::move(tmp));
 }
 
 class __WFDynamicTask : public WFDynamicTask

@@ -38,11 +38,7 @@ public:
 	virtual void dispatch()
 	{
 		if (this->executor->request(this, this->queue) < 0)
-		{
-			this->state = ES_STATE_ERROR;
-			this->error = errno;
-			this->subtask_done();
-		}
+			this->handle(ES_STATE_ERROR, errno);
 	}
 
 protected:

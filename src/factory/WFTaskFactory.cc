@@ -59,13 +59,6 @@ WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 							 std::move(callback));
 }
 
-WFTimerTask *WFTaskFactory::create_timer_task(const std::string& name,
-											  unsigned int microseconds,
-											  timer_callback_t callback)
-{
-	return WFTaskFactory::create_timer_task(microseconds, std::move(callback));
-}
-
 WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
 											  timer_callback_t callback)
 {

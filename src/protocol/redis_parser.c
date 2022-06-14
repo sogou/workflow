@@ -24,7 +24,8 @@
 #define MIN(x, y)	((x) <= (y) ? (x) : (y))
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
 
-#define REDIS_MSGBUF_INIT_SIZE	8
+#define REDIS_MSGBUF_INIT_SIZE		8
+#define REDIS_REPLY_DEPTH_LIMIT		64
 
 enum
 {
@@ -56,7 +57,7 @@ void redis_reply_deinit(redis_reply_t *reply)
 	free(reply->element);
 }
 
-static redis_reply_t **__create_array(size_t size, redis_reply_t *reply)
+static redis_reply_t **__redis_create_array(size_t size, redis_reply_t *reply)
 {
 	size_t elements = 0;
 	redis_reply_t **element = (redis_reply_t **)malloc(size * sizeof (void *));
@@ -92,7 +93,7 @@ static redis_reply_t **__create_array(size_t size, redis_reply_t *reply)
 
 int redis_reply_set_array(size_t size, redis_reply_t *reply)
 {
-	redis_reply_t **element = __create_array(size, reply);
+	redis_reply_t **element = __redis_create_array(size, reply);
 
 	if (element == NULL)
 		return -1;
@@ -316,9 +317,12 @@ void redis_parser_deinit(redis_parser_t *parser)
 	free(parser->msgbuf);
 }
 
-static void __redis_parse_done(redis_reply_t *reply, char *buf)
+static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
 {
 	size_t i;
+
+	if (depth == REDIS_REPLY_DEPTH_LIMIT)
+		return -2;
 
 	switch (reply->type)
 	{
@@ -327,7 +331,10 @@ static void __redis_parse_done(redis_reply_t *reply, char *buf)
 
 	case REDIS_REPLY_TYPE_ARRAY:
 		for (i = 0; i < reply->elements; i++)
-			__redis_parse_done(reply->element[i], buf);
+		{
+			if (__redis_parse_done(reply->element[i], buf, depth + 1) < 0)
+				return -2;
+		}
 
 		break;
 
@@ -337,10 +344,11 @@ static void __redis_parse_done(redis_reply_t *reply, char *buf)
 		reply->str = buf + (size_t)reply->str;
 		break;
 	}
+
+	return 1;
 }
 
-int redis_parser_append_message(const void *buf,
-								size_t *size,
+int redis_parser_append_message(const void *buf, size_t *size,
 								redis_parser_t *parser)
 {
 	size_t msgsize_bak = parser->msgsize;
@@ -369,13 +377,6 @@ int redis_parser_append_message(const void *buf,
 
 	memcpy((char *)parser->msgbuf + parser->msgsize, buf, *size);
 	parser->msgsize += *size;
-/*
-	if (parser->status == REDIS_PARSE_INIT)
-	{
-		parser->nleft = 1;
-		parser->status = REDIS_GET_CMD;
-	}
-*/
 
 	do
 	{
@@ -412,7 +413,6 @@ int redis_parser_append_message(const void *buf,
 	} while (parser->status != REDIS_PARSE_END);
 
 	*size = parser->msgidx - msgsize_bak;
-	__redis_parse_done(&parser->reply, (char *)parser->msgbuf);
-	return 1;
+	return __redis_parse_done(&parser->reply, (char *)parser->msgbuf, 0);
 }
 

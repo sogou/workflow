@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "list.h"
 #include "redis_parser.h"
 
@@ -26,6 +27,7 @@
 
 #define REDIS_MSGBUF_INIT_SIZE		8
 #define REDIS_REPLY_DEPTH_LIMIT		64
+#define REDIS_ARRAY_SIZE_LIMIT		(64 * 1024)
 
 enum
 {
@@ -163,7 +165,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 
 	case ':':
 		if (slen == 0 || slen > 30)
-			return -1;
+			return -2;
 
 		memcpy(data, str, slen);
 		data[slen] = '\0';
@@ -179,6 +181,10 @@ static int __redis_parse_line(redis_parser_t *parser)
 		}
 		else if (n == 0)
 		{
+			/* "-0" not acceptable. */
+			if (!isdigit(*str))
+				return -2;
+
 			redis_reply_set_string(offset, 0, parser->cur);
 			parser->status = REDIS_GET_CR;
 			return 0;
@@ -195,6 +201,12 @@ static int __redis_parse_line(redis_parser_t *parser)
 			redis_reply_set_null(parser->cur);
 			return 1;
 		}
+
+		if (n == 0 && !isdigit(*str))
+			return -2;
+
+		if (n > REDIS_ARRAY_SIZE_LIMIT)
+			return -2;
 
 		parser->nleft += n;
 		if (redis_reply_set_array(n, parser->cur) < 0)
@@ -220,7 +232,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 
 	}
 
-	return -1;
+	return -2;
 }
 
 static int __redis_parse_crlf(redis_parser_t *parser)
@@ -279,7 +291,7 @@ static int __redis_parser_forward(redis_parser_t *parser)
 		return __redis_parse_nchar(parser);
 	}
 
-	return -1;
+	return -2;
 }
 
 void redis_parser_init(redis_parser_t *parser)

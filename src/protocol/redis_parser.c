@@ -40,11 +40,11 @@ enum
 	REDIS_PARSE_END
 };
 
-typedef struct __read_record
+struct __redis_read_record
 {
+	struct list_head list;
 	redis_reply_t *reply;
-	struct list_head read_list;
-}__read_record;
+};
 
 void redis_reply_deinit(redis_reply_t *reply)
 {
@@ -150,7 +150,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 	char data[32];
 	int i, n;
 	const char *offset = (const char *)parser->msgidx;
-	__read_record *node;
+	struct __redis_read_record *node;
 
 	parser->msgidx = parser->findidx + 2;
 	switch (parser->cmd)
@@ -218,12 +218,12 @@ static int __redis_parse_line(redis_parser_t *parser)
 		parser->nleft--;
 		for (i = 0; i < n - 1; i++)
 		{
-			node = (__read_record *)malloc(sizeof (__read_record));
+			node = (struct __redis_read_record *)malloc(sizeof *node);
 			if (!node)
 				return -1;
 
 			node->reply = parser->cur->element[n - 1 - i];
-			list_add(&node->read_list, &parser->read_list);
+			list_add(&node->list, &parser->read_list);
 		}
 
 		parser->cur = parser->cur->element[0];
@@ -316,11 +316,11 @@ void redis_parser_init(redis_parser_t *parser)
 void redis_parser_deinit(redis_parser_t *parser)
 {
 	struct list_head *pos, *tmp;
-	__read_record *next;
+	struct __redis_read_record *next;
 
 	list_for_each_safe(pos, tmp, &parser->read_list)
 	{
-		next = list_entry(pos, __read_record, read_list);
+		next = list_entry(pos, struct __redis_read_record, list);
 		list_del(pos);
 		free(next);
 	}
@@ -400,12 +400,12 @@ int redis_parser_append_message(const void *buf, size_t *size,
 		if (ret == 1)
 		{
 			struct list_head *lnext = parser->read_list.next;
-			__read_record *next;
+			struct __redis_read_record *next;
 
 			parser->nleft--;
 			if (lnext && lnext != &parser->read_list)
 			{
-				next = list_entry(lnext, __read_record, read_list);
+				next = list_entry(lnext, struct __redis_read_record, list);
 				parser->cur = next->reply;
 				list_del(lnext);
 				free(next);

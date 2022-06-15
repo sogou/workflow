@@ -533,18 +533,15 @@ static bool create_health_check(const ConsulConfig& config, json_object_t *obj)
 	str = config.get_check_http_url();
 	if (!str.empty())
 	{
-		if (!json_object_append(obj, "HTTP", JSON_VALUE_STRING,
-								str.c_str()))
+		if (!json_object_append(obj, "HTTP", JSON_VALUE_STRING, str.c_str()))
 			return false;
 
 		str = config.get_check_http_method();
-		if (!json_object_append(obj, "Method", JSON_VALUE_STRING,
-								str.c_str()))
+		if (!json_object_append(obj, "Method", JSON_VALUE_STRING, str.c_str()))
 			return false;
 
 		str = config.get_http_body();
-		if (!json_object_append(obj, "Body", JSON_VALUE_STRING,
-								str.c_str()))
+		if (!json_object_append(obj, "Body", JSON_VALUE_STRING, str.c_str()))
 			return false;
 
 		val = json_object_append(obj, "Header", JSON_VALUE_OBJECT);

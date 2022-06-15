@@ -28,7 +28,5 @@ if (KAFKA STREQUAL "y")
 			strcasecmp=_stricmp
 			strncasecmp=_strnicmp
 		)
-    else()
-		set_property(SOURCE WFKafkaClient.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 	endif ()
 endif ()

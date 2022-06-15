@@ -17,14 +17,18 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 #include <vector>
+#include <chrono>
 #include "URIParser.h"
+#include "WFTaskError.h"
 #include "StringUtil.h"
+#include "WFGlobal.h"
 #include "WFNameService.h"
 #include "WFDnsResolver.h"
 #include "WFServiceGovernance.h"
-#include "UpstreamManager.h"
 
 #define GET_CURRENT_SECOND  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
@@ -46,38 +50,6 @@ PolicyAddrParams::PolicyAddrParams(const struct AddressParams *params) :
 	this->dns_ttl_default = params->dns_ttl_default;
 	this->dns_ttl_min = params->dns_ttl_min;
 	this->max_fails = params->max_fails;
-}
-
-class WFSelectorFailTask : public WFRouterTask
-{
-public:
-	WFSelectorFailTask(router_callback_t&& cb) :
-		WFRouterTask(std::move(cb))
-	{
-	}
-
-	virtual void dispatch()
-	{
-		this->state = WFT_STATE_TASK_ERROR;
-		this->error = WFT_ERR_UPSTREAM_UNAVAILABLE;
-
-		return this->subtask_done();
-	}
-};
-
-static void copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
-{
-	if (addr->host != uri.host)
-	{
-		free(uri.host);
-		uri.host = strdup(addr->host.c_str());
-	}
-
-	if (addr->port != uri.port)
-	{
-		free(uri.port);
-		uri.port = strdup(addr->port.c_str());
-	}
 }
 
 EndpointAddress::EndpointAddress(const std::string& address,
@@ -106,41 +78,92 @@ EndpointAddress::EndpointAddress(const std::string& address,
 		this->port = arr[1];
 }
 
-WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *params,
-													  router_callback_t callback)
+class WFSGResolverTask : public WFResolverTask
 {
-	WFNSTracing *tracing = params->tracing;
-	EndpointAddress *addr;
-	WFRouterTask *task;
-
-	if (this->select(params->uri, tracing, &addr))
+public:
+	WFSGResolverTask(const struct WFNSParams *params,
+					 WFServiceGovernance *sg,
+					 router_callback_t&& cb) :
+		WFResolverTask(params, std::move(cb))
 	{
-		WFDnsResolver *resolver = WFGlobal::get_dns_resolver();
-		unsigned int dns_ttl_default = addr->params->dns_ttl_default;
-		unsigned int dns_ttl_min = addr->params->dns_ttl_min;
-		const struct EndpointParams *endpoint_params = &addr->params->endpoint_params;
-		int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
-														 DNS_CACHE_LEVEL_1;
+		sg_ = sg;
+	}
 
-		copy_host_port(params->uri, addr);
-		task = resolver->create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
-								endpoint_params, std::move(callback));
+protected:
+	virtual void dispatch();
 
-		struct TracingData *tracing_data = (struct TracingData *)tracing->data;
+protected:
+	WFServiceGovernance *sg_;
+};
+
+static void copy_host_port(ParsedURI& uri, const EndpointAddress *addr)
+{
+	if (!addr->host.empty())
+	{
+		free(uri.host);
+		uri.host = strdup(addr->host.c_str());
+	}
+
+	if (!addr->port.empty())
+	{
+		free(uri.port);
+		uri.port = strdup(addr->port.c_str());
+	}
+}
+
+void WFSGResolverTask::dispatch()
+{
+	WFNSTracing *tracing = ns_params_.tracing;
+	EndpointAddress *addr;
+
+	if (sg_->pre_select_)
+	{
+		WFConditional *cond = sg_->pre_select_(this);
+		if (cond)
+		{
+			series_of(this)->push_front(cond);
+			this->set_has_next();
+			this->subtask_done();
+			return;
+		}
+		else if (this->state != WFT_STATE_UNDEFINED)
+		{
+			this->subtask_done();
+			return;
+		}
+	}
+
+	if (sg_->select(ns_params_.uri, tracing, &addr))
+	{
+		auto *tracing_data = (WFServiceGovernance::TracingData *)tracing->data;
 		if (!tracing_data)
 		{
-			tracing_data = new TracingData;
-			tracing_data->sg = this;
+			tracing_data = new WFServiceGovernance::TracingData;
+			tracing_data->sg = sg_;
 			tracing->data = tracing_data;
 			tracing->deleter = WFServiceGovernance::tracing_deleter;
 		}
 
 		tracing_data->history.push_back(addr);
+
+		copy_host_port(ns_params_.uri, addr);
+		dns_ttl_default_ = addr->params->dns_ttl_default;
+		dns_ttl_min_ = addr->params->dns_ttl_min;
+		ep_params_ = addr->params->endpoint_params;
+		this->WFResolverTask::dispatch();
 	}
 	else
-		task = new WFSelectorFailTask(std::move(callback));
+	{
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_UPSTREAM_UNAVAILABLE;
+		this->subtask_done();
+	}
+}
 
-	return task;
+WFRouterTask *WFServiceGovernance::create_router_task(const struct WFNSParams *params,
+													  router_callback_t callback)
+{
+	return new WFSGResolverTask(params, this, std::move(callback));
 }
 
 void WFServiceGovernance::tracing_deleter(void *data)

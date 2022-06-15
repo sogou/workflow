@@ -92,7 +92,7 @@ public:
 	 * that belongs to the series. All subsequent tasks in the series will be
 	 * destroyed immediately and recursively (ParallelWork), without callback.
 	 * But the callback of this canceled series will still be called. */
-	void cancel() { this->canceled = true; }
+	virtual void cancel() { this->canceled = true; }
 
 	/* Parallel work's callback may check the cancellation state of each
 	 * sub-series, and cancel it's super-series recursively. */
@@ -105,7 +105,7 @@ public:
 	}
 
 public:
-	/* The next 3 methods are intended for task implementations only. */
+	/* The next 3 functions are intended for task implementations only. */
 	SubTask *pop();
 
 	void set_last_task(SubTask *last)
@@ -117,13 +117,20 @@ public:
 	void unset_last_task() { this->last = NULL; }
 
 protected:
+	SubTask *pop_task();
+
+	SubTask *get_last_task() const { return this->last; }
+
+	void set_in_parallel() { this->in_parallel = true; }
+
+	void dismiss_recursive();
+
+protected:
 	void *context;
 	series_callback_t callback;
 
 private:
-	SubTask *pop_task();
 	void expand_queue();
-	void dismiss_recursive();
 
 private:
 	SubTask *first;
@@ -202,7 +209,7 @@ public:
 	void dismiss()
 	{
 		assert(!series_of(this));
-		this->dismiss_recursive();
+		delete this;
 	}
 
 public:
@@ -213,12 +220,25 @@ public:
 	void set_context(void *context) { this->context = context; }
 
 public:
+	SeriesWork *series_at(size_t index)
+	{
+		if (index < this->subtasks_nr)
+			return this->all_series[index];
+		else
+			return NULL;
+	}
+
 	const SeriesWork *series_at(size_t index) const
 	{
 		if (index < this->subtasks_nr)
 			return this->all_series[index];
 		else
 			return NULL;
+	}
+
+	SeriesWork& operator[] (size_t index)
+	{
+		return *this->series_at(index);
 	}
 
 	const SeriesWork& operator[] (size_t index) const
@@ -243,7 +263,6 @@ protected:
 
 private:
 	void expand_buf();
-	void dismiss_recursive();
 
 private:
 	size_t buf_size;
@@ -253,8 +272,7 @@ protected:
 	ParallelWork(parallel_callback_t&& callback);
 	ParallelWork(SeriesWork *const all_series[], size_t n,
 				 parallel_callback_t&& callback);
-	virtual ~ParallelWork() { delete []this->subtasks; }
-	friend class SeriesWork;
+	virtual ~ParallelWork();
 	friend class Workflow;
 };
 

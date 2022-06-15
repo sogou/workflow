@@ -208,6 +208,13 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	return ret;
 }
 
+void CommMessageIn::renew()
+{
+	CommSession *session = this->entry->session;
+	session->timeout = -1;
+	session->begin_time.tv_nsec = -1;
+}
+
 int CommService::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 					  int listen_timeout, int response_timeout)
 {
@@ -1362,12 +1369,15 @@ int Communicator::create_handler_threads(size_t handler_threads)
 int Communicator::create_poller(size_t poller_threads)
 {
 	struct poller_params params = {
-		.max_open_files		=	65536,
+		.max_open_files		=	(size_t)sysconf(_SC_OPEN_MAX),
 		.create_message		=	Communicator::create_message,
 		.partial_written	=	Communicator::partial_written,
 		.callback			=	Communicator::callback,
 		.context			=	this
 	};
+
+	if ((ssize_t)params.max_open_files < 0)
+		return -1;
 
 	this->queue = msgqueue_create(4096, sizeof (struct poller_result));
 	if (this->queue)

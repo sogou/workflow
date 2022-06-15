@@ -16,15 +16,18 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "list.h"
 #include "redis_parser.h"
 
 #define MIN(x, y)	((x) <= (y) ? (x) : (y))
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
 
-#define REDIS_MSGBUF_INIT_SIZE	8
+#define REDIS_MSGBUF_INIT_SIZE		8
+#define REDIS_REPLY_DEPTH_LIMIT		64
+#define REDIS_ARRAY_SIZE_LIMIT		(64 * 1024)
 
 enum
 {
@@ -37,11 +40,11 @@ enum
 	REDIS_PARSE_END
 };
 
-typedef struct __read_record
+struct __redis_read_record
 {
+	struct list_head list;
 	redis_reply_t *reply;
-	struct list_head read_list;
-}__read_record;
+};
 
 void redis_reply_deinit(redis_reply_t *reply)
 {
@@ -56,7 +59,7 @@ void redis_reply_deinit(redis_reply_t *reply)
 	free(reply->element);
 }
 
-static redis_reply_t **__create_array(size_t size, redis_reply_t *reply)
+static redis_reply_t **__redis_create_array(size_t size, redis_reply_t *reply)
 {
 	size_t elements = 0;
 	redis_reply_t **element = (redis_reply_t **)malloc(size * sizeof (void *));
@@ -92,7 +95,7 @@ static redis_reply_t **__create_array(size_t size, redis_reply_t *reply)
 
 int redis_reply_set_array(size_t size, redis_reply_t *reply)
 {
-	redis_reply_t **element = __create_array(size, reply);
+	redis_reply_t **element = __redis_create_array(size, reply);
 
 	if (element == NULL)
 		return -1;
@@ -147,7 +150,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 	char data[32];
 	int i, n;
 	const char *offset = (const char *)parser->msgidx;
-	__read_record *node;
+	struct __redis_read_record *node;
 
 	parser->msgidx = parser->findidx + 2;
 	switch (parser->cmd)
@@ -162,7 +165,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 
 	case ':':
 		if (slen == 0 || slen > 30)
-			return -1;
+			return -2;
 
 		memcpy(data, str, slen);
 		data[slen] = '\0';
@@ -178,6 +181,10 @@ static int __redis_parse_line(redis_parser_t *parser)
 		}
 		else if (n == 0)
 		{
+			/* "-0" not acceptable. */
+			if (!isdigit(*str))
+				return -2;
+
 			redis_reply_set_string(offset, 0, parser->cur);
 			parser->status = REDIS_GET_CR;
 			return 0;
@@ -195,6 +202,12 @@ static int __redis_parse_line(redis_parser_t *parser)
 			return 1;
 		}
 
+		if (n == 0 && !isdigit(*str))
+			return -2;
+
+		if (n > REDIS_ARRAY_SIZE_LIMIT)
+			return -2;
+
 		parser->nleft += n;
 		if (redis_reply_set_array(n, parser->cur) < 0)
 			return -1;
@@ -205,12 +218,12 @@ static int __redis_parse_line(redis_parser_t *parser)
 		parser->nleft--;
 		for (i = 0; i < n - 1; i++)
 		{
-			node = (__read_record *)malloc(sizeof (__read_record));
+			node = (struct __redis_read_record *)malloc(sizeof *node);
 			if (!node)
 				return -1;
 
 			node->reply = parser->cur->element[n - 1 - i];
-			list_add(&node->read_list, &parser->read_list);
+			list_add(&node->list, &parser->read_list);
 		}
 
 		parser->cur = parser->cur->element[0];
@@ -219,7 +232,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 
 	}
 
-	return -1;
+	return -2;
 }
 
 static int __redis_parse_crlf(redis_parser_t *parser)
@@ -278,7 +291,7 @@ static int __redis_parser_forward(redis_parser_t *parser)
 		return __redis_parse_nchar(parser);
 	}
 
-	return -1;
+	return -2;
 }
 
 void redis_parser_init(redis_parser_t *parser)
@@ -303,11 +316,11 @@ void redis_parser_init(redis_parser_t *parser)
 void redis_parser_deinit(redis_parser_t *parser)
 {
 	struct list_head *pos, *tmp;
-	__read_record *next;
+	struct __redis_read_record *next;
 
 	list_for_each_safe(pos, tmp, &parser->read_list)
 	{
-		next = list_entry(pos, __read_record, read_list);
+		next = list_entry(pos, struct __redis_read_record, list);
 		list_del(pos);
 		free(next);
 	}
@@ -316,9 +329,12 @@ void redis_parser_deinit(redis_parser_t *parser)
 	free(parser->msgbuf);
 }
 
-static void __redis_parse_done(redis_reply_t *reply, char *buf)
+static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
 {
 	size_t i;
+
+	if (depth == REDIS_REPLY_DEPTH_LIMIT)
+		return -2;
 
 	switch (reply->type)
 	{
@@ -327,7 +343,10 @@ static void __redis_parse_done(redis_reply_t *reply, char *buf)
 
 	case REDIS_REPLY_TYPE_ARRAY:
 		for (i = 0; i < reply->elements; i++)
-			__redis_parse_done(reply->element[i], buf);
+		{
+			if (__redis_parse_done(reply->element[i], buf, depth + 1) < 0)
+				return -2;
+		}
 
 		break;
 
@@ -337,10 +356,11 @@ static void __redis_parse_done(redis_reply_t *reply, char *buf)
 		reply->str = buf + (size_t)reply->str;
 		break;
 	}
+
+	return 1;
 }
 
-int redis_parser_append_message(const void *buf,
-								size_t *size,
+int redis_parser_append_message(const void *buf, size_t *size,
 								redis_parser_t *parser)
 {
 	size_t msgsize_bak = parser->msgsize;
@@ -369,13 +389,6 @@ int redis_parser_append_message(const void *buf,
 
 	memcpy((char *)parser->msgbuf + parser->msgsize, buf, *size);
 	parser->msgsize += *size;
-/*
-	if (parser->status == REDIS_PARSE_INIT)
-	{
-		parser->nleft = 1;
-		parser->status = REDIS_GET_CMD;
-	}
-*/
 
 	do
 	{
@@ -387,12 +400,12 @@ int redis_parser_append_message(const void *buf,
 		if (ret == 1)
 		{
 			struct list_head *lnext = parser->read_list.next;
-			__read_record *next;
+			struct __redis_read_record *next;
 
 			parser->nleft--;
 			if (lnext && lnext != &parser->read_list)
 			{
-				next = list_entry(lnext, __read_record, read_list);
+				next = list_entry(lnext, struct __redis_read_record, list);
 				parser->cur = next->reply;
 				list_del(lnext);
 				free(next);
@@ -412,7 +425,6 @@ int redis_parser_append_message(const void *buf,
 	} while (parser->status != REDIS_PARSE_END);
 
 	*size = parser->msgidx - msgsize_bak;
-	__redis_parse_done(&parser->reply, (char *)parser->msgbuf);
-	return 1;
+	return __redis_parse_done(&parser->reply, (char *)parser->msgbuf, 0);
 }
 

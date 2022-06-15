@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2019 Sogou, Inc.
+  Copyright (c) 2022 Sogou, Inc.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -16,23 +16,22 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <errno.h>
-#include "CommScheduler.h"
-#include "CommRequest.h"
+#ifndef _MYSQLUTIL_H_
+#define _MYSQLUTIL_H_
 
-void CommRequest::handle(int state, int error)
+#include <string>
+
+namespace protocol
 {
-	this->state = state;
-	this->error = error;
-	if (error != ETIMEDOUT)
-		this->timeout_reason = TOR_NOT_TIMEOUT;
-	else if (!this->target)
-		this->timeout_reason = TOR_WAIT_TIMEOUT;
-	else if (!this->get_message_out())
-		this->timeout_reason = TOR_CONNECT_TIMEOUT;
-	else
-		this->timeout_reason = TOR_TRANSMIT_TIMEOUT;
 
-	this->subtask_done();
+class MySQLUtil
+{
+public:
+	static std::string escape_string(const std::string& str);
+	static std::string escape_string_quote(const std::string& str, char quote);
+};
+
 }
+
+#endif
 

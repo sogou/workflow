@@ -22,10 +22,6 @@
 
 #define MYSQL_STATE_LENGTH			5
 #define MYSQL_STATE_DEFAULT			"HY000"
-#define MYSQL_INT_STR_LENGTH		11	// 10 for unsigned int
-#define MYSQL_LONG_STR_LENGTH		21	// 20 for unsigned long long
-#define MYSQL_FLOAT_STR_LENGTH		7	// 7 for float
-#define MYSQL_DOUBLE_STR_LENGTH		19	// 19 for long double
 
 // may be set by server in EOF/OK packet
 #define MYSQL_SERVER_MORE_RESULTS_EXIST		0x0008

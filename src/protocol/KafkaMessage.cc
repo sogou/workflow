@@ -190,14 +190,6 @@ static size_t append_nullable_string(std::string& buf, const char *str, size_t l
 		return append_string(buf, str, len);
 }
 
-static size_t append_nullable_string(std::string& buf, const char *str)
-{
-	if (!str)
-		return append_nullable_string(buf, str, 0);
-	else
-		return append_nullable_string(buf, str, strlen(str));
-}
-
 static size_t append_string_raw(void **buf, const char *str, size_t len)
 {
 	memcpy(*buf, str, len);
@@ -343,7 +335,7 @@ static int parse_bytes(void **buf, size_t *size,
 
 static int parse_varint_u64(void **buf, size_t *size, uint64_t *val);
 
-static inline int parse_varint_i64(void **buf, size_t *size, int64_t *val)
+static int parse_varint_i64(void **buf, size_t *size, int64_t *val)
 {
 	uint64_t n;
 	int ret = parse_varint_u64(buf, size, &n);
@@ -354,7 +346,7 @@ static inline int parse_varint_i64(void **buf, size_t *size, int64_t *val)
 	return ret;
 }
 
-static inline int parse_varint_i32(void **buf, size_t *size, int32_t *val)
+static int parse_varint_i32(void **buf, size_t *size, int32_t *val)
 {
 	int64_t v = 0;
 
@@ -1240,9 +1232,9 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 	if (parse_i8(buf, size, &attributes) < 0)
 		return -1;
 
-	int64_t timestamp;
+	int64_t timestamp = -1;
 	if (msg_vers == 1 && parse_i64(buf, size, &timestamp) < 0)
-			return -1;
+		return -1;
 
 	void *key;
 	size_t key_len;
@@ -1370,8 +1362,8 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 {
 	int64_t length;
 	int8_t attributes;
-	long long timestamp_delta = 0;
-	long long offset_delta = 0;
+	int64_t timestamp_delta;
+	int64_t offset_delta;
 	int hdr_size;
 
 	if (parse_varint_i64(buf, size, &length) < 0)
@@ -1380,10 +1372,10 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 	if (parse_i8(buf, size, &attributes) < 0)
 		return -1;
 
-	if (parse_varint_i64(buf, size, (int64_t *)&timestamp_delta) < 0)
+	if (parse_varint_i64(buf, size, &timestamp_delta) < 0)
 		return -1;
 
-	if (parse_varint_i64(buf, size, (int64_t *)&offset_delta) < 0)
+	if (parse_varint_i64(buf, size, &offset_delta) < 0)
 		return -1;
 
 	record->timestamp += timestamp_delta;

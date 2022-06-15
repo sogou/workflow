@@ -67,8 +67,8 @@ void http_parser_init(int is_resp, http_parser_t *parser);
 int http_parser_append_message(const void *buf, size_t *n,
 							   http_parser_t *parser);
 int http_parser_get_body(const void **body, size_t *size,
-						 http_parser_t *parser);
-int http_parser_header_complete(http_parser_t *parser);
+						 const http_parser_t *parser);
+int http_parser_header_complete(const http_parser_t *parser);
 int http_parser_set_method(const char *method, http_parser_t *parser);
 int http_parser_set_uri(const char *uri, http_parser_t *parser);
 int http_parser_set_version(const char *version, http_parser_t *parser);
@@ -93,52 +93,52 @@ int http_header_cursor_find(const void *name, size_t name_len,
 }
 #endif
 
-static inline const char *http_parser_get_method(http_parser_t *parser)
+static inline const char *http_parser_get_method(const http_parser_t *parser)
 {
 	return parser->method;
 }
 
-static inline const char *http_parser_get_uri(http_parser_t *parser)
+static inline const char *http_parser_get_uri(const http_parser_t *parser)
 {
 	return parser->uri;
 }
 
-static inline const char *http_parser_get_version(http_parser_t *parser)
+static inline const char *http_parser_get_version(const http_parser_t *parser)
 {
 	return parser->version;
 }
 
-static inline const char *http_parser_get_code(http_parser_t *parser)
+static inline const char *http_parser_get_code(const http_parser_t *parser)
 {
 	return parser->code;
 }
 
-static inline const char *http_parser_get_phrase(http_parser_t *parser)
+static inline const char *http_parser_get_phrase(const http_parser_t *parser)
 {
 	return parser->phrase;
 }
 
-static inline int http_parser_chunked(http_parser_t *parser)
+static inline int http_parser_chunked(const http_parser_t *parser)
 {
 	return parser->chunked;
 }
 
-static inline int http_parser_keep_alive(http_parser_t *parser)
+static inline int http_parser_keep_alive(const http_parser_t *parser)
 {
 	return parser->keep_alive;
 }
 
-static inline int http_parser_has_connection(http_parser_t *parser)
+static inline int http_parser_has_connection(const http_parser_t *parser)
 {
 	return parser->has_connection;
 }
 
-static inline int http_parser_has_content_length(http_parser_t *parser)
+static inline int http_parser_has_content_length(const http_parser_t *parser)
 {
 	return parser->has_content_length;
 }
 
-static inline int http_parser_has_keep_alive(http_parser_t *parser)
+static inline int http_parser_has_keep_alive(const http_parser_t *parser)
 {
 	return parser->has_keep_alive;
 }

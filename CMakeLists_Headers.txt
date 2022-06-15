@@ -62,6 +62,7 @@ set(INCLUDE_HEADERS
 	src/protocol/MySQLMessage.inl
 	src/protocol/MySQLResult.h
 	src/protocol/MySQLResult.inl
+	src/protocol/MySQLUtil.h
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
 	src/protocol/mysql_byteorder.h
@@ -84,6 +85,7 @@ set(INCLUDE_HEADERS
 	src/manager/WFFuture.h
 	src/manager/WFFacilities.h
 	src/manager/WFFacilities.inl
+	src/util/json_parser.h
 	src/util/EncodeStream.h
 	src/util/LRUCache.h
 	src/util/StringUtil.h

@@ -13,13 +13,15 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+  Authors: Li Yingxin (liyingxin@sogou-inc.com)
+           Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
 #ifndef _UPSTREAM_POLICIES_H_
 #define _UPSTREAM_POLICIES_H_
 
 #include "RWLock.h"
+#include <map>
 #include <vector>
 #include <atomic>
 #include "URIParser.h"
@@ -42,7 +44,6 @@ public:
 	short server_type;
 	int group_id;
 	EndpointGroup *group;
-	unsigned int consistent_hash[VIRTUAL_GROUP_SIZE];
 
 	UPSAddrParams(const struct AddressParams *params,
 				  const std::string& address);
@@ -74,12 +75,18 @@ protected:
 	virtual void add_server_locked(EndpointAddress *addr);
 	virtual int remove_server_locked(const std::string& address);
 
-	EndpointAddress *consistent_hash_with_group(unsigned int hash,
-												WFNSTracing *tracing);
 	EndpointAddress *check_and_get(EndpointAddress *addr,
 								   bool addr_failed, WFNSTracing *tracing);
 
 	bool is_alive(const EndpointAddress *addr) const;
+
+protected:
+	EndpointAddress *consistent_hash_with_group(unsigned int hash,
+												WFNSTracing *tracing);
+	void hash_map_add_addr(EndpointAddress *addr);
+	void hash_map_remove_addr(const std::string& address);
+
+	std::map<unsigned int, EndpointAddress *> addr_hash;
 };
 
 class UPSWeightedRandomPolicy : public UPSGroupPolicy
@@ -142,6 +149,8 @@ protected:
 									WFNSTracing *tracing);
 
 private:
+	virtual void add_server_locked(EndpointAddress *addr);
+	virtual int remove_server_locked(const std::string& address);
 	upstream_route_t consistent_hash;
 };
 
@@ -162,6 +171,8 @@ public:
 									  WFNSTracing *tracing);
 
 private:
+	virtual void add_server_locked(EndpointAddress *addr);
+	virtual int remove_server_locked(const std::string& address);
 	upstream_route_t manual_select;
 	upstream_route_t another_select;
 };

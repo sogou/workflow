@@ -36,11 +36,7 @@ public:
 	virtual void dispatch()
 	{
 		if (this->scheduler->sleep(this) < 0)
-		{
-			this->state = SS_STATE_ERROR;
-			this->error = errno;
-			this->subtask_done();
-		}
+			this->handle(SS_STATE_ERROR, errno);
 	}
 
 protected:

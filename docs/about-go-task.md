@@ -57,8 +57,8 @@ WFGoTask是到目前为止，唯一支持带执行时限的一种任务。通过
 class WFTaskFactory
 {
     /* Create 'Go' task with running time limit in seconds plus nanoseconds.
-     * If time exceeded, WFT_STATE_ABORTED will be got in callback. */
-	template<class FUNC, class... ARGS>
+     * If time exceeded, state WFT_STATE_ABORTED will be got in callback. */
+    template<class FUNC, class... ARGS>
     static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
                                          const std::string& queue_name,
                                          FUNC&& func, ARGS&&... args);

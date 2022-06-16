@@ -364,8 +364,8 @@ static int parse_varint_i32(void **buf, size_t *size, int32_t *val)
 
 static const LZ4F_preferences_t kPrefs =
 {
-	.frameInfo = {LZ4F_default, LZ4F_blockIndependent, },
-	.compressionLevel = 0,
+	/*.frameInfo = */{LZ4F_default, LZ4F_blockIndependent, },
+	/*.compressionLevel = */0,
 };
 
 static int compress_buf(KafkaBlock *block, int compress_type, void *env)

@@ -41,7 +41,7 @@ protected:
 	long nanoseconds;
 
 public:
-	__WFTimerTask(time_t seconds, long nanoseconds, CommScheduler *scheduler,
+	__WFTimerTask(CommScheduler *scheduler, time_t seconds, long nanoseconds,
 				  timer_callback_t&& cb) :
 		WFTimerTask(scheduler, std::move(cb))
 	{
@@ -53,23 +53,16 @@ public:
 WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 											  timer_callback_t callback)
 {
-	return new __WFTimerTask((time_t)(microseconds / 1000000),
+	return new __WFTimerTask(WFGlobal::get_scheduler(),
+							 (time_t)(microseconds / 1000000),
 							 (long)(microseconds % 1000000 * 1000),
-							 WFGlobal::get_scheduler(),
 							 std::move(callback));
-}
-
-WFTimerTask *WFTaskFactory::create_timer_task(const std::string& name,
-											  unsigned int microseconds,
-											  timer_callback_t callback)
-{
-	return WFTaskFactory::create_timer_task(microseconds, std::move(callback));
 }
 
 WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
 											  timer_callback_t callback)
 {
-	return new __WFTimerTask(seconds, nanoseconds, WFGlobal::get_scheduler(),
+	return new __WFTimerTask(WFGlobal::get_scheduler(), seconds, nanoseconds,
 							 std::move(callback));
 }
 
@@ -580,5 +573,55 @@ WFConditional *WFTaskFactory::create_conditional(const std::string& cond_name,
 void WFTaskFactory::signal_by_name(const std::string& cond_name, void *msg)
 {
 	__ConditionalMap::get_instance()->signal(cond_name, msg);
+}
+
+/**************** Timed Go Task *****************/
+
+void __WFTimedGoTask::dispatch()
+{
+	WFTimerTask *timer;
+
+	timer = WFTaskFactory::create_timer_task(this->seconds, this->nanoseconds,
+											 __WFTimedGoTask::timer_callback);
+	timer->user_data = this;
+
+	this->__WFGoTask::dispatch();
+	timer->start();
+}
+
+SubTask *__WFTimedGoTask::done()
+{
+	if (this->callback)
+		this->callback(this);
+
+	return series_of(this)->pop();
+}
+
+void __WFTimedGoTask::handle(int state, int error)
+{
+	if (--this->ref == 3)
+	{
+		this->state = state;
+		this->error = error;
+		this->subtask_done();
+	}
+
+	if (--this->ref == 0)
+		delete this;
+}
+
+void __WFTimedGoTask::timer_callback(WFTimerTask *timer)
+{
+	__WFTimedGoTask *task = (__WFTimedGoTask *)timer->user_data;
+
+	if (--task->ref == 3)
+	{
+		task->state = WFT_STATE_ABORTED;
+		task->error = 0;
+		task->subtask_done();
+	}
+
+	if (--task->ref == 0)
+		delete task;
 }
 

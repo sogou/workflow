@@ -13,8 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Xie Han (xiehan@sogou-inc.com)
-           Wu Jiaxu (wujiaxu@sogou-inc.com)
+  Author: Xie Han (xiehan@sogou-inc.com)
 */
 
 #ifndef _COMMREQUEST_H_
@@ -41,7 +40,14 @@ public:
 	void set_wait_timeout(int timeout) { this->wait_timeout = timeout; }
 
 public:
-	virtual void dispatch();
+	virtual void dispatch()
+	{
+		if (this->scheduler->request(this, this->object, this->wait_timeout,
+									 &this->target) < 0)
+		{
+			this->handle(CS_STATE_ERROR, errno);
+		}
+	}
 
 protected:
 	int state;

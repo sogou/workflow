@@ -3010,7 +3010,7 @@ static int kafka_meta_parse_partition(void **buf, size_t *size,
 
 		for (j = 0; j < replica_cnt; ++j)
 		{
-			int replica_node;
+			int32_t replica_node;
 
 			if (parse_i32(buf, size, &replica_node) < 0)
 				break;
@@ -3029,7 +3029,7 @@ static int kafka_meta_parse_partition(void **buf, size_t *size,
 
 		for (j = 0; j < isr_cnt; ++j)
 		{
-			int isr_node;
+			int32_t isr_node;
 
 			if (parse_i32(buf, size, &isr_node) < 0)
 				break;

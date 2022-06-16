@@ -603,18 +603,17 @@ void UPSWeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
 												 WFNSTracing *tracing)
 {
-	int idx = this->cur_idx;
-	for (int i = 0; i < this->total_weight; i++)
+	int idx = this->cur_idx.fetch_add(1);
+	int pos = 0;
+	for (int i = 0; i < this->total_weight; i++, idx++)
 	{
-		idx = (this->cur_idx + i) % this->pre_generated_vec.size();
-		int pos = this->pre_generated_vec[idx];
+		pos = this->pre_generated_vec[idx % this->pre_generated_vec.size()];
 		if (WFServiceGovernance::in_select_history(tracing, this->servers[pos]))
 			continue;
 
 		break;
 	}
-	this->cur_idx = idx + 1;
-	return this->servers[idx];
+	return this->servers[pos];
 }
 
 void UPSVNSWRRPolicy::init_virtual_nodes()

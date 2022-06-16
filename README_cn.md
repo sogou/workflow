@@ -57,6 +57,15 @@ make
 cd tutorial
 make
 ~~~
+作为是Debian Linux与Ubuntu Linux 22.04版自带软件，可以通过``apt-get``命令直接安装开发包：
+~~~sh
+sudo apt-get install libworkflow-dev
+~~~
+或部署运行环境：
+~~~sh
+sudo apt-get install workflow1
+~~~
+注意Ubuntu Linux只有最新22.04版自带workflow。更推荐用git直接下载最新源代码编译。
 
 # 示例教程
   * Client基础

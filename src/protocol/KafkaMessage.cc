@@ -83,7 +83,12 @@ namespace {
 namespace protocol
 {
 
-#define CHECK_RET(exp)	if (exp < 0) return exp
+#define CHECK_RET(exp) \
+do { \
+	int tmp = exp; \
+	if (tmp < 0) \
+		return tmp; \
+} while (0)
 
 #ifndef htonll
 static uint64_t htonll(uint64_t x)
@@ -357,10 +362,10 @@ static int parse_varint_i32(void **buf, size_t *size, int32_t *val)
 	return 0;
 }
 
-static constexpr LZ4F_preferences_t kPrefs =
+static const LZ4F_preferences_t kPrefs =
 {
-	/*.frameInfo = */{LZ4F_default, LZ4F_blockIndependent, },
-	/*.compressionLevel = */0,
+	.frameInfo = {LZ4F_default, LZ4F_blockIndependent, },
+	.compressionLevel = 0,
 };
 
 static int compress_buf(KafkaBlock *block, int compress_type, void *env)
@@ -573,25 +578,25 @@ static int kafka_snappy_java_uncompress(const char *inbuf, size_t inlen, KafkaBl
 
 	for (int pass = 1; pass <= 2; pass++)
 	{
-		ssize_t of = 0;
-		ssize_t uof = 0;
+		ssize_t off = 0;
+		ssize_t uoff = 0;
 
-		while (of + 4 <= (ssize_t)inlen)
+		while (off + 4 <= (ssize_t)inlen)
 		{
 			uint32_t clen;
 			size_t ulen;
 
-			memcpy(&clen, inbuf+of, 4);
+			memcpy(&clen, inbuf + off, 4);
 			clen = ntohl(clen);
-			of += 4;
+			off += 4;
 
-			if (clen > inlen - of)
+			if (clen > inlen - off)
 			{
 				errno = EBADMSG;
 				return -1;
 			}
 
-			if (snappy_uncompressed_length(inbuf+of, clen, &ulen) != SNAPPY_OK)
+			if (snappy_uncompressed_length(inbuf + off, clen, &ulen) != SNAPPY_OK)
 			{
 				errno = EBADMSG;
 				return -1;
@@ -599,24 +604,24 @@ static int kafka_snappy_java_uncompress(const char *inbuf, size_t inlen, KafkaBl
 
 			if (pass == 1)
 			{
-				of+= clen;
-				uof += ulen;
+				off += clen;
+				uoff += ulen;
 				continue;
 			}
 
-			size_t n = block->get_len() - uof;
+			size_t n = block->get_len() - uoff;
 
-			if (snappy_uncompress(inbuf+of, clen, obuf+uof, &n) != SNAPPY_OK)
+			if (snappy_uncompress(inbuf + off, clen, obuf + uoff, &n) != SNAPPY_OK)
 			{
 				errno = EBADMSG;
 				return -1;
 			}
 
-			of+= clen;
-			uof += ulen;
+			off += clen;
+			uoff += ulen;
 		}
 
-		if (of != (ssize_t)inlen)
+		if (off != (ssize_t)inlen)
 		{
 			errno = EBADMSG;
 			return -1;
@@ -624,19 +629,19 @@ static int kafka_snappy_java_uncompress(const char *inbuf, size_t inlen, KafkaBl
 
 		if (pass == 1)
 		{
-			if (uof <= 0)
+			if (uoff <= 0)
 			{
 				errno = EBADMSG;
 				return -1;
 			}
 
-			if (!block->allocate(uof))
+			if (!block->allocate(uoff))
 				return -1;
 
 			obuf = (char *)block->get_block();
 		}
 		else
-			block->set_len(uof);
+			block->set_len(uoff);
 	}
 
 	return 0;
@@ -646,10 +651,10 @@ static int snappy_decompress(void *buf, size_t n, KafkaBlock *block)
 {
 	const char *inbuf = (const char *)buf;
 	size_t inlen = n;
-	static constexpr unsigned char snappy_java_magic[] = {
+	static const unsigned char snappy_java_magic[] = {
 		0x82, 'S','N','A','P','P','Y', 0
 	};
-	static constexpr size_t snappy_java_hdrlen = 8 + 4 + 4;
+	static const size_t snappy_java_hdrlen = 8 + 4 + 4;
 
 	if (!memcmp(buf, snappy_java_magic, 8))
 	{
@@ -682,7 +687,7 @@ static int lz4_decompress(void *buf, size_t n, KafkaBlock *block)
 	LZ4F_decompressionContext_t dctx;
 	LZ4F_frameInfo_t fi;
 	size_t in_sz, out_sz;
-	size_t in_of, out_of;
+	size_t in_off, out_off;
 	size_t r;
 	size_t uncompressed_size;
 	size_t outlen;
@@ -721,14 +726,14 @@ static int lz4_decompress(void *buf, size_t n, KafkaBlock *block)
 
 	out = (char *)block->get_block();
 	outlen = block->get_len();
-	in_of = in_sz;
-	out_of = 0;
-	while (in_of < inlen)
+	in_off = in_sz;
+	out_off = 0;
+	while (in_off < inlen)
 	{
-		out_sz = outlen - out_of;
-		in_sz = inlen - in_of;
-		r = LZ4F_decompress(dctx, out + out_of, &out_sz,
-							inbuf + in_of, &in_sz, NULL);
+		out_sz = outlen - out_off;
+		in_sz = inlen - in_off;
+		r = LZ4F_decompress(dctx, out + out_off, &out_sz,
+							inbuf + in_off, &in_sz, NULL);
 		if (LZ4F_isError(r))
 		{
 			code = LZ4F_freeDecompressionContext(dctx);
@@ -736,19 +741,19 @@ static int lz4_decompress(void *buf, size_t n, KafkaBlock *block)
 			return -1;
 		}
 
-		if (!(out_of + out_sz <= outlen && in_of + in_sz <= inlen))
+		if (!(out_off + out_sz <= outlen && in_off + in_sz <= inlen))
 		{
 			code = LZ4F_freeDecompressionContext(dctx);
 			errno = EBADMSG;
 			return -1;
 		}
 
-		out_of += out_sz;
-		in_of += in_sz;
+		out_off += out_sz;
+		in_off += in_sz;
 		if (r == 0)
 			break;
 
-		if (out_of == outlen)
+		if (out_off == outlen)
 		{
 			size_t extra = outlen * 3 / 4;
 
@@ -765,7 +770,7 @@ static int lz4_decompress(void *buf, size_t n, KafkaBlock *block)
 	}
 
 
-	if (in_of < inlen)
+	if (in_off < inlen)
 	{
 		code = LZ4F_freeDecompressionContext(dctx);
 		errno = EBADMSG;
@@ -1025,7 +1030,7 @@ static int parse_string(void **buf, size_t *size, std::string& str)
 {
 	if (*size >= 2)
 	{
-		short len;
+		int16_t len;
 
 		if (parse_i16(buf, size, &len) >= 0)
 		{
@@ -1058,7 +1063,7 @@ static int parse_string(void **buf, size_t *size, char **str)
 {
 	if (*size >= 2)
 	{
-		short len;
+		int16_t len;
 
 		if (parse_i16(buf, size, &len) >= 0)
 		{
@@ -1104,7 +1109,7 @@ static int parse_bytes(void **buf, size_t *size, std::string& str)
 {
 	if (*size >= 4)
 	{
-		int len;
+		int32_t len;
 
 		if (parse_i32(buf, size, &len) >= 0)
 		{
@@ -1136,7 +1141,7 @@ static int parse_bytes(void **buf, size_t *size,
 {
 	if (*size >= 4)
 	{
-		int len;
+		int32_t len;
 
 		if (parse_i32(buf, size, &len) >= 0)
 		{
@@ -1166,7 +1171,7 @@ static int parse_bytes(void **buf, size_t *size,
 
 static int parse_varint_u64(void **buf, size_t *size, uint64_t *val)
 {
-	size_t of = 0;
+	size_t off = 0;
 	uint64_t num = 0;
 	int shift = 0;
 	size_t org_size = *size;
@@ -1180,13 +1185,13 @@ static int parse_varint_u64(void **buf, size_t *size, uint64_t *val)
 			return -1; /* Underflow */
 		}
 
-		num |= (uint64_t)(((char *)(*buf))[(int)of] & 0x7f) << shift;
+		num |= (uint64_t)(((char *)(*buf))[(int)off] & 0x7f) << shift;
 		shift += 7;
-	} while (((char *)(*buf))[(int)of++] & 0x80);
+	} while (((char *)(*buf))[(int)off++] & 0x80);
 
 	*val = num;
-	*buf = (char *)(*buf) + of;
-	*size -= of;
+	*buf = (char *)(*buf) + off;
+	*size -= off;
 	return 0;
 }
 
@@ -1197,8 +1202,8 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 									KafkaToppar *toppar)
 {
 	int64_t offset;
-	int message_size;
-	int crc;
+	int32_t message_size;
+	int32_t crc;
 
 	if (parse_i64(buf, size, &offset) < 0)
 		return -1;
@@ -1214,7 +1219,7 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 
 	if (check_crcs)
 	{
-		int crc_32 = crc32(0, NULL, 0);
+		int32_t crc_32 = crc32(0, NULL, 0);
 		crc_32 = crc32(crc_32, (Bytef *)*buf, message_size - 4);
 		if (crc_32 != crc)
 		{
@@ -1364,7 +1369,7 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 	int8_t attributes;
 	int64_t timestamp_delta;
 	int64_t offset_delta;
-	int hdr_size;
+	int32_t hdr_size;
 
 	if (parse_varint_i64(buf, size, &length) < 0)
 		return -1;
@@ -1418,7 +1423,7 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 		list_add_tail(&header->list, &record->header_list);
 	}
 
-	return record->offset < record->toppar->offset ? 1 : 0;;
+	return record->offset < record->toppar->offset ? 1 : 0;
 }
 
 int KafkaMessage::parse_record_batch(void **buf, size_t *size,
@@ -2202,7 +2207,8 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 
 			if (ret < 0)
 				return -1;
-			else if (ret > 0)
+
+			if (ret > 0)
 			{
 				toppar->record_rollback();
 				toppar->save_record_endpos();
@@ -2861,7 +2867,7 @@ static int kafka_meta_parse_broker(void **buf, size_t *size,
 								   int api_version,
 								   KafkaBrokerList *broker_list)
 {
-	int broker_cnt;
+	int32_t broker_cnt;
 
 	CHECK_RET(parse_i32(buf, size, &broker_cnt));
 
@@ -2926,6 +2932,7 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 			if (host)
 			{
 				char *rack;
+
 				if (broker->rack)
 					rack = strdup(broker->rack);
 
@@ -2956,10 +2963,10 @@ static int kafka_meta_parse_partition(void **buf, size_t *size,
 									  KafkaMeta *meta,
 									  KafkaBrokerList *broker_list)
 {
-	int i, j;
-	int leader_id;
-	int replica_cnt, isr_cnt;
-	int partition_cnt = 0;
+	int32_t leader_id;
+	int32_t replica_cnt, isr_cnt;
+	int32_t partition_cnt;
+	int32_t i, j;
 
 	CHECK_RET(parse_i32(buf, size, &partition_cnt));
 
@@ -3045,7 +3052,7 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 								  KafkaMetaList *meta_list,
 								  KafkaBrokerList *broker_list)
 {
-	int topic_cnt;
+	int32_t topic_cnt;
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 
 	if (topic_cnt < 0)
@@ -3054,9 +3061,9 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 		return -1;
 	}
 
-	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
+	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
-		short error;
+		int16_t error;
 		CHECK_RET(parse_i16(buf, size, &error));
 
 		std::string topic_name;
@@ -3079,7 +3086,7 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 
 int KafkaResponse::parse_metadata(void **buf, size_t *size)
 {
-	int throttle_time, controller_id;
+	int32_t throttle_time, controller_id;
 	std::string cluster_id;
 
 	if (this->api_version >= 3)
@@ -3136,12 +3143,12 @@ KafkaToppar *KafkaMessage::find_toppar_by_name(const std::string& topic, int par
 
 int KafkaResponse::parse_produce(void **buf, size_t *size)
 {
-	int topic_cnt;
+	int32_t topic_cnt;
 	std::string topic_name;
-	int partition_cnt;
-	int partition;
+	int32_t partition_cnt;
+	int32_t partition;
 	int64_t base_offset, log_append_time, log_start_offset;
-	int throttle_time;
+	int32_t throttle_time;
 
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 
@@ -3153,12 +3160,12 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 
 	int produce_timeout = this->config.get_produce_timeout() * 2;
 
-	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
+	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
 
 		CHECK_RET(parse_i32(buf, size, &partition_cnt));
-		for (int i = 0; i < partition_cnt; ++i)
+		for (int32_t i = 0; i < partition_cnt; ++i)
 		{
 			CHECK_RET(parse_i32(buf, size, &partition));
 
@@ -3220,20 +3227,20 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	KafkaToppar *toppar;
 	while ((toppar = this->toppar_list.get_next()) != NULL)
 		toppar->clear_records();
-	int throttle_time;
+	int32_t throttle_time;
 
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
 
 	if (this->api_version >= 7)
 	{
-		short error;
-		int sessionid;
+		int16_t error;
+		int32_t sessionid;
 		parse_i16(buf, size, &error);
 		parse_i32(buf, size, &sessionid);
 	}
 
-	int topic_cnt;
+	int32_t topic_cnt;
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 
 	if (topic_cnt < 0)
@@ -3243,14 +3250,14 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	}
 
 	std::string topic_name;
-	int partition_cnt;
-	int partition;
-	int aborted_cnt;
-	int preferred_read_replica;
-	long long producer_id, first_offset;
+	int32_t partition_cnt;
+	int32_t partition;
+	int32_t aborted_cnt;
+	int32_t preferred_read_replica;
+	int64_t producer_id, first_offset;
 	int64_t high_watermark;
 
-	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
+	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
 		CHECK_RET(parse_i32(buf, size, &partition_cnt));
@@ -3281,10 +3288,10 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 					CHECK_RET(parse_i64(buf, size, (int64_t *)&ptr->log_start_offset));
 
 				CHECK_RET(parse_i32(buf, size, &aborted_cnt));
-				for (int j = 0; j < aborted_cnt; ++j)
+				for (int32_t j = 0; j < aborted_cnt; ++j)
 				{
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&producer_id));
-					CHECK_RET(parse_i64(buf, size, (int64_t *)&first_offset));
+					CHECK_RET(parse_i64(buf, size, &producer_id));
+					CHECK_RET(parse_i64(buf, size, &first_offset));
 				}
 			}
 
@@ -3308,7 +3315,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 
 int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 {
-	int throttle_time, topic_cnt;
+	int32_t throttle_time, topic_cnt;
 
 	if (this->api_version >= 2)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
@@ -3322,17 +3329,17 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 	}
 
 	std::string topic_name;
-	int partition_cnt;
-	int partition;
+	int32_t partition_cnt;
+	int32_t partition;
 	int64_t offset_timestamp, offset;
-	int offset_cnt;
+	int32_t offset_cnt;
 
-	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
+	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
 		CHECK_RET(parse_i32(buf, size, &partition_cnt));
 
-		for (int i = 0; i < partition_cnt; ++i)
+		for (int32_t i = 0; i < partition_cnt; ++i)
 		{
 			CHECK_RET(parse_i32(buf, size, &partition));
 
@@ -3359,7 +3366,7 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 			else if (this->api_version == 0)
 			{
 				CHECK_RET(parse_i32(buf, size, &offset_cnt));
-				for (int j = 0; j < offset_cnt; ++j)
+				for (int32_t j = 0; j < offset_cnt; ++j)
 				{
 					CHECK_RET(parse_i64(buf, size, &offset));
 					ptr->offset = offset;
@@ -3375,7 +3382,7 @@ int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 
 int KafkaResponse::parse_findcoordinator(void **buf, size_t *size)
 {
-	int throttle_time;
+	int32_t throttle_time;
 
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
@@ -3432,7 +3439,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 									 KafkaMetaList *meta_list,
 									 int api_version)
 {
-	int member_cnt = 0;
+	int32_t member_cnt = 0;
 	CHECK_RET(parse_i32(buf, size, &member_cnt));
 
 	if (member_cnt < 0)
@@ -3445,7 +3452,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 		return -1;
 
 	kafka_member_t **member = cgroup->get_members();
-	int i;
+	int32_t i;
 
 	for (i = 0; i < member_cnt; ++i)
 	{
@@ -3464,10 +3471,10 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 
 		void *metadata = member[i]->member_metadata;
 		size_t metadata_len = member[i]->member_metadata_len;
-		short version;
-		int topic_cnt;
+		int16_t version;
+		int32_t topic_cnt;
 		std::string topic_name;
-		int j;
+		int32_t j;
 
 		if (parse_i16(&metadata, &metadata_len, &version) < 0)
 			break;
@@ -3505,7 +3512,7 @@ static int kafka_cgroup_parse_member(void **buf, size_t *size,
 
 int KafkaResponse::parse_joingroup(void **buf, size_t *size)
 {
-	int throttle_time;
+	int32_t throttle_time;
 
 	if (this->api_version >= 2)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
@@ -3529,11 +3536,11 @@ int KafkaMessage::kafka_parse_member_assignment(const char *bbuf, size_t n,
 {
 	void **buf = (void **)&bbuf;
 	size_t *size = &n;
-	int topic_cnt, partition_cnt;
-	short version;
+	int32_t topic_cnt, partition_cnt;
+	int16_t version;
 	struct list_head *pos, *tmp;
 	std::string topic_name;
-	int partition;
+	int32_t partition;
 
 	CHECK_RET(parse_i16(buf, size, &version));
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
@@ -3551,12 +3558,12 @@ int KafkaMessage::kafka_parse_member_assignment(const char *bbuf, size_t n,
 		delete toppar;
 	}
 
-	for (int i = 0; i < topic_cnt; ++i)
+	for (int32_t i = 0; i < topic_cnt; ++i)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
 		CHECK_RET(parse_i32(buf, size, &partition_cnt));
 
-		for (int j = 0; j < partition_cnt; ++j)
+		for (int32_t j = 0; j < partition_cnt; ++j)
 		{
 			CHECK_RET(parse_i32(buf, size, &partition));
 			KafkaToppar *toppar = new KafkaToppar;
@@ -3575,8 +3582,8 @@ int KafkaMessage::kafka_parse_member_assignment(const char *bbuf, size_t n,
 
 int KafkaResponse::parse_syncgroup(void **buf, size_t *size)
 {
-	int throttle_time;
-	short error = 0;
+	int32_t throttle_time;
+	int16_t error;
 	std::string member_assignment;
 
 	if (this->api_version >= 1)
@@ -3598,8 +3605,8 @@ int KafkaResponse::parse_syncgroup(void **buf, size_t *size)
 
 int KafkaResponse::parse_leavegroup(void **buf, size_t *size)
 {
-	int throttle_time;
-	short error = 0;
+	int32_t throttle_time;
+	int16_t error;
 
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
@@ -3612,10 +3619,10 @@ int KafkaResponse::parse_leavegroup(void **buf, size_t *size)
 
 int KafkaResponse::parse_offsetfetch(void **buf, size_t *size)
 {
-	int topic_cnt;
+	int32_t topic_cnt;
 	std::string topic_name;
-	int partition_cnt;
-	int partition;
+	int32_t partition_cnt;
+	int32_t partition;
 
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 
@@ -3625,12 +3632,12 @@ int KafkaResponse::parse_offsetfetch(void **buf, size_t *size)
 		return -1;
 	}
 
-	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
+	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
 
 		CHECK_RET(parse_i32(buf, size, &partition_cnt));
-		for (int i = 0; i < partition_cnt; ++i)
+		for (int32_t i = 0; i < partition_cnt; ++i)
 		{
 			CHECK_RET(parse_i32(buf, size, &partition));
 			KafkaToppar *toppar = find_toppar_by_name(topic_name, partition,
@@ -3640,8 +3647,8 @@ int KafkaResponse::parse_offsetfetch(void **buf, size_t *size)
 
 			kafka_topic_partition_t *ptr = toppar->get_raw_ptr();
 
-			long offset;
-			CHECK_RET(parse_i64(buf, size, (int64_t *)&offset));
+			int64_t offset;
+			CHECK_RET(parse_i64(buf, size, &offset));
 			if (this->config.get_offset_store() != KAFKA_OFFSET_ASSIGN)
 				ptr->offset = offset;
 
@@ -3655,11 +3662,11 @@ int KafkaResponse::parse_offsetfetch(void **buf, size_t *size)
 
 int KafkaResponse::parse_offsetcommit(void **buf, size_t *size)
 {
-	int throttle_time;
-	int topic_cnt;
+	int32_t throttle_time;
+	int32_t topic_cnt;
 	std::string topic_name;
-	int partition_cnt;
-	int partition;
+	int32_t partition_cnt;
+	int32_t partition;
 
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
@@ -3672,12 +3679,12 @@ int KafkaResponse::parse_offsetcommit(void **buf, size_t *size)
 		return -1;
 	}
 
-	for (int topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
+	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
 		CHECK_RET(parse_i32(buf, size, &partition_cnt));
 
-		for (int i = 0 ; i < partition_cnt; ++i)
+		for (int32_t i = 0 ; i < partition_cnt; ++i)
 		{
 			CHECK_RET(parse_i32(buf, size, &partition));
 			CHECK_RET(parse_i16(buf, size, &this->cgroup.get_raw_ptr()->error));
@@ -3689,8 +3696,8 @@ int KafkaResponse::parse_offsetcommit(void **buf, size_t *size)
 
 int KafkaResponse::parse_heartbeat(void **buf, size_t *size)
 {
-	int throttle_time;
-	short error = 0;
+	int32_t throttle_time;
+	int16_t error;
 
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
@@ -3709,9 +3716,9 @@ static bool kafka_api_version_cmp(const kafka_api_version_t& api_ver1,
 
 int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 {
-	short error;
-	int api_cnt;
-	int throttle_time;
+	int16_t error;
+	int32_t api_cnt;
+	int32_t throttle_time;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	CHECK_RET(parse_i32(buf, size, &api_cnt));
@@ -3728,7 +3735,7 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 	this->api->api = (kafka_api_version_t *)p;
 	this->api->elements = api_cnt;
 
-	for (int i = 0; i < api_cnt; ++i)
+	for (int32_t i = 0; i < api_cnt; ++i)
 	{
 		CHECK_RET(parse_i16(buf, size, &this->api->api[i].api_key));
 		CHECK_RET(parse_i16(buf, size, &this->api->api[i].min_ver));
@@ -3746,8 +3753,8 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 {
 	std::string mechanism;
-	int cnt, i;
-	short error;
+	int32_t cnt, i;
+	int16_t error;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	if (error != 0)
@@ -3785,7 +3792,7 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 {
 	std::string error_message;
-	short error;
+	int16_t error;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	CHECK_RET(parse_string(buf, size, error_message));

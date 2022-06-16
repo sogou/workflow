@@ -2941,11 +2941,18 @@ static int kafka_meta_parse_partition(void **buf, size_t *size,
 
 	for (i = 0; i < partition_cnt; ++i)
 	{
-		if (parse_i16(buf, size, &partition[i]->error) < 0)
+		int16_t error;
+		int32_t index;
+
+		if (parse_i16(buf, size, &error) < 0)
 			break;
 
-		if (parse_i32(buf, size, &partition[i]->partition_index) < 0)
+		partition[i]->error = error;
+
+		if (parse_i32(buf, size, &index) < 0)
 			break;
+
+		partition[i]->partition_index = index;
 
 		if (parse_i32(buf, size, &leader_id) < 0)
 			break;
@@ -2961,8 +2968,12 @@ static int kafka_meta_parse_partition(void **buf, size_t *size,
 
 		for (j = 0; j < replica_cnt; ++j)
 		{
-			if (parse_i32(buf, size, &partition[i]->replica_nodes[j]) < 0)
+			int32_t replica_node;
+
+			if (parse_i32(buf, size, &replica_node) < 0)
 				break;
+
+			partition[i]->replica_nodes[j] = replica_node;
 		}
 
 		if (j != replica_cnt)
@@ -2976,8 +2987,12 @@ static int kafka_meta_parse_partition(void **buf, size_t *size,
 
 		for (j = 0; j < isr_cnt; ++j)
 		{
-			if (parse_i32(buf, size, &partition[i]->isr_nodes[j]) < 0)
+			int32_t isr_node;
+
+			if (parse_i32(buf, size, &isr_node) < 0)
 				break;
+
+			partition[i]->isr_nodes[j] = isr_node;
 		}
 
 		if (j != isr_cnt)

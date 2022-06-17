@@ -117,8 +117,6 @@ public:
 	void unset_last_task() { this->last = NULL; }
 
 protected:
-	SubTask *pop_task();
-
 	SubTask *get_last_task() const { return this->last; }
 
 	void set_in_parallel() { this->in_parallel = true; }
@@ -130,6 +128,7 @@ protected:
 	series_callback_t callback;
 
 private:
+	SubTask *pop_task();
 	void expand_queue();
 
 private:

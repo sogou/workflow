@@ -44,7 +44,6 @@ void SeriesWork::dismiss_recursive()
 {
 	SubTask *task = first;
 
-	this->in_parallel = false;
 	this->callback = nullptr;
 	do
 	{
@@ -228,7 +227,10 @@ ParallelWork::~ParallelWork()
 	size_t i;
 
 	for (i = 0; i < this->subtasks_nr; i++)
+	{
+		this->all_series[i]->in_parallel = false;
 		this->all_series[i]->dismiss_recursive();
+	}
 
 	delete []this->subtasks;
 }

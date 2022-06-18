@@ -41,7 +41,6 @@ int main()
 * To realize any **high-performance** and **high-concurrency** back-end service with a very complex relationship between computing and networking.
 * To build a **micro service** system.
   * This project has built-in **service governance** and **load balancing** features.
-  * The [workflow-k8s](https://github.com/sogou/workflow-k8s) plugin enables using name service with Kubernetes automated deployment.
 * Wiki link : [PaaS Architecture](https://github.com/sogou/workflow/wiki)
 
 #### Compiling and running environment
@@ -113,7 +112,7 @@ sudo apt-get install libworkflow1
   * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
   * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 
-#### System design features
+#### Programming paradigm
 
 We believe that a typical back-end program=protocol+algorithm+workflow and should be developed completely independently.
 

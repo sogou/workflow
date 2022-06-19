@@ -139,6 +139,8 @@ SubTask *SeriesWork::pop_task()
 	this->mutex.unlock();
 	if (!task)
 	{
+		this->first = NULL;
+
 		if (this->callback)
 			this->callback(this);
 

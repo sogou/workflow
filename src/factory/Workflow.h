@@ -98,6 +98,9 @@ public:
 	 * sub-series, and cancel it's super-series recursively. */
 	bool is_canceled() const { return this->canceled; }
 
+	/* 'false' until the time of callback. Mainly for sub-class. */
+	bool is_finished() const { return !this->first; }
+
 public:
 	void set_callback(series_callback_t callback)
 	{

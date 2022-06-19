@@ -299,12 +299,12 @@ protected:
 		CommRequest(object, scheduler),
 		callback(std::move(cb))
 	{
-		this->user_data = NULL;
 		this->send_timeo = -1;
 		this->receive_timeo = -1;
 		this->keep_alive_timeo = 0;
 		this->target = NULL;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
+		this->user_data = NULL;
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
 	}
@@ -758,7 +758,6 @@ protected:
 		if (this->callback)
 			this->callback(this);
 
-		this->first = NULL;
 		delete this;
 		return series->pop();
 	}
@@ -782,7 +781,7 @@ public:
 protected:
 	virtual ~WFModuleTask()
 	{
-		if (this->first)
+		if (!this->is_finished())
 			this->dismiss_recursive();
 	}
 };

@@ -99,7 +99,7 @@ public:
 	bool is_canceled() const { return this->canceled; }
 
 	/* 'false' until the time of callback. Mainly for sub-class. */
-	bool is_finished() const { return !this->first; }
+	bool is_finished() const { return this->finished; }
 
 public:
 	void set_callback(series_callback_t callback)
@@ -143,6 +143,7 @@ private:
 	int back;
 	bool in_parallel;
 	bool canceled;
+	bool finished;
 	std::mutex mutex;
 
 protected:

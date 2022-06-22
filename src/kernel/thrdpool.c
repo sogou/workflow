@@ -253,7 +253,9 @@ int thrdpool_increase(thrdpool_t *pool)
 	return -1;
 }
 
-inline int thrdpool_in_pool(thrdpool_t *pool)
+inline int thrdpool_in_pool(thrdpool_t *pool);
+
+int thrdpool_in_pool(thrdpool_t *pool)
 {
 	return pthread_getspecific(pool->key) == pool;
 }
@@ -265,7 +267,6 @@ void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 	struct __thrdpool_task_entry *entry;
 
 	__thrdpool_terminate(in_pool, pool);
-
 	while (1)
 	{
 		entry = (struct __thrdpool_task_entry *)msgqueue_get(pool->msgqueue);

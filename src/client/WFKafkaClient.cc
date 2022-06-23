@@ -520,6 +520,7 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 
 	std::pair<int, int> *state_error;
 	bool flag = false;
+	int state = WFT_STATE_SUCCESS;
 	int error = 0;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
@@ -533,6 +534,7 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 				t->set_meta_status(META_UNINIT);
 				t->member->mutex.unlock();
 			}
+			state = state_error->first;
 			error = state_error->second;
 		}
 		else
@@ -544,7 +546,10 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 	}
 
 	if (t->state != WFT_STATE_SUCCESS)
+	{
+		t->state = state;
 		t->error = error;
+	}
 }
 
 void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
@@ -793,6 +798,7 @@ void ComplexKafkaTask::dispatch()
 			this->finish = true;
 			break;
 		}
+
 		parallel = Workflow::create_parallel_work(kafka_parallel_callback);
 		this->result.create(this->toppar_list_map.size());
 		parallel->set_context(this);
@@ -965,6 +971,7 @@ void ComplexKafkaTask::dispatch()
 			this->finish = true;
 			break;
 		}
+
 		parallel = Workflow::create_parallel_work(kafka_parallel_callback);
 		this->result.create(this->toppar_list_map.size());
 		parallel->set_context(this);

@@ -2845,10 +2845,12 @@ int KafkaResponse::parse_response()
 
 	void *buf = this->parser->msgbuf;
 	size_t size = this->parser->message_size;
-	int correlation_id;
+	int32_t correlation_id;
 
 	if (parse_i32(&buf, &size, &correlation_id) < 0)
 		return -1;
+
+	this->correlation_id = correlation_id;
 
 	int ret = it->second(&buf, &size);
 

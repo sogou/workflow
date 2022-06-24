@@ -42,6 +42,7 @@ set(TUTORIAL_LIST
 	tutorial-09-http_file_server
 	tutorial-11-graph_task
 	tutorial-15-name_service
+	tutorial-16-bootstrap_server
 	tutorial-17-dns_cli
 	tutorial-20-reducer
 )
@@ -101,3 +102,5 @@ set_target_properties(server PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR10})
 set_target_properties(client PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR10})
+
+add_executable(bootstrap_daemon tutorial-16-bootstrap_daemon.c)

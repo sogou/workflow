@@ -105,7 +105,7 @@ if (KAFKA STREQUAL "y")
 							  workflow z lz4 zstd ${SNAPPY_LIB}
 							  OpenSSL::SSL OpenSSL::Crypto pthread)
 	endif ()
-	set_target_properties(${KAFKA_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka" VERSION ${CMAKE_PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+	set_target_properties(${KAFKA_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka" VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 endif ()
 
 install(

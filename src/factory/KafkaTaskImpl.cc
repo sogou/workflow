@@ -183,6 +183,7 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 				req->set_api_type(Kafka_SaslHandshake);
 			else
 				req->set_api_type(Kafka_SaslAuthenticate);
+			req->set_correlation_id(1);
 			is_user_request_ = false;
 			return req;
 		}
@@ -256,11 +257,13 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 			new_req->set_toppar_list(toppar_list);
 			new_req->set_config(*req->get_config());
 			new_req->set_api_type(Kafka_ListOffsets);
+			new_req->set_correlation_id(seqid);
 			is_user_request_ = false;
 			return new_req;
 		}
 	}
 
+	this->get_req()->set_correlation_id(seqid);
 	return this->WFComplexClientTask::message_out();
 }
 

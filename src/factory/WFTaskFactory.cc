@@ -103,15 +103,9 @@ struct __CounterList
 	std::string name;
 };
 
-class __CounterMap
+static class __CounterMap
 {
 public:
-	static __CounterMap *get_instance()
-	{
-		static __CounterMap kInstance;
-		return &kInstance;
-	}
-
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
 						  std::function<void (WFCounterTask *)>&& cb);
 
@@ -122,14 +116,15 @@ public:
 private:
 	void count_n_locked(struct __CounterList *counters, unsigned int n,
 						struct list_head *task_list);
+	struct rb_root counters_map_;
+	std::mutex mutex_;
+
+public:
 	__CounterMap()
 	{
 		counters_map_.rb_node = NULL;
 	}
-
-	struct rb_root counters_map_;
-	std::mutex mutex_;
-};
+} __counter_map;
 
 class __WFCounterTask : public WFCounterTask
 {
@@ -147,12 +142,12 @@ public:
 	virtual ~__WFCounterTask()
 	{
 		if (this->value != 0)
-			__CounterMap::get_instance()->remove(counters_, &node_);
+			__counter_map.remove(counters_, &node_);
 	}
 
 	virtual void count()
 	{
-		__CounterMap::get_instance()->count(counters_, &node_);
+		__counter_map.count(counters_, &node_);
 	}
 
 private:
@@ -301,13 +296,12 @@ WFCounterTask *WFTaskFactory::create_counter_task(const std::string& counter_nam
 												  unsigned int target_value,
 												  counter_callback_t callback)
 {
-	return __CounterMap::get_instance()->create(counter_name, target_value,
-												std::move(callback));
+	return __counter_map.create(counter_name, target_value, std::move(callback));
 }
 
 void WFTaskFactory::count_by_name(const std::string& counter_name, unsigned int n)
 {
-	__CounterMap::get_instance()->count_n(counter_name, n);
+	__counter_map.count_n(counter_name, n);
 }
 
 /********MailboxTask*************/
@@ -376,15 +370,9 @@ struct __ConditionalList
 	friend class __ConditionalMap;
 };
 
-class __ConditionalMap
+static class __ConditionalMap
 {
 public:
-	static __ConditionalMap *get_instance()
-	{
-		static __ConditionalMap kInstance;
-		return &kInstance;
-	}
-
 	WFConditional *create(const std::string& name,
 						  SubTask *task, void **msgbuf);
 
@@ -399,15 +387,15 @@ public:
 
 private:
 	struct __ConditionalList *get_list(const std::string& name);
+	struct rb_root conds_map_;
+	std::mutex mutex_;
 
+public:
 	__ConditionalMap()
 	{
 		conds_map_.rb_node = NULL;
 	}
-
-	struct rb_root conds_map_;
-	std::mutex mutex_;
-};
+} __conditional_map;
 
 class __WFConditional : public WFConditional
 {
@@ -432,12 +420,12 @@ public:
 	virtual ~__WFConditional()
 	{
 		if (!this->flag)
-			__ConditionalMap::get_instance()->remove(conds_, &node_);
+			__conditional_map.remove(conds_, &node_);
 	}
 
 	virtual void signal(void *msg)
 	{
-		__ConditionalMap::get_instance()->signal(conds_, &node_, msg);
+		__conditional_map.signal(conds_, &node_, msg);
 	}
 
 private:
@@ -561,18 +549,18 @@ void __ConditionalMap::remove(struct __ConditionalList *conds,
 WFConditional *WFTaskFactory::create_conditional(const std::string& cond_name,
 												 SubTask *task, void **msgbuf)
 {
-	return __ConditionalMap::get_instance()->create(cond_name, task, msgbuf);
+	return __conditional_map.create(cond_name, task, msgbuf);
 }
 
 WFConditional *WFTaskFactory::create_conditional(const std::string& cond_name,
 												 SubTask *task)
 {
-	return __ConditionalMap::get_instance()->create(cond_name, task);
+	return __conditional_map.create(cond_name, task);
 }
 
 void WFTaskFactory::signal_by_name(const std::string& cond_name, void *msg)
 {
-	__ConditionalMap::get_instance()->signal(cond_name, msg);
+	__conditional_map.signal(cond_name, msg);
 }
 
 /**************** Timed Go Task *****************/

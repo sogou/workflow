@@ -16,17 +16,33 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+#include <openssl/evp.h>
+#else
 #include <openssl/md5.h>
+#endif
+
 #include <string.h>
 #include <string>
 #include "MD5Util.h"
 
 static inline void __md5(const std::string& str, unsigned char *md)
 {
-	MD5_CTX ctx;
-	MD5_Init(&ctx);
-	MD5_Update(&ctx, str.c_str(), str.size());
-	MD5_Final(md, &ctx);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+    EVP_MD_CTX *mdctx;
+    const EVP_MD *md_type = EVP_get_digestbyname("md5");
+    mdctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex2(mdctx, md_type, nullptr);
+    EVP_DigestUpdate(mdctx, str.c_str(), str.size());
+    EVP_DigestFinal_ex(mdctx, md, nullptr);
+    EVP_MD_CTX_free(mdctx);
+# else
+    MD5_CTX ctx;
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, str.c_str(), str.size());
+    MD5_Final(md, &ctx);
+#endif
 }
 
 std::string MD5Util::md5_bin(const std::string& str)

@@ -16,6 +16,12 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Xie Han (xiehan@sogou-inc.com)
 */
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+#include <openssl/evp.h>
+#else
+#include <openssl/sha.h>
+#endif
 
 #include <sys/uio.h>
 #include <stdint.h>
@@ -23,7 +29,6 @@
 #include <errno.h>
 #include <string>
 #include <openssl/ssl.h>
-#include <openssl/sha.h>
 #include <utility>
 #include "SSLWrapper.h"
 #include "mysql_byteorder.h"
@@ -251,10 +256,20 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 
 static inline void __sha1(const std::string& str, unsigned char *md)
 {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+    EVP_MD_CTX *mdctx;
+    const EVP_MD *md_type = EVP_get_digestbyname("sha1");
+    mdctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex2(mdctx, md_type, nullptr);
+    EVP_DigestUpdate(mdctx, str.c_str(), str.size());
+    EVP_DigestFinal_ex(mdctx, md, nullptr);
+    EVP_MD_CTX_free(mdctx);
+#else
 	SHA_CTX ctx;
 	SHA1_Init(&ctx);
 	SHA1_Update(&ctx, str.c_str(), str.size());
 	SHA1_Final(md, &ctx);
+#endif
 }
 
 static inline std::string __sha1_bin(const std::string& str)

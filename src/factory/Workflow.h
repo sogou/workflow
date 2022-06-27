@@ -135,6 +135,7 @@ private:
 	void expand_queue();
 
 private:
+	SubTask *buf[4];
 	SubTask *first;
 	SubTask *last;
 	SubTask **queue;
@@ -148,7 +149,7 @@ private:
 
 protected:
 	SeriesWork(SubTask *first, series_callback_t&& callback);
-	virtual ~SeriesWork() { delete []this->queue; }
+	virtual ~SeriesWork();
 	friend class ParallelWork;
 	friend class Workflow;
 };

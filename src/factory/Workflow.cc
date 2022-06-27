@@ -27,8 +27,8 @@
 SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	callback(std::move(cb))
 {
-	this->queue = new SubTask *[4];
-	this->queue_size = 4;
+	this->queue = this->buf;
+	this->queue_size = sizeof this->buf / sizeof *this->buf;
 	this->front = 0;
 	this->back = 0;
 	this->in_parallel = false;
@@ -39,6 +39,12 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->first = first;
 	this->last = NULL;
 	this->context = NULL;
+}
+
+SeriesWork::~SeriesWork()
+{
+	if (this->queue != this->buf)
+		delete []this->queue;
 }
 
 void SeriesWork::dismiss_recursive()
@@ -68,7 +74,9 @@ void SeriesWork::expand_queue()
 			j = 0;
 	} while (j != this->back);
 
-	delete []this->queue;
+	if (this->queue != this->buf)
+		delete []this->queue;
+
 	this->queue = queue;
 	this->queue_size = size;
 	this->front = 0;
@@ -157,18 +165,18 @@ ParallelWork::ParallelWork(parallel_callback_t&& cb) :
 	callback(std::move(cb))
 {
 	this->buf_size = 4;
-	this->all_series = (SeriesWork **)&this->subtasks[4];
+	this->all_series = (SeriesWork **)&this->subtasks[this->buf_size];
 	this->context = NULL;
 }
 
 ParallelWork::ParallelWork(SeriesWork *const all_series[], size_t n,
 						   parallel_callback_t&& cb) :
-	ParallelTask(new SubTask *[2 * (n >= 4 ? n : 4)], n),
+	ParallelTask(new SubTask *[2 * (n > 4 ? n : 4)], n),
 	callback(std::move(cb))
 {
 	size_t i;
 
-	this->buf_size = (n >= 4 ? n : 4);
+	this->buf_size = (n > 4 ? n : 4);
 	this->all_series = (SeriesWork **)&this->subtasks[this->buf_size];
 	for (i = 0; i < n; i++)
 	{

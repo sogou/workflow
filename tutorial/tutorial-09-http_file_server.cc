@@ -24,6 +24,7 @@
 #include <utility>
 #include <string>
 #include "workflow/HttpMessage.h"
+#include "workflow/HttpUtil.h"
 #include "workflow/WFHttpServer.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/Workflow.h"
@@ -110,24 +111,63 @@ int main(int argc, char *argv[])
 	const char *root = (argc >= 3 ? argv[2] : ".");
 	auto&& proc = std::bind(process, std::placeholders::_1, root);
 	WFHttpServer server(proc);
+	std::string scheme;
 	int ret;
 
 	if (argc == 5)
-		ret = server.start(port, argv[3], argv[4]);	/* https server */
-	else
-		ret = server.start(port);
-
-	if (ret == 0)
 	{
-		wait_group.wait();
-		server.stop();
+		ret = server.start(port, argv[3], argv[4]);	/* https server */
+		scheme = "https://";
 	}
 	else
+	{
+		ret = server.start(port);
+		scheme = "http://";
+	}
+
+	if (ret < 0)
 	{
 		perror("start server");
 		exit(1);
 	}
 
+	/* Test the server. */
+	while (1)
+	{
+		WFFacilities::WaitGroup wg(1);
+		char buf[1024];
+		*buf = '\0';
+		printf("Input file name: (Ctrl-D to exit): ");
+		scanf("%1023s", buf);
+		if (*buf == '\0')
+		{
+			printf("\n");
+			break;
+		}
+
+		std::string url = scheme + "127.0.0.1:" + std::to_string(port) + "/" + buf;
+		WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, 0,
+									[&wg](WFHttpTask *task) {
+			auto *resp = task->get_resp();
+			if (strcmp(resp->get_status_code(), "200") == 0)
+			{
+				std::string body = protocol::HttpUtil::decode_chunked_body(resp);
+				fwrite(body.c_str(), body.size(), 1, stdout);
+				printf("\n");
+			}
+			else
+			{
+				printf("%s %s\n", resp->get_status_code(), resp->get_reason_phrase());
+			}
+
+			wg.done();
+		});
+
+		task->start();
+		wg.wait();
+	}
+
+	server.stop();
 	return 0;
 }
 

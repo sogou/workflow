@@ -52,16 +52,15 @@ int main(int argc, const char *argv[])
 	if (server.serve(listen_fd) == 0)
 	{
 		wait_group.wait();
-
 		server.shutdown();
 		write(pipe_fd, "success", strlen("success"));
-		close(pipe_fd);
 		server.wait_finish();
-		return 0;
 	}
+	else
+		write(pipe_fd, "failed ", strlen("failed "));
 
-	write(pipe_fd, "failed ", strlen("failed "));
 	close(pipe_fd);
+	close(listen_fd);
     return 0;
 }
 

@@ -101,3 +101,13 @@ set_target_properties(server PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR10})
 set_target_properties(client PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR10})
+
+set(DIR16 tutorial-16-graceful_restart)
+add_executable(bootstrap ${DIR16}/bootstrap.c)
+add_executable(bootstrap_server ${DIR16}/server.cc)
+target_link_libraries(bootstrap_server ${WORKFLOW_LIB})
+
+set_target_properties(bootstrap PROPERTIES
+	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR16})
+set_target_properties(bootstrap_server PROPERTIES OUTPUT_NAME "server"
+	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DIR16})

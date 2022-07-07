@@ -110,7 +110,7 @@ int main()
 ~~~cpp
 int main()
 {
-    WFGoTask *task = WFTaskFactory::create_timedgo_task("test", [task]() {
+    WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [task]() {
         task->user_data = (void *)123;
     });
     task->set_callback([](WFGoTask *task) {

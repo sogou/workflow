@@ -17,14 +17,13 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <ctype.h>
+#include <sys/types.h>
+#include <time.h>
 #include <string>
 #include <mutex>
-#include "PlatformSocket.h"
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
-#include "WFTaskError.h"
 #include "WFTaskFactory.h"
 
 class __WFTimerTask : public WFTimerTask
@@ -42,7 +41,7 @@ protected:
 	long nanoseconds;
 
 public:
-	__WFTimerTask(time_t seconds, long nanoseconds, CommScheduler *scheduler,
+	__WFTimerTask(CommScheduler *scheduler, time_t seconds, long nanoseconds,
 				  timer_callback_t&& cb) :
 		WFTimerTask(scheduler, std::move(cb))
 	{
@@ -54,23 +53,16 @@ public:
 WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 											  timer_callback_t callback)
 {
-	return new __WFTimerTask((time_t)(microseconds / 1000000),
+	return new __WFTimerTask(WFGlobal::get_scheduler(),
+							 (time_t)(microseconds / 1000000),
 							 (long)(microseconds % 1000000 * 1000),
-							 WFGlobal::get_scheduler(),
 							 std::move(callback));
-}
-
-WFTimerTask *WFTaskFactory::create_timer_task(const std::string& name,
-											  unsigned int microseconds,
-											  timer_callback_t callback)
-{
-	return WFTaskFactory::create_timer_task(microseconds, std::move(callback));
 }
 
 WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
 											  timer_callback_t callback)
 {
-	return new __WFTimerTask(seconds, nanoseconds, WFGlobal::get_scheduler(),
+	return new __WFTimerTask(WFGlobal::get_scheduler(), seconds, nanoseconds,
 							 std::move(callback));
 }
 
@@ -111,15 +103,9 @@ struct __CounterList
 	std::string name;
 };
 
-class __CounterMap
+static class __CounterMap
 {
 public:
-	static __CounterMap *get_instance()
-	{
-		static __CounterMap kInstance;
-		return &kInstance;
-	}
-
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
 						  std::function<void (WFCounterTask *)>&& cb);
 
@@ -130,14 +116,15 @@ public:
 private:
 	void count_n_locked(struct __CounterList *counters, unsigned int n,
 						struct list_head *task_list);
+	struct rb_root counters_map_;
+	std::mutex mutex_;
+
+public:
 	__CounterMap()
 	{
 		counters_map_.rb_node = NULL;
 	}
-
-	struct rb_root counters_map_;
-	std::mutex mutex_;
-};
+} __counter_map;
 
 class __WFCounterTask : public WFCounterTask
 {
@@ -155,12 +142,12 @@ public:
 	virtual ~__WFCounterTask()
 	{
 		if (this->value != 0)
-			__CounterMap::get_instance()->remove(counters_, &node_);
+			__counter_map.remove(counters_, &node_);
 	}
 
 	virtual void count()
 	{
-		__CounterMap::get_instance()->count(counters_, &node_);
+		__counter_map.count(counters_, &node_);
 	}
 
 private:
@@ -309,13 +296,12 @@ WFCounterTask *WFTaskFactory::create_counter_task(const std::string& counter_nam
 												  unsigned int target_value,
 												  counter_callback_t callback)
 {
-	return __CounterMap::get_instance()->create(counter_name, target_value,
-												std::move(callback));
+	return __counter_map.create(counter_name, target_value, std::move(callback));
 }
 
 void WFTaskFactory::count_by_name(const std::string& counter_name, unsigned int n)
 {
-	__CounterMap::get_instance()->count_n(counter_name, n);
+	__counter_map.count_n(counter_name, n);
 }
 
 /********MailboxTask*************/
@@ -345,185 +331,285 @@ WFMailboxTask *WFTaskFactory::create_mailbox_task(mailbox_callback_t callback)
 	return new WFMailboxTask(std::move(callback));
 }
 
-/********FileIOTask*************/
+/****************** Named Conditional ******************/
 
-class WFFilepreadTask : public WFFileIOTask
+class __WFConditional;
+
+struct __conditional_node
 {
-public:
-	WFFilepreadTask(int fd, void *buf, size_t count, off_t offset,
-					IOService *service, fio_callback_t&& cb) :
-		WFFileIOTask(service, std::move(cb))
-	{
-		this->args.fd = fd;
-		this->args.buf = buf;
-		this->args.count = count;
-		this->args.offset = offset;
-	}
-
-	virtual int prepare()
-	{
-		this->prep_pread(this->args.fd, this->args.buf, this->args.count,
-						 this->args.offset);
-		return 0;
-	}
+	struct list_head list;
+	__WFConditional *cond;
 };
 
-class WFFilepwriteTask : public WFFileIOTask
+struct __ConditionalList
 {
-public:
-	WFFilepwriteTask(int fd, const void *buf, size_t count, off_t offset,
-					 IOService *service, fio_callback_t&& cb) :
-		WFFileIOTask(service, std::move(cb))
+	__ConditionalList(const std::string& str):
+		name(str)
 	{
-		this->args.fd = fd;
-		this->args.buf = (void *)buf;
-		this->args.count = count;
-		this->args.offset = offset;
+		INIT_LIST_HEAD(&this->head);
 	}
 
-	virtual int prepare()
+	void push_back(struct __conditional_node *node)
 	{
-		this->prep_pwrite(this->args.fd, this->args.buf, this->args.count,
-						  this->args.offset);
-		return 0;
+		list_add_tail(&node->list, &this->head);
 	}
+
+	bool empty() const
+	{
+		return list_empty(&this->head);
+	}
+
+	void del(struct __conditional_node *node)
+	{
+		list_del(&node->list);
+	}
+
+	struct rb_node rb;
+	struct list_head head;
+	std::string name;
+	friend class __ConditionalMap;
 };
 
-class WFFilepreadvTask : public WFFileVIOTask
+static class __ConditionalMap
 {
 public:
-	WFFilepreadvTask(int fd, const struct iovec *iov, int iovcnt, off_t offset,
-					 IOService *service, fvio_callback_t&& cb) :
-		WFFileVIOTask(service, std::move(cb))
-	{
-		this->args.fd = fd;
-		this->args.iov = iov;
-		this->args.iovcnt = iovcnt;
-		this->args.offset = offset;
-	}
+	WFConditional *create(const std::string& name,
+						  SubTask *task, void **msgbuf);
 
-	virtual int prepare()
-	{
-		this->prep_preadv(this->args.fd, this->args.iov, this->args.iovcnt,
-						  this->args.offset);
-		return 0;
-	}
-};
+	WFConditional *create(const std::string& name, SubTask *task);
 
-class WFFilepwritevTask : public WFFileVIOTask
+	void signal(const std::string& name, void *msg);
+	void signal(struct __ConditionalList *conds,
+				struct __conditional_node *node,
+				void *msg);
+	void remove(struct __ConditionalList *conds,
+				struct __conditional_node *node);
+
+private:
+	struct __ConditionalList *get_list(const std::string& name);
+	struct rb_root conds_map_;
+	std::mutex mutex_;
+
+public:
+	__ConditionalMap()
+	{
+		conds_map_.rb_node = NULL;
+	}
+} __conditional_map;
+
+class __WFConditional : public WFConditional
 {
 public:
-	WFFilepwritevTask(int fd, const struct iovec *iov, int iovcnt, off_t offset,
-					  IOService *service, fvio_callback_t&& cb) :
-		WFFileVIOTask(service, std::move(cb))
+	__WFConditional(SubTask *task, void **msgbuf,
+					struct __ConditionalList *conds) :
+		WFConditional(task, msgbuf),
+		conds_(conds)
 	{
-		this->args.fd = fd;
-		this->args.iov = iov;
-		this->args.iovcnt = iovcnt;
-		this->args.offset = offset;
+		node_.cond = this;
+		conds_->push_back(&node_);
 	}
 
-	virtual int prepare()
+	__WFConditional(SubTask *task, struct __ConditionalList *conds) :
+		WFConditional(task),
+		conds_(conds)
 	{
-		this->prep_pwritev(this->args.fd, this->args.iov, this->args.iovcnt,
-						   this->args.offset);
-		return 0;
+		node_.cond = this;
+		conds_->push_back(&node_);
 	}
+
+	virtual ~__WFConditional()
+	{
+		if (!this->flag)
+			__conditional_map.remove(conds_, &node_);
+	}
+
+	virtual void signal(void *msg)
+	{
+		__conditional_map.signal(conds_, &node_, msg);
+	}
+
+private:
+	struct __conditional_node node_;
+	struct __ConditionalList *conds_;
+	friend class __ConditionalMap;
 };
 
-class WFFilefsyncTask : public WFFileSyncTask
+WFConditional *__ConditionalMap::create(const std::string& name,
+										SubTask *task, void **msgbuf)
 {
-public:
-	WFFilefsyncTask(int fd, IOService *service, fsync_callback_t&& cb) :
-		WFFileSyncTask(service, std::move(cb))
+	std::lock_guard<std::mutex> lock(mutex_);
+	struct __ConditionalList *conds = get_list(name);
+	return new __WFConditional(task, msgbuf, conds);
+}
+
+WFConditional *__ConditionalMap::create(const std::string& name,
+										SubTask *task)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	struct __ConditionalList *conds = get_list(name);
+	return new __WFConditional(task, conds);
+}
+
+struct __ConditionalList *__ConditionalMap::get_list(const std::string& name)
+{
+	struct rb_node **p = &conds_map_.rb_node;
+	struct rb_node *parent = NULL;
+	struct __ConditionalList *conds;
+
+	while (*p)
 	{
-		this->args.fd = fd;
+		parent = *p;
+		conds = rb_entry(*p, struct __ConditionalList, rb);
+		if (name < conds->name)
+			p = &(*p)->rb_left;
+		else if (name > conds->name)
+			p = &(*p)->rb_right;
+		else
+			break;
 	}
 
-	virtual int prepare()
+	if (*p == NULL)
 	{
-		this->prep_fsync(this->args.fd);
-		return 0;
-	}
-};
-
-class WFFilefdsyncTask : public WFFileSyncTask
-{
-public:
-	WFFilefdsyncTask(int fd, IOService *service, fsync_callback_t&& cb) :
-		WFFileSyncTask(service, std::move(cb))
-	{
-		this->args.fd = fd;
+		conds = new struct __ConditionalList(name);
+		rb_link_node(&conds->rb, parent, p);
+		rb_insert_color(&conds->rb, &conds_map_);
 	}
 
-	virtual int prepare()
+	return conds;
+}
+
+void __ConditionalMap::signal(const std::string& name, void *msg)
+{
+	struct rb_node **p = &conds_map_.rb_node;
+	struct __ConditionalList *conds = NULL;
+
+	mutex_.lock();
+	while (*p)
 	{
-		this->prep_fdsync(this->args.fd);
-		return 0;
+		conds = rb_entry(*p, struct __ConditionalList, rb);
+
+		if (name < conds->name)
+			p = &(*p)->rb_left;
+		else if (name > conds->name)
+			p = &(*p)->rb_right;
+		else
+		{
+			rb_erase(&conds->rb, &conds_map_);
+			break;
+		}
 	}
-};
 
-#ifndef _WIN32
+	mutex_.unlock();
+	if (!conds)
+		return;
 
-WFFileIOTask *WFTaskFactory::create_pread_task(int fd,
-											   void *buf,
-											   size_t count,
-											   off_t offset,
-											   fio_callback_t callback)
-{
-	return new WFFilepreadTask(fd, buf, count, offset,
-							   WFGlobal::get_io_service(),
-							   std::move(callback));
+	struct list_head *pos;
+	struct list_head *tmp;
+	struct __conditional_node *node;
+
+	list_for_each_safe(pos, tmp, &conds->head)
+	{
+		node = list_entry(pos, struct __conditional_node, list);
+		node->cond->WFConditional::signal(msg);
+	}
+
+	delete conds;
 }
 
-WFFileIOTask *WFTaskFactory::create_pwrite_task(int fd,
-												const void *buf,
-												size_t count,
-												off_t offset,
-												fio_callback_t callback)
+void __ConditionalMap::signal(struct __ConditionalList *conds,
+							  struct __conditional_node *node,
+							  void *msg)
 {
-	return new WFFilepwriteTask(fd, buf, count, offset,
-								WFGlobal::get_io_service(),
-								std::move(callback));
+	mutex_.lock();
+	conds->del(node);
+	if (conds->empty())
+	{
+		rb_erase(&conds->rb, &conds_map_);
+		delete conds;
+	}
+
+	mutex_.unlock();
+	node->cond->WFConditional::signal(msg);
 }
 
-WFFileVIOTask *WFTaskFactory::create_preadv_task(int fd,
-												 const struct iovec *iovec,
-												 int iovcnt,
-												 off_t offset,
-												 fvio_callback_t callback)
+void __ConditionalMap::remove(struct __ConditionalList *conds,
+							  struct __conditional_node *node)
 {
-	return new WFFilepreadvTask(fd, iovec, iovcnt, offset,
-								WFGlobal::get_io_service(),
-								std::move(callback));
+	mutex_.lock();
+	conds->del(node);
+	if (conds->empty())
+	{
+		rb_erase(&conds->rb, &conds_map_);
+		delete conds;
+	}
+
+	mutex_.unlock();
 }
 
-WFFileVIOTask *WFTaskFactory::create_pwritev_task(int fd,
-												  const struct iovec *iovec,
-												  int iovcnt,
-												  off_t offset,
-												  fvio_callback_t callback)
+WFConditional *WFTaskFactory::create_conditional(const std::string& cond_name,
+												 SubTask *task, void **msgbuf)
 {
-	return new WFFilepwritevTask(fd, iovec, iovcnt, offset,
-								 WFGlobal::get_io_service(),
-								 std::move(callback));
+	return __conditional_map.create(cond_name, task, msgbuf);
 }
 
-WFFileSyncTask *WFTaskFactory::create_fsync_task(int fd,
-												 fsync_callback_t callback)
+WFConditional *WFTaskFactory::create_conditional(const std::string& cond_name,
+												 SubTask *task)
 {
-	return new WFFilefsyncTask(fd,
-							   WFGlobal::get_io_service(),
-							   std::move(callback));
+	return __conditional_map.create(cond_name, task);
 }
 
-WFFileSyncTask *WFTaskFactory::create_fdsync_task(int fd,
-												  fsync_callback_t callback)
+void WFTaskFactory::signal_by_name(const std::string& cond_name, void *msg)
 {
-	return new WFFilefdsyncTask(fd,
-								WFGlobal::get_io_service(),
-								std::move(callback));
+	__conditional_map.signal(cond_name, msg);
 }
 
-#endif
+/**************** Timed Go Task *****************/
+
+void __WFTimedGoTask::dispatch()
+{
+	WFTimerTask *timer;
+
+	timer = WFTaskFactory::create_timer_task(this->seconds, this->nanoseconds,
+											 __WFTimedGoTask::timer_callback);
+	timer->user_data = this;
+
+	this->__WFGoTask::dispatch();
+	timer->start();
+}
+
+SubTask *__WFTimedGoTask::done()
+{
+	if (this->callback)
+		this->callback(this);
+
+	return series_of(this)->pop();
+}
+
+void __WFTimedGoTask::handle(int state, int error)
+{
+	if (--this->ref == 3)
+	{
+		this->state = state;
+		this->error = error;
+		this->subtask_done();
+	}
+
+	if (--this->ref == 0)
+		delete this;
+}
+
+void __WFTimedGoTask::timer_callback(WFTimerTask *timer)
+{
+	__WFTimedGoTask *task = (__WFTimedGoTask *)timer->user_data;
+
+	if (--task->ref == 3)
+	{
+		task->state = WFT_STATE_ABORTED;
+		task->error = 0;
+		task->subtask_done();
+	}
+
+	if (--task->ref == 0)
+		delete task;
+}
 

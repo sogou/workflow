@@ -207,7 +207,10 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 }
 
 inline void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
-								thrdpool_t *pool)
+								thrdpool_t *pool);
+
+void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
+						 thrdpool_t *pool)
 {
 	struct __thrdpool_task_entry *entry = (struct __thrdpool_task_entry *)buf;
 

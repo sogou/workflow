@@ -92,11 +92,14 @@ public:
 	 * that belongs to the series. All subsequent tasks in the series will be
 	 * destroyed immediately and recursively (ParallelWork), without callback.
 	 * But the callback of this canceled series will still be called. */
-	void cancel() { this->canceled = true; }
+	virtual void cancel() { this->canceled = true; }
 
 	/* Parallel work's callback may check the cancellation state of each
 	 * sub-series, and cancel it's super-series recursively. */
 	bool is_canceled() const { return this->canceled; }
+
+	/* 'false' until the time of callback. Mainly for sub-class. */
+	bool is_finished() const { return this->finished; }
 
 public:
 	void set_callback(series_callback_t callback)
@@ -117,7 +120,7 @@ public:
 	void unset_last_task() { this->last = NULL; }
 
 protected:
-	SubTask *pop_task();
+	SubTask *get_last_task() const { return this->last; }
 
 	void set_in_parallel() { this->in_parallel = true; }
 
@@ -128,9 +131,11 @@ protected:
 	series_callback_t callback;
 
 private:
+	SubTask *pop_task();
 	void expand_queue();
 
 private:
+	SubTask *buf[4];
 	SubTask *first;
 	SubTask *last;
 	SubTask **queue;
@@ -139,11 +144,12 @@ private:
 	int back;
 	bool in_parallel;
 	bool canceled;
+	bool finished;
 	std::mutex mutex;
 
 protected:
 	SeriesWork(SubTask *first, series_callback_t&& callback);
-	virtual ~SeriesWork() { delete []this->queue; }
+	virtual ~SeriesWork();
 	friend class ParallelWork;
 	friend class Workflow;
 };
@@ -218,12 +224,25 @@ public:
 	void set_context(void *context) { this->context = context; }
 
 public:
+	SeriesWork *series_at(size_t index)
+	{
+		if (index < this->subtasks_nr)
+			return this->all_series[index];
+		else
+			return NULL;
+	}
+
 	const SeriesWork *series_at(size_t index) const
 	{
 		if (index < this->subtasks_nr)
 			return this->all_series[index];
 		else
 			return NULL;
+	}
+
+	SeriesWork& operator[] (size_t index)
+	{
+		return *this->series_at(index);
 	}
 
 	const SeriesWork& operator[] (size_t index) const

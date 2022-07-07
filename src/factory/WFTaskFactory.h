@@ -193,11 +193,6 @@ public:
 	static WFTimerTask *create_timer_task(unsigned int microseconds,
 										  timer_callback_t callback);
 
-	/* timer_name has no use currently. */
-	static WFTimerTask *create_timer_task(const std::string& timer_name,
-										  unsigned int microseconds,
-										  timer_callback_t callback);
-
 	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
 										  timer_callback_t callback);
 
@@ -250,10 +245,25 @@ public:
 		return new WFConditional(task);
 	}
 
+	static WFConditional *create_conditional(const std::string& cond_name,
+											 SubTask *task, void **msgbuf);
+
+	static WFConditional *create_conditional(const std::string& cond_name,
+											 SubTask *task);
+
+	static void signal_by_name(const std::string& cond_name, void *msg);
+
 public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,
 									FUNC&& func, ARGS&&... args);
+
+	/* Create 'Go' task with running time limit in seconds plus nanoseconds.
+	 * If time exceeded, state WFT_STATE_ABORTED will be got in callback. */
+	template<class FUNC, class... ARGS>
+	static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
+										 const std::string& queue_name,
+										 FUNC&& func, ARGS&&... args);
 
 public:
 	static WFGraphTask *create_graph_task(graph_callback_t callback)

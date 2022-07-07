@@ -30,7 +30,6 @@ struct __thrdpool
 	size_t stacksize;
 	pthread_t tid;
 	pthread_mutex_t mutex;
-	pthread_cond_t cond;
 	pthread_key_t key;
 	pthread_cond_t *terminate;
 };
@@ -83,30 +82,6 @@ static void *__thrdpool_routine(void *arg)
 		pthread_join(tid, NULL);
 
 	return NULL;
-}
-
-static int __thrdpool_init_locks(thrdpool_t *pool)
-{
-	int ret;
-
-	ret = pthread_mutex_init(&pool->mutex, NULL);
-	if (ret == 0)
-	{
-		ret = pthread_cond_init(&pool->cond, NULL);
-		if (ret == 0)
-			return 0;
-
-		pthread_mutex_destroy(&pool->mutex);
-	}
-
-	errno = ret;
-	return -1;
-}
-
-static void __thrdpool_destroy_locks(thrdpool_t *pool)
-{
-	pthread_mutex_destroy(&pool->mutex);
-	pthread_cond_destroy(&pool->cond);
 }
 
 static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
@@ -173,13 +148,14 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 	if (!pool)
 		return NULL;
 
-	if (__thrdpool_init_locks(pool) >= 0)
+	pool->msgqueue = msgqueue_create((size_t)-1, 0);
+	if (pool->msgqueue)
 	{
-		ret = pthread_key_create(&pool->key, NULL);
+		ret = pthread_mutex_init(&pool->mutex, NULL);
 		if (ret == 0)
 		{
-			pool->msgqueue = msgqueue_create((size_t)-1, 0);
-			if (pool->msgqueue)
+			ret = pthread_key_create(&pool->key, NULL);
+			if (ret == 0)
 			{
 				pool->stacksize = stacksize;
 				pool->nthreads = 0;
@@ -188,15 +164,14 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 				if (__thrdpool_create_threads(nthreads, pool) >= 0)
 					return pool;
 
-				msgqueue_destroy(pool->msgqueue);
+				pthread_key_delete(pool->key);
 			}
 
-			pthread_key_delete(pool->key);
+			pthread_mutex_destroy(&pool->mutex);
 		}
-		else
-			errno = ret;
 
-		__thrdpool_destroy_locks(pool);
+		errno = ret;
+		msgqueue_destroy(pool->msgqueue);
 	}
 
 	free(pool);
@@ -279,9 +254,9 @@ void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 		free(entry);
 	}
 
-	msgqueue_destroy(pool->msgqueue);
 	pthread_key_delete(pool->key);
-	__thrdpool_destroy_locks(pool);
+	pthread_mutex_destroy(&pool->mutex);
+	msgqueue_destroy(pool->msgqueue);
 	if (!in_pool)
 		free(pool);
 }

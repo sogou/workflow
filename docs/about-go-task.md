@@ -96,12 +96,12 @@ int main()
         SeriesWork *series = series_of(task):
         void *context = series->get_context();
         if (task->get_state() == WFT_STATE_SUCCESS) // 成功执行完
-		{
-		    ...
+        {
+             ...
         }
-		else // state == WFT_STATE_ABORTED.         // 超过运行时间限制
-		{
-		    ...
+        else // state == WFT_STATE_ABORTED.         // 超过运行时间限制
+        {
+             ...
         }
     });
 }
@@ -110,23 +110,23 @@ int main()
 ~~~cpp
 int main()
 {
-    WFGoTask *task = WFTaskFactory::create_timedgo_task("test", [task](){
-	    task->user_data = (void *)123;
-	});
+    WFGoTask *task = WFTaskFactory::create_timedgo_task("test", [task]() {
+        task->user_data = (void *)123;
+    });
     task->set_callback([](WFGoTask *task) {
         SeriesWork *series = series_of(task):
         void *context = series->get_context();
         if (task->get_state() == WFT_STATE_SUCCESS) // 成功执行完
-		{
+        {
 		    int result = (int)task->user_data;
         }
-		else // state == WFT_STATE_ABORTED.         // 超过运行时间限制
-		{
+        else // state == WFT_STATE_ABORTED.         // 超过运行时间限制
+        {
 		    ...
         }
     });
-	task->start();
-	...
+    task->start();
+    ...
 }
 ~~~~~~
 

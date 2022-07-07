@@ -51,6 +51,11 @@ int main(void)
 唯一一点不同，是go task创建时不传callback，但和其它任务一样可以set_callback。  
 如果go task函数的某个参数是引用，需要使用std::ref，否则会变成值传递，这是c++11的特征。
 
+# 把workflow当成线程池
+
+用户可以只使用go task，这样可以将workflow退化成一个线程池，而且线程数量默认等于机器cpu数。  
+但是这个线程池比一般的线程池又有更多的功能，比如每个任务有queue name，任务之间还可以组成各种串并联或更复杂的依赖关系。
+
 # 带执行时间限制的go task
 WFGoTask是到目前为止，唯一支持带执行时限的一种任务。通过create_timedgo_task接口，可以创建带时间限制的go task：
 ~~~cpp
@@ -67,9 +72,61 @@ class WFTaskFactory
 相比创建普通的go task，create_timedgo_task函数需要多传两个参数，seconds和nanoseconds。  
 如果func的运行时间到达seconds+nanosconds时限，task直接callback，且state为WFT_STATE_ABORTED。  
 注意，框架无法中断用户执行中的任务。func依然会继续执行到结束，但不会再次callback。另外，nanoseconds取值区间在\[0,10亿）。  
+另外，当我们给go task加上了运行时间限制，callback的时机可能会先于func函数的结束，任务所在series可能也会先于func结束。  
+如果我们在func里访问series，可能就是一个错误了。例如：
+~~~cpp
+void f(SeriesWork *series)
+{
+    series->set_context(...);   // 错误。当f是一个带超时的go task，此时series可能已经失效了。
+}
 
-# 把workflow当成线程池
-
-用户可以只使用go task，这样可以将workflow退化成一个线程池，而且线程数量默认等于机器cpu数。  
-但是这个线程池比一般的线程池又有更多的功能，比如每个任务有queue name，任务之间还可以组成各种串并联或更复杂的依赖关系。
+int http_callback(WFHttpTask *task)
+{
+    SeriesWork *series = series_of(task);
+    WFGoTask *go = WFTaskFactory::create_timedgo_task(1, 0, "test", f, series);  // 1秒超时的go task
+    series_of(task)->push_back(go);
+}
+~~~
+这也是为什么，我们不推荐在计算任务的执行函数里，对任务所在的series进行操作。对series的操作，应该在callback里进行，例如：
+~~~cpp
+int main()
+{
+    WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", f);
+    task->set_callback([](WFGoTask *task) {
+        SeriesWork *series = series_of(task):
+        void *context = series->get_context();
+        if (task->get_state() == WFT_STATE_SUCCESS) // 成功执行完
+		{
+		    ...
+        }
+		else // state == WFT_STATE_ABORTED.         // 超过运行时间限制
+		{
+		    ...
+        }
+    });
+}
+~~~
+但是，在计算函数里使用task，是安全的。所以，可以使用task->user_data，在计算函数和callback之间传递数据。例如：
+~~~cpp
+int main()
+{
+    WFGoTask *task = WFTaskFactory::create_timedgo_task("test", [task](){
+	    task->user_data = (void *)123;
+	});
+    task->set_callback([](WFGoTask *task) {
+        SeriesWork *series = series_of(task):
+        void *context = series->get_context();
+        if (task->get_state() == WFT_STATE_SUCCESS) // 成功执行完
+		{
+		    int result = (int)task->user_data;
+        }
+		else // state == WFT_STATE_ABORTED.         // 超过运行时间限制
+		{
+		    ...
+        }
+    });
+	task->start();
+	...
+}
+~~~~~~
 

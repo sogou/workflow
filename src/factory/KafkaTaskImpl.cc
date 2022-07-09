@@ -32,7 +32,8 @@ using namespace protocol;
 
 /**********Client**********/
 
-class __ComplexKafkaTask : public WFComplexClientTask<KafkaRequest, KafkaResponse, std::function<void (__WFKafkaTask *)>>
+class __ComplexKafkaTask : public WFComplexClientTask<KafkaRequest, KafkaResponse,
+													  struct __ComplexKafkaTaskCtx>
 {
 public:
 	__ComplexKafkaTask(int retry_max, __kafka_callback_t&& callback) :
@@ -40,6 +41,7 @@ public:
 	{
 		is_user_request_ = true;
 		is_redirect_ = false;
+		ctx_.kafka_error = KAFKA_NONE;
 	}
 
 protected:
@@ -415,9 +417,10 @@ bool __ComplexKafkaTask::check_redirect()
 
 bool __ComplexKafkaTask::process_find_coordinator()
 {
-	if (this->get_resp()->get_cgroup()->get_error())
+	ctx_.kafka_error = this->get_resp()->get_cgroup()->get_error();
+	if (ctx_.kafka_error)
 	{
-		this->error = this->get_resp()->get_cgroup()->get_error();
+		this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 		this->state = WFT_STATE_TASK_ERROR;
 		return false;
 	}
@@ -458,7 +461,8 @@ bool __ComplexKafkaTask::process_join_group()
 		break;
 
 	default:
-		this->error = msg->get_cgroup()->get_error();
+		ctx_.kafka_error = msg->get_cgroup()->get_error();
+		this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 		this->state = WFT_STATE_TASK_ERROR;
 		return false;
 	}
@@ -468,9 +472,10 @@ bool __ComplexKafkaTask::process_join_group()
 
 bool __ComplexKafkaTask::process_sync_group()
 {
-	if (this->get_resp()->get_cgroup()->get_error())
+	ctx_.kafka_error = this->get_resp()->get_cgroup()->get_error();
+	if (ctx_.kafka_error)
 	{
-		this->error = this->get_resp()->get_cgroup()->get_error();
+		this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 		this->state = WFT_STATE_TASK_ERROR;
 		return false;
 	}
@@ -496,7 +501,8 @@ bool __ComplexKafkaTask::process_metadata()
 		case KAFKA_NONE:
 			break;
 		default:
-			this->error = meta->get_error();
+			ctx_.kafka_error = meta->get_error();
+			this->error = WFT_ERR_KAFKA_META_FAILED;
 			this->state = WFT_STATE_TASK_ERROR;
 			return false;
 		}
@@ -554,7 +560,8 @@ bool __ComplexKafkaTask::process_fetch()
 		case KAFKA_OFFSET_OUT_OF_RANGE:
 			break;
 		default:
-			this->error = toppar->get_error();
+			ctx_.kafka_error = toppar->get_error();
+			this->error = WFT_ERR_KAFKA_FETCH_FAILED;
 			this->state = WFT_STATE_TASK_ERROR;
 			return false;
 		}
@@ -613,9 +620,10 @@ bool __ComplexKafkaTask::process_produce()
 
 bool __ComplexKafkaTask::process_sasl_handshake()
 {
-	if (this->get_resp()->get_broker()->get_error())
+	ctx_.kafka_error = this->get_resp()->get_broker()->get_error();
+	if (ctx_.kafka_error)
 	{
-		this->error = this->get_resp()->get_broker()->get_error();
+		this->error = WFT_ERR_KAFKA_SASL_DISALLOWED;
 		this->state = WFT_STATE_TASK_ERROR;
 		return false;
 	}
@@ -624,9 +632,10 @@ bool __ComplexKafkaTask::process_sasl_handshake()
 
 bool __ComplexKafkaTask::process_sasl_authenticate()
 {
-	if (this->get_resp()->get_broker()->get_error())
+	ctx_.kafka_error = this->get_resp()->get_broker()->get_error();
+	if (ctx_.kafka_error)
 	{
-		this->error = this->get_resp()->get_broker()->get_error();
+		this->error = WFT_ERR_KAFKA_SASL_DISALLOWED;
 		this->state = WFT_STATE_TASK_ERROR;
 	}
 	return false;
@@ -671,14 +680,15 @@ bool __ComplexKafkaTask::has_next()
 	case Kafka_LeaveGroup:
 	case Kafka_DescribeGroups:
 	case Kafka_Heartbeat:
-		this->error = this->get_resp()->get_cgroup()->get_error();
-		if (this->error)
+		ctx_.kafka_error = this->get_resp()->get_cgroup()->get_error();
+		if (ctx_.kafka_error)
+		{
+			this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 			this->state = WFT_STATE_TASK_ERROR;
+		}
+
 		break;
 	case Kafka_ApiVersions:
-		this->error = errno;
-		if (this->error)
-			this->state = WFT_STATE_TASK_ERROR;
 		break;
 	default:
 		this->state = WFT_STATE_TASK_ERROR;
@@ -730,8 +740,8 @@ bool __ComplexKafkaTask::finish_once()
 		this->get_resp()->duplicate(*this->get_req());
 	}
 
-	if (*get_mutable_ctx())
-		(*get_mutable_ctx())(this);
+	if (ctx_.cb)
+		ctx_.cb(this);
 
 	return true;
 }

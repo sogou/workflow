@@ -92,6 +92,11 @@ public:
 		return &this->result;
 	}
 
+	int get_kafka_error() const
+	{
+		return this->kafka_error;
+	}
+
 	void set_callback(kafka_callback_t cb)
 	{
 		this->callback = std::move(cb);
@@ -117,6 +122,7 @@ protected:
 	kafka_callback_t callback;
 	kafka_partitioner_t partitioner;
 	int api_type;
+	int kafka_error;
 	int retry_max;
 	bool finish;
 

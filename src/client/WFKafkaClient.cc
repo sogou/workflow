@@ -37,7 +37,7 @@
 using namespace protocol;
 
 using KafkaComplexTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
-											 __kafka_callback_t>;
+											 struct __ComplexKafkaTaskCtx>;
 
 enum MetaStatus
 {
@@ -82,6 +82,7 @@ public:
 		WFKafkaTask(retry_max, std::move(callback))
 	{
 		this->api_type = Kafka_Unknown;
+		this->kafka_error = KAFKA_NONE;
 		this->member = client->member;
 		this->query = query;
 
@@ -219,6 +220,7 @@ void ComplexKafkaTask::kafka_offsetcommit_callback(__WFKafkaTask *task)
 	t->finish = true;
 	t->state = task->get_state();
 	t->error = task->get_error();
+	t->kafka_error = static_cast<KafkaComplexTask *>(task)->get_mutable_ctx()->kafka_error;
 }
 
 void ComplexKafkaTask::kafka_leavegroup_callback(__WFKafkaTask *task)
@@ -227,6 +229,7 @@ void ComplexKafkaTask::kafka_leavegroup_callback(__WFKafkaTask *task)
 	t->finish = true;
 	t->state = task->get_state();
 	t->error = task->get_error();
+	t->kafka_error = static_cast<KafkaComplexTask *>(task)->get_mutable_ctx()->kafka_error;
 }
 
 void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
@@ -422,7 +425,8 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 	t->member->mutex.lock();
 	t->state = task->get_state();
 	t->error = task->get_error();
-	if (task->get_state() == WFT_STATE_SUCCESS)
+	t->kafka_error = static_cast<KafkaComplexTask *>(task)->get_mutable_ctx()->kafka_error;
+	if (t->state == WFT_STATE_SUCCESS)
 	{
 		kafka_merge_meta_list(&t->member->meta_list,
 							  task->get_resp()->get_meta_list());
@@ -458,7 +462,8 @@ void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
 	t->member->mutex.lock();
 	t->state = task->get_state();
 	t->error = task->get_error();
-	if (task->get_state() == 0)
+	t->kafka_error = static_cast<KafkaComplexTask *>(task)->get_mutable_ctx()->kafka_error;
+	if (t->state == WFT_STATE_SUCCESS)
 	{
 		kafka_merge_meta_list(&t->member->meta_list,
 							  task->get_resp()->get_meta_list());
@@ -522,10 +527,11 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 	bool flag = false;
 	int state = WFT_STATE_SUCCESS;
 	int error = 0;
+	int kafka_error = KAFKA_NONE;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
-		if (state_error->first != WFT_STATE_SUCCESS)
+		if ((state_error->first >> 16) != WFT_STATE_SUCCESS)
 		{
 			if (!flag)
 			{
@@ -534,8 +540,9 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 				t->set_meta_status(META_UNINIT);
 				t->member->mutex.unlock();
 			}
-			state = state_error->first;
-			error = state_error->second;
+			state = state_error->first >> 16;
+			error = state_error->first & 0xffff;
+			kafka_error = state_error->second;
 		}
 		else
 		{
@@ -549,6 +556,7 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 	{
 		t->state = state;
 		t->error = error;
+		t->kafka_error = kafka_error;
 	}
 }
 
@@ -578,8 +586,8 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 {
 	std::pair<int, int> *state_error = new std::pair<int, int>;
 
-	state_error->first = task->get_state();
-	state_error->second = task->get_error();
+	state_error->first = (task->get_state() << 16) + task->get_error();
+	state_error->second = static_cast<KafkaComplexTask *>(task)->get_mutable_ctx()->kafka_error;
 	series_of(task)->set_context(state_error);
 
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
@@ -833,7 +841,7 @@ void ComplexKafkaTask::dispatch()
 			task->get_req()->set_api_type(Kafka_Produce);
 			task->user_data = (void *)parallel->size();
 			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
-			*ctask->get_mutable_ctx() = cb;
+			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}
@@ -884,7 +892,7 @@ void ComplexKafkaTask::dispatch()
 			task->get_req()->set_api_type(Kafka_Fetch);
 			task->user_data = (void *)parallel->size();
 			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
-			*ctask->get_mutable_ctx() = cb;
+			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}
@@ -1006,7 +1014,7 @@ void ComplexKafkaTask::dispatch()
 			task->get_req()->set_api_type(Kafka_ListOffsets);
 			task->user_data = (void *)parallel->size();
 			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
-			*ctask->get_mutable_ctx() = cb;
+			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}

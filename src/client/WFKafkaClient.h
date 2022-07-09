@@ -165,7 +165,7 @@ public:
 
 private:
 	class KafkaMember *member;
-	friend class ComplexKafkaTask;
+	friend class KafkaClientTask;
 };
 
 #endif

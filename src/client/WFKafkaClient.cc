@@ -82,7 +82,7 @@ public:
 		WFKafkaTask(retry_max, std::move(callback))
 	{
 		this->api_type = Kafka_Unknown;
-		this->kafka_error = KAFKA_NONE;
+		this->kafka_error = 0;
 		this->member = client->member;
 		this->query = query;
 
@@ -526,7 +526,7 @@ void KafkaClientTask::kafka_parallel_callback(const ParallelWork *pwork)
 	bool flag = false;
 	int state = WFT_STATE_SUCCESS;
 	int error = 0;
-	int kafka_error = KAFKA_NONE;
+	int kafka_error = 0;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();

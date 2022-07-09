@@ -54,7 +54,7 @@ public:
 		protocol::KafkaToppar toppar;
 		toppar.set_topic_partition(record.get_topic(), record.get_partition());
 		toppar.set_offset(record.get_offset());
-		toppar.set_error(KAFKA_NONE);
+		toppar.set_error(0);
 		this->toppar_list.add_item(std::move(toppar));
 	}
 
@@ -63,7 +63,7 @@ public:
 		protocol::KafkaToppar toppar_t;
 		toppar_t.set_topic_partition(toppar.get_topic(), toppar.get_partition());
 		toppar_t.set_offset(toppar.get_offset());
-		toppar_t.set_error(KAFKA_NONE);
+		toppar_t.set_error(0);
 		this->toppar_list.add_item(std::move(toppar_t));
 	}
 

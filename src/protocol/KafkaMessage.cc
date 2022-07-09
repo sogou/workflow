@@ -3179,7 +3179,7 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 				record = list_entry(pos, KafkaRecord, list);
 				record->set_status(ptr->error);
 
-				if (ptr->error != KAFKA_NONE)
+				if (ptr->error)
 					continue;
 
 				record->set_offset(base_offset++);

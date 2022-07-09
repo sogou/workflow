@@ -41,7 +41,7 @@ public:
 	{
 		is_user_request_ = true;
 		is_redirect_ = false;
-		ctx_.kafka_error = KAFKA_NONE;
+		ctx_.kafka_error = 0;
 	}
 
 protected:
@@ -456,7 +456,7 @@ bool __ComplexKafkaTask::process_join_group()
 		this->get_req()->set_api_type(Kafka_JoinGroup);
 		break;
 
-	case KAFKA_NONE:
+	case 0:
 		this->get_req()->set_api_type(Kafka_Metadata);
 		break;
 
@@ -498,7 +498,7 @@ bool __ComplexKafkaTask::process_metadata()
 		case KAFKA_LEADER_NOT_AVAILABLE:
 			this->get_req()->set_api_type(Kafka_Metadata);
 			return true;
-		case KAFKA_NONE:
+		case 0:
 			break;
 		default:
 			ctx_.kafka_error = meta->get_error();
@@ -556,7 +556,7 @@ bool __ComplexKafkaTask::process_fetch()
 		case KAFKA_FENCED_LEADER_EPOCH:
 			this->get_req()->set_api_type(Kafka_Metadata);
 			return true;
-		case KAFKA_NONE:
+		case 0:
 		case KAFKA_OFFSET_OUT_OF_RANGE:
 			break;
 		default:
@@ -607,7 +607,7 @@ bool __ComplexKafkaTask::process_produce()
 		case KAFKA_FENCED_LEADER_EPOCH:
 			this->get_req()->set_api_type(Kafka_Metadata);
 			return true;
-		case KAFKA_NONE:
+		case 0:
 			break;
 		default:
 			this->error = toppar->get_error();

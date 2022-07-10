@@ -1576,7 +1576,7 @@ int Communicator::request_new_conn(CommSession *session, CommTarget *target)
 
 int Communicator::request(CommSession *session, CommTarget *target)
 {
-	int errno_bak = errno;
+	int errno_bak;
 
 	if (session->passive)
 	{
@@ -1584,6 +1584,7 @@ int Communicator::request(CommSession *session, CommTarget *target)
 		return -1;
 	}
 
+	errno_bak = errno;
 	session->target = target;
 	session->out = NULL;
 	session->in = NULL;

@@ -1497,65 +1497,81 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 	return NULL;
 }
 
-struct CommConnEntry *Communicator::get_idle_conn(CommTarget *target)
+int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
 {
 	struct CommConnEntry *entry;
 	struct list_head *pos;
 
-	list_for_each(pos, &target->idle_list)
+	while (1)
 	{
-		entry = list_entry(pos, struct CommConnEntry, list);
-		if (mpoller_set_timeout(entry->sockfd, -1, this->mpoller) >= 0)
+		pthread_mutex_lock(&target->mutex);
+		if (!list_empty(&target->idle_list))
 		{
+			pos = target->idle_list.next;
+			entry = list_entry(pos, struct CommConnEntry, list);
 			list_del(pos);
-			return entry;
+			pthread_mutex_lock(&entry->mutex);
 		}
-	}
+		else
+			entry = NULL;
 
-	errno = ENOENT;
-	return NULL;
-}
-
-int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
-{
-	struct CommConnEntry *entry;
-	int ret = -1;
-
-	pthread_mutex_lock(&target->mutex);
-	entry = this->get_idle_conn(target);
-	if (entry)
-		pthread_mutex_lock(&entry->mutex);
-	pthread_mutex_unlock(&target->mutex);
-	if (entry)
-	{
-		entry->session = session;
-		session->conn = entry->conn;
-		session->seq = entry->seq++;
-		session->out = session->message_out();
-		if (session->out)
-			ret = this->send_message(entry);
-
-		if (ret < 0)
+		pthread_mutex_unlock(&target->mutex);
+		if (!entry)
 		{
-			entry->error = errno;
-			mpoller_del(entry->sockfd, this->mpoller);
-			entry->state = CONN_STATE_ERROR;
-			ret = 1;
+			errno = ENOENT;
+			return -1;
 		}
 
+		if (mpoller_set_timeout(entry->sockfd, -1, this->mpoller) >= 0)
+			break;
+
+		entry->state = CONN_STATE_CLOSING;
 		pthread_mutex_unlock(&entry->mutex);
 	}
 
-	return ret;
+	entry->session = session;
+	session->conn = entry->conn;
+	session->seq = entry->seq++;
+	session->out = session->message_out();
+	if (!session->out || this->send_message(entry) < 0)
+	{
+		entry->error = errno;
+		mpoller_del(entry->sockfd, this->mpoller);
+		entry->state = CONN_STATE_ERROR;
+	}
+
+	pthread_mutex_unlock(&entry->mutex);
+	return 0;
+}
+
+int Communicator::request_new_conn(CommSession *session, CommTarget *target)
+{
+	struct CommConnEntry *entry;
+	struct poller_data data;
+	int timeout;
+
+	entry = this->launch_conn(session, target);
+	if (entry)
+	{
+		session->conn = entry->conn;
+		session->seq = entry->seq++;
+		data.operation = PD_OP_CONNECT;
+		data.fd = entry->sockfd;
+		data.ssl = NULL;
+		data.context = entry;
+		timeout = session->target->connect_timeout;
+		if (mpoller_add(&data, timeout, this->mpoller) >= 0)
+			return 0;
+
+		this->release_conn(entry);
+	}
+
+	return -1;
 }
 
 int Communicator::request(CommSession *session, CommTarget *target)
 {
-	struct CommConnEntry *entry;
-	struct poller_data data;
-	int errno_bak;
-	int timeout;
-	int ret;
+	int errno_bak = errno;
 
 	if (session->passive)
 	{
@@ -1563,32 +1579,17 @@ int Communicator::request(CommSession *session, CommTarget *target)
 		return -1;
 	}
 
-	errno_bak = errno;
 	session->target = target;
 	session->out = NULL;
 	session->in = NULL;
-	ret = this->request_idle_conn(session, target);
-	while (ret < 0)
+	if (this->request_idle_conn(session, target) < 0)
 	{
-		entry = this->launch_conn(session, target);
-		if (entry)
+		if (this->request_new_conn(session, target) < 0)
 		{
-			session->conn = entry->conn;
-			session->seq = entry->seq++;
-			data.operation = PD_OP_CONNECT;
-			data.fd = entry->sockfd;
-			data.ssl = NULL;
-			data.context = entry;
-			timeout = session->target->connect_timeout;
-			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
-				break;
-
-			this->release_conn(entry);
+			session->conn = NULL;
+			session->seq = 0;
+			return -1;
 		}
-
-		session->conn = NULL;
-		session->seq = 0;
-		return -1;
 	}
 
 	errno = errno_bak;
@@ -1655,13 +1656,15 @@ void Communicator::unbind(CommService *service)
 int Communicator::reply_idle_conn(CommSession *session, CommTarget *target)
 {
 	struct CommConnEntry *entry;
+	struct list_head *pos;
 	int ret = -1;
 
 	pthread_mutex_lock(&target->mutex);
 	if (!list_empty(&target->idle_list))
 	{
-		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
-		list_del(&entry->list);
+		pos = target->idle_list.next;
+		entry = list_entry(pos, struct CommConnEntry, list);
+		list_del(pos);
 
 		session->out = session->message_out();
 		if (session->out)

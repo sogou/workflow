@@ -1501,6 +1501,7 @@ int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
 {
 	struct CommConnEntry *entry;
 	struct list_head *pos;
+	int ret = -1;
 
 	while (1)
 	{
@@ -1533,15 +1534,19 @@ int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
 	session->conn = entry->conn;
 	session->seq = entry->seq++;
 	session->out = session->message_out();
-	if (!session->out || this->send_message(entry) < 0)
+	if (session->out)
+		ret = this->send_message(entry);
+
+	if (ret < 0)
 	{
 		entry->error = errno;
 		mpoller_del(entry->sockfd, this->mpoller);
 		entry->state = CONN_STATE_ERROR;
+		ret = 1;
 	}
 
 	pthread_mutex_unlock(&entry->mutex);
-	return 0;
+	return ret;
 }
 
 int Communicator::request_new_conn(CommSession *session, CommTarget *target)

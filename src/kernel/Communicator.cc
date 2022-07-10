@@ -1517,7 +1517,10 @@ int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
 
 		pthread_mutex_unlock(&target->mutex);
 		if (!entry)
-			return 1;
+		{
+			errno = ENOENT;
+			return -1;
+		}
 
 		if (mpoller_set_timeout(entry->sockfd, -1, this->mpoller) >= 0)
 			break;
@@ -1541,12 +1544,34 @@ int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
 	return 0;
 }
 
-int Communicator::request(CommSession *session, CommTarget *target)
+int Communicator::request_new_conn(CommSession *session, CommTarget *target)
 {
 	struct CommConnEntry *entry;
 	struct poller_data data;
-	int errno_bak;
 	int timeout;
+
+	entry = this->launch_conn(session, target);
+	if (entry)
+	{
+		session->conn = entry->conn;
+		session->seq = entry->seq++;
+		data.operation = PD_OP_CONNECT;
+		data.fd = entry->sockfd;
+		data.ssl = NULL;
+		data.context = entry;
+		timeout = session->target->connect_timeout;
+		if (mpoller_add(&data, timeout, this->mpoller) >= 0)
+			return 0;
+
+		this->release_conn(entry);
+	}
+
+	return -1;
+}
+
+int Communicator::request(CommSession *session, CommTarget *target)
+{
+	int errno_bak = errno;
 
 	if (session->passive)
 	{
@@ -1554,31 +1579,17 @@ int Communicator::request(CommSession *session, CommTarget *target)
 		return -1;
 	}
 
-	errno_bak = errno;
 	session->target = target;
 	session->out = NULL;
 	session->in = NULL;
-	while (this->request_idle_conn(session, target) != 0)
+	if (this->request_idle_conn(session, target) < 0)
 	{
-		entry = this->launch_conn(session, target);
-		if (entry)
+		if (this->request_new_conn(session, target) < 0)
 		{
-			session->conn = entry->conn;
-			session->seq = entry->seq++;
-			data.operation = PD_OP_CONNECT;
-			data.fd = entry->sockfd;
-			data.ssl = NULL;
-			data.context = entry;
-			timeout = session->target->connect_timeout;
-			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
-				break;
-
-			this->release_conn(entry);
+			session->conn = NULL;
+			session->seq = 0;
+			return -1;
 		}
-
-		session->conn = NULL;
-		session->seq = 0;
-		return -1;
 	}
 
 	errno = errno_bak;

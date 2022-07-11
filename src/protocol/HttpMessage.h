@@ -131,7 +131,19 @@ public:
 	 * msg->get_parsed_body(&body, &size);
 	 * msg->append_output_body_nocopy(body, size); */
 	bool append_output_body(const void *buf, size_t size);
+
+	bool append_output_body(const char *buf)
+	{
+		return this->append_output_body(buf, strlen(buf));
+	}
+
 	bool append_output_body_nocopy(const void *buf, size_t size);
+
+	bool append_output_body_nocopy(const char *buf)
+	{
+		return this->append_output_body_nocopy(buf, strlen(buf));
+	}
+
 	void clear_output_body();
 
 	size_t get_output_body_size() const

@@ -190,6 +190,11 @@ public:
 		return this->append_output_body(buf.c_str(), buf.size());
 	}
 
+	bool append_output_body_nocopy(const std::string& buf)
+	{
+		return this->append_output_body_nocopy(buf.c_str(), buf.size());
+	}
+
 protected:
 	http_parser_t *parser;
 	size_t cur_size;

@@ -1801,9 +1801,6 @@ int KafkaMessage::append(const void *buf, size_t *size)
 		ret = -1;
 	}
 
-	if (ret == 1 || ret < 0)
-		return ret;
-
 	return ret;
 }
 

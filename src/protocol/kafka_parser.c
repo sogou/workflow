@@ -1149,7 +1149,7 @@ static int kafka_sasl_scram_client_new(void *p, kafka_sasl_t *sasl)
 {
 	kafka_config_t *conf = (kafka_config_t *)p;
 	size_t ulen = strlen(conf->username);
-	size_t tlen = 8; //strlen("n,,n=,r=");
+	size_t tlen = strlen("n,,n=,r=");
 	size_t olen = ulen + tlen + 32;
 	void *ptr;
 

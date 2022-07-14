@@ -46,7 +46,7 @@ static int __mpoller_create(const struct poller_params *params,
 		}
 
 		while (i > 0)
-			poller_destroy(mpoller->poller[--i]);
+			__poller_destroy(mpoller->poller[--i]);
 
 		free(nodes_buf);
 	}

@@ -585,8 +585,10 @@ static void __poller_handle_listen(struct __poller_node *node,
 		sockfd = accept(node->data.fd, (struct sockaddr *)&ss, &len);
 		if (sockfd < 0)
 		{
-			if (errno == EAGAIN)
+			if (errno == EAGAIN || errno == EMFILE || errno == ENFILE)
 				return;
+			else if (errno == ECONNABORTED)
+				continue;
 			else
 				break;
 		}

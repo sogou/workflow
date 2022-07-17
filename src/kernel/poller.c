@@ -1224,7 +1224,7 @@ static int __poller_data_get_event(int *event, const struct poller_data *data)
 		*event = EPOLLOUT | EPOLLET;
 		return 0;
 	case PD_OP_LISTEN:
-		*event = EPOLLIN | EPOLLET;
+		*event = EPOLLIN;
 		return 1;
 	case PD_OP_CONNECT:
 		*event = EPOLLOUT | EPOLLET;

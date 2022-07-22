@@ -82,11 +82,6 @@ void StringUtil::url_decode(std::string& str)
 	if (str.empty())
 		return;
 
-	char ch = str.back();
-
-	str.pop_back();
-	str.push_back(ch);
-
 	size_t sz = url_decode(const_cast<char *>(str.c_str()), str.size());
 
 	str.resize(sz);

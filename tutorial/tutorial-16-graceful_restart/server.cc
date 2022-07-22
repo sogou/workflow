@@ -41,8 +41,6 @@ int main(int argc, const char *argv[])
 	int listen_fd = atoi(argv[1]);
 	int pipe_fd = atoi(argv[2]);
 
-	signal(SIGINT, sig_handler);
-	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 
 	WFHttpServer server([](WFHttpTask *task) {

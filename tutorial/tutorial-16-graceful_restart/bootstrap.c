@@ -26,7 +26,15 @@
 #include <netdb.h>
 #include <signal.h>
 
-void sig_handler(int signo) { }
+int flag = 0;
+
+void sig_handler(int signo)
+{
+	if (signo == SIGUSR1)
+		flag = 1;
+	else if (signo == SIGINT || signo == SIGTERM)
+		flag = 2;
+}
 
 int main(int argc, const char *argv[])
 {
@@ -58,7 +66,8 @@ int main(int argc, const char *argv[])
 	int pipe_fd[2];
 	ssize_t len;
 	char buf[100];
-	char cmd[10] = { 0 };
+	int status;
+	int ret;
 
 	char listen_fd_str[10] = { 0 };
 	char write_fd_str[10] = { 0 };
@@ -66,10 +75,10 @@ int main(int argc, const char *argv[])
 
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
+	signal(SIGUSR1, sig_handler);
 
-	while (strlen(cmd) == 0 || strncmp(cmd, "restart", strlen("restart")) == 0)
+	while (flag < 2)
 	{
-		memset(cmd, 0, sizeof cmd);
 		if (pipe(pipe_fd) == -1)
 		{
 			perror("open pipe error");
@@ -95,15 +104,39 @@ int main(int argc, const char *argv[])
 		else
 		{
 			close(pipe_fd[1]);
-			signal(SIGCHLD, SIG_IGN);
-			fprintf(stderr, "Bootstrap daemon command [restart|stop] ? : ");
-			fgets(cmd, 100, stdin);
 
-			kill(pid, SIGUSR1);
-			fprintf(stderr, "Bootstrap daemon SIGUSR1 to pid-%ld %.*sing.\n",
-					(long)pid, (int)strlen(cmd) - 1, cmd);
-			len = read(pipe_fd[0], buf, 7);
-			fprintf(stderr, "Bootstrap server served %*s.\n", (int)len, buf);
+			status = 0;
+			ret = 0;
+			fprintf(stderr, "Bootstrap daemon running with server pid-%d. "
+					"Send SIGUSR1 to RESTART or SIGTERM to STOP.\n", pid);
+
+			while (1)
+			{
+				ret = waitpid(pid, &status, WNOHANG);
+				if (ret == -1 || !WIFEXITED(status) || flag != 0)
+					break;
+
+				sleep(3);
+			}
+
+			if (ret != -1 && WIFEXITED(status))
+			{
+				signal(SIGCHLD, SIG_IGN);
+
+				kill(pid, SIGUSR1);
+				fprintf(stderr, "Bootstrap daemon SIGUSR1 to pid-%ld %sing.\n",
+						(long)pid, flag == 1 ? "restart" : "stop");
+
+				len = read(pipe_fd[0], buf, 7);
+				fprintf(stderr, "Bootstrap server served %*s.\n", (int)len, buf);
+			}
+			else
+			{
+				fprintf(stderr, "child exit. status = %d, waitpid ret = %d\n",
+						WEXITSTATUS(status), ret);
+				flag = 2;
+			}
+
 			close(pipe_fd[0]);
 		}
 	}

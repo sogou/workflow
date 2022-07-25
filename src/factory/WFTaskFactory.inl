@@ -109,6 +109,27 @@ WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
 							   std::move(tmp));
 }
 
+template<class FUNC, class... ARGS>
+inline WFGoTask *WFTaskFactory::create_go_task(ExecQueue *queue, Executor *executor,
+											   FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFGoTask(queue, executor, std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
+											 ExecQueue *queue, Executor *executor,
+											 FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   queue, executor,
+							   std::move(tmp));
+}
+
 class __WFDynamicTask : public WFDynamicTask
 {
 protected:

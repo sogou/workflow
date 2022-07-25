@@ -290,6 +290,16 @@ public:
 										 const std::string& queue_name,
 										 FUNC&& func, ARGS&&... args);
 
+	/* Create 'Go' task on user's executor and execution queue. */
+	template<class FUNC, class... ARGS>
+	static WFGoTask *create_go_task(ExecQueue *queue, Executor *executor,
+									FUNC&& func, ARGS&&... args);
+
+	template<class FUNC, class... ARGS>
+	static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
+										 ExecQueue *queue, Executor *executor,
+										 FUNC&& func, ARGS&&... args);
+
 public:
 	static WFGraphTask *create_graph_task(graph_callback_t callback)
 	{

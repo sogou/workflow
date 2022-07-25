@@ -107,6 +107,7 @@ int main(int argc, const char *argv[])
 
 			status = 0;
 			ret = 0;
+			flag = 0;
 			fprintf(stderr, "Bootstrap daemon running with server pid-%d. "
 					"Send SIGUSR1 to RESTART or SIGTERM to STOP.\n", pid);
 

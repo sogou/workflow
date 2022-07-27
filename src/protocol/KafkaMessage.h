@@ -124,7 +124,7 @@ public:
 		this->api = api;
 	}
 
-	void duplicate(KafkaMessage& msg)
+	void duplicate(const KafkaMessage& msg)
 	{
 		this->config = msg.config;
 		this->cgroup = msg.cgroup;

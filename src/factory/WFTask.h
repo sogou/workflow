@@ -745,10 +745,7 @@ protected:
 			series_of(this)->push_front(task);
 		}
 		else
-		{
-			this->create = nullptr;
 			this->state = WFT_STATE_SUCCESS;
-		}
 
 		this->subtask_done();
 	}
@@ -757,7 +754,7 @@ protected:
 	{
 		SeriesWork *series = series_of(this);
 
-		if (!this->create)
+		if (this->state != WFT_STATE_UNDEFINED)
 		{
 			if (this->callback)
 				this->callback(this);

@@ -191,8 +191,8 @@ server与普通的http server没有什么区别。我们优先IPv6启动，这�
 
 # client端
 
-client端的逻辑是从标准IO接收用户输入，构造出请求发往server并得到结果。  
-为了简单，读取标准输入的过程都在callback里完成，因此我们会先发出一条空请求。同样为了安全我们限制server回复包不超4KB。  
+client端的逻辑是从标准IO接收用户输入，构造出请求发往server并得到结果。这里我们使用了WFRepeaterTask来实现这个重复过程，直到用户的输入为空。
+此外，为了安全我们限制server回复包不超4KB。  
 client端唯一需要了解的就是怎么产生一个自定义协议的client任务，在[WFTaskFactory.h](../src/factory/WFTaskFactory.h)有三个接口可以选择：
 ~~~cpp
 template<class REQ, class RESP>

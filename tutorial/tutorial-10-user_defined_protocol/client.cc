@@ -59,51 +59,49 @@ int main(int argc, char *argv[])
 
 	host = argv[1];
 	port = atoi(argv[2]);
-	std::function<void (WFTutorialTask *task)> callback =
-		[&host, port, &callback](WFTutorialTask *task) {
-		int state = task->get_state();
-		int error = task->get_error();
-		TutorialResponse *resp = task->get_resp();
+
+	auto&& create = [host, port](WFRepeaterTask *)->SubTask *{
 		char buf[1024];
-		void *body;
-		size_t body_size;
-
-		if (state != WFT_STATE_SUCCESS)
-		{
-			if (state == WFT_STATE_SYS_ERROR)
-				fprintf(stderr, "SYS error: %s\n", strerror(error));
-			else if (state == WFT_STATE_DNS_ERROR)
-				fprintf(stderr, "DNS error: %s\n", gai_strerror(error));
-			else
-				fprintf(stderr, "other error.\n");
-			return;
-		}
-
-		resp->get_message_body_nocopy(&body, &body_size);
-		if (body_size != 0)
-			printf("Server Response: %.*s\n", (int)body_size, (char *)body);
-
 		printf("Input next request string (Ctrl-D to exit): ");
 		*buf = '\0';
 		scanf("%1023s", buf);
-		body_size = strlen(buf);
-		if (body_size > 0)
+		size_t body_size = strlen(buf);
+		if (body_size == 0)
 		{
-			WFTutorialTask *next;
-			next = MyFactory::create_tutorial_task(host, port, 0, callback);
-			next->get_req()->set_message_body(buf, body_size);
-			next->get_resp()->set_size_limit(4 * 1024);
-			**task << next; /* equal to: series_of(task)->push_back(next) */
-		}
-		else
 			printf("\n");
+			return NULL;
+		}
+
+		WFTutorialTask *task = MyFactory::create_tutorial_task(host, port, 0,
+											[](WFTutorialTask *task) {
+			int state = task->get_state();
+			int error = task->get_error();
+			TutorialResponse *resp = task->get_resp();
+			void *body;
+			size_t body_size;
+
+			if (state == WFT_STATE_SUCCESS)
+			{
+				resp->get_message_body_nocopy(&body, &body_size);
+				printf("Server Response: %.*s\n", (int)body_size, (char *)body);
+			}
+			else
+			{
+				const char *str = WFGlobal::get_error_string(state, error);
+				fprintf(stderr, "Error: %s\n", str);
+			}
+		});
+
+		task->get_req()->set_message_body(buf, body_size);
+		task->get_resp()->set_size_limit(4 * 1024);
+		return task;
 	};
 
-	/* First request is emtpy. We will ignore the server response. */
 	WFFacilities::WaitGroup wait_group(1);
-	WFTutorialTask *task = MyFactory::create_tutorial_task(host, port, 0, callback);
-	task->get_resp()->set_size_limit(4 * 1024);
-	Workflow::start_series_work(task, [&wait_group](const SeriesWork *) {
+
+	WFRepeaterTask *repeater;
+	repeater = WFTaskFactory::create_repeater_task(std::move(create), nullptr);
+	Workflow::start_series_work(repeater, [&wait_group](const SeriesWork *) {
 		wait_group.done();
 	});
 

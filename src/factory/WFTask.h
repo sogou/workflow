@@ -45,7 +45,7 @@ enum
 	WFT_STATE_SSL_ERROR = 65,
 	WFT_STATE_DNS_ERROR = 66,					/* for client task only */
 	WFT_STATE_TASK_ERROR = 67,
-	WFT_STATE_ABORTED = CS_STATE_STOPPED		/* main process terminated */
+	WFT_STATE_ABORTED = CS_STATE_STOPPED
 };
 
 template<class INPUT, class OUTPUT>
@@ -719,6 +719,66 @@ public:
 
 protected:
 	virtual ~WFGoTask() { }
+};
+
+class WFRepeaterTask : public WFGenericTask
+{
+public:
+	void set_create(std::function<SubTask *(WFRepeaterTask *)> create)
+	{
+		this->create = std::move(create);
+	}
+
+	void set_callback(std::function<void (WFRepeaterTask *)> callback)
+	{
+		this->callback = std::move(callback);
+	}
+
+protected:
+	virtual void dispatch()
+	{
+		SubTask *task = this->create(this);
+
+		if (task)
+		{
+			series_of(this)->push_front(this);
+			series_of(this)->push_front(task);
+		}
+		else
+			this->state = WFT_STATE_SUCCESS;
+
+		this->subtask_done();
+	}
+
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+
+		if (this->state != WFT_STATE_UNDEFINED)
+		{
+			if (this->callback)
+				this->callback(this);
+
+			delete this;
+		}
+
+		return series->pop();
+	}
+
+protected:
+	std::function<SubTask *(WFRepeaterTask *)> create;
+	std::function<void (WFRepeaterTask *)> callback;
+
+public:
+	WFRepeaterTask(std::function<SubTask *(WFRepeaterTask *)>&& create,
+				   std::function<void (WFRepeaterTask *)>&& cb) :
+		create(std::move(create)),
+		callback(std::move(cb))
+	{
+	}
+
+protected:
+	virtual ~WFRepeaterTask() { }
 };
 
 class WFModuleTask : public ParallelTask, protected SeriesWork

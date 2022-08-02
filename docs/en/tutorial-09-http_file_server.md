@@ -7,7 +7,7 @@
 # About http\_file\_server
 
 http\_file\_server is a web server. You can start a web server after specifying the startup port and the root path (the default setting is the current path).   
-You can also specify a certificate file and a key file in PEM format to start an HTTPS web server.   
+You can also specify a certificate file and a key file in PEM format to start an HTTPS web server. User may access the server through command line, the request will be sent to IP address 127.0.0.1.  
 The program mainly demonstrates how to use disk IO tasks. In the Linux system, we use the aio interface in the kernel of Linux, and the file reading is completely asynchronous.
 
 # Starting a server
@@ -148,6 +148,50 @@ In the file task, ret < 0 and task->get\_state()! = WFT\_STATE\_SUCCESS are comp
 The memory of the buf domain is managed by ourselves. You can use  **append\_output\_body\_nocopy()** to pass that memory to resp.   
 After the reply is completed, we will **free()** this block of memory with this line in the process:   
 server\_task->set\_callback(\[](WFHttpTask \*t){ free(t->user\_data); });
+
+# Interact with the server through command line
+
+After the server is started, users may access it through command line. Simply input the file name that you want to get, or input Ctrl-D to end the program. The repeating process is implemnted by using WFRepeaterTask, which can be created by this factory function:
+~~~cpp
+using repeated_create_t = std::function<SubTask *(WFRepeaterTask *)>;
+using repeater_callback_t = std::function<void (WFRpeaterTask *)>;
+
+class WFTaskFactory
+{
+    WFRpeaterTask *create_repeater_task(repeated_create_t create, repeater_callback_t callback);
+};
+~~~
+As above, a repeater task is created with a task creator function. The repeater calls the task creator repeatedly and run the task until the creator return a NULL pointer. When the using's input is not empty, our creator will create an HTTP task on IP 127.0.0.1 to access the server.  
+~~~cpp
+{
+	auto&& create = [&scheme, port](WFRepeaterTask *)->SubTask *{
+		...
+		scanf("%1023s", buf);
+		if (*buf == '\0')
+			return NULL;
+
+		std::string url = scheme + "127.0.0.1:" + std::to_string(port) + "/" + buf;
+		WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, 0,
+									[](WFHttpTask *task) {
+			...
+		});
+
+		return task;
+	};
+	
+	WFFacilities::WaitGroup wg(1);
+	WFRepeaterTask *repeater;
+	repeater = WFTaskFactory::create_repeater_task(create, [&wg](WFRepeaterTask *) {
+		wg.done();
+	});
+
+	repeater->start();
+	wg.wait();
+
+	server.stop();
+}
+~~~
+Finally, when the creator returned NULL, the repeater's callback is called and the program will be ended.
 
 # About the implementation of the file IO
 

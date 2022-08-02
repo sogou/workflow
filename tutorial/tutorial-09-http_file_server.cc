@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 		if (*buf == '\0')
 		{
 			printf("\n");
-			return nullptr;
+			return NULL;
 		}
 
 		std::string url = scheme + "127.0.0.1:" + std::to_string(port) + "/" + buf;

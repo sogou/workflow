@@ -143,8 +143,8 @@ protected:
 	std::function<SubTask *(WFDynamicTask *)> create;
 
 public:
-	__WFDynamicTask(std::function<SubTask *(WFDynamicTask *)>&& func) :
-		create(std::move(func))
+	__WFDynamicTask(std::function<SubTask *(WFDynamicTask *)>&& create) :
+		create(std::move(create))
 	{
 	}
 };

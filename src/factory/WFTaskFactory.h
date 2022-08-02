@@ -99,6 +99,9 @@ using WFEmptyTask = WFGenericTask;
 using WFDynamicTask = WFGenericTask;
 using dynamic_create_t = std::function<SubTask *(WFDynamicTask *)>;
 
+using repeated_create_t = std::function<SubTask *(WFRepeaterTask *)>;
+using repeater_callback_t = std::function<void (WFRepeaterTask *)>;
+
 using module_callback_t = std::function<void (const WFModuleTask *)>;
 
 class WFTaskFactory
@@ -288,6 +291,12 @@ public:
 	}
 
 	static WFDynamicTask *create_dynamic_task(dynamic_create_t create);
+
+	static WFRepeaterTask *create_repeater_task(repeated_create_t create,
+												repeater_callback_t callback)
+	{
+		return new WFRepeaterTask(std::move(create), std::move(callback));
+	}
 
 public:
 	static WFModuleTask *create_module_task(SubTask *first,

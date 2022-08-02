@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 		if (body_size == 0)
 		{
 			printf("\n");
-			return nullptr;
+			return NULL;
 		}
 
 		WFTutorialTask *task = MyFactory::create_tutorial_task(host, port, 0,

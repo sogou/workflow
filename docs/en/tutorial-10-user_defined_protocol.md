@@ -202,8 +202,7 @@ Please see [server.cc](/tutorial/tutorial-10-user_defined_protocol/server.cc) fo
 
 # client
 
-The logic of the client is to receive the user input from standard IO, construct a request, send it to the server and get the results.   
-For simplicity, the process of reading standard input is completed in the callback, so we will send an empty request first. Also, for the sake of security, we limit the packet size of the server reply to 4KB.   
+The logic of the client is to receive the user input from standard IO, construct a request, send it to the server and get the results. Here we use WFRepeaterTask to implement the repeating process. For the sake of security, we limit the packet size of the server reply to 4KB.   
 The only thing that a client needs to know is how to generate a client task on a user-defined protocol. There are three interface options in [WFTaskFactory.h](/src/factory/WFTaskFactory.h):
 
 ~~~cpp

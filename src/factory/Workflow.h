@@ -98,6 +98,9 @@ public:
 	 * sub-series, and cancel it's super-series recursively. */
 	bool is_canceled() const { return this->canceled; }
 
+	/* 'false' until the time of callback. Mainly for sub-class. */
+	bool is_finished() const { return this->finished; }
+
 public:
 	void set_callback(series_callback_t callback)
 	{
@@ -117,8 +120,6 @@ public:
 	void unset_last_task() { this->last = NULL; }
 
 protected:
-	SubTask *pop_task();
-
 	SubTask *get_last_task() const { return this->last; }
 
 	void set_in_parallel() { this->in_parallel = true; }
@@ -130,9 +131,11 @@ protected:
 	series_callback_t callback;
 
 private:
+	SubTask *pop_task();
 	void expand_queue();
 
 private:
+	SubTask *buf[4];
 	SubTask *first;
 	SubTask *last;
 	SubTask **queue;
@@ -141,11 +144,12 @@ private:
 	int back;
 	bool in_parallel;
 	bool canceled;
+	bool finished;
 	std::mutex mutex;
 
 protected:
 	SeriesWork(SubTask *first, series_callback_t&& callback);
-	virtual ~SeriesWork() { delete []this->queue; }
+	virtual ~SeriesWork();
 	friend class ParallelWork;
 	friend class Workflow;
 };

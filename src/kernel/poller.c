@@ -585,8 +585,10 @@ static void __poller_handle_listen(struct __poller_node *node,
 		sockfd = accept(node->data.fd, (struct sockaddr *)&ss, &len);
 		if (sockfd < 0)
 		{
-			if (errno == EAGAIN)
+			if (errno == EAGAIN || errno == EMFILE || errno == ENFILE)
 				return;
+			else if (errno == ECONNABORTED)
+				continue;
 			else
 				break;
 		}
@@ -1222,7 +1224,7 @@ static int __poller_data_get_event(int *event, const struct poller_data *data)
 		*event = EPOLLOUT | EPOLLET;
 		return 0;
 	case PD_OP_LISTEN:
-		*event = EPOLLIN | EPOLLET;
+		*event = EPOLLIN;
 		return 1;
 	case PD_OP_CONNECT:
 		*event = EPOLLOUT | EPOLLET;

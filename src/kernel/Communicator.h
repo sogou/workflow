@@ -310,10 +310,10 @@ private:
 
 	int send_message(struct CommConnEntry *entry);
 
-	struct CommConnEntry *get_idle_conn(CommTarget *target);
-
 	int request_idle_conn(CommSession *session, CommTarget *target);
 	int reply_idle_conn(CommSession *session, CommTarget *target);
+
+	int request_new_conn(CommSession *session, CommTarget *target);
 
 	void handle_incoming_request(struct poller_result *res);
 	void handle_incoming_reply(struct poller_result *res);

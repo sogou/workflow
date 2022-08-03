@@ -45,7 +45,7 @@ enum
 	WFT_STATE_SSL_ERROR = 65,
 	WFT_STATE_DNS_ERROR = 66,					/* for client task only */
 	WFT_STATE_TASK_ERROR = 67,
-	WFT_STATE_ABORTED = CS_STATE_STOPPED		/* main process terminated */
+	WFT_STATE_ABORTED = CS_STATE_STOPPED
 };
 
 template<class INPUT, class OUTPUT>
@@ -299,12 +299,12 @@ protected:
 		CommRequest(object, scheduler),
 		callback(std::move(cb))
 	{
-		this->user_data = NULL;
 		this->send_timeo = -1;
 		this->receive_timeo = -1;
 		this->keep_alive_timeo = 0;
 		this->target = NULL;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
+		this->user_data = NULL;
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
 	}
@@ -721,6 +721,66 @@ protected:
 	virtual ~WFGoTask() { }
 };
 
+class WFRepeaterTask : public WFGenericTask
+{
+public:
+	void set_create(std::function<SubTask *(WFRepeaterTask *)> create)
+	{
+		this->create = std::move(create);
+	}
+
+	void set_callback(std::function<void (WFRepeaterTask *)> callback)
+	{
+		this->callback = std::move(callback);
+	}
+
+protected:
+	virtual void dispatch()
+	{
+		SubTask *task = this->create(this);
+
+		if (task)
+		{
+			series_of(this)->push_front(this);
+			series_of(this)->push_front(task);
+		}
+		else
+			this->state = WFT_STATE_SUCCESS;
+
+		this->subtask_done();
+	}
+
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+
+		if (this->state != WFT_STATE_UNDEFINED)
+		{
+			if (this->callback)
+				this->callback(this);
+
+			delete this;
+		}
+
+		return series->pop();
+	}
+
+protected:
+	std::function<SubTask *(WFRepeaterTask *)> create;
+	std::function<void (WFRepeaterTask *)> callback;
+
+public:
+	WFRepeaterTask(std::function<SubTask *(WFRepeaterTask *)>&& create,
+				   std::function<void (WFRepeaterTask *)>&& cb) :
+		create(std::move(create)),
+		callback(std::move(cb))
+	{
+	}
+
+protected:
+	virtual ~WFRepeaterTask() { }
+};
+
 class WFModuleTask : public ParallelTask, protected SeriesWork
 {
 public:
@@ -744,6 +804,12 @@ public:
 public:
 	void *user_data;
 
+public:
+	void set_callback(std::function<void (const WFModuleTask *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
 protected:
 	virtual SubTask *done()
 	{
@@ -752,7 +818,6 @@ protected:
 		if (this->callback)
 			this->callback(this);
 
-		this->first = NULL;
 		delete this;
 		return series->pop();
 	}
@@ -776,17 +841,8 @@ public:
 protected:
 	virtual ~WFModuleTask()
 	{
-		SubTask *task = this->first;
-
-		if (task)
-		{
-			this->SeriesWork::callback = nullptr;
-			do
-			{
-				delete task;
-				task = this->pop_task();
-			} while (task);
-		}
+		if (!this->is_finished())
+			this->dismiss_recursive();
 	}
 };
 

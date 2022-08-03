@@ -3752,7 +3752,6 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 		return -1;
 	}
 
-	this->broker.get_raw_ptr()->error = 0;
 	if (!this->config.new_client(this->sasl))
 	{
 		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
@@ -3760,6 +3759,7 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 		return -1;
 	}
 
+	this->broker.get_raw_ptr()->error = 0;
 	return 0;
 }
 
@@ -3777,7 +3777,6 @@ int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 		return -1;
 	}
 
-	this->broker.get_raw_ptr()->error = 0;
 	std::string auth_bytes;
 	CHECK_RET(parse_bytes(buf, size, auth_bytes));
 	if (this->config.get_raw_ptr()->recv(auth_bytes.c_str(),
@@ -3790,6 +3789,7 @@ int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 		return -1;
 	}
 
+	this->broker.get_raw_ptr()->error = 0;
 	return 0;
 }
 

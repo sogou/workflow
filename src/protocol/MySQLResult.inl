@@ -265,6 +265,7 @@ inline std::string MySQLCell::as_datetime() const
 inline bool MySQLCell::is_string() const
 {
 	return (this->data_type == MYSQL_TYPE_DECIMAL ||
+			this->data_type == MYSQL_TYPE_NEWDECIMAL ||
 			this->data_type == MYSQL_TYPE_STRING ||
 			this->data_type == MYSQL_TYPE_VARCHAR ||
 			this->data_type == MYSQL_TYPE_VAR_STRING ||

@@ -3752,11 +3752,14 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 		return -1;
 	}
 
+	errno = 0;
 	if (!this->config.new_client(this->sasl))
 	{
+		if (errno)
+			return -1;
+
 		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
-		errno = EBADMSG;
-		return -1;
+		return 1;
 	}
 
 	this->broker.get_raw_ptr()->error = 0;
@@ -3779,14 +3782,18 @@ int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 
 	std::string auth_bytes;
 	CHECK_RET(parse_bytes(buf, size, auth_bytes));
+
+	errno = 0;
 	if (this->config.get_raw_ptr()->recv(auth_bytes.c_str(),
 										 auth_bytes.size(),
 										 this->config.get_raw_ptr(),
 										 this->sasl) != 0)
 	{
+		if (errno)
+			return -1;
+
 		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
-		errno = EBADMSG;
-		return -1;
+		return 1;
 	}
 
 	this->broker.get_raw_ptr()->error = 0;
@@ -3810,7 +3817,7 @@ int KafkaResponse::handle_sasl_continue()
 		ret = this->feedback(iovecs[i].iov_base, iovecs[i].iov_len);
 		if (ret != (int)iovecs[i].iov_len)
 		{
-			if (ret > 0)
+			if (ret >= 0)
 				errno = EAGAIN;
 			return -1;
 		}
@@ -3823,34 +3830,33 @@ int KafkaResponse::append(const void *buf, size_t *size)
 {
 	int ret = KafkaMessage::append(buf, size);
 
-	if (ret == 1)
+	if (ret <= 0)
+		return ret;
+
+	ret = this->parse_response();
+	if (ret != 0)
+		return ret;
+
+	if (this->api_type == Kafka_SaslHandshake)
 	{
-		if (this->parse_response() == 0)
+		this->api_type = Kafka_SaslAuthenticate;
+		this->clear_buf();
+		return this->handle_sasl_continue();
+	}
+	else if (this->api_type == Kafka_SaslAuthenticate)
+	{
+		if (strncasecmp(this->config.get_sasl_mech(), "SCRAM", 5) == 0)
 		{
-			if (this->api_type == Kafka_SaslHandshake)
-			{
-				this->api_type = Kafka_SaslAuthenticate;
-				this->clear_buf();
-				ret = this->handle_sasl_continue();
-			}
-			else if (this->api_type == Kafka_SaslAuthenticate)
-			{
-				if (strncasecmp(this->config.get_sasl_mech(), "SCRAM", 5) == 0)
-				{
-					this->clear_buf();
-					if (this->sasl->scram.state !=
-							KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED)
-						ret = this->handle_sasl_continue();
-					else
-						this->sasl->status = 1;
-				}
-			}
+			this->clear_buf();
+			if (this->sasl->scram.state !=
+					KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED)
+				return this->handle_sasl_continue();
+			else
+				this->sasl->status = 1;
 		}
-		else
-			ret = -1;
 	}
 
-	return ret;
+	return 1;
 }
 
 }

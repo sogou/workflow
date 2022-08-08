@@ -101,6 +101,7 @@ private:
 		}
 	};
 
+	virtual int keep_alive_timeout();
 	virtual int first_timeout();
 	bool has_next();
 	bool check_redirect();
@@ -342,6 +343,14 @@ bool __ComplexKafkaTask::init_success()
 	this->WFComplexClientTask::set_transport_type(type);
 
 	return true;
+}
+
+int __ComplexKafkaTask::keep_alive_timeout()
+{
+	if (this->get_resp()->get_broker()->get_raw_ptr()->error)
+		return 0;
+
+	return this->WFComplexClientTask::keep_alive_timeout();
 }
 
 int __ComplexKafkaTask::first_timeout()

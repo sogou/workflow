@@ -3726,14 +3726,14 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 {
 	std::string mechanism;
+	int16_t error = 0;
 	int32_t cnt, i;
-	int16_t error;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	if (error != 0)
 	{
-		errno = EBADMSG;
-		return -1;
+		this->broker.get_raw_ptr()->error = error;
+		return 1;
 	}
 
 	CHECK_RET(parse_i32(buf, size, &cnt));
@@ -3772,15 +3772,15 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 {
 	std::string error_message;
-	int16_t error;
+	int16_t error = 0;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	CHECK_RET(parse_string(buf, size, error_message));
 
 	if (error != 0)
 	{
-		errno = EBADMSG;
-		return -1;
+		this->broker.get_raw_ptr()->error = error;
+		return 1;
 	}
 
 	std::string auth_bytes;

@@ -3765,7 +3765,6 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 		return 1;
 	}
 
-	this->broker.get_raw_ptr()->error = 0;
 	return 0;
 }
 
@@ -3799,7 +3798,6 @@ int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 		return 1;
 	}
 
-	this->broker.get_raw_ptr()->error = 0;
 	return 0;
 }
 

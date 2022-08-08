@@ -347,7 +347,7 @@ bool __ComplexKafkaTask::init_success()
 
 int __ComplexKafkaTask::keep_alive_timeout()
 {
-	if (this->get_resp()->get_broker()->get_raw_ptr()->error)
+	if (this->get_resp()->get_broker()->get_error())
 		return 0;
 
 	return this->WFComplexClientTask::keep_alive_timeout();

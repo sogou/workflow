@@ -364,7 +364,7 @@ void kafka_config_deinit(kafka_config_t *conf)
 
 void kafka_partition_init(kafka_partition_t *partition)
 {
-	partition->error = KAFKA_UNKNOWN_SERVER_ERROR;
+	partition->error = 0;
 	partition->partition_index = -1;
 	kafka_broker_init(&partition->leader);
 	partition->replica_nodes = NULL;
@@ -401,7 +401,7 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->to_addr = 0;
 	memset(&broker->addr, 0, sizeof(broker->addr));
 	broker->addrlen = 0;
-	broker->error = KAFKA_UNKNOWN_SERVER_ERROR;
+	broker->error = 0;
 	broker->status = KAFKA_BROKER_UNINIT;
 }
 
@@ -413,7 +413,7 @@ void kafka_broker_deinit(kafka_broker_t *broker)
 
 void kafka_meta_init(kafka_meta_t *meta)
 {
-	meta->error = KAFKA_UNKNOWN_SERVER_ERROR;
+	meta->error = 0;
 	meta->topic_name = NULL;
 	meta->error_message = NULL;
 	meta->is_internal = 0;
@@ -438,7 +438,7 @@ void kafka_meta_deinit(kafka_meta_t *meta)
 
 void kafka_topic_partition_init(kafka_topic_partition_t *toppar)
 {
-	toppar->error = KAFKA_UNKNOWN_SERVER_ERROR;
+	toppar->error = 0;
 	toppar->topic_name = NULL;
 	toppar->partition = -1;
 	toppar->preferred_read_replica = -1;
@@ -488,7 +488,7 @@ void kafka_record_init(kafka_record_t *record)
 	record->timestamp = 0;
 	record->offset = 0;
 	INIT_LIST_HEAD(&record->header_list);
-	record->status = KAFKA_UNKNOWN_SERVER_ERROR;
+	record->status = 0;
 	record->toppar = NULL;
 }
 
@@ -533,7 +533,7 @@ void kafka_member_deinit(kafka_member_t *member)
 void kafka_cgroup_init(kafka_cgroup_t *cgroup)
 {
 	INIT_LIST_HEAD(&cgroup->assigned_toppar_list);
-	cgroup->error = KAFKA_UNKNOWN_SERVER_ERROR;
+	cgroup->error = 0;
 	cgroup->error_msg = NULL;
 	kafka_broker_init(&cgroup->coordinator);
 	cgroup->leader_id = NULL;

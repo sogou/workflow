@@ -3746,11 +3746,14 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 			break;
 	}
 
-	if (i >= cnt)
+	if (i == cnt)
 	{
-		errno = EBADMSG;
-		return -1;
+		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
+		return 1;
 	}
+
+	for (i++; i < cnt; i++)
+		CHECK_RET(parse_string(buf, size, mechanism));
 
 	errno = 0;
 	if (!this->config.new_client(this->sasl))

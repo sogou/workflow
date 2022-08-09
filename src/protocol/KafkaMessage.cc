@@ -2818,7 +2818,7 @@ int KafkaResponse::parse_response()
 		return -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int kafka_meta_parse_broker(void **buf, size_t *size,
@@ -3771,19 +3771,18 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 {
 	std::string error_message;
+	std::string auth_bytes;
 	int16_t error = 0;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	CHECK_RET(parse_string(buf, size, error_message));
+	CHECK_RET(parse_bytes(buf, size, auth_bytes));
 
 	if (error != 0)
 	{
 		this->broker.get_raw_ptr()->error = error;
 		return 1;
 	}
-
-	std::string auth_bytes;
-	CHECK_RET(parse_bytes(buf, size, auth_bytes));
 
 	errno = 0;
 	if (this->config.get_raw_ptr()->recv(auth_bytes.c_str(),

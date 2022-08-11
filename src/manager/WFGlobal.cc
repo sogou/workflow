@@ -826,7 +826,7 @@ static inline const char *__get_task_error_string(int error)
 		return "Kafka broker version not supported";
 
     case WFT_ERR_KAFKA_SASL_DISALLOWED:
-        return "Kafka sasl didisallowed";
+        return "Kafka sasl disallowed";
 	
     case WFT_ERR_KAFKA_ARRANGE_FAILED:
         return "Kafka arrange failed";

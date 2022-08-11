@@ -825,6 +825,18 @@ static inline const char *__get_task_error_string(int error)
 	case WFT_ERR_KAFKA_VERSION_DISALLOWED:
 		return "Kafka broker version not supported";
 
+    case WFT_ERR_KAFKA_SASL_DISALLOWED:
+        return "Kafka sasl disallowed";
+	
+    case WFT_ERR_KAFKA_ARRANGE_FAILED:
+        return "Kafka arrange failed";
+	
+    case WFT_ERR_KAFKA_LIST_OFFSETS_FAILED:
+        return "Kafka list offsets failed";
+
+    case WFT_ERR_KAFKA_CGROUP_ASSIGN_FAILED:
+        return "Kafka cgroup assign failed";
+			
 	case WFT_ERR_CONSUL_API_UNKNOWN:
 		return "Consul api type unknown";
 

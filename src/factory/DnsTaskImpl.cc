@@ -52,12 +52,7 @@ struct addrinfo ComplexDnsTask::hints =
 {
 	.ai_flags     = AI_NUMERICSERV | AI_NUMERICHOST,
 	.ai_family    = AF_UNSPEC,
-	.ai_socktype  = SOCK_STREAM,
-	.ai_protocol  = 0,
-	.ai_addrlen   = 0,
-	.ai_addr      = NULL,
-	.ai_canonname = NULL,
-	.ai_next      = NULL
+	.ai_socktype  = SOCK_STREAM
 };
 
 CommMessageOut *ComplexDnsTask::message_out()

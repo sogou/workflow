@@ -56,12 +56,7 @@ static constexpr struct addrinfo __ai_hints =
 	.ai_flags = 0,
 #endif
 	.ai_family = AF_UNSPEC,
-	.ai_socktype = SOCK_STREAM,
-	.ai_protocol = 0,
-	.ai_addrlen = 0,
-	.ai_addr = NULL,
-	.ai_canonname = NULL,
-	.ai_next = NULL
+	.ai_socktype = SOCK_STREAM
 };
 
 struct DnsContext

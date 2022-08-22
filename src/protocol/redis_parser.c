@@ -27,7 +27,7 @@
 
 #define REDIS_MSGBUF_INIT_SIZE		8
 #define REDIS_REPLY_DEPTH_LIMIT		64
-#define REDIS_ARRAY_SIZE_LIMIT		(64 * 1024)
+#define REDIS_ARRAY_SIZE_LIMIT		(4 * 1024 * 1024)
 
 enum
 {
@@ -360,6 +360,65 @@ static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
 	return 1;
 }
 
+static int __redis_split_inline_command(redis_parser_t *parser)
+{
+	const char *msg = (const char *)parser->msgbuf;
+	const char *end = msg + parser->msgsize;
+	size_t arr_size = 0;
+	redis_reply_t **ele;
+	const char *cur;
+	int ret;
+
+	while (msg != end)
+	{
+		while (msg != end && isspace(*msg))
+			msg++;
+
+		if (msg == end)
+			break;
+
+		arr_size++;
+
+		while (msg != end && !isspace(*msg))
+			msg++;
+	}
+
+	if (arr_size == 0)
+	{
+		parser->msgsize = 0;
+		parser->msgidx = 0;
+		return 0;
+	}
+
+	ret = redis_reply_set_array(arr_size, &parser->reply);
+	if (ret < 0)
+		return ret;
+
+	ele = parser->reply.element;
+	msg = (const char *)parser->msgbuf;
+
+	while (msg != end)
+	{
+		while (msg != end && isspace(*msg))
+			msg++;
+
+		if (msg == end)
+			break;
+
+		cur = msg;
+		while (cur != end && !isspace(*cur))
+			cur++;
+
+		redis_reply_set_string(msg, cur - msg, *ele);
+
+		msg = cur;
+		ele++;
+	}
+
+	parser->status = REDIS_PARSE_END;
+	return 1;
+}
+
 int redis_parser_append_message(const void *buf, size_t *size,
 								redis_parser_t *parser)
 {
@@ -389,6 +448,24 @@ int redis_parser_append_message(const void *buf, size_t *size,
 
 	memcpy((char *)parser->msgbuf + parser->msgsize, buf, *size);
 	parser->msgsize += *size;
+
+	if (parser->msgsize && *(const char *)parser->msgbuf != '*')
+	{
+		while (parser->msgidx < parser->msgsize &&
+			*((const char *)parser->msgbuf + parser->msgidx) != '\n')
+		{
+			parser->msgidx++;
+		}
+
+		if (parser->msgidx == parser->msgsize)
+			return 0;
+
+		parser->msgidx++;
+		parser->msgsize = parser->msgidx;
+		*size = parser->msgsize - msgsize_bak;
+
+		return __redis_split_inline_command(parser);
+	}
 
 	do
 	{

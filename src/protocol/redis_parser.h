@@ -55,6 +55,7 @@ typedef struct __redis_parser
 	int nleft;
 	int nchar;
 	char cmd;
+	char is_inline;
 	redis_reply_t reply;
 } redis_parser_t;
 

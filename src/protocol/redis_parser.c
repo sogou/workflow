@@ -309,6 +309,7 @@ void redis_parser_init(redis_parser_t *parser)
 	INIT_LIST_HEAD(&parser->read_list);
 	parser->msgidx = 0;
 	parser->cmd = '\0';
+	parser->is_inline = 0;
 	parser->nchar = 0;
 	parser->findidx = 0;
 }
@@ -360,16 +361,120 @@ static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
 	return 1;
 }
 
+static int __redis_split_inline_command(redis_parser_t *parser)
+{
+	const char *msg = (const char *)parser->msgbuf;
+	const char *end = msg + parser->msgsize;
+	size_t arr_size = 0;
+	redis_reply_t **ele;
+	const char *cur;
+	int ret;
+
+	while (msg != end)
+	{
+		while (msg != end && isspace(*msg))
+			msg++;
+
+		if (msg == end)
+			break;
+
+		arr_size++;
+
+		while (msg != end && !isspace(*msg))
+			msg++;
+	}
+
+	if (arr_size == 0)
+	{
+		parser->msgsize = 0;
+		return 0;
+	}
+
+	ret = redis_reply_set_array(arr_size, &parser->reply);
+	if (ret < 0)
+		return ret;
+
+	ele = parser->reply.element;
+	msg = (const char *)parser->msgbuf;
+
+	while (msg != end)
+	{
+		while (msg != end && isspace(*msg))
+			msg++;
+
+		if (msg == end)
+			break;
+
+		cur = msg;
+		while (cur != end && !isspace(*cur))
+			cur++;
+
+		redis_reply_set_string(msg, cur - msg, *ele);
+
+		msg = cur;
+		ele++;
+	}
+
+	parser->status = REDIS_PARSE_END;
+	return 1;
+}
+
+static int __redis_append_inline_command(const void *buf, size_t *size,
+										 redis_parser_t *parser)
+{
+	const char *msg = (const char *)buf;
+	size_t sz = 0;
+
+	while (sz < *size && msg[sz] != '\n')
+		sz++;
+
+	if (parser->msgsize + sz > parser->bufsize)
+	{
+		size_t new_size = MAX(REDIS_MSGBUF_INIT_SIZE, 2 * parser->bufsize);
+		void *new_base;
+
+		while (new_size < parser->msgsize + sz)
+			new_size *= 2;
+
+		new_base = realloc(parser->msgbuf, new_size);
+		if (!new_base)
+			return -1;
+
+		parser->msgbuf = new_base;
+		parser->bufsize = new_size;
+	}
+
+	memcpy((char *)parser->msgbuf + parser->msgsize, buf, sz);
+	parser->msgsize += sz;
+
+	if (sz == *size)
+		return 0;
+
+	*size = sz + 1;
+
+	msg = (const char *)parser->msgbuf;
+	if (parser->msgsize > 0 && msg[parser->msgsize - 1] == '\r')
+		parser->msgsize--;
+
+	return __redis_split_inline_command(parser);
+}
+
 int redis_parser_append_message(const void *buf, size_t *size,
 								redis_parser_t *parser)
 {
 	size_t msgsize_bak = parser->msgsize;
+
+	if (msgsize_bak == 0 && *size > 0 && *(char *)buf != '*')
+		parser->is_inline = 1;
 
 	if (parser->status == REDIS_PARSE_END)
 	{
 		*size = 0;
 		return 1;
 	}
+
+	if (parser->is_inline)
+		return __redis_append_inline_command(buf, size, parser);
 
 	if (parser->msgsize + *size > parser->bufsize)
 	{

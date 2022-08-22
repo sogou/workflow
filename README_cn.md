@@ -101,6 +101,7 @@ sudo apt-get install workflow1
   * 服务治理
     * [关于服务治理](docs/about-service-governance.md)
     * [Upstream更多文档](docs/about-upstream.md)
+    * [自定义名称服务策略](docs/tutorial-15-name_service.md)
   * 连接上下文的使用
     * [关于连接上下文](docs/about-connection-context.md)
   * 内置客户端

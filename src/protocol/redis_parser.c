@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <stdlib.h>
@@ -449,7 +450,7 @@ int redis_parser_append_message(const void *buf, size_t *size,
 	memcpy((char *)parser->msgbuf + parser->msgsize, buf, *size);
 	parser->msgsize += *size;
 
-	if (parser->msgsize && *(const char *)parser->msgbuf != '*')
+	if (parser->msgsize && isalpha(*(const char *)parser->msgbuf))
 	{
 		while (parser->msgidx < parser->msgsize &&
 			*((const char *)parser->msgbuf + parser->msgidx) != '\n')

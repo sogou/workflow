@@ -131,6 +131,10 @@ extern struct rb_node *rb_prev(struct rb_node *);
 extern struct rb_node *rb_first(struct rb_root *);
 extern struct rb_node *rb_last(struct rb_root *);
 
+/* Fast replacement of a single node without remove/rebalance/add/rebalance */
+extern void rb_replace_node(struct rb_node *victim, struct rb_node *newnode, 
+			    struct rb_root *root);
+
 #ifdef __cplusplus
 }
 #endif

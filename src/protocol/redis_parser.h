@@ -45,7 +45,7 @@ typedef struct __redis_parser
 {
 	int parse_succ;//check first
 	int status;
-	void *msgbuf;
+	char *msgbuf;
 	size_t msgsize;
 	size_t bufsize;
 	redis_reply_t *cur;

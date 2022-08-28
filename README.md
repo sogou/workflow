@@ -20,7 +20,7 @@ Visit [CMake Homepage](https://cmake.org/download/), and download the msi instal
 ### Ways to Install OpenSSL Library On Windos
 
 * Download the source code to compile
-* Donnload the bianary installer of OpenSSL
+* Download the bianary installer of OpenSSL
 * Install by Chocolatey
 * Install by VCPKG
 

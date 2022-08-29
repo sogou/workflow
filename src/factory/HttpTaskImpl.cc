@@ -966,6 +966,80 @@ CommMessageOut *WFHttpServerTask::message_out()
 	return this->WFServerTask::message_out();
 }
 
+struct ServiceSSLConnection : public WFConnection
+{
+	SSL *ssl_;
+	ServiceSSLWrapper wrapper_;
+	ServiceSSLConnection(SSL *ssl) : wrapper_(&wrapper_, ssl)
+	{
+		ssl_ = ssl;
+	}
+};
+
+class WFHttpsServerTask : public WFHttpServerTask
+{
+public:
+	WFHttpsServerTask(CommService *service,
+					  std::function<void (WFHttpTask *)>& process):
+		WFHttpServerTask(service, process)
+	{}
+
+protected:
+	virtual WFConnection *get_connection() const
+	{
+		auto *conn = this->WFHttpServerTask::get_connection();
+
+		if (conn)
+			return (ServiceSSLConnection *)conn->get_context();
+
+		return conn;
+	}
+
+	virtual CommMessageOut *message_out()
+	{
+		auto *msg = (ProtocolMessage *)this->WFHttpServerTask::message_out();
+		return this->get_ssl_wrapper(msg);
+	}
+
+	virtual CommMessageIn *message_in()
+	{
+		auto *msg = (ProtocolMessage *)this->WFHttpServerTask::message_in();
+		return this->get_ssl_wrapper(msg);
+	}
+
+private:
+	ServiceSSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
+	{
+		auto *conn = (ServiceSSLConnection *)this->get_connection();
+		conn->wrapper_.~ServiceSSLWrapper();
+		new (&conn->wrapper_) ServiceSSLWrapper(msg, conn->ssl_);
+		return &conn->wrapper_;
+	}
+};
+
+WFHttpTask *__new_https_server_session(long long seq, CommConnection *conn,
+										CommService *service,
+										SSL_CTX *ssl_ctx,
+										std::function<void (WFHttpTask *)>& process)
+{
+	WFConnection *wfconn = (WFConnection *)conn;
+
+	if (seq == 0)
+	{
+		SSL *ssl = __create_ssl(ssl_ctx);
+		SSL_set_accept_state(ssl);
+		auto *ssl_conn = new ServiceSSLConnection(ssl);
+
+		wfconn->set_context(ssl_conn, [](void *ssl_conn) {
+			auto *conn = (ServiceSSLConnection *)ssl_conn;
+			SSL_free(conn->ssl_);
+			delete conn;
+		});
+	}
+
+	return new WFHttpsServerTask(service, process);
+}
+
 /**********Server Factory**********/
 
 WFHttpTask *WFServerTaskFactory::create_http_task(CommService *service,

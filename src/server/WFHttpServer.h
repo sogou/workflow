@@ -58,5 +58,57 @@ inline CommSession *WFHttpServer::new_session(long long seq, CommConnection *con
 	return task;
 }
 
+WFHttpTask *__new_https_server_session(long long, CommConnection *,
+									   CommService *, SSL_CTX *,
+									   http_process_t&);
+
+class WFHttpsServer : public WFHttpServer
+{
+	static long ssl_ctx_callback(SSL *, int *, void *)
+	{
+		return SSL_TLSEXT_ERR_OK;
+	}
+
+public:
+	WFHttpsServer(const char *cert, const char *key,
+				  const struct WFServerParams *params,
+				  http_process_t proc)
+		: WFHttpServer(params, std::move(proc))
+	{
+		ssl_ctx = WFGlobal::new_ssl_server_ctx();
+		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
+		SSL_CTX_use_certificate_file(ssl_ctx, cert, SSL_FILETYPE_PEM);
+		SSL_CTX_use_PrivateKey_file(ssl_ctx, key, SSL_FILETYPE_PEM);
+		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback);
+		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this);
+	}
+
+	WFHttpsServer(const char *cert, const char *key, http_process_t proc)
+		: WFHttpsServer(cert, key, &HTTP_SERVER_PARAMS_DEFAULT, std::move(proc))
+	{ }
+
+	~WFHttpsServer()
+	{
+		SSL_CTX_free(ssl_ctx);
+	}
+
+	CommSession *new_session(long long seq, CommConnection *conn)
+	{
+		auto *task = __new_https_server_session(seq, conn,
+			this, this->ssl_ctx, this->process);
+
+		task->set_keep_alive(this->params.keep_alive_timeout);
+		task->set_receive_timeout(this->params.receive_timeout);
+		task->get_req()->set_size_limit(this->params.request_size_limit);
+
+		return task;
+	}
+
+	// user cannot use start with cert_file and key_file
+
+private:
+	SSL_CTX *ssl_ctx;
+};
+
 #endif
 

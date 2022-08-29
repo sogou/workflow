@@ -362,6 +362,12 @@ public:
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
+	static T *create_client_task(TransportType type,
+								 const struct sockaddr *addr,
+								 socklen_t addrlen,
+								 int retry_max,
+								 std::function<void (T *)> callback);
+
 public:
 	static T *create_server_task(CommService *service,
 								 std::function<void (T *)>& process);

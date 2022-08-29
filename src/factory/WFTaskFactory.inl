@@ -311,7 +311,6 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 	auto params = WFGlobal::get_global_settings()->endpoint_params;
 	struct addrinfo addrinfo = { };
 	addrinfo.ai_family = addr->sa_family;
-	addrinfo.ai_socktype = SOCK_STREAM;
 	addrinfo.ai_addr = (struct sockaddr *)addr;
 	addrinfo.ai_addrlen = addrlen;
 
@@ -615,6 +614,20 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 	task->init(uri);
 	task->set_transport_type(type);
+	return task;
+}
+
+template<class REQ, class RESP>
+WFNetworkTask<REQ, RESP> *
+WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
+													const struct sockaddr *addr,
+													socklen_t addrlen,
+													int retry_max,
+													std::function<void (WFNetworkTask<REQ, RESP> *)> callback)
+{
+	auto *task = new WFComplexClientTask<REQ, RESP>(retry_max, std::move(callback));
+
+	task->init(type, addr, addrlen, "");
 	return task;
 }
 

@@ -62,13 +62,9 @@ WFHttpTask *__new_https_server_session(long long, CommConnection *,
 									   CommService *, SSL_CTX *,
 									   http_process_t&);
 
+/* On Windows platform, please use 'WFHttpsServer' to start a https server. */
 class WFHttpsServer : public WFHttpServer
 {
-	static long ssl_ctx_callback(SSL *, int *, void *)
-	{
-		return SSL_TLSEXT_ERR_OK;
-	}
-
 public:
 	WFHttpsServer(const struct WFServerParams *params,
 				  http_process_t proc)
@@ -181,6 +177,11 @@ private:
 			SSL_CTX_free(ssl_ctx);
 			ssl_ctx = NULL;
 		}
+	}
+
+	static int ssl_ctx_callback(SSL *, int *, void *)
+	{
+		return SSL_TLSEXT_ERR_OK;
 	}
 
 private:

@@ -1022,7 +1022,7 @@ WFHttpTask *__new_https_server_session(long long seq, CommConnection *conn,
 										SSL_CTX *ssl_ctx,
 										std::function<void (WFHttpTask *)>& process)
 {
-	WFConnection *wfconn = (WFConnection *)conn;
+	WFConnection *c = (WFConnection *)conn;
 
 	if (seq == 0)
 	{
@@ -1030,7 +1030,7 @@ WFHttpTask *__new_https_server_session(long long seq, CommConnection *conn,
 		SSL_set_accept_state(ssl);
 		auto *ssl_conn = new ServiceSSLConnection(ssl);
 
-		wfconn->set_context(ssl_conn, [](void *ssl_conn) {
+		c->set_context(ssl_conn, [](void *ssl_conn) {
 			auto *conn = (ServiceSSLConnection *)ssl_conn;
 			SSL_free(conn->ssl_);
 			delete conn;

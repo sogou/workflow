@@ -70,32 +70,25 @@ class WFHttpsServer : public WFHttpServer
 	}
 
 public:
-	WFHttpsServer(const char *cert, const char *key,
-				  const struct WFServerParams *params,
+	WFHttpsServer(const struct WFServerParams *params,
 				  http_process_t proc)
-		: WFHttpServer(params, std::move(proc))
-	{
-		ssl_ctx = WFGlobal::new_ssl_server_ctx();
-		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
-		SSL_CTX_use_certificate_file(ssl_ctx, cert, SSL_FILETYPE_PEM);
-		SSL_CTX_use_PrivateKey_file(ssl_ctx, key, SSL_FILETYPE_PEM);
-		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback);
-		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this);
-	}
+		: WFHttpServer(params, std::move(proc)), ssl_ctx(NULL)
+	{ }
 
-	WFHttpsServer(const char *cert, const char *key, http_process_t proc)
-		: WFHttpsServer(cert, key, &HTTP_SERVER_PARAMS_DEFAULT, std::move(proc))
+	WFHttpsServer(http_process_t proc)
+		: WFHttpsServer(&HTTP_SERVER_PARAMS_DEFAULT, std::move(proc))
 	{ }
 
 	~WFHttpsServer()
 	{
-		SSL_CTX_free(ssl_ctx);
+		deinit();
 	}
 
 	CommSession *new_session(long long seq, CommConnection *conn)
 	{
 		auto *task = __new_https_server_session(seq, conn,
-			this, this->ssl_ctx, this->process);
+												this, this->ssl_ctx,
+												this->process);
 
 		task->set_keep_alive(this->params.keep_alive_timeout);
 		task->set_receive_timeout(this->params.receive_timeout);
@@ -104,7 +97,91 @@ public:
 		return task;
 	}
 
-	// user cannot use start with cert_file and key_file
+	int start(unsigned short port) = delete;
+	int start(int family, unsigned short port) = delete;
+	int start(const char *host, unsigned short port) = delete;
+	int start(int family, const char *host, unsigned short port) = delete;
+	int start(const struct sockaddr *bind_addr, socklen_t addrlen) = delete;
+	int serve(int listen_fd) = delete;
+
+	int start(unsigned short port, const char *cert_file, const char *key_file)
+	{
+		return start(AF_INET, NULL, port, cert_file, key_file);
+	}
+
+	int start(int family, unsigned short port,
+			  const char *cert_file, const char *key_file)
+	{
+		return start(family, NULL, port, cert_file, key_file);
+	}
+
+	int start(const char *host, unsigned short port,
+			  const char *cert_file, const char *key_file)
+	{
+		return start(AF_INET, host, port, cert_file, key_file);
+	}
+
+	int start(int family, const char *host, unsigned short port,
+			  const char *cert_file, const char *key_file)
+	{
+		deinit();
+
+		if (init(cert_file, key_file) != 0)
+			return -1;
+
+		return WFHttpServer::start(family, host, port);
+	}
+
+	int start(const struct sockaddr *bind_addr, socklen_t addrlen,
+			  const char *cert_file, const char *key_file)
+	{
+		deinit();
+
+		if (init(cert_file, key_file) != 0)
+			return -1;
+
+		return WFHttpServer::start(bind_addr, addrlen);
+	}
+
+	int serve(int listen_fd, const char *cert_file, const char *key_file)
+	{
+		deinit();
+
+		if (init(cert_file, key_file) != 0)
+			return -1;
+
+		return WFHttpServer::serve(listen_fd);
+	}
+
+private:
+	int init(const char *cert, const char *key)
+	{
+		ssl_ctx = WFGlobal::new_ssl_server_ctx();
+
+		if (!ssl_ctx)
+			return -1;
+
+		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
+		if (SSL_CTX_use_certificate_file(ssl_ctx, cert, SSL_FILETYPE_PEM) > 0 &&
+			SSL_CTX_use_PrivateKey_file(ssl_ctx, key, SSL_FILETYPE_PEM) > 0 &&
+			SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback) > 0 &&
+			SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this) > 0)
+		{
+			return 0;
+		}
+
+		deinit();
+		return -1;
+	}
+
+	void deinit()
+	{
+		if (ssl_ctx)
+		{
+			SSL_CTX_free(ssl_ctx);
+			ssl_ctx = NULL;
+		}
+	}
 
 private:
 	SSL_CTX *ssl_ctx;

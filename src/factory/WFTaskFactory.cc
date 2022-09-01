@@ -481,7 +481,7 @@ struct __ConditionalList *__ConditionalMap::get_list(const std::string& name)
 void __ConditionalMap::signal(const std::string& name, void *msg)
 {
 	struct rb_node **p = &conds_map_.rb_node;
-	struct __ConditionalList *conds = NULL;
+	struct __ConditionalList *conds;
 
 	mutex_.lock();
 	while (*p)
@@ -500,7 +500,7 @@ void __ConditionalMap::signal(const std::string& name, void *msg)
 	}
 
 	mutex_.unlock();
-	if (!conds)
+	if (*p == NULL)
 		return;
 
 	struct list_head *pos;

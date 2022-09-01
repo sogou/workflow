@@ -226,20 +226,20 @@ void __CounterMap::count_n_locked(struct __CounterList *counters,
 
 void __CounterMap::count_n(const std::string& name, unsigned int n)
 {
-	struct rb_node **p = &counters_map_.rb_node;
+	LIST_HEAD(task_list);
 	struct __CounterList *counters;
 	struct __counter_node *node;
-	LIST_HEAD(task_list);
+	struct rb_node *p;
 
 	mutex_.lock();
-	while (*p)
+	p = counters_map_.rb_node;
+	while (p)
 	{
-		counters = rb_entry(*p, struct __CounterList, rb);
-
+		counters = rb_entry(p, struct __CounterList, rb);
 		if (name < counters->name)
-			p = &(*p)->rb_left;
+			p = p->rb_left;
 		else if (name > counters->name)
-			p = &(*p)->rb_right;
+			p = p->rb_right;
 		else
 		{
 			count_n_locked(counters, n, &task_list);
@@ -480,18 +480,18 @@ struct __ConditionalList *__ConditionalMap::get_list(const std::string& name)
 
 void __ConditionalMap::signal(const std::string& name, void *msg)
 {
-	struct rb_node **p = &conds_map_.rb_node;
-	struct __ConditionalList *conds = NULL;
+	struct __ConditionalList *conds;
+	struct rb_node *p;
 
 	mutex_.lock();
-	while (*p)
+	p = conds_map_.rb_node;
+	while (p)
 	{
-		conds = rb_entry(*p, struct __ConditionalList, rb);
-
+		conds = rb_entry(p, struct __ConditionalList, rb);
 		if (name < conds->name)
-			p = &(*p)->rb_left;
+			p = p->rb_left;
 		else if (name > conds->name)
-			p = &(*p)->rb_right;
+			p = p->rb_right;
 		else
 		{
 			rb_erase(&conds->rb, &conds_map_);
@@ -500,7 +500,7 @@ void __ConditionalMap::signal(const std::string& name, void *msg)
 	}
 
 	mutex_.unlock();
-	if (!conds)
+	if (!p)
 		return;
 
 	struct list_head *pos;

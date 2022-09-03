@@ -625,6 +625,13 @@ public:
 		return *this;
 	}
 
+	KafkaConfig(const KafkaConfig& copy)
+	{
+		this->ptr = copy.ptr;
+		this->ref = copy.ref;
+		++*this->ref;
+	}
+
 	KafkaConfig& operator= (const KafkaConfig& copy)
 	{
 		if (this != &copy)
@@ -634,6 +641,7 @@ public:
 			this->ref = copy.ref;
 			++*this->ref;
 		}
+
 		return *this;
 	}
 
@@ -731,7 +739,14 @@ public:
 		return *this;
 	}
 
-	KafkaRecord& operator= (KafkaRecord& copy)
+	KafkaRecord(const KafkaRecord& copy)
+	{
+		this->ptr = copy.ptr;
+		this->ref = copy.ref;
+		++*this->ref;
+	}
+
+	KafkaRecord& operator= (const KafkaRecord& copy)
 	{
 		if (this != &copy)
 		{
@@ -740,6 +755,7 @@ public:
 			this->ref = copy.ref;
 			++*this->ref;
 		}
+
 		return *this;
 	}
 
@@ -866,7 +882,7 @@ public:
 		this->endpos = copy.endpos;
 	}
 
-	KafkaToppar& operator= (KafkaToppar& copy)
+	KafkaToppar& operator= (const KafkaToppar& copy)
 	{
 		if (this != &copy)
 		{
@@ -878,6 +894,7 @@ public:
 			this->startpos = copy.startpos;
 			this->endpos = copy.endpos;
 		}
+
 		return *this;
 	}
 
@@ -1234,7 +1251,7 @@ public:
 		++*this->ref;
 	}
 
-	KafkaMeta& operator= (KafkaMeta& copy)
+	KafkaMeta& operator= (const KafkaMeta& copy)
 	{
 		if (this != &copy)
 		{
@@ -1243,6 +1260,7 @@ public:
 			this->ref = copy.ref;
 			++*this->ref;
 		}
+
 		return *this;
 	}
 

@@ -288,7 +288,6 @@ int kafka_broker_get_api_version(const kafka_api_t *api, int api_key,
 
 	retp = bsearch(&sk, api->api, api->elements,
 				   sizeof(*api->api), kafka_api_version_key_cmp);
-
 	if (!retp)
 		return -1;
 
@@ -614,7 +613,8 @@ int kafka_parser_append_message(const void *buf, size_t *size,
 
 	if (s > parser->message_size - parser->cur_size)
 	{
-		memcpy(parser->msgbuf + parser->cur_size, buf, parser->message_size - parser->cur_size);
+		memcpy(parser->msgbuf + parser->cur_size, buf,
+			   parser->message_size - parser->cur_size);
 		parser->cur_size = parser->message_size;
 	}
 	else
@@ -761,6 +761,7 @@ static int scram_get_attr(const struct iovec *inbuf, char attr,
 	size_t of = 0;
 	void *ptr;
 	char ochar, nchar;
+
 	for (of = 0; of < inbuf->iov_len;)
 	{
 		ptr = (char *)inbuf->iov_base + of;
@@ -852,6 +853,7 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 	unsigned char tempdest[EVP_MAX_MD_SIZE];
 	unsigned char *saltplus;
 	int i, j;
+
 	saltplus = alloca(salt->iov_len + 4);
 	if (!saltplus)
 		return -1;
@@ -907,7 +909,7 @@ static int scram_hmac(const EVP_MD *evp, const struct iovec *key,
 }
 
 static void scram_h(kafka_scram_t *scram, const struct iovec *str,
-		struct iovec *out)
+					struct iovec *out)
 {
 	scram->scram_h((const unsigned char *)str->iov_base, str->iov_len,
 				  (unsigned char *)out->iov_base);
@@ -1105,6 +1107,7 @@ static int kafka_sasl_scram_recv(const char *buf, size_t len, void *p, void *q)
 	kafka_config_t *conf = (kafka_config_t *)p;
 	kafka_sasl_t *sasl = (kafka_sasl_t *)q;
 	int ret = -1;
+
 	switch(sasl->scram.state)
 	{
 	case KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE:
@@ -1133,6 +1136,7 @@ static int scram_generate_nonce(struct iovec *iov)
 {
 	int i;
 	char *ptr = (char *)malloc(33);
+
 	if (!ptr)
 		return -1;
 

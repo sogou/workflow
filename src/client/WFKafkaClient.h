@@ -49,6 +49,15 @@ public:
 
 	virtual bool add_offset_toppar(const protocol::KafkaToppar& toppar) = 0;
 
+	void add_commit_record(const std::string& topic, int partition, long long offset)
+	{
+		protocol::KafkaToppar toppar;
+		toppar.set_topic_partition(topic, partition);
+		toppar.set_offset(offset);
+		toppar.set_error(0);
+		this->toppar_list.add_item(std::move(toppar));
+	}
+
 	void add_commit_record(const protocol::KafkaRecord& record)
 	{
 		protocol::KafkaToppar toppar;
@@ -169,4 +178,3 @@ private:
 };
 
 #endif
-

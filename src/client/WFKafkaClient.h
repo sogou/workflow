@@ -67,7 +67,8 @@ public:
 		this->toppar_list.add_item(std::move(toppar_t));
 	}
 
-	void add_commit_item(const std::string& topic, int partition, long long offset)
+	void add_commit_item(const std::string& topic, int partition,
+						 long long offset)
 	{
 		protocol::KafkaToppar toppar;
 		toppar.set_topic_partition(topic, partition);

@@ -67,6 +67,15 @@ public:
 		this->toppar_list.add_item(std::move(toppar_t));
 	}
 
+	void add_commit_item(const std::string& topic, int partition, long long offset)
+	{
+		protocol::KafkaToppar toppar;
+		toppar.set_topic_partition(topic, partition);
+		toppar.set_offset(offset);
+		toppar.set_error(0);
+		this->toppar_list.add_item(std::move(toppar));
+	}
+
 	void set_api_type(int api_type)
 	{
 		this->api_type = api_type;

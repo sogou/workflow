@@ -40,6 +40,12 @@
 
 class __WFGoTask : public WFGoTask
 {
+public:
+	void set_go_func(std::function<void ()> func)
+	{
+		this->go = std::move(func);
+	}
+
 protected:
 	virtual void execute()
 	{
@@ -130,6 +136,14 @@ WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
 	return new __WFTimedGoTask(seconds, nanoseconds,
 							   queue, executor,
 							   std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+void WFTaskFactory::reset_go_task(WFGoTask *task, FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	((__WFGoTask *)task)->set_go_func(std::move(tmp));
 }
 
 class __WFDynamicTask : public WFDynamicTask

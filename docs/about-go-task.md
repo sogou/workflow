@@ -128,5 +128,23 @@ int main()
     task->start();
     ...
 }
-~~~~~~
+~~~~
+# 重置go task的执行函数
+在某些时候，我们想在go task的执行函数里访问task，如上面的例子，将计算结果写入task的user_data域。  
+上例中，我们使用了引用捕获。但明显引用捕获会有一些问题。比如task本身的生命周期。我们更希望在执行函数里直接捕获go task指针。  
+直接进行值捕获明显是错误的，例如：
+~~~cpp
+WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [task]() {
+        task->user_data = (void *)123;
+    });
+~~~
+这段代码并不能在lambda函数里得到task指针，因为捕获执行时，task还没有赋值。但我们可以通过以下的代码，实现这个需求：
+~~~cpp
+WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [](){});
+WFTaskFactory::reset_go_task(task, [task]() {
+        task->user_data = (void *)123;
+    });
+~~~
+WFTaskFactory::reset_get_task()函数，用于重置go task的执行函数。  
+因为task已经创建完毕，这时候在lambda函数里捕获task，就是一个正确的行为了。
 

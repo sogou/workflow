@@ -278,6 +278,10 @@ public:
 										 ExecQueue *queue, Executor *executor,
 										 FUNC&& func, ARGS&&... args);
 
+	/* For capturing 'task' itself in go task's running function. */
+	template<class FUNC, class... ARGS>
+	static void reset_go_task(WFGoTask *task, FUNC&& func, ARGS&&... args);
+
 public:
 	static WFGraphTask *create_graph_task(graph_callback_t callback)
 	{

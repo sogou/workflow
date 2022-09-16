@@ -73,6 +73,15 @@ To install the Workflow library for deployment:
 sudo apt-get install libworkflow1
 ~~~~
 
+### Get started (vcpkg):
+vcpkg is a full platform package manager, you can easily install workflow with vcpkg:
+~~~sh
+git clone https://github.com/microsoft/vcpkg.git
+./bootstrap-vcpkg.bat # For powershell
+./bootstrap-vcpkg.sh # For bash
+./vcpkg install workflow
+~~~
+
 # Tutorials
 
 * Client

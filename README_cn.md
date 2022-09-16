@@ -67,6 +67,15 @@ sudo apt-get install workflow1
 ~~~
 注意Ubuntu Linux只有最新22.04版自带workflow。更推荐用git直接下载最新源代码编译。
 
+#### 快速开始(vcpkg)
+vcpkg是一个支持全平台的包管理器，你可以使用vcpkg轻松的编译与安装workflow：
+~~~sh
+git clone https://github.com/microsoft/vcpkg.git
+./bootstrap-vcpkg.bat # For powershell
+./bootstrap-vcpkg.sh # For bash
+./vcpkg install workflow
+~~~
+
 # 示例教程
   * Client基础
     * [创建第一个任务：wget](docs/tutorial-01-wget.md)

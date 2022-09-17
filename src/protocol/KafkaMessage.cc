@@ -1222,8 +1222,8 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 			record->timestamp = timestamp;
 			record->offset = offset;
 			record->toppar = toppar->get_raw_ptr();
-			record->key_is_move = 1;
-			record->value_is_move = 1;
+			record->key_is_moved = 1;
+			record->value_is_moved = 1;
 			record->value = payload;
 			record->value_len = payload_len;
 			list_add_tail(kafka_record->get_list(), record_list);
@@ -1375,8 +1375,8 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 			return -1;
 		}
 
-		header->key_is_move = 1;
-		header->value_is_move = 1;
+		header->key_is_moved = 1;
+		header->value_is_moved = 1;
 
 		list_add_tail(&header->list, &record->header_list);
 	}
@@ -1474,8 +1474,8 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 		KafkaRecord *record = new KafkaRecord;
 		record->set_offset(hdr.base_offset);
 		record->set_timestamp(hdr.base_timestamp);
-		record->get_raw_ptr()->key_is_move = 1;
-		record->get_raw_ptr()->value_is_move = 1;
+		record->get_raw_ptr()->key_is_moved = 1;
+		record->get_raw_ptr()->value_is_moved = 1;
 		record->get_raw_ptr()->toppar = toppar->get_raw_ptr();
 
 		switch (parse_message_record(&p, &n, record->get_raw_ptr()))

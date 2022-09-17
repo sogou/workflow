@@ -28,8 +28,8 @@
 class CommSchedObject
 {
 public:
-	size_t get_max_load() { return this->max_load; }
-	size_t get_cur_load() { return this->cur_load; }
+	size_t get_max_load() const { return this->max_load; }
+	size_t get_cur_load() const { return this->cur_load; }
 
 private:
 	virtual CommTarget *acquire(int wait_timeout) = 0;

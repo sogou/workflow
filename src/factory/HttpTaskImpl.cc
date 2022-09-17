@@ -151,10 +151,8 @@ CommMessageOut *ComplexHttpTask::message_out()
 
 		if ((unsigned int)this->keep_alive_timeo > HTTP_KEEPALIVE_MAX)
 			this->keep_alive_timeo = HTTP_KEEPALIVE_MAX;
-		//if (this->keep_alive_timeo < 0 || this->keep_alive_timeo > HTTP_KEEPALIVE_MAX)
 	}
 
-	//req->set_header_pair("Accept", "*/*");
 	return this->WFComplexClientTask::message_out();
 }
 
@@ -191,7 +189,6 @@ bool ComplexHttpTask::init_success()
 	std::string request_uri;
 	std::string header_host;
 	bool is_ssl;
-	bool is_unix = false;
 
 	if (uri_.scheme && strcasecmp(uri_.scheme, "http") == 0)
 		is_ssl = false;
@@ -221,13 +218,9 @@ bool ComplexHttpTask::init_success()
 	}
 
 	if (uri_.host && uri_.host[0])
-	{
 		header_host = uri_.host;
-		if (uri_.host[0] == '/')
-			is_unix = true;
-	}
 
-	if (!is_unix && uri_.port && uri_.port[0])
+	if (uri_.port && uri_.port[0])
 	{
 		int port = atoi(uri_.port);
 
@@ -252,7 +245,6 @@ bool ComplexHttpTask::init_success()
 	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
-
 	return true;
 }
 

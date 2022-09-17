@@ -461,18 +461,18 @@ void kafka_record_header_init(kafka_record_header_t *header)
 {
 	header->key = NULL;
 	header->key_len = 0;
-	header->key_is_move = 0;
+	header->key_is_moved = 0;
 	header->value = NULL;
 	header->value_len = 0;
-	header->value_is_move = 0;
+	header->value_is_moved = 0;
 }
 
 void kafka_record_header_deinit(kafka_record_header_t *header)
 {
-	if (!header->key_is_move)
+	if (!header->key_is_moved)
 		free(header->key);
 
-	if (!header->value_is_move)
+	if (!header->value_is_moved)
 		free(header->value);
 }
 
@@ -480,10 +480,10 @@ void kafka_record_init(kafka_record_t *record)
 {
 	record->key = NULL;
 	record->key_len = 0;
-	record->key_is_move = 0;
+	record->key_is_moved = 0;
 	record->value = NULL;
 	record->value_len = 0;
-	record->value_is_move = 0;
+	record->value_is_moved = 0;
 	record->timestamp = 0;
 	record->offset = 0;
 	INIT_LIST_HEAD(&record->header_list);
@@ -496,10 +496,10 @@ void kafka_record_deinit(kafka_record_t *record)
 	struct list_head *tmp, *pos;
 	kafka_record_header_t *header;
 
-	if (!record->key_is_move)
+	if (!record->key_is_moved)
 		free(record->key);
 
-	if (!record->value_is_move)
+	if (!record->value_is_moved)
 		free(record->value);
 
 	list_for_each_safe(pos, tmp, &record->header_list)
@@ -569,12 +569,12 @@ void kafka_block_init(kafka_block_t *block)
 {
 	block->buf = NULL;
 	block->len = 0;
-	block->is_move = 0;
+	block->is_moved = 0;
 }
 
 void kafka_block_deinit(kafka_block_t *block)
 {
-	if (!block->is_move)
+	if (!block->is_moved)
 		free(block->buf);
 }
 

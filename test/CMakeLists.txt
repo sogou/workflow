@@ -6,6 +6,10 @@ project(workflow_test
 		LANGUAGES C CXX
 )
 
+if (WIN32)
+	option(WORKFLOW_TUTORIAL_BUILD_STATIC_RUNTIME "Use static runtime" ON)
+endif ()
+
 find_library(LIBRT rt)
 find_package(OpenSSL REQUIRED)
 find_package(workflow REQUIRED CONFIG HINTS ..)
@@ -19,6 +23,24 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 
 enable_testing()
 find_package(GTest CONFIG REQUIRED)
+
+if (WIN32)
+	if (WORKFLOW_TUTORIAL_BUILD_STATIC_RUNTIME)
+		set(CompilerFlags
+				CMAKE_CXX_FLAGS
+				CMAKE_CXX_FLAGS_DEBUG
+				CMAKE_CXX_FLAGS_RELEASE
+				CMAKE_CXX_FLAGS_MINSIZEREL
+				CMAKE_C_FLAGS
+				CMAKE_C_FLAGS_DEBUG
+				CMAKE_C_FLAGS_RELEASE
+				CMAKE_C_FLAGS_MINSIZEREL
+				)
+		foreach(CompilerFlag ${CompilerFlags})
+			string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+		endforeach ()
+	endif ()
+endif ()
 
 if (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")

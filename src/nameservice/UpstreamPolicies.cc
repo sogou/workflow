@@ -332,7 +332,6 @@ void UPSGroupPolicy::add_server_locked(EndpointAddress *addr)
 	else
 		group->backups.push_back(addr);
 	group->mutex.unlock();
-	this->server_list_change(addr, ADD_SERVER);
 
 	return;
 }
@@ -379,7 +378,6 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 				}
 			}
 
-			this->server_list_change(addr, REMOVE_SERVER);
 			if (--addr->ref == 0)
 			{
 				this->pre_delete_server(addr);

@@ -36,3 +36,8 @@ bazel-*
 
 # vscode configs
 .vscode
+
+# idea configs
+.idea
+cmake-build-debug/
+workflow-config.cmake

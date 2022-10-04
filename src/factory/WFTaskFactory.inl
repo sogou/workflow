@@ -681,6 +681,89 @@ public:
 };
 
 template<class INPUT, class OUTPUT>
+class __WFTimedThreadTask : public __WFThreadTask<INPUT, OUTPUT>
+{
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
+protected:
+	virtual void handle(int state, int error);
+
+protected:
+	static void timer_callback(WFTimerTask *timer);
+
+protected:
+	time_t seconds;
+	long nanoseconds;
+	std::atomic<int> ref;
+
+public:
+	__WFTimedThreadTask(time_t seconds, long nanoseconds,
+						ExecQueue *queue, Executor *executor,
+						std::function<void (INPUT *, OUTPUT *)>&& rt,
+						std::function<void (WFThreadTask<INPUT, OUTPUT> *)>&& cb) :
+		__WFThreadTask<INPUT, OUTPUT>(queue, executor, std::move(rt), std::move(cb)),
+		ref(4)
+	{
+		this->seconds = seconds;
+		this->nanoseconds = nanoseconds;
+	}
+};
+
+template<class INPUT, class OUTPUT>
+void __WFTimedThreadTask<INPUT, OUTPUT>::dispatch()
+{
+	WFTimerTask *timer;
+
+	timer = WFTaskFactory::create_timer_task(this->seconds, this->nanoseconds,
+											 __WFTimedThreadTask::timer_callback);
+	timer->user_data = this;
+
+	this->__WFThreadTask<INPUT, OUTPUT>::dispatch();
+	timer->start();
+}
+
+template<class INPUT, class OUTPUT>
+SubTask *__WFTimedThreadTask<INPUT, OUTPUT>::done()
+{
+	if (this->callback)
+		this->callback(this);
+
+	return series_of(this)->pop();
+}
+
+template<class INPUT, class OUTPUT>
+void __WFTimedThreadTask<INPUT, OUTPUT>::handle(int state, int error)
+{
+	if (--this->ref == 3)
+	{
+		this->state = state;
+		this->error = error;
+		this->subtask_done();
+	}
+
+	if (--this->ref == 0)
+		delete this;
+}
+
+template<class INPUT, class OUTPUT>
+void __WFTimedThreadTask<INPUT, OUTPUT>::timer_callback(WFTimerTask *timer)
+{
+	auto *task = (__WFTimedThreadTask<INPUT, OUTPUT> *)timer->user_data;
+
+	if (--task->ref == 3)
+	{
+		task->state = WFT_STATE_ABORTED;
+		task->error = 0;
+		task->subtask_done();
+	}
+
+	if (--task->ref == 0)
+		delete task;
+}
+
+template<class INPUT, class OUTPUT>
 WFThreadTask<INPUT, OUTPUT> *
 WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(const std::string& queue_name,
 						std::function<void (INPUT *, OUTPUT *)> routine,
@@ -694,6 +777,20 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(const std::string& queue_
 
 template<class INPUT, class OUTPUT>
 WFThreadTask<INPUT, OUTPUT> *
+WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(time_t seconds, long nanoseconds,
+						const std::string& queue_name,
+						std::function<void (INPUT *, OUTPUT *)> routine,
+						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
+{
+	return new __WFTimedThreadTask<INPUT, OUTPUT>(seconds, nanoseconds,
+												  WFGlobal::get_exec_queue(queue_name),
+												  WFGlobal::get_compute_executor(),
+												  std::move(routine),
+												  std::move(callback));
+}
+
+template<class INPUT, class OUTPUT>
+WFThreadTask<INPUT, OUTPUT> *
 WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(ExecQueue *queue, Executor *executor,
 						std::function<void (INPUT *, OUTPUT *)> routine,
 						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
@@ -701,6 +798,19 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(ExecQueue *queue, Executo
 	return new __WFThreadTask<INPUT, OUTPUT>(queue, executor,
 											 std::move(routine),
 											 std::move(callback));
+}
+
+template<class INPUT, class OUTPUT>
+WFThreadTask<INPUT, OUTPUT> *
+WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(time_t seconds, long nanoseconds,
+						ExecQueue *queue, Executor *executor,
+						std::function<void (INPUT *, OUTPUT *)> routine,
+						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
+{
+	return new __WFTimedThreadTask<INPUT, OUTPUT>(seconds, nanoseconds,
+												  queue, executor,
+												  std::move(routine),
+												  std::move(callback));
 }
 
 template<class INPUT, class OUTPUT>

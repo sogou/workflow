@@ -57,7 +57,7 @@ int main(void)
 但是这个线程池比一般的线程池又有更多的功能，比如每个任务有queue name，任务之间还可以组成各种串并联或更复杂的依赖关系。
 
 # 带执行时间限制的go task
-WFGoTask是到目前为止，唯一支持带执行时限的一种任务。通过create_timedgo_task接口，可以创建带时间限制的go task：
+通过create_timedgo_task接口（这里无法重载create_go_task接口），可以创建带时间限制的go task：
 ~~~cpp
 class WFTaskFactory
 {

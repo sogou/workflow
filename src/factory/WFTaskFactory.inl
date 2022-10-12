@@ -527,12 +527,17 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 
 	bool is_user_request = this->finish_once();
 
-	if (ns_policy_ && route_result_.request_object)
+	if (ns_policy_)
 	{
-		if (this->state == WFT_STATE_SYS_ERROR)
+		if (this->state == WFT_STATE_SYS_ERROR ||
+			this->state == WFT_STATE_DNS_ERROR)
+		{
 			ns_policy_->failed(&route_result_, &tracing_, this->target);
-		else
+		}
+		else if (route_result_.request_object)
+		{
 			ns_policy_->success(&route_result_, &tracing_, this->target);
+		}
 	}
 
 	if (this->state == WFT_STATE_SUCCESS)

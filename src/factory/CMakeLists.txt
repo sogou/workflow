@@ -8,6 +8,7 @@ set(SRC
 	Workflow.cc
 	HttpTaskImpl.cc
 	WFResourcePool.cc
+	WFMessageQueue.cc
 	FileTaskImpl.cc
 )
 

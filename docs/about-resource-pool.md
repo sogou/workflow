@@ -1,4 +1,4 @@
-# 条件任务与资源池
+# 资源池
 
 在我们用workflow写异步程序时经常会遇到这样一些场景：
 * 任务运行时需要先从某个池子里获得一个资源。任务运行结束，则会把资源放回池子，让下一个需要资源的任务运行。
@@ -113,3 +113,32 @@ int fetch_with_max(std::vector<std::string>& url_list, size_t max_p)
     // wait_here...
 }
 ~~~
+
+# 消息队列
+
+消息队列是一种比资源使用方法类似的组件。它们的区别在于：
+* 资源池的总资源数量是固定的，在创建时就已经确定。而消息队列的长度则不受限制。
+* 资源池的存取方式是先进后出，刚刚释放的资源会先被复用。而消息队列则是先进先出。
+* 资源池使用方式是先获取，后归还。没有获取就直接归还资源，可能导致缓冲区溢出。消息队列没有这样的约束。
+* 实现上，资源池使用的是数组，消息队列使用链表。总体来讲，在实现和使用上，消息队列都比资源池简单一些。
+
+# 消息队列接口
+
+在[WFMessageQueue.h](https://github.com/sogou/workflow/blob/master/src/factory/WFMessageQueue.h)里，定义了消息队列模块的接口：
+~~~cpp
+class WFMessageQueue
+{
+public:
+    WFConditional *get(SubTask *task, void **msgbuf);
+    WFConditional *get(SubTask *task);
+    void post(void *msg);
+    ...
+
+public:
+    WFMessageQueue();
+    ...
+};
+~~~
+由于了解过资源池的用法，消息队列的使用方式我们也就无需再详细展开。模式和资源池一样，都是在获得消息（或资源）时，任务被拉起。  
+消息队列的get和post接口，无需像资源池一样遵循先获取再放回的原则，任何任务都可以随时从队列中存取消息。  
+如果有需要，用户同样可以派生WFMessageQueue类，实现先进后出的消息读取模式。  

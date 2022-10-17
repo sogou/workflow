@@ -94,10 +94,11 @@ sudo apt-get install workflow1
   * 其它一些重要任务与组件
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
-    * [条件任务与观察者模式](docs/about-conditional.md)
-    * [资源池与消息队列](docs/about-resource-pool.md)
     * [模块任务](/docs/about-module.md)
     * [DAG图任务](/docs/tutorial-11-graph_task.md)
+  * 任务间通信
+    * [条件任务与观察者模式](docs/about-conditional.md)
+    * [资源池与消息队列](docs/about-resource-pool.md)
   * 服务治理
     * [关于服务治理](docs/about-service-governance.md)
     * [Upstream更多文档](docs/about-upstream.md)

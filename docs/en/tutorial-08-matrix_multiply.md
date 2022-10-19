@@ -94,11 +94,15 @@ public:
     static T *create_thread_task(const std::string& queue_name,
                                  std::function<void (INPUT *, OUTPUT *)> routine,
                                  std::function<void (T *)> callback);
+
+   static T *create_thread_task(time_t seconds, long nanoseconds,
+                                  const std::string& queue_name,
+                                  std::function<void (INPUT *, OUTPUT *)> routine,
+                                  std::function<void (T *)> callback);
     ...
 };
 ~~~
-
-Slightly different from the previous network factory class or the algorithm factory class, this factory requires two template parameters: INPUT and OUTPUT.   
+There are two interfaces for creating tasks here. The second interface supports the user to pass in the task running time limit, we will introduce this function in the next section. Slightly different from the previous network factory class or the algorithm factory class, this factory requires two template parameters: INPUT and OUTPUT.   
 queue\_name is explained in the previous example. routine is the computation process, and callback means the callback.   
 In our example, we see this call:
 
@@ -150,6 +154,25 @@ void callback(MMTask *task)     // MMtask = WFThreadTask<MMInput, MMOutput>
 
 You can ignore the the possibility of failure in the ordinary computing tasks, and the end state is always SUCCESS.   
 The callback simply prints out the input and the output. If the input data are illegal, the error will be printed out.
+
+# Computing task with running time limit
+Obviously, our framework can not interrupt a computing task because it's a user function, and the users have to make sure the function will terminate normally. But we support users to create a computing task with a running time limit, and if the task doesn't finish within this time, the task will  callback directly:
+~~~cpp
+ template <class INPUT, class OUTPUT>
+ class WFThreadTaskFactory
+ {
+ private:
+     using T = WFThreadTask<INPUT, OUTPUT>;
+
+ public:
+     static T *create_thread_task(time_t seconds, long nanoseconds,
+                                  const std::string& queue_name,
+                                  std::function<void (INPUT *, OUTPUT *)> routine,
+                                  std::function<void (T *)> callback);
+     ...
+ };
+ ~~~
+This create_thread_task function needs to pass two more parameters, seconds and nanoseconds. If the running time of func reaches the seconds+nanosconds time limit, the task callback directly, and the state is WFT_STATE_ABORTED. But the task routine will continue to run till the end.
 
 # Symmetry of the algorithm and the protocol
 

@@ -38,114 +38,6 @@
 #include "EndpointParams.h"
 #include "WFNameService.h"
 
-class __WFGoTask : public WFGoTask
-{
-public:
-	void set_go_func(std::function<void ()> func)
-	{
-		this->go = std::move(func);
-	}
-
-protected:
-	virtual void execute()
-	{
-		this->go();
-	}
-
-protected:
-	std::function<void ()> go;
-
-public:
-	__WFGoTask(ExecQueue *queue, Executor *executor,
-			   std::function<void ()>&& func) :
-		WFGoTask(queue, executor),
-		go(std::move(func))
-	{
-	}
-};
-
-class __WFTimedGoTask : public __WFGoTask
-{
-protected:
-	virtual void dispatch();
-	virtual SubTask *done();
-
-protected:
-	virtual void handle(int state, int error);
-
-protected:
-	static void timer_callback(WFTimerTask *timer);
-
-protected:
-	time_t seconds;
-	long nanoseconds;
-	std::atomic<int> ref;
-
-public:
-	__WFTimedGoTask(time_t seconds, long nanoseconds,
-					ExecQueue *queue, Executor *executor,
-					std::function<void ()>&& func) :
-		__WFGoTask(queue, executor, std::move(func)),
-		ref(4)
-	{
-		this->seconds = seconds;
-		this->nanoseconds = nanoseconds;
-	}
-};
-
-template<class FUNC, class... ARGS>
-inline WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
-											   FUNC&& func, ARGS&&... args)
-{
-	auto&& tmp = std::bind(std::forward<FUNC>(func),
-						   std::forward<ARGS>(args)...);
-	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
-						  WFGlobal::get_compute_executor(),
-						  std::move(tmp));
-}
-
-template<class FUNC, class... ARGS>
-WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
-											 const std::string& queue_name,
-											 FUNC&& func, ARGS&&... args)
-{
-	auto&& tmp = std::bind(std::forward<FUNC>(func),
-						   std::forward<ARGS>(args)...);
-	return new __WFTimedGoTask(seconds, nanoseconds,
-							   WFGlobal::get_exec_queue(queue_name),
-							   WFGlobal::get_compute_executor(),
-							   std::move(tmp));
-}
-
-template<class FUNC, class... ARGS>
-inline WFGoTask *WFTaskFactory::create_go_task(ExecQueue *queue, Executor *executor,
-											   FUNC&& func, ARGS&&... args)
-{
-	auto&& tmp = std::bind(std::forward<FUNC>(func),
-						   std::forward<ARGS>(args)...);
-	return new __WFGoTask(queue, executor, std::move(tmp));
-}
-
-template<class FUNC, class... ARGS>
-WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
-											 ExecQueue *queue, Executor *executor,
-											 FUNC&& func, ARGS&&... args)
-{
-	auto&& tmp = std::bind(std::forward<FUNC>(func),
-						   std::forward<ARGS>(args)...);
-	return new __WFTimedGoTask(seconds, nanoseconds,
-							   queue, executor,
-							   std::move(tmp));
-}
-
-template<class FUNC, class... ARGS>
-void WFTaskFactory::reset_go_task(WFGoTask *task, FUNC&& func, ARGS&&... args)
-{
-	auto&& tmp = std::bind(std::forward<FUNC>(func),
-						   std::forward<ARGS>(args)...);
-	((__WFGoTask *)task)->set_go_func(std::move(tmp));
-}
-
 class __WFDynamicTask : public WFDynamicTask
 {
 protected:
@@ -669,6 +561,164 @@ public:
 	static WFMySQLTask *create_mysql_task(CommService *service,
 					std::function<void (WFMySQLTask *)>& process);
 };
+
+/************Go Task Factory************/
+
+class __WFGoTask : public WFGoTask
+{
+public:
+	void set_go_func(std::function<void ()> func)
+	{
+		this->go = std::move(func);
+	}
+
+protected:
+	virtual void execute()
+	{
+		this->go();
+	}
+
+protected:
+	std::function<void ()> go;
+
+public:
+	__WFGoTask(ExecQueue *queue, Executor *executor,
+			   std::function<void ()>&& func) :
+		WFGoTask(queue, executor),
+		go(std::move(func))
+	{
+	}
+};
+
+class __WFTimedGoTask : public __WFGoTask
+{
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
+protected:
+	virtual void handle(int state, int error);
+
+protected:
+	static void timer_callback(WFTimerTask *timer);
+
+protected:
+	time_t seconds;
+	long nanoseconds;
+	std::atomic<int> ref;
+
+public:
+	__WFTimedGoTask(time_t seconds, long nanoseconds,
+					ExecQueue *queue, Executor *executor,
+					std::function<void ()>&& func) :
+		__WFGoTask(queue, executor, std::move(func)),
+		ref(4)
+	{
+		this->seconds = seconds;
+		this->nanoseconds = nanoseconds;
+	}
+};
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
+										FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
+						  WFGlobal::get_compute_executor(),
+						  std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
+											 const std::string& queue_name,
+											 FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   WFGlobal::get_exec_queue(queue_name),
+							   WFGlobal::get_compute_executor(),
+							   std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_go_task(ExecQueue *queue, Executor *executor,
+										FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFGoTask(queue, executor, std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
+											 ExecQueue *queue, Executor *executor,
+											 FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   queue, executor,
+							   std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+void WFTaskFactory::reset_go_task(WFGoTask *task, FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	static_cast<__WFGoTask *>(task)->set_go_func(std::move(tmp));
+}
+
+/**********Create go task with nullptr func**********/
+
+template<>
+inline WFGoTask *WFTaskFactory::create_go_task<std::nullptr_t>
+										(const std::string& queue_name,
+										 std::nullptr_t&& func)
+{
+	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
+						  WFGlobal::get_compute_executor(),
+						  nullptr);
+}
+
+template<>
+inline WFGoTask *WFTaskFactory::create_timedgo_task<std::nullptr_t>
+										(time_t seconds, long nanoseconds,
+										 const std::string& queue_name,
+										 std::nullptr_t&& func)
+{
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   WFGlobal::get_exec_queue(queue_name),
+							   WFGlobal::get_compute_executor(),
+							   nullptr);
+}
+
+template<>
+inline WFGoTask *WFTaskFactory::create_go_task<std::nullptr_t>
+										(ExecQueue *queue, Executor *executor,
+										 std::nullptr_t&& func)
+{
+	return new __WFGoTask(queue, executor, nullptr);
+}
+
+template<>
+inline WFGoTask *WFTaskFactory::create_timedgo_task<std::nullptr_t>
+										(time_t seconds, long nanoseconds,
+										 ExecQueue *queue, Executor *executor,
+										 std::nullptr_t&& func)
+{
+	return new __WFTimedGoTask(seconds, nanoseconds, queue, executor, nullptr);
+}
+
+template<>
+inline void WFTaskFactory::reset_go_task<std::nullptr_t>
+										(WFGoTask *task, std::nullptr_t&& func)
+{
+	static_cast<__WFGoTask *>(task)->set_go_func(nullptr);
+}
 
 /**********Template Thread Task Factory**********/
 

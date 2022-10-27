@@ -126,6 +126,7 @@ public:
 
 	// Internal usage only
 public:
+	static bool is_scheduler_created();
 	static class CommScheduler *get_scheduler();
 	static SSL_CTX *get_ssl_client_ctx();
 	static SSL_CTX *new_ssl_server_ctx();

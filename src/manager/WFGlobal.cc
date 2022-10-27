@@ -350,6 +350,7 @@ public:
 	static __CommManager *get_instance()
 	{
 		static __CommManager kInstance;
+		__CommManager::created_ = true;
 		return &kInstance;
 	}
 
@@ -377,6 +378,8 @@ public:
 
 		return fio_service_;
 	}
+
+	static bool is_created() { return created_; }
 
 private:
 	__CommManager():
@@ -409,7 +412,12 @@ private:
 	__FileIOService *fio_service_;
 	volatile bool fio_flag_;
 	std::mutex fio_mutex_;
+
+private:
+	static bool created_;
 };
+
+bool __CommManager::created_ = true;
 
 class __ExecManager
 {
@@ -657,6 +665,11 @@ RouteManager WFGlobal::route_manager_;
 DnsCache WFGlobal::dns_cache_;
 WFDnsResolver WFGlobal::dns_resolver_;
 WFNameService WFGlobal::name_service_(&WFGlobal::dns_resolver_);
+
+bool WFGlobal::is_scheduler_created()
+{
+	return __CommManager::is_created();
+}
 
 CommScheduler *WFGlobal::get_scheduler()
 {

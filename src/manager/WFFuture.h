@@ -88,7 +88,8 @@ void WFFuture<RES>::wait() const
 {
 	if (this->future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 	{
-		bool in_handler = WFGlobal::get_scheduler()->is_handler_thread();
+		bool in_handler = WFGlobal::is_scheduler_created() &&
+						  WFGlobal::get_scheduler()->is_handler_thread();
 
 		if (in_handler)
 			WFGlobal::sync_operation_begin();
@@ -107,7 +108,8 @@ std::future_status WFFuture<RES>::wait_for(const std::chrono::duration<REP, PERI
 
 	if (this->future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 	{
-		bool in_handler = WFGlobal::get_scheduler()->is_handler_thread();
+		bool in_handler = WFGlobal::is_scheduler_created() &&
+						  WFGlobal::get_scheduler()->is_handler_thread();
 
 		if (in_handler)
 			WFGlobal::sync_operation_begin();
@@ -128,7 +130,8 @@ std::future_status WFFuture<RES>::wait_until(const std::chrono::time_point<CLOCK
 
 	if (this->future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 	{
-		bool in_handler = WFGlobal::get_scheduler()->is_handler_thread();
+		bool in_handler = WFGlobal::is_scheduler_created() &&
+						  WFGlobal::get_scheduler()->is_handler_thread();
 
 		if (in_handler)
 			WFGlobal::sync_operation_begin();

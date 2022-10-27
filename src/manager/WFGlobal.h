@@ -159,8 +159,8 @@ public:
 	}
 
 public:
-	static void sync_operation_begin();
-	static void sync_operation_end();
+	static int sync_operation_begin();
+	static void sync_operation_end(int cookie);
 
 private:
 	static struct WFGlobalSettings settings_;

@@ -732,14 +732,22 @@ void WFGlobal::register_scheme_port(const std::string& scheme,
 	__WFGlobal::get_instance()->register_scheme_port(scheme, port);
 }
 
-void WFGlobal::sync_operation_begin()
+int WFGlobal::sync_operation_begin()
 {
-	__WFGlobal::get_instance()->sync_operation_begin();
+	if (WFGlobal::is_scheduler_created() &&
+		WFGlobal::get_scheduler()->is_handler_thread())
+	{
+		__WFGlobal::get_instance()->sync_operation_begin();
+		return 1;
+	}
+
+	return 0;
 }
 
-void WFGlobal::sync_operation_end()
+void WFGlobal::sync_operation_end(int cookie)
 {
-	__WFGlobal::get_instance()->sync_operation_end();
+	if (cookie)
+		__WFGlobal::get_instance()->sync_operation_end();
 }
 
 static inline const char *__get_ssl_error_string(int error)

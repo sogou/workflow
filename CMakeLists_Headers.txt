@@ -90,7 +90,6 @@ set(INCLUDE_HEADERS
 	src/util/LRUCache.h
 	src/util/StringUtil.h
 	src/util/URIParser.h
-	src/util/MD5Util.h
 	src/util/RWLock.h
 	src/factory/WFConnection.h
 	src/factory/WFTask.h

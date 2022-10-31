@@ -390,7 +390,7 @@ static uint64_t __generate_key(TransportType type,
 							   const struct EndpointParams *endpoint_params,
 							   const std::string& hostname)
 {
-	unsigned char md5[16];
+	uint64_t md5[2];
 	MD5_CTX ctx;
 
 	MD5_Init(&ctx);
@@ -423,8 +423,8 @@ static uint64_t __generate_key(TransportType type,
 	else
 		MD5_Update(&ctx, addrinfo->ai_addr, addrinfo->ai_addrlen);
 
-	MD5_Final(md5, &ctx);
-	return *(uint64_t *)(void *)md5;
+	MD5_Final((unsigned char *)md5, &ctx);
+	return md5[0];
 }
 
 RouteManager::~RouteManager()

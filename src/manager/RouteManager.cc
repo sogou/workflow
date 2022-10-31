@@ -409,10 +409,16 @@ static uint64_t __generate_key(TransportType type,
 
 		std::sort(sorted_addr.begin(), sorted_addr.end(), __addr_less);
 		for (const struct addrinfo *p : sorted_addr)
+		{
+			MD5_Update(&ctx, &p->ai_addrlen, sizeof p->ai_addrlen);
 			MD5_Update(&ctx, p->ai_addr, p->ai_addrlen);
+		}
 	}
 	else
+	{
+		MD5_Update(&ctx, &addrinfo->ai_addrlen, sizeof addrinfo->ai_addrlen);
 		MD5_Update(&ctx, addrinfo->ai_addr, addrinfo->ai_addrlen);
+	}
 
 	MD5_Final((unsigned char *)md5, &ctx);
 	return md5[0];

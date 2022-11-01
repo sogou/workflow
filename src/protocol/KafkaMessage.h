@@ -60,7 +60,7 @@ public:
 	void set_api_version(int ver) { this->api_version = ver; }
 	int get_api_version() const { return this->api_version; }
 
-	void set_correlation_id(int id) { this-> correlation_id = id; }
+	void set_correlation_id(int id) { this->correlation_id = id; }
 	int get_correlation_id() const { return this->correlation_id; }
 
 	void set_config(const KafkaConfig& conf)

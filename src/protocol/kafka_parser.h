@@ -27,7 +27,6 @@
 enum
 {
 	KAFKA_UNKNOWN_SERVER_ERROR = -1,
-	KAFKA_NONE = 0,
 	KAFKA_OFFSET_OUT_OF_RANGE = 1,
 	KAFKA_CORRUPT_MESSAGE = 2,
 	KAFKA_UNKNOWN_TOPIC_OR_PARTITION = 3,
@@ -203,9 +202,9 @@ enum
 
 enum
 {
-    KAFKA_TIMESTAMP_EARLIEST = -2,
-    KAFKA_TIMESTAMP_LATEST = -1,
-    KAFKA_TIMESTAMP_UNINIT = 0,
+	KAFKA_TIMESTAMP_EARLIEST = -2,
+	KAFKA_TIMESTAMP_LATEST = -1,
+	KAFKA_TIMESTAMP_UNINIT = 0,
 };
 
 enum
@@ -355,20 +354,20 @@ typedef struct __kafka_record_header
 	struct list_head list;
 	void *key;
 	size_t key_len;
-	int key_is_move;
+	int key_is_moved;
 	void *value;
 	size_t value_len;
-	int value_is_move;
+	int value_is_moved;
 } kafka_record_header_t;
 
 typedef struct __kafka_record
 {
 	void *key;
 	size_t key_len;
-	int key_is_move;
+	int key_is_moved;
 	void *value;
 	size_t value_len;
-	int value_is_move;
+	int value_is_moved;
 	long long timestamp;
 	long long offset;
 	struct list_head header_list;
@@ -418,7 +417,7 @@ typedef struct __kafka_block
 {
 	void *buf;
 	size_t len;
-	int is_move;
+	int is_moved;
 } kafka_block_t;
 
 

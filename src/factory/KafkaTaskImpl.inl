@@ -53,3 +53,9 @@ public:
 											__kafka_callback_t callback);
 };
 
+struct __ComplexKafkaTaskCtx
+{
+	int kafka_error;
+	__kafka_callback_t cb;
+};
+

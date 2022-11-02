@@ -280,7 +280,7 @@ public:
 
 private:
 	struct __mpoller *mpoller;
-	struct __msgqueue *queue;
+	struct __msgqueue *msgqueue;
 	struct __thrdpool *thrdpool;
 	int stop_flag;
 
@@ -341,9 +341,15 @@ private:
 	static int first_timeout_send(CommSession *session);
 	static int first_timeout_recv(CommSession *session);
 
-	static int append(const void *buf, size_t *size, poller_message_t *msg);
+	static int append_request(const void *buf, size_t *size,
+							  poller_message_t *msg);
+	static int append_reply(const void *buf, size_t *size,
+							poller_message_t *msg);
 
 	static int create_service_session(struct CommConnEntry *entry);
+
+	static poller_message_t *create_request(struct CommConnEntry *entry);
+	static poller_message_t *create_reply(struct CommConnEntry *entry);
 
 	static poller_message_t *create_message(void *context);
 

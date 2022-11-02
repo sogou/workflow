@@ -43,7 +43,6 @@ struct __json_array
 
 struct __json_value
 {
-	int type;
 	union
 	{
 		char *string;
@@ -51,6 +50,7 @@ struct __json_value
 		json_object_t object;
 		json_array_t array;
 	} value;
+	int type;
 };
 
 struct __json_member

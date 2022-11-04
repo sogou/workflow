@@ -53,6 +53,22 @@ private:
 	std::vector<UPSGroupPolicy *> upstream_policies;
 };
 
+int UpstreamManager::upstream_create_round_robin(const std::string& name,
+												 bool try_another)
+{
+	WFNameService *ns = WFGlobal::get_name_service();
+	auto *policy = new UPSRoundRobinPolicy(try_another);
+
+	if (ns->add_policy(name.c_str(), policy) >= 0)
+	{
+		__UpstreamManager::get_instance()->add_upstream_policy(policy);
+		return 0;
+	}
+
+	delete policy;
+	return -1;
+}
+
 static unsigned int __default_consistent_hash(const char *path,
 											  const char *query,
 											  const char *fragment)

@@ -166,6 +166,7 @@ private:
 	void fuse_server_to_breaker(EndpointAddress *addr);
 	void check_breaker_locked(int64_t cur_time);
 
+private:
 	struct list_head breaker_list;
 	std::mutex breaker_lock;
 	unsigned int mttr_second;

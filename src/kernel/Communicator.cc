@@ -1239,12 +1239,19 @@ int Communicator::append_reply(const void *buf, size_t *size,
 	return ret;
 }
 
-int Communicator::create_service_session(struct CommConnEntry *entry)
+poller_message_t *Communicator::create_request(struct CommConnEntry *entry)
 {
 	CommService *service = entry->service;
 	CommTarget *target = entry->target;
 	CommSession *session;
 	int timeout;
+
+	if (entry->state == CONN_STATE_IDLE)
+	{
+		pthread_mutex_lock(&target->mutex);
+		/* do nothing */
+		pthread_mutex_unlock(&target->mutex);
+	}
 
 	pthread_mutex_lock(&service->mutex);
 	if (entry->state == CONN_STATE_KEEPALIVE)
@@ -1255,54 +1262,28 @@ int Communicator::create_service_session(struct CommConnEntry *entry)
 	pthread_mutex_unlock(&service->mutex);
 	if (!entry)
 	{
-		errno = ENOENT;
-		return -1;
-	}
-
-	session = service->new_session(entry->seq, entry->conn);
-	if (session)
-	{
-		session->passive = 1;
-		entry->session = session;
-		session->target = target;
-		session->conn = entry->conn;
-		session->seq = entry->seq++;
-		session->out = NULL;
-		session->in = NULL;
-
-		timeout = Communicator::first_timeout_recv(session);
-		mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
-		entry->state = CONN_STATE_RECEIVING;
-
-		((CommServiceTarget *)target)->incref();
-		return 0;
-	}
-
-	return -1;
-}
-
-poller_message_t *Communicator::create_request(struct CommConnEntry *entry)
-{
-	CommSession *session;
-
-	if (entry->state == CONN_STATE_IDLE)
-	{
-		pthread_mutex_lock(&entry->target->mutex);
-		/* do nothing */
-		pthread_mutex_unlock(&entry->target->mutex);
-	}
-
-	if (entry->state != CONN_STATE_KEEPALIVE &&
-		entry->state != CONN_STATE_CONNECTED)
-	{
 		errno = EBADMSG;
 		return NULL;
 	}
 
-	if (Communicator::create_service_session(entry) < 0)
+	session = service->new_session(entry->seq, entry->conn);
+	if (!session)
 		return NULL;
 
-	session = entry->session;
+	session->passive = 1;
+	entry->session = session;
+	session->target = target;
+	session->conn = entry->conn;
+	session->seq = entry->seq++;
+	session->out = NULL;
+	session->in = NULL;
+
+	timeout = Communicator::first_timeout_recv(session);
+	mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
+	entry->state = CONN_STATE_RECEIVING;
+
+	((CommServiceTarget *)target)->incref();
+
 	session->in = session->message_in();
 	if (session->in)
 	{

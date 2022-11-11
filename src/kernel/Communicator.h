@@ -346,8 +346,6 @@ private:
 	static int append_reply(const void *buf, size_t *size,
 							poller_message_t *msg);
 
-	static int create_service_session(struct CommConnEntry *entry);
-
 	static poller_message_t *create_request(struct CommConnEntry *entry);
 	static poller_message_t *create_reply(struct CommConnEntry *entry);
 

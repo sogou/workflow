@@ -145,13 +145,7 @@ public:
 	{
 		parser->question.qclass = qclass;
 	}
-	void set_question_name(const std::string& name)
-	{
-		char *pname = parser->question.qname;
-		if (pname != NULL)
-			free(pname);
-		parser->question.qname = strdup(name.c_str());
-	}
+	void set_question_name(const std::string& name);
 
 	// Inner use only
 	bool is_single_packet() const

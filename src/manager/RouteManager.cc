@@ -394,15 +394,16 @@ static uint64_t __generate_key(TransportType type,
 	MD5_CTX ctx;
 
 	MD5_Init(&ctx);
-	MD5_Update(&ctx, &type, sizeof type);
+	MD5_Update(&ctx, &type, sizeof (TransportType));
 	if (!other_info.empty())
-		MD5_Update(&ctx, other_info.c_str(), other_info.size() + 1);
+		MD5_Update(&ctx, other_info.c_str(), other_info.size());
 
+	MD5_Update(&ctx, &endpoint_params->max_connections, sizeof (size_t));
+	MD5_Update(&ctx, &endpoint_params->connect_timeout, sizeof (int));
+	MD5_Update(&ctx, &endpoint_params->response_timeout, sizeof (int));
+	MD5_Update(&ctx, &endpoint_params->ssl_connect_timeout, sizeof (int));
 	if (type == TT_TCP_SSL && endpoint_params->use_tls_sni)
-	{
-		MD5_Update(&ctx, "\n", 1);
 		MD5_Update(&ctx, hostname.c_str(), hostname.size() + 1);
-	}
 
 	if (addrinfo->ai_next)
 	{
@@ -419,13 +420,13 @@ static uint64_t __generate_key(TransportType type,
 		std::sort(sorted_addr.begin(), sorted_addr.end(), __addr_less);
 		for (const struct addrinfo *p : sorted_addr)
 		{
-			MD5_Update(&ctx, &p->ai_addrlen, sizeof p->ai_addrlen);
+			MD5_Update(&ctx, &p->ai_addrlen, sizeof (socklen_t));
 			MD5_Update(&ctx, p->ai_addr, p->ai_addrlen);
 		}
 	}
 	else
 	{
-		MD5_Update(&ctx, &addrinfo->ai_addrlen, sizeof addrinfo->ai_addrlen);
+		MD5_Update(&ctx, &addrinfo->ai_addrlen, sizeof (socklen_t));
 		MD5_Update(&ctx, addrinfo->ai_addr, addrinfo->ai_addrlen);
 	}
 

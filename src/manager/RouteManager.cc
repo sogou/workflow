@@ -16,8 +16,6 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
-#include <openssl/md5.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +25,8 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <openssl/ssl.h>
+#include <openssl/md5.h>
 #include "PlatformSocket.h"
 #include "list.h"
 #include "rbtree.h"
@@ -378,23 +378,28 @@ static inline bool __addr_less(const struct addrinfo *x, const struct addrinfo *
 static uint64_t __generate_key(TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
-							   const struct EndpointParams *endpoint_params,
+							   const struct EndpointParams *ep_params,
 							   const std::string& hostname)
 {
+	std::string buf((const char *)&type, sizeof (TransportType));
 	uint64_t md5[2];
 	MD5_CTX ctx;
 
-	MD5_Init(&ctx);
-	MD5_Update(&ctx, &type, sizeof type);
 	if (!other_info.empty())
-		MD5_Update(&ctx, other_info.c_str(), other_info.size());
+		buf += other_info;
 
-	MD5_Update(&ctx, &endpoint_params->max_connections, sizeof (size_t));
-	MD5_Update(&ctx, &endpoint_params->connect_timeout, sizeof (int));
-	MD5_Update(&ctx, &endpoint_params->response_timeout, sizeof (int));
-	MD5_Update(&ctx, &endpoint_params->ssl_connect_timeout, sizeof (int));
-	if (type == TT_TCP_SSL && endpoint_params->use_tls_sni)
-		MD5_Update(&ctx, hostname.c_str(), hostname.size() + 1);
+	buf.append((const char *)&ep_params->max_connections, sizeof (size_t));
+	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
+	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
+	if (type == TT_TCP_SSL)
+	{
+		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
+		if (ep_params->use_tls_sni)
+		{
+			buf += hostname;
+			buf += '\n';
+		}
+	}
 
 	if (addrinfo->ai_next)
 	{
@@ -411,16 +416,18 @@ static uint64_t __generate_key(TransportType type,
 		std::sort(sorted_addr.begin(), sorted_addr.end(), __addr_less);
 		for (const struct addrinfo *p : sorted_addr)
 		{
-			MD5_Update(&ctx, &p->ai_addrlen, sizeof (socklen_t));
-			MD5_Update(&ctx, p->ai_addr, p->ai_addrlen);
+			buf.append((const char *)&p->ai_addrlen, sizeof (socklen_t));
+			buf.append((const char *)p->ai_addr, p->ai_addrlen);
 		}
 	}
 	else
 	{
-		MD5_Update(&ctx, &addrinfo->ai_addrlen, sizeof (socklen_t));
-		MD5_Update(&ctx, addrinfo->ai_addr, addrinfo->ai_addrlen);
+		buf.append((const char *)&addrinfo->ai_addrlen, sizeof (socklen_t));
+		buf.append((const char *)addrinfo->ai_addr, addrinfo->ai_addrlen);
 	}
 
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, buf.c_str(), buf.size());
 	MD5_Final((unsigned char *)md5, &ctx);
 	return md5[0];
 }

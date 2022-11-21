@@ -41,14 +41,12 @@ public:
 
 private:
 	ParallelTask *parent;
-	SubTask **entry;
 	void *pointer;
 
 public:
 	SubTask()
 	{
 		this->parent = NULL;
-		this->entry = NULL;
 		this->pointer = NULL;
 	}
 

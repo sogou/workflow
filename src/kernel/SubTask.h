@@ -35,7 +35,6 @@ protected:
 	void subtask_done();
 
 public:
-	ParallelTask *get_parent_task() const { return this->parent; }
 	void *get_pointer() const { return this->pointer; }
 	void set_pointer(void *pointer) { this->pointer = pointer; }
 
@@ -57,25 +56,6 @@ public:
 class ParallelTask : public SubTask
 {
 public:
-	ParallelTask(SubTask **subtasks, size_t n)
-	{
-		this->subtasks = subtasks;
-		this->subtasks_nr = n;
-	}
-
-	SubTask **get_subtasks(size_t *n) const
-	{
-		*n = this->subtasks_nr;
-		return this->subtasks;
-	}
-
-	void set_subtasks(SubTask **subtasks, size_t n)
-	{
-		this->subtasks = subtasks;
-		this->subtasks_nr = n;
-	}
-
-public:
 	virtual void dispatch();
 
 protected:
@@ -84,6 +64,15 @@ protected:
 
 private:
 	size_t nleft;
+
+public:
+	ParallelTask(SubTask **subtasks, size_t n)
+	{
+		this->subtasks = subtasks;
+		this->subtasks_nr = n;
+	}
+
+	virtual ~ParallelTask() { }
 	friend class SubTask;
 };
 

@@ -28,15 +28,10 @@ void SubTask::subtask_done()
 	while (1)
 	{
 		parent = cur->parent;
-		entry = cur->entry;
 		cur = cur->done();
 		if (cur)
 		{
 			cur->parent = parent;
-			cur->entry = entry;
-			if (parent)
-				*entry = cur;
-
 			cur->dispatch();
 		}
 		else if (parent)
@@ -63,7 +58,6 @@ void ParallelTask::dispatch()
 		do
 		{
 			(*p)->parent = this;
-			(*p)->entry = p;
 			(*p)->dispatch();
 		} while (++p != end);
 	}

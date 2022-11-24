@@ -33,6 +33,7 @@ void websocket_parser_init(websocket_parser_t *parser)
 	parser->nreceived = 0;
 	parser->is_server = 0;
 	parser->status_code = WSStatusCodeUndefined;
+	parser->masking_key_offset = 0;
 	memset(parser->masking_key, 0, WS_MASKING_KEY_LENGTH);
 	memset(parser->header_buf, 0, WS_HEADER_LENGTH_MAX);
 }

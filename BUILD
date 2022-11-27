@@ -366,3 +366,9 @@ cc_binary(
 	 srcs = ['tutorial/tutorial-13-kafka_cli.cc'],
 	 deps = [':kafka', ':workflow_hdrs'],
 )
+
+cc_binary(
+	 name = 'consul_cli',
+	 srcs = ['tutorial/tutorial-14-consul_cli.cc'],
+	 deps = [':consul'],
+)

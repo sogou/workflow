@@ -106,18 +106,5 @@ unsigned char *utf8_check(unsigned char *s, size_t len);
 }
 #endif
 
-static inline void websocket_set_mask_key(unsigned int masking_key,
-										  websocket_parser_t *parser)
-{
-	uint32_t *key = (uint32_t *)parser->masking_key;
-	*key = masking_key;
-	parser->mask = 1;
-}
-
-static inline void websocket_set_opcode(int opcode, websocket_parser_t *parser)
-{
-	parser->opcode = opcode;
-}
-
 #endif
 

@@ -19,8 +19,31 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include "websocket_parser.h"
+
+#ifndef ntohll
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+
+static inline uint64_t ntohll(uint64_t x)
+{
+	return ((uint64_t)ntohl(x & 0xFFFFFFFF) << 32) + ntohl(x >> 32);
+}
+
+#elif __BYTE_ORDER == __BIG_ENDIAN
+
+static inline uint64_t ntohll(uint64_t x)
+{
+	return x;
+}
+
+#else
+# error "unknown byte order"
+#endif
+
+#endif
 
 void websocket_parser_init(websocket_parser_t *parser)
 {

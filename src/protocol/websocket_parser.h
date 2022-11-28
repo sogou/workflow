@@ -76,7 +76,6 @@ typedef struct __websocket_parser
 	unsigned char header_buf[WS_HEADER_LENGTH_MAX];
 	void *payload_data;
 	unsigned long long nreceived;
-	int masking_key_offset;
 	int nleft;
 	int is_server;
 	int status_code;

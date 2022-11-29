@@ -76,7 +76,6 @@ typedef struct __websocket_parser
 	unsigned char header_buf[WS_HEADER_LENGTH_MAX];
 	void *payload_data;
 	unsigned long long nreceived;
-	int masking_key_offset;
 	int nleft;
 	int is_server;
 	int status_code;
@@ -105,19 +104,6 @@ unsigned char *utf8_check(unsigned char *s, size_t len);
 #ifdef __cplusplus
 }
 #endif
-
-static inline void websocket_set_mask_key(unsigned int masking_key,
-										  websocket_parser_t *parser)
-{
-	uint32_t *key = (uint32_t *)parser->masking_key;
-	*key = masking_key;
-	parser->mask = 1;
-}
-
-static inline void websocket_set_opcode(int opcode, websocket_parser_t *parser)
-{
-	parser->opcode = opcode;
-}
 
 #endif
 

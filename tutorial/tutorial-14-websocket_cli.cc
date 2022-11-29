@@ -40,7 +40,7 @@ void process(WFWebSocketTask *task)
 	}
 	else
 	{
-		fprintf(stderr, "opcode=%d\n", task->get_msg()->get_opcode());
+		fprintf(stderr, "process opcode=%d\n", task->get_msg()->get_opcode());
 	}
 }
 
@@ -66,12 +66,13 @@ int main(int argc, char *argv[])
 			wg.done();
 			return;
 		}
-
+		auto *ping_task = client.create_ping_task(nullptr);
 		auto *timer_task = WFTaskFactory::create_timer_task(3000000 /* 3s */, nullptr);
 		auto *close_task = client.create_close_task([&wg] (WFWebSocketTask *task) {
 			wg.done();
 		});
 
+		series_of(task)->push_back(ping_task);
 		series_of(task)->push_back(timer_task);
 		series_of(task)->push_back(close_task);
 	});

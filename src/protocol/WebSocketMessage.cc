@@ -18,48 +18,32 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 #include "WebSocketMessage.h"
 
 namespace protocol
 {
+
+#ifndef htonll
+
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 
-static inline void int2store(unsigned char *T, uint16_t A)
+static inline uint64_t htonll(uint64_t x)
 {
-	memcpy(T, &A, sizeof(A));
-}
-
-static inline void int8store(unsigned char *T, uint64_t A)
-{
-	memcpy(T, &A, sizeof(A));
+	return ((uint64_t)htonl(x & 0xFFFFFFFF) << 32) + htonl(x >> 32);
 }
 
 #elif __BYTE_ORDER == __BIG_ENDIAN
 
-static inline void int2store(unsigned char *T, uint16_t A)
+static inline uint64_t htonll(uint64_t x)
 {
-	uint def_temp = A;
-	*(T) = (unsigned char)(def_temp);
-	*(T + 1) = (unsigned char)(def_temp >> 8);
-}
-
-static inline void int4store(unsigned char *T, uint32_t A)
-{
-	*(T) = (unsigned char)(A);
-	*(T + 1) = (unsigned char)(A >> 8);
-	*(T + 2) = (unsigned char)(A >> 16);
-	*(T + 3) = (unsigned char)(A >> 24);
-}
-
-static inline void int8store(unsigned char *T, uint64_t A)
-{
-	uint def_temp = (uint)A, def_temp2 = (uint)(A >> 32);
-	int4store(T, def_temp);
-	int4store(T + 4, def_temp2);
+	return x;
 }
 
 #else
 # error "unknown byte order"
+#endif
+
 #endif
 
 WebSocketFrame::WebSocketFrame(WebSocketFrame&& msg) :
@@ -131,14 +115,17 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 	{
 		*p = 126;
 		p++;
-		int2store(p, this->parser->payload_length);
+		uint16_t tmp = htons(this->parser->payload_length);
+		memcpy(p, &tmp, sizeof(tmp));
 		p += 2;
+
 	}
 	else
 	{
 		*p = 127;
 		p++;
-		int8store(p, this->parser->payload_length);
+		uint64_t tmp = htonll(this->parser->payload_length);
+		memcpy(p, &tmp, sizeof(tmp));
 		p += 8;
 	}
 
@@ -149,7 +136,7 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 	p = this->parser->header_buf + 1;
 	*p = *p | (this->parser->mask << 7);
 
-	if (!this->parser->is_server)
+	if (!this->parser->is_server || this->parser->mask)
 	{
 		vectors[cnt].iov_base = this->parser->masking_key;
 		vectors[cnt].iov_len = WS_MASKING_KEY_LENGTH;
@@ -271,7 +258,8 @@ bool WebSocketFrame::set_data(const websocket_parser_t *parser)
 	if (this->parser->opcode == WebSocketFrameConnectionClose &&
 		parser->status_code != WSStatusCodeUndefined)
 	{
-		int2store(p, parser->status_code);
+		uint16_t tmp = htons(parser->status_code);
+		memcpy(p, &tmp, sizeof(tmp));
 		p += 2;
 	}
 

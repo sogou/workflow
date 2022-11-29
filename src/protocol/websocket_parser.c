@@ -19,21 +19,43 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include "websocket_parser.h"
+
+#ifndef ntohll
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+
+static inline uint64_t ntohll(uint64_t x)
+{
+	return ((uint64_t)ntohl(x & 0xFFFFFFFF) << 32) + ntohl(x >> 32);
+}
+
+#elif __BYTE_ORDER == __BIG_ENDIAN
+
+static inline uint64_t ntohll(uint64_t x)
+{
+	return x;
+}
+
+#else
+# error "unknown byte order"
+#endif
+
+#endif
 
 void websocket_parser_init(websocket_parser_t *parser)
 {
 	parser->fin = 0;
 	parser->mask = 0;
 	parser->opcode = -1;
-	parser->nleft = WS_MASKING_KEY_LENGTH;
+	parser->nleft = 0;
 	parser->payload_length = 0;
 	parser->payload_data = NULL;
 	parser->nreceived = 0;
 	parser->is_server = 0;
 	parser->status_code = WSStatusCodeUndefined;
-	parser->masking_key_offset = 0;
 	memset(parser->masking_key, 0, WS_MASKING_KEY_LENGTH);
 	memset(parser->header_buf, 0, WS_HEADER_LENGTH_MAX);
 }
@@ -51,97 +73,84 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 									websocket_parser_t *parser)
 {
 	const unsigned char *p = (const unsigned char *)buf;
-	const unsigned char *buf_end = (const unsigned char *)buf + *n;
+	size_t len = *n;
+	size_t header_consumed = 0;
 
-	int header_length_min = parser->is_server ? WS_CLIENT_LENGTH_MIN :
-							WS_SERVER_LENGTH_MIN;
+	if (parser->nreceived == 0)
+		parser->nleft = WS_SERVER_LENGTH_MIN;
 
-//	if (parser->payload_length == 0) // receiving header
-	if (parser->nreceived < header_length_min)
+	if (parser->payload_data == NULL)
 	{
-		memcpy(parser->header_buf + parser->nreceived, p,
-			   WS_HEADER_LENGTH_MAX - parser->nreceived);
+		header_consumed = *n < parser->nleft ? *n : parser->nleft;
+		if (header_consumed)
+			memcpy(parser->header_buf + parser->nreceived, p, header_consumed);
 
-		if (parser->nreceived + *n < header_length_min)
+		if (*n < parser->nleft)
 		{
+			parser->nleft -= *n;
 			parser->nreceived += *n;
 			return 0;
 		}
 
-		parser->fin = *p >> 7;
-		parser->opcode = *p & 0xF;
-		p++;
-		parser->mask = *p >> 7;
-		parser->payload_length = *p & 0x7F;
-		p++;
-	}
-
-	if (parser->masking_key_offset == 0) // receive payload_length
-	{
-		if (parser->payload_length == 126 &&
-			parser->nreceived + *n >= header_length_min + 2)
+		if (parser->payload_length == 0)
 		{
-			uint16_t *len_ptr = (uint16_t *)p;
-			parser->payload_length = ntohs(*len_ptr);
+			parser->nleft = 0;
+			parser->fin = parser->header_buf[0] >> 7;
+			parser->opcode = parser->header_buf[0] & 0xF;
+			parser->mask = parser->header_buf[1] >> 7;
+			if (parser->mask == 1)
+				parser->nleft += 4;
+			parser->payload_length = parser->header_buf[1] & 0x7F;
+			if (parser->payload_length == 126)
+				parser->nleft += 2;
+			else if (parser->payload_length == 127)
+				parser->nleft += 4;
+
+			if (parser->payload_length == 0)
+				return 1;
+
+			parser->nreceived += header_consumed;
+			*n = header_consumed;
+			return 0;
+		}
+
+		p = &parser->header_buf[2];
+
+		if (parser->payload_length == 126)
+		{
+			parser->payload_length = ntohs(*((uint16_t *)p));
 			p += 2;
-			parser->masking_key_offset = 4;
 		}
-		else if (parser->payload_length == 127 &&
-				 parser->nreceived + *n >= header_length_min + 8)
+		else if (parser->payload_length == 127)
 		{
-			uint64_t *len_ptr = (uint64_t *)p;
-			parser->payload_length = (((uint64_t) ntohl(*len_ptr)) << 32) +
-									 ntohl(*len_ptr >> 32);
-			p += 8;
-			parser->masking_key_offset = 10;
-		}
-		else
-		{
-			parser->nreceived += *n;
-			parser->masking_key_offset = 2;
+			parser->payload_length = ntohll(*((uint64_t *)p));
+			p += 4;
 		}
 
-		if (parser->masking_key_offset == 0)
-			return 0; // continue for length
-	}
+		if (parser->mask == 1)
+			memcpy(parser->masking_key, p, WS_MASKING_KEY_LENGTH);
 
-	if (!parser->payload_data) // receive masking_key if needed
-	{
-		if (parser->mask && parser->nleft)
-		{
-//			if (parser->masking_key_offset + 4 < buf_end)
-			if (buf_end - p < parser->nleft)
-			{
-				parser->nleft -= buf_end - p;
-				parser->nreceived += *n;
-				return 0;
-			}
-
-			memcpy(parser->masking_key,
-				   parser->header_buf + parser->masking_key_offset,
-				   WS_MASKING_KEY_LENGTH);
-			p += parser->nleft;
-			parser->nreceived += parser->nleft;
-		}
+		parser->payload_data = malloc(parser->payload_length);
+		if (!parser->payload_data)
+			return -1;
 
 		parser->nleft = parser->payload_length;
+		len = *n - header_consumed;
 	}
 
-	parser->payload_data = malloc(parser->payload_length);
-
-	if (buf_end - p < parser->nleft)
+	p = (const unsigned char *)buf + header_consumed;
+	if (len < parser->nleft)
 	{
 		memcpy(parser->payload_data + parser->payload_length - parser->nleft,
-			   p, buf_end - p);
-		parser->nleft -= buf_end - p;
+			   p, len);
+		parser->nleft -= len;
 		return 0;
 	}
 	else
 	{
 		memcpy(parser->payload_data + parser->payload_length - parser->nleft,
 			   p, parser->nleft);
-		p += parser->nleft;
-		*n -= buf_end - p;
+		*n = header_consumed + parser->nleft;
 		return 1;
 	}
 }
@@ -159,11 +168,15 @@ int websocket_parser_parse(websocket_parser_t *parser)
 
 	unsigned char *p = (unsigned char *)parser->payload_data;
 
-	if (parser->opcode == WebSocketFrameConnectionClose)
-	{	
-		uint16_t *ptr = (uint16_t *)p;
-		parser->status_code = ntohs(*ptr);
-		parser->payload_data = p + 2;
+	if (parser->opcode == WebSocketFrameConnectionClose && p != NULL)
+	{
+		parser->status_code = ntohs(*((uint16_t*)p));
+		p = malloc(parser->payload_length - 2);
+		memcpy(p, (unsigned char *)parser->payload_data + 2,
+			   parser->payload_length - 2);
+		free(parser->payload_data);
+		parser->payload_data = p;
+		parser->payload_length -= 2;
 	}
 
 	websocket_parser_mask_data(parser);

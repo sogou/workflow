@@ -644,7 +644,7 @@ static void __move_json_value(json_value_t *src, json_value_t *dest)
 
 static int __set_json_value(int type, va_list ap, json_value_t *val)
 {
-	const void *str;
+	const char *str;
 	int len;
 
 	switch (type)

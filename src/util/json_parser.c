@@ -639,18 +639,20 @@ static void __move_json_value(json_value_t *src, json_value_t *dest)
 	}
 
 	dest->type = src->type;
-	free(src);
 }
 
 static int __set_json_value(int type, va_list ap, json_value_t *val)
 {
+	json_value_t *src;
 	const char *str;
 	int len;
 
 	switch (type)
 	{
 	case 0:
-		__move_json_value(va_arg(ap, json_value_t *), val);
+		src = va_arg(ap, json_value_t *);
+		__move_json_value(src, val);
+		free(src);
 		return 0;
 
 	case JSON_VALUE_STRING:

@@ -814,85 +814,65 @@ int json_object_size(const json_object_t *obj)
 const char *json_object_next_name(const char *name,
 								  const json_object_t *obj)
 {
-	struct list_head *pos;
-	json_member_t *memb;
+	const struct list_head *pos;
 
 	if (name)
-	{
-		memb = list_entry(name, json_member_t, name);
-		pos = memb->list.next;
-	}
+		pos = &list_entry(name, json_member_t, name)->list;
 	else
-		pos = obj->head.next;
+		pos = &obj->head;
 
-	if (pos == &obj->head)
+	if (pos->next == &obj->head)
 		return NULL;
 
-	memb = list_entry(pos, json_member_t, list);
-	return memb->name;
+	return list_entry(pos->next, json_member_t, list)->name;
 }
 
 const json_value_t *json_object_next_value(const json_value_t *val,
 										   const json_object_t *obj)
 {
-	struct list_head *pos;
-	json_member_t *memb;
+	const struct list_head *pos;
 
 	if (val)
-	{
-		memb = list_entry(val, json_member_t, value);
-		pos = memb->list.next;
-	}
+		pos = &list_entry(val, json_member_t, value)->list;
 	else
-		pos = obj->head.next;
+		pos = &obj->head;
 
-	if (pos == &obj->head)
+	if (pos->next == &obj->head)
 		return NULL;
 
-	memb = list_entry(pos, json_member_t, list);
-	return &memb->value;
+	return &list_entry(pos->next, json_member_t, list)->value;
 }
 
 const char *json_object_prev_name(const char *name,
 								  const json_object_t *obj)
 {
-	struct list_head *pos;
-	json_member_t *memb;
+	const struct list_head *pos;
 
 	if (name)
-	{
-		memb = list_entry(name, json_member_t, name);
-		pos = memb->list.prev;
-	}
+		pos = &list_entry(name, json_member_t, name)->list;
 	else
-		pos = obj->head.prev;
+		pos = &obj->head;
 
-	if (pos == &obj->head)
+	if (pos->prev == &obj->head)
 		return NULL;
 
-	memb = list_entry(pos, json_member_t, list);
-	return memb->name;
+	return list_entry(pos->prev, json_member_t, list)->name;
 }
 
 const json_value_t *json_object_prev_value(const json_value_t *val,
 										   const json_object_t *obj)
 {
-	struct list_head *pos;
-	json_member_t *memb;
+	const struct list_head *pos;
 
 	if (val)
-	{
-		memb = list_entry(val, json_member_t, value);
-		pos = memb->list.prev;
-	}
+		pos = &list_entry(val, json_member_t, value)->list;
 	else
-		pos = obj->head.prev;
+		pos = &obj->head;
 
-	if (pos == &obj->head)
+	if (pos->prev == &obj->head)
 		return NULL;
 
-	memb = list_entry(pos, json_member_t, list);
-	return &memb->value;
+	return &list_entry(pos->prev, json_member_t, list)->value;
 }
 
 static const json_value_t *__json_object_insert(const char *name,
@@ -961,12 +941,12 @@ const json_value_t *json_object_insert_before(const json_value_t *val,
 	va_list ap;
 
 	if (val)
-		pos = list_entry(val, json_member_t, list)->list.prev;
+		pos = &list_entry(val, json_member_t, list)->list;
 	else
-		pos = obj->head.prev;
+		pos = &obj->head;
 
 	va_start(ap, type);
-	val = __json_object_insert(name, type, ap, pos, obj);
+	val = __json_object_insert(name, type, ap, pos->prev, obj);
 	va_end(ap);
 	return val;
 }
@@ -997,43 +977,33 @@ int json_array_size(const json_array_t *arr)
 const json_value_t *json_array_next_value(const json_value_t *val,
 										  const json_array_t *arr)
 {
-	struct list_head *pos;
-	json_element_t *elem;
+	const struct list_head *pos;
 
 	if (val)
-	{
-		elem = list_entry(val, json_element_t, value);
-		pos = elem->list.next;
-	}
+		pos = &list_entry(val, json_element_t, value)->list;
 	else
-		pos = arr->head.next;
+		pos = &arr->head;
 
-	if (pos == &arr->head)
+	if (pos->next == &arr->head)
 		return NULL;
 
-	elem = list_entry(pos, json_element_t, list);
-	return &elem->value;
+	return &list_entry(pos->next, json_element_t, list)->value;
 }
 
 const json_value_t *json_array_prev_value(const json_value_t *val,
 										  const json_array_t *arr)
 {
-	struct list_head *pos;
-	json_element_t *elem;
+	const struct list_head *pos;
 
 	if (val)
-	{
-		elem = list_entry(val, json_element_t, value);
-		pos = elem->list.prev;
-	}
+		pos = &list_entry(val, json_element_t, value)->list;
 	else
-		pos = arr->head.prev;
+		pos = &arr->head;
 
-	if (pos == &arr->head)
+	if (pos->prev == &arr->head)
 		return NULL;
 
-	elem = list_entry(pos, json_element_t, list);
-	return &elem->value;
+	return &list_entry(pos->prev, json_element_t, list)->value;
 }
 
 static const json_value_t *__json_array_insert(int type, va_list ap,
@@ -1095,12 +1065,12 @@ const json_value_t *json_array_insert_before(const json_value_t *val,
 	va_list ap;
 
 	if (val)
-		pos = list_entry(val, json_element_t, list)->list.prev;
+		pos = &list_entry(val, json_element_t, list)->list;
 	else
-		pos = arr->head.prev;
+		pos = &arr->head;
 
 	va_start(ap, type);
-	val = __json_array_insert(type, ap, pos, arr);
+	val = __json_array_insert(type, ap, pos->prev, arr);
 	va_end(ap);
 	return val;
 }

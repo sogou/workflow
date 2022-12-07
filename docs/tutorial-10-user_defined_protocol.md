@@ -193,35 +193,43 @@ server与普通的http server没有什么区别。我们优先IPv6启动，这�
 
 client端的逻辑是从标准IO接收用户输入，构造出请求发往server并得到结果。这里我们使用了WFRepeaterTask来实现这个重复过程，直到用户的输入为空。
 此外，为了安全我们限制server回复包不超4KB。  
-client端唯一需要了解的就是怎么产生一个自定义协议的client任务，在[WFTaskFactory.h](../src/factory/WFTaskFactory.h)有三个接口可以选择：
+client端唯一需要了解的就是怎么产生一个自定义协议的client任务，在[WFTaskFactory.h](../src/factory/WFTaskFactory.h)有四个接口可以选择：
 ~~~cpp
 template<class REQ, class RESP>
 class WFNetworkTaskFactory
 {
 private:
-    using T = WFNetworkTask<REQ, RESP>;
+	using T = WFNetworkTask<REQ, RESP>;
 
 public:
-    static T *create_client_task(TransportType type,
-                                 const std::string& host,
-                                 unsigned short port,
-                                 int retry_max,
-                                 std::function<void (T *)> callback);
+	static T *create_client_task(TransportType type,
+								 const std::string& host,
+								 unsigned short port,
+								 int retry_max,
+								 std::function<void (T *)> callback);
 
-    static T *create_client_task(TransportType type,
-                                 const std::string& url,
-                                 int retry_max,
-                                 std::function<void (T *)> callback);
+	static T *create_client_task(TransportType type,
+								 const std::string& url,
+								 int retry_max,
+								 std::function<void (T *)> callback);
 
-    static T *create_client_task(TransportType type,
-                                 const URI& uri,
-                                 int retry_max,
-                                 std::function<void (T *)> callback);
+	static T *create_client_task(TransportType type,
+								 const ParsedURI& uri,
+								 int retry_max,
+								 std::function<void (T *)> callback);
+
+	static T *create_client_task(TransportType type,
+								 const struct sockaddr *addr,
+								 socklen_t addrlen,
+								 int retry_max,
+								 std::function<void (T *)> callback);
+
     ...
 };
 ~~~
 其中，TransportType指定传输层协议，目前可选的值包括TT_TCP，TT_UDP，TT_SCTP和TT_TCP_SSL。  
-三个接口的区别不大，在我们这个示例里暂时不需要URL，我们用域名和端口来创建任务。  
+四个接口的区别不大，在我们这个示例里暂时不需要URL，我们用域名和端口来创建任务。  
+如果用户需要使用Unix Domain Protocol访问server，则需要用最后一个接口，直接传入sockaddr。  
 实际的调用代码如下。我们派生了WFTaskFactory类，但这个派生并非必须的。
 ~~~cpp
 using namespace protocol;

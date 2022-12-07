@@ -146,7 +146,7 @@ int TutorialMessage::append(const void *buf, size_t size)
         return -1;
     }
 
-    memcpy(this->body, buf, body_left);
+    memcpy(this->body, buf, size);
     if (size < body_left)
         return 0;
 
@@ -257,7 +257,7 @@ client的其它代码涉及的知识点在之前的示例里都包含了。请�
 
 # 内置协议的请求是怎么产生的
 
-现在系统中内置了http, redis，mysql，kafka四种协议。我们可以通过相同的方法产生一个http或redis任务吗？比如：  
+现在系统中内置了http, redis，mysql，kafka，dns等协议。我们可以通过相同的方法产生一个http或redis任务吗？比如：  
 ~~~cpp
 WFHttpTask *task = WFNetworkTaskFactory<protocol::HttpRequest, protocol::HttpResponse>::create_client_task(...);
 ~~~

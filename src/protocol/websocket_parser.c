@@ -54,7 +54,6 @@ void websocket_parser_init(websocket_parser_t *parser)
 	parser->payload_length = 0;
 	parser->payload_data = NULL;
 	parser->nreceived = 0;
-	parser->is_server = 0;
 	parser->status_code = WSStatusCodeUndefined;
 	memset(parser->masking_key, 0, WS_MASKING_KEY_LENGTH);
 	memset(parser->header_buf, 0, WS_HEADER_LENGTH_MAX);
@@ -104,7 +103,7 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 			if (parser->payload_length == 126)
 				parser->nleft += 2;
 			else if (parser->payload_length == 127)
-				parser->nleft += 4;
+				parser->nleft += 8;
 
 			if (parser->payload_length == 0)
 				return 1;
@@ -124,7 +123,7 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 		else if (parser->payload_length == 127)
 		{
 			parser->payload_length = ntohll(*((uint64_t *)p));
-			p += 4;
+			p += 8;
 		}
 
 		if (parser->mask == 1)

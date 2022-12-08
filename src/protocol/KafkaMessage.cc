@@ -2882,7 +2882,9 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 		if (bbroker->get_node_id() == leader_id)
 		{
 			kafka_broker_t *broker = bbroker->get_raw_ptr();
+
 			kafka_broker_deinit(leader);
+			kafka_broker_init(leader);
 			leader->node_id = broker->node_id;
 			leader->port = broker->port;
 

@@ -57,15 +57,17 @@ int WebSocketClient::init(const struct WFWebSocketParams *params)
 	if (params->sec_version)
 	this->channel->set_sec_version(params->sec_version);
 
-	this->channel->set_callback([this](WFChannel<protocol::WebSocketFrame> *channel)
+	this->channel->set_callback([](WFChannel<protocol::WebSocketFrame> *channel)
 	{
-		pthread_mutex_lock(&this->channel->mutex);
-		if (this->channel->is_established() == 0)
+		ComplexWebSocketChannel *ch = (ComplexWebSocketChannel *)channel;
+
+		pthread_mutex_lock(&ch->mutex);
+		if (ch->is_established() == 0)
 		{
-			this->channel->set_state(WFT_STATE_SYS_ERROR);
-			this->channel->set_sending(false);
+			ch->set_state(WFT_STATE_SYS_ERROR);
+			ch->set_sending(false);
 		}
-		pthread_mutex_unlock(&this->channel->mutex);
+		pthread_mutex_unlock(&ch->mutex);
 	});
 
 	return 0;

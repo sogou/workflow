@@ -136,7 +136,7 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 	p = this->parser->header_buf + 1;
 	*p = *p | (this->parser->mask << 7);
 
-	if (!this->parser->is_server || this->parser->mask)
+	if (this->parser->mask)
 	{
 		vectors[cnt].iov_base = this->parser->masking_key;
 		vectors[cnt].iov_len = WS_MASKING_KEY_LENGTH;

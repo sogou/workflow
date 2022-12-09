@@ -49,8 +49,6 @@ public:
 	bool finished() const;
 
 public:
-	void set_client() { this->parser->is_server = 0; }
-	void set_server() { this->parser->is_server = 1; }
 	const websocket_parser_t *get_parser() { return this->parser; }
 	bool set_data(const websocket_parser_t *parser);
 	uint32_t get_masking_key() const;

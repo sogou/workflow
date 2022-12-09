@@ -77,7 +77,6 @@ typedef struct __websocket_parser
 	void *payload_data;
 	unsigned long long nreceived;
 	int nleft;
-	int is_server;
 	int status_code;
 } websocket_parser_t;
 

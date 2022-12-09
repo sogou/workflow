@@ -51,7 +51,7 @@ private:
 	virtual void handle(int state, int error) = 0;
 
 protected:
-	ExecQueue *get_queue() { return this->queue; }
+	ExecQueue *get_queue() const { return this->queue; }
 
 private:
 	ExecQueue *queue;

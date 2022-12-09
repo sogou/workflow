@@ -270,8 +270,11 @@ bool WebSocketFrame::set_data(const websocket_parser_t *parser)
 
 bool WebSocketFrame::get_data(const char **data, size_t *size) const
 {
-	if (!this->parser->payload_length || !this->parser->payload_data)
+	if (this->parser->status_code == WSStatusCodeUnsupportedData ||
+		this->parser->status_code == WSStatusCodeProtocolError)
+	{
 		return false;
+	}
 
 	*data = (char *)this->parser->payload_data;
 	*size = this->parser->payload_length;

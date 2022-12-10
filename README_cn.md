@@ -67,6 +67,8 @@ sudo apt-get install workflow1
 ~~~
 注意Ubuntu Linux只有最新22.04版自带workflow。更推荐用git直接下载最新源代码编译。
 
+如果你想用xmake去构建 workflow, 你可以看 [xmake build document](docs/xmake.md)
+
 # 示例教程
   * Client基础
     * [创建第一个任务：wget](docs/tutorial-01-wget.md)

@@ -73,6 +73,10 @@ To install the Workflow library for deployment:
 sudo apt-get install libworkflow1
 ~~~~
 
+### Get stated (xmake)
+
+If you want to use xmake to build workflow, you can see [xmake build document](docs/en/xmake.md)
+
 # Tutorials
 
 * Client

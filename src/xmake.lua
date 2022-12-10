@@ -40,8 +40,6 @@ after_build(function (target)
         os.mkdir(lib_dir)
     end
     if (get_config("type") == "static") then
-        print("111")
-        print(path.join("$(projectdir)", target:targetdir(), "*.a"))
         os.mv(path.join("$(projectdir)", target:targetdir(), "*.a"), lib_dir) 
     else
         os.mv(path.join("$(projectdir)", target:targetdir(), "*.so"), lib_dir)

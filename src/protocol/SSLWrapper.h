@@ -89,19 +89,19 @@ public:
 	SSLWrapper& operator = (SSLWrapper&& wrapper) = default;
 };
 
-class ServiceSSLWrapper : public SSLWrapper
+class ServerSSLWrapper : public SSLWrapper
 {
 protected:
 	virtual int append(const void *buf, size_t *size);
 
 public:
-	ServiceSSLWrapper(ProtocolMessage *msg, SSL *ssl) : SSLWrapper(msg, ssl)
+	ServerSSLWrapper(ProtocolMessage *msg, SSL *ssl) : SSLWrapper(msg, ssl)
 	{
 	}
 
 public:
-	ServiceSSLWrapper(ServiceSSLWrapper&& wrapper) = default;
-	ServiceSSLWrapper& operator = (ServiceSSLWrapper&& wrapper) = default;
+	ServerSSLWrapper(ServerSSLWrapper&& wrapper) = default;
+	ServerSSLWrapper& operator = (ServerSSLWrapper&& wrapper) = default;
 };
 
 }

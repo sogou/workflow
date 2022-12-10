@@ -958,11 +958,11 @@ CommMessageOut *WFHttpServerTask::message_out()
 	return this->WFServerTask::message_out();
 }
 
-struct ServiceSSLConnection : public WFConnection
+struct ServerSSLConnection : public WFConnection
 {
 	SSL *ssl_;
-	ServiceSSLWrapper wrapper_;
-	ServiceSSLConnection(SSL *ssl) : wrapper_(&wrapper_, ssl)
+	ServerSSLWrapper wrapper_;
+	ServerSSLConnection(SSL *ssl) : wrapper_(&wrapper_, ssl)
 	{
 		ssl_ = ssl;
 	}
@@ -982,7 +982,7 @@ protected:
 		auto *conn = this->WFHttpServerTask::get_connection();
 
 		if (conn)
-			return (ServiceSSLConnection *)conn->get_context();
+			return (ServerSSLConnection *)conn->get_context();
 
 		return conn;
 	}
@@ -1000,11 +1000,11 @@ protected:
 	}
 
 private:
-	ServiceSSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
+	ServerSSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
 	{
-		auto *conn = (ServiceSSLConnection *)this->get_connection();
-		conn->wrapper_.~ServiceSSLWrapper();
-		new (&conn->wrapper_) ServiceSSLWrapper(msg, conn->ssl_);
+		auto *conn = (ServerSSLConnection *)this->get_connection();
+		conn->wrapper_.~ServerSSLWrapper();
+		new (&conn->wrapper_) ServerSSLWrapper(msg, conn->ssl_);
 		return &conn->wrapper_;
 	}
 };
@@ -1020,10 +1020,10 @@ WFHttpTask *__new_https_server_session(long long seq, CommConnection *conn,
 	{
 		SSL *ssl = __create_ssl(ssl_ctx);
 		SSL_set_accept_state(ssl);
-		auto *ssl_conn = new ServiceSSLConnection(ssl);
+		auto *ssl_conn = new ServerSSLConnection(ssl);
 
 		c->set_context(ssl_conn, [](void *ssl_conn) {
-			auto *conn = (ServiceSSLConnection *)ssl_conn;
+			auto *conn = (ServerSSLConnection *)ssl_conn;
 			SSL_free(conn->ssl_);
 			delete conn;
 		});

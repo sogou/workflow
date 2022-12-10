@@ -34,6 +34,20 @@ before_build(function (target)
     os.cp(path.join("$(projectdir)", "src/**.inl"), include_path)
 end)
 
+after_build(function (target)
+    local lib_dir = get_config("workflow_lib")
+    if (not os.isdir(lib_dir)) then
+        os.mkdir(lib_dir)
+    end
+    if (get_config("type") == "static") then
+        print("111")
+        print(path.join("$(projectdir)", target:targetdir(), "*.a"))
+        os.mv(path.join("$(projectdir)", target:targetdir(), "*.a"), lib_dir) 
+    else
+        os.mv(path.join("$(projectdir)", target:targetdir(), "*.so"), lib_dir)
+    end
+end)
+
 after_clean(function (target)
     os.rm(get_config("workflow_inc"))
     os.rm(get_config("workflow_lib"))
@@ -43,8 +57,8 @@ end)
 on_install(function (package)
     os.cp(path.join(get_config("workflow_inc"), "workflow"), path.join(package:installdir(), "include"))
     if (get_config("type") == "static") then
-        os.cp(path.join(config.get("workflow_lib"), "*.a"), path.join(package:installdir(), "lib"))
+        os.cp(path.join(get_config("workflow_lib"), "*.a"), path.join(package:installdir(), "lib"))
     else
-        os.cp(path.join(config.get("workflow_lib"), "*.so"), path.join(package:installdir(), "lib"))
+        os.cp(path.join(get_config("workflow_lib"), "*.so"), path.join(package:installdir(), "lib"))
     end
 end)

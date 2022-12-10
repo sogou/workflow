@@ -68,9 +68,9 @@ if (get_config("kafka") == true) then
     add_requires("snappy", "lz4", "zstd", "zlib")
 end
 
-add_includedirs("$(projectdir)/src/include/workflow")
+add_includedirs(get_config("workflow_inc"))
+add_includedirs(path.join(get_config("workflow_inc"), "workflow"))
 
-set_targetdir(get_config("workflow_lib"))
 set_config("buildir", "build.xmake")
 
 add_cflags("-Wall -fPIC -pipe")

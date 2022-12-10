@@ -5,5 +5,9 @@ target("util")
     remove_files("crc32c.c")
 
 target("kafka_util")
-    set_kind("object")
-    add_files("crc32c.c")
+    if (get_config("kafka") == true) then
+        set_kind("object")
+        add_files("crc32c.c")
+    else 
+        set_kind("phony")
+    end

@@ -346,19 +346,15 @@ private:
 	static int append_reply(const void *buf, size_t *size,
 							poller_message_t *msg);
 
-	static int create_service_session(struct CommConnEntry *entry);
-
-	static poller_message_t *create_request(struct CommConnEntry *entry);
-	static poller_message_t *create_reply(struct CommConnEntry *entry);
-
-	static poller_message_t *create_message(void *context);
+	static poller_message_t *create_request(void *context);
+	static poller_message_t *create_reply(void *context);
 
 	static int partial_written(size_t n, void *context);
 
-	static void callback(struct poller_result *res, void *context);
-
 	static void *accept(const struct sockaddr *addr, socklen_t addrlen,
 						int sockfd, void *context);
+
+	static void callback(struct poller_result *res, void *context);
 
 public:
 	virtual ~Communicator() { }

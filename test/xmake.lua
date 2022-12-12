@@ -6,8 +6,6 @@ add_requires("gtest")
 add_deps("workflow")
 
 add_packages("gtest")
-add_links("crypto")
-add_links("ssl")
 add_links("gtest_main")
 
 if not is_os("macosx") then

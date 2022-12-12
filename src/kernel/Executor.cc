@@ -23,7 +23,7 @@
 #include "thrdpool.h"
 #include "Executor.h"
 
-struct ExecTaskEntry
+struct ExecSessionEntry
 {
 	struct list_head list;
 	ExecSession *session;
@@ -37,7 +37,7 @@ int ExecQueue::init()
 	ret = pthread_mutex_init(&this->mutex, NULL);
 	if (ret == 0)
 	{
-		INIT_LIST_HEAD(&this->task_list);
+		INIT_LIST_HEAD(&this->session_list);
 		return 0;
 	}
 
@@ -67,7 +67,7 @@ int Executor::init(size_t nthreads)
 
 void Executor::deinit()
 {
-	thrdpool_destroy(Executor::executor_cancel_tasks, this->thrdpool);
+	thrdpool_destroy(Executor::executor_cancel, this->thrdpool);
 }
 
 extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,
@@ -76,14 +76,14 @@ extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,
 void Executor::executor_thread_routine(void *context)
 {
 	ExecQueue *queue = (ExecQueue *)context;
-	struct ExecTaskEntry *entry;
+	struct ExecSessionEntry *entry;
 	ExecSession *session;
 
 	pthread_mutex_lock(&queue->mutex);
-	entry = list_entry(queue->task_list.next, struct ExecTaskEntry, list);
+	entry = list_entry(queue->session_list.next, struct ExecSessionEntry, list);
 	list_del(&entry->list);
 	session = entry->session;
-	if (!list_empty(&queue->task_list))
+	if (!list_empty(&queue->session_list))
 	{
 		struct thrdpool_task task = {
 			.routine	=	Executor::executor_thread_routine,
@@ -99,16 +99,16 @@ void Executor::executor_thread_routine(void *context)
 	session->handle(ES_STATE_FINISHED, 0);
 }
 
-void Executor::executor_cancel_tasks(const struct thrdpool_task *task)
+void Executor::executor_cancel(const struct thrdpool_task *task)
 {
 	ExecQueue *queue = (ExecQueue *)task->context;
-	struct ExecTaskEntry *entry;
+	struct ExecSessionEntry *entry;
 	struct list_head *pos, *tmp;
 	ExecSession *session;
 
-	list_for_each_safe(pos, tmp, &queue->task_list)
+	list_for_each_safe(pos, tmp, &queue->session_list)
 	{
-		entry = list_entry(pos, struct ExecTaskEntry, list);
+		entry = list_entry(pos, struct ExecSessionEntry, list);
 		list_del(pos);
 		session = entry->session;
 		free(entry);
@@ -119,17 +119,17 @@ void Executor::executor_cancel_tasks(const struct thrdpool_task *task)
 
 int Executor::request(ExecSession *session, ExecQueue *queue)
 {
-	struct ExecTaskEntry *entry;
+	struct ExecSessionEntry *entry;
 
 	session->queue = queue;
-	entry = (struct ExecTaskEntry *)malloc(sizeof (struct ExecTaskEntry));
+	entry = (struct ExecSessionEntry *)malloc(sizeof (struct ExecSessionEntry));
 	if (entry)
 	{
 		entry->session = session;
 		entry->thrdpool = this->thrdpool;
 		pthread_mutex_lock(&queue->mutex);
-		list_add_tail(&entry->list, &queue->task_list);
-		if (queue->task_list.next == &entry->list)
+		list_add_tail(&entry->list, &queue->session_list);
+		if (queue->session_list.next == &entry->list)
 		{
 			struct thrdpool_task task = {
 				.routine	=	Executor::executor_thread_routine,

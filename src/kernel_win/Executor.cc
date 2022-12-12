@@ -23,7 +23,7 @@
 #include "thrdpool.h"
 #include "Executor.h"
 
-struct ExecTaskEntry
+struct ExecSessionEntry
 {
 	struct list_head list;
 	ExecSession *session;
@@ -32,7 +32,7 @@ struct ExecTaskEntry
 
 int ExecQueue::init()
 {
-	INIT_LIST_HEAD(&this->task_list);
+	INIT_LIST_HEAD(&this->session_list);
 	return 0;
 }
 
@@ -53,7 +53,7 @@ int Executor::init(size_t nthreads)
 
 void Executor::deinit()
 {
-	thrdpool_destroy(Executor::executor_cancel_tasks, this->thrdpool);
+	thrdpool_destroy(Executor::executor_cancel, this->thrdpool);
 }
 
 void __thrdpool_schedule(const struct thrdpool_task *, void *, thrdpool_t *);
@@ -61,14 +61,14 @@ void __thrdpool_schedule(const struct thrdpool_task *, void *, thrdpool_t *);
 void Executor::executor_thread_routine(void *context)
 {
 	ExecQueue *queue = (ExecQueue *)context;
-	ExecTaskEntry *entry;
+	ExecSessionEntry *entry;
 	ExecSession *session;
 
 	queue->mutex.lock();
-	entry = list_entry(queue->task_list.next, ExecTaskEntry, list);
+	entry = list_entry(queue->session_list.next, ExecSessionEntry, list);
 	list_del(&entry->list);
 	session = entry->session;
-	if (!list_empty(&queue->task_list))
+	if (!list_empty(&queue->session_list))
 	{
 		struct thrdpool_task task = {Executor::executor_thread_routine, queue};
 		/*
@@ -87,16 +87,16 @@ void Executor::executor_thread_routine(void *context)
 	session->handle(ES_STATE_FINISHED, 0);
 }
 
-void Executor::executor_cancel_tasks(const struct thrdpool_task *task)
+void Executor::executor_cancel(const struct thrdpool_task *task)
 {
 	ExecQueue *queue = (ExecQueue *)task->context;
-	ExecTaskEntry *entry;
+	ExecSessionEntry *entry;
 	struct list_head *pos, *tmp;
 	ExecSession *session;
 
-	list_for_each_safe(pos, tmp, &queue->task_list)
+	list_for_each_safe(pos, tmp, &queue->session_list)
 	{
-		entry = list_entry(pos, ExecTaskEntry, list);
+		entry = list_entry(pos, ExecSessionEntry, list);
 		list_del(pos);
 		session = entry->session;
 		delete entry;
@@ -107,14 +107,14 @@ void Executor::executor_cancel_tasks(const struct thrdpool_task *task)
 
 int Executor::request(ExecSession *session, ExecQueue *queue)
 {
-	ExecTaskEntry *entry = new ExecTaskEntry;
+	ExecSessionEntry *entry = new ExecSessionEntry;
 
 	session->queue = queue;
 	entry->session = session;
 	entry->thrdpool = this->thrdpool;
 	queue->mutex.lock();
-	list_add_tail(&entry->list, &queue->task_list);
-	if (queue->task_list.next == &entry->list)
+	list_add_tail(&entry->list, &queue->session_list);
+	if (queue->session_list.next == &entry->list)
 	{
 		struct thrdpool_task task = {Executor::executor_thread_routine, queue};
 		/*

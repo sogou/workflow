@@ -30,7 +30,7 @@ public:
 	void deinit();
 
 private:
-	struct list_head task_list;
+	struct list_head session_list;
 	pthread_mutex_t mutex;
 
 public:
@@ -72,7 +72,7 @@ private:
 
 private:
 	static void executor_thread_routine(void *context);
-	static void executor_cancel_tasks(const struct thrdpool_task *task);
+	static void executor_cancel(const struct thrdpool_task *task);
 
 public:
 	virtual ~Executor() { }

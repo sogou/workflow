@@ -62,6 +62,7 @@ option("type")
 option_end()
 
 add_requires("openssl")
+add_packages("openssl", {links = "ssl", "crypto"})
 add_syslinks("pthread")
 
 if (get_config("kafka") == true) then

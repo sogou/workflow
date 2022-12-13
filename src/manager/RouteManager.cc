@@ -17,6 +17,7 @@
 */
 
 #include <openssl/ssl.h>
+#include <openssl/md5.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -32,7 +33,6 @@
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
-#include "MD5Util.h"
 #include "CommScheduler.h"
 #include "EndpointParams.h"
 #include "RouteManager.h"
@@ -105,7 +105,7 @@ struct RouteParams
 {
 	TransportType transport_type;
 	const struct addrinfo *addrinfo;
-	uint64_t md5_16;
+	uint64_t md5_64;
 	SSL_CTX *ssl_ctx;
 	int connect_timeout;
 	int ssl_connect_timeout;
@@ -124,7 +124,7 @@ public:
 	std::mutex mutex;
 	std::vector<CommSchedTarget *> targets;
 	struct list_head breaker_list;
-	uint64_t md5_16;
+	uint64_t md5_64;
 	int nleft;
 	int nbreak;
 
@@ -214,7 +214,7 @@ int RouteResultEntry::init(const struct RouteParams *params)
 		{
 			this->targets.push_back(target);
 			this->request_object = target;
-			this->md5_16 = params->md5_16;
+			this->md5_64 = params->md5_64;
 			return 0;
 		}
 
@@ -227,7 +227,7 @@ int RouteResultEntry::init(const struct RouteParams *params)
 		if (this->add_group_targets(params) >= 0)
 		{
 			this->request_object = this->group;
-			this->md5_16 = params->md5_16;
+			this->md5_64 = params->md5_64;
 			return 0;
 		}
 
@@ -387,22 +387,27 @@ static inline bool __addr_less(const struct addrinfo *x, const struct addrinfo *
 static uint64_t __generate_key(TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
-							   const struct EndpointParams *endpoint_params,
+							   const struct EndpointParams *ep_params,
 							   const std::string& hostname)
 {
-	std::string str(std::to_string(type));
+	std::string buf((const char *)&type, sizeof (TransportType));
+	uint64_t md5[2];
+	MD5_CTX ctx;
 
-	str += '\n';
 	if (!other_info.empty())
-	{
-		str += other_info;
-		str += '\n';
-	}
+		buf += other_info;
 
-	if (type == TT_TCP_SSL && endpoint_params->use_tls_sni)
+	buf.append((const char *)&ep_params->max_connections, sizeof (size_t));
+	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
+	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
+	if (type == TT_TCP_SSL)
 	{
-		str += hostname;
-		str += '\n';
+		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
+		if (ep_params->use_tls_sni)
+		{
+			buf += hostname;
+			buf += '\n';
+		}
 	}
 
 	if (addrinfo->ai_next)
@@ -420,14 +425,20 @@ static uint64_t __generate_key(TransportType type,
 		std::sort(sorted_addr.begin(), sorted_addr.end(), __addr_less);
 		for (const struct addrinfo *p : sorted_addr)
 		{
-			str += std::string((char *)p->ai_addr, p->ai_addrlen);
-			str += '\n';
+			buf.append((const char *)&p->ai_addrlen, sizeof (socklen_t));
+			buf.append((const char *)p->ai_addr, p->ai_addrlen);
 		}
 	}
 	else
-		str += std::string((char *)addrinfo->ai_addr, addrinfo->ai_addrlen);
+	{
+		buf.append((const char *)&addrinfo->ai_addrlen, sizeof (socklen_t));
+		buf.append((const char *)addrinfo->ai_addr, addrinfo->ai_addrlen);
+	}
 
-	return MD5Util::md5_integer_16(str);
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, buf.c_str(), buf.size());
+	MD5_Final((unsigned char *)md5, &ctx);
+	return md5[0];
 }
 
 RouteManager::~RouteManager()
@@ -450,7 +461,7 @@ int RouteManager::get(TransportType type,
 					  const std::string& hostname,
 					  RouteResult& result)
 {
-	uint64_t md5_16 = __generate_key(type, addrinfo, other_info,
+	uint64_t md5_64 = __generate_key(type, addrinfo, other_info,
 									 endpoint_params, hostname);
 	struct rb_node **p = &cache_.rb_node;
 	struct rb_node *parent = NULL;
@@ -462,7 +473,7 @@ int RouteManager::get(TransportType type,
 	{
 		parent = *p;
 		entry = rb_entry(*p, RouteResultEntry, rb);
-		if (md5_16 <= entry->md5_16)
+		if (md5_64 <= entry->md5_64)
 		{
 			bound = entry;
 			p = &(*p)->rb_left;
@@ -471,7 +482,7 @@ int RouteManager::get(TransportType type,
 			p = &(*p)->rb_right;
 	}
 
-	if (bound && bound->md5_16 == md5_16)
+	if (bound && bound->md5_64 == md5_64)
 	{
 		entry = bound;
 		entry->check_breaker();
@@ -492,7 +503,7 @@ int RouteManager::get(TransportType type,
 		struct RouteParams params = {
 			.transport_type			=	type,
 			.addrinfo 				= 	addrinfo,
-			.md5_16					=	md5_16,
+			.md5_64					=	md5_64,
 			.ssl_ctx 				=	ssl_ctx,
 			.connect_timeout		=	endpoint_params->connect_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,

@@ -52,12 +52,7 @@ struct addrinfo ComplexDnsTask::hints =
 {
 	.ai_flags     = AI_NUMERICSERV | AI_NUMERICHOST,
 	.ai_family    = AF_UNSPEC,
-	.ai_socktype  = SOCK_STREAM,
-	.ai_protocol  = 0,
-	.ai_addrlen   = 0,
-	.ai_addr      = NULL,
-	.ai_canonname = NULL,
-	.ai_next      = NULL
+	.ai_socktype  = SOCK_STREAM
 };
 
 CommMessageOut *ComplexDnsTask::message_out()
@@ -79,7 +74,7 @@ bool ComplexDnsTask::init_success()
 {
 	if (uri_.scheme && strcasecmp(uri_.scheme, "dnss") == 0)
 		this->WFComplexClientTask::set_transport_type(TT_TCP_SSL);
-	else if (uri_.scheme && strcasecmp(uri_.scheme, "dns") != 0)
+	else if (!uri_.scheme || strcasecmp(uri_.scheme, "dns") != 0)
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;

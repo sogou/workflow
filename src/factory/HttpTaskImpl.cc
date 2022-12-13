@@ -151,10 +151,8 @@ CommMessageOut *ComplexHttpTask::message_out()
 
 		if ((unsigned int)this->keep_alive_timeo > HTTP_KEEPALIVE_MAX)
 			this->keep_alive_timeo = HTTP_KEEPALIVE_MAX;
-		//if (this->keep_alive_timeo < 0 || this->keep_alive_timeo > HTTP_KEEPALIVE_MAX)
 	}
 
-	//req->set_header_pair("Accept", "*/*");
 	return this->WFComplexClientTask::message_out();
 }
 
@@ -191,7 +189,6 @@ bool ComplexHttpTask::init_success()
 	std::string request_uri;
 	std::string header_host;
 	bool is_ssl;
-	bool is_unix = false;
 
 	if (uri_.scheme && strcasecmp(uri_.scheme, "http") == 0)
 		is_ssl = false;
@@ -221,13 +218,9 @@ bool ComplexHttpTask::init_success()
 	}
 
 	if (uri_.host && uri_.host[0])
-	{
 		header_host = uri_.host;
-		if (uri_.host[0] == '/')
-			is_unix = true;
-	}
 
-	if (!is_unix && uri_.port && uri_.port[0])
+	if (uri_.port && uri_.port[0])
 	{
 		int port = atoi(uri_.port);
 
@@ -252,7 +245,6 @@ bool ComplexHttpTask::init_success()
 	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
-
 	return true;
 }
 
@@ -374,38 +366,19 @@ bool ComplexHttpTask::finish_once()
 
 static int __encode_auth(const char *p, std::string& auth)
 {
-	static SSL_CTX *init_ssl = WFGlobal::get_ssl_client_ctx();
-	(void)init_ssl;
-	BUF_MEM *bptr;
-	BIO *bmem;
-	BIO *b64;
+	size_t len = strlen(p);
+	size_t base64_len = (len + 2) / 3 * 4;
+	char *base64 = (char *)malloc(base64_len + 1);
 
-	b64 = BIO_new(BIO_f_base64());
-	if (b64)
-	{
-		bmem = BIO_new(BIO_s_mem());
-		if (bmem)
-		{
-			BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-			b64 = BIO_push(b64, bmem);
-			BIO_write(b64, p, strlen(p));
-			(void)BIO_flush(b64);
-			BIO_get_mem_ptr(b64, &bptr);
+	if (!base64)
+		return -1;
 
-			if (bptr->length > 0)
-			{
-				auth.append("Basic ");
-				auth.append(bptr->data, bptr->length);
-			}
+	EVP_EncodeBlock((unsigned char *)base64, (const unsigned char *)p, len);
+	auth.append("Basic ");
+	auth.append(base64, base64_len);
 
-			BIO_free_all(b64);
-			return 0;
-		}
-
-		BIO_free_all(b64);
-	}
-
-	return -1;
+	free(base64);
+	return 0;
 }
 
 static SSL *__create_ssl(SSL_CTX *ssl_ctx)

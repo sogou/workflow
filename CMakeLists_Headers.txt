@@ -47,9 +47,11 @@ set(INCLUDE_HEADERS
 	src/protocol/MySQLMessage.inl
 	src/protocol/MySQLResult.h
 	src/protocol/MySQLResult.inl
+	src/protocol/MySQLUtil.h
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
 	src/protocol/mysql_byteorder.h
+	src/protocol/PackageWrapper.h
 	src/protocol/SSLWrapper.h
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
@@ -80,7 +82,6 @@ set(INCLUDE_HEADERS
 	src/util/LRUCache.h
 	src/util/StringUtil.h
 	src/util/URIParser.h
-	src/util/MD5Util.h
 	src/factory/WFConnection.h
 	src/factory/WFTask.h
 	src/factory/WFTask.inl
@@ -95,6 +96,7 @@ set(INCLUDE_HEADERS
 	src/factory/Workflow.h
 	src/factory/WFOperator.h
 	src/factory/WFResourcePool.h
+	src/factory/WFMessageQueue.h
 	src/factory/WFChannel.h
 	src/factory/WFChannel.inl
 	src/nameservice/WFNameService.h

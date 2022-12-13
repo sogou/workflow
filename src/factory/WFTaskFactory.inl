@@ -28,6 +28,7 @@
 #include <string>
 #include <functional>
 #include <utility>
+#include <atomic>
 #include "WFGlobal.h"
 #include "Workflow.h"
 #include "WFTask.h"
@@ -36,37 +37,6 @@
 #include "WFTaskError.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-
-class __WFGoTask : public WFGoTask
-{
-protected:
-	virtual void execute()
-	{
-		this->go();
-	}
-
-protected:
-	std::function<void ()> go;
-
-public:
-	__WFGoTask(ExecQueue *queue, Executor *executor,
-			   std::function<void ()>&& func) :
-		WFGoTask(queue, executor),
-		go(std::move(func))
-	{
-	}
-};
-
-template<class FUNC, class... ARGS>
-inline WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
-											   FUNC&& func, ARGS&&... args)
-{
-	auto&& tmp = std::bind(std::forward<FUNC>(func),
-						   std::forward<ARGS>(args)...);
-	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
-						  WFGlobal::get_compute_executor(),
-						  std::move(tmp));
-}
 
 class __WFDynamicTask : public WFDynamicTask
 {
@@ -81,8 +51,8 @@ protected:
 	std::function<SubTask *(WFDynamicTask *)> create;
 
 public:
-	__WFDynamicTask(std::function<SubTask *(WFDynamicTask *)>&& func) :
-		create(std::move(func))
+	__WFDynamicTask(std::function<SubTask *(WFDynamicTask *)>&& create) :
+		create(std::move(create))
 	{
 	}
 };
@@ -214,8 +184,8 @@ private:
 	void clear_prev_state();
 	void init_with_uri();
 	bool set_port();
-	void router_callback(WFRouterTask *task);
-	void switch_callback(WFTimerTask *task);
+	void router_callback(void *t);
+	void switch_callback(void *t);
 };
 
 template<class REQ, class RESP, typename CTX>
@@ -247,7 +217,6 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 	auto params = WFGlobal::get_global_settings()->endpoint_params;
 	struct addrinfo addrinfo = { };
 	addrinfo.ai_family = addr->sa_family;
-	addrinfo.ai_socktype = SOCK_STREAM;
 	addrinfo.ai_addr = (struct sockaddr *)addr;
 	addrinfo.ai_addrlen = addrlen;
 
@@ -356,12 +325,14 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		ns_policy_ = ns->get_policy(uri_.host ? uri_.host : "");
 	}
 
-	return ns_policy_->create_router_task(&params, cb);
+	return ns_policy_->create_router_task(&params, std::move(cb));
 }
 
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::router_callback(WFRouterTask *task)
+void WFComplexClientTask<REQ, RESP, CTX>::router_callback(void *t)
 {
+	WFRouterTask *task = (WFRouterTask *)t;
+
 	this->state = task->get_state();
 	if (this->state == WFT_STATE_SUCCESS)
 		route_result_ = std::move(*task->get_result());
@@ -404,7 +375,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 }
 
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
+void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(void *t)
 {
 	if (!redirect_)
 	{
@@ -448,12 +419,17 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 
 	bool is_user_request = this->finish_once();
 
-	if (ns_policy_ && route_result_.request_object)
+	if (ns_policy_)
 	{
-		if (this->state == WFT_STATE_SYS_ERROR)
+		if (this->state == WFT_STATE_SYS_ERROR ||
+			this->state == WFT_STATE_DNS_ERROR)
+		{
 			ns_policy_->failed(&route_result_, &tracing_, this->target);
-		else
+		}
+		else if (route_result_.request_object)
+		{
 			ns_policy_->success(&route_result_, &tracing_, this->target);
+		}
 	}
 
 	if (this->state == WFT_STATE_SUCCESS)
@@ -554,6 +530,20 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
+WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
+													const struct sockaddr *addr,
+													socklen_t addrlen,
+													int retry_max,
+													std::function<void (WFNetworkTask<REQ, RESP> *)> callback)
+{
+	auto *task = new WFComplexClientTask<REQ, RESP>(retry_max, std::move(callback));
+
+	task->init(type, addr, addrlen, "");
+	return task;
+}
+
+template<class REQ, class RESP>
+WFNetworkTask<REQ, RESP> *
 WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
 				std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
 {
@@ -571,6 +561,164 @@ public:
 	static WFMySQLTask *create_mysql_task(CommService *service,
 					std::function<void (WFMySQLTask *)>& process);
 };
+
+/************Go Task Factory************/
+
+class __WFGoTask : public WFGoTask
+{
+public:
+	void set_go_func(std::function<void ()> func)
+	{
+		this->go = std::move(func);
+	}
+
+protected:
+	virtual void execute()
+	{
+		this->go();
+	}
+
+protected:
+	std::function<void ()> go;
+
+public:
+	__WFGoTask(ExecQueue *queue, Executor *executor,
+			   std::function<void ()>&& func) :
+		WFGoTask(queue, executor),
+		go(std::move(func))
+	{
+	}
+};
+
+class __WFTimedGoTask : public __WFGoTask
+{
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
+protected:
+	virtual void handle(int state, int error);
+
+protected:
+	static void timer_callback(WFTimerTask *timer);
+
+protected:
+	time_t seconds;
+	long nanoseconds;
+	std::atomic<int> ref;
+
+public:
+	__WFTimedGoTask(time_t seconds, long nanoseconds,
+					ExecQueue *queue, Executor *executor,
+					std::function<void ()>&& func) :
+		__WFGoTask(queue, executor, std::move(func)),
+		ref(4)
+	{
+		this->seconds = seconds;
+		this->nanoseconds = nanoseconds;
+	}
+};
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
+										FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
+						  WFGlobal::get_compute_executor(),
+						  std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
+											 const std::string& queue_name,
+											 FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   WFGlobal::get_exec_queue(queue_name),
+							   WFGlobal::get_compute_executor(),
+							   std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_go_task(ExecQueue *queue, Executor *executor,
+										FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFGoTask(queue, executor, std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
+											 ExecQueue *queue, Executor *executor,
+											 FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   queue, executor,
+							   std::move(tmp));
+}
+
+template<class FUNC, class... ARGS>
+void WFTaskFactory::reset_go_task(WFGoTask *task, FUNC&& func, ARGS&&... args)
+{
+	auto&& tmp = std::bind(std::forward<FUNC>(func),
+						   std::forward<ARGS>(args)...);
+	static_cast<__WFGoTask *>(task)->set_go_func(std::move(tmp));
+}
+
+/**********Create go task with nullptr func**********/
+
+template<>
+inline WFGoTask *WFTaskFactory::create_go_task<std::nullptr_t>
+										(const std::string& queue_name,
+										 std::nullptr_t&& func)
+{
+	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
+						  WFGlobal::get_compute_executor(),
+						  nullptr);
+}
+
+template<>
+inline WFGoTask *WFTaskFactory::create_timedgo_task<std::nullptr_t>
+										(time_t seconds, long nanoseconds,
+										 const std::string& queue_name,
+										 std::nullptr_t&& func)
+{
+	return new __WFTimedGoTask(seconds, nanoseconds,
+							   WFGlobal::get_exec_queue(queue_name),
+							   WFGlobal::get_compute_executor(),
+							   nullptr);
+}
+
+template<>
+inline WFGoTask *WFTaskFactory::create_go_task<std::nullptr_t>
+										(ExecQueue *queue, Executor *executor,
+										 std::nullptr_t&& func)
+{
+	return new __WFGoTask(queue, executor, nullptr);
+}
+
+template<>
+inline WFGoTask *WFTaskFactory::create_timedgo_task<std::nullptr_t>
+										(time_t seconds, long nanoseconds,
+										 ExecQueue *queue, Executor *executor,
+										 std::nullptr_t&& func)
+{
+	return new __WFTimedGoTask(seconds, nanoseconds, queue, executor, nullptr);
+}
+
+template<>
+inline void WFTaskFactory::reset_go_task<std::nullptr_t>
+										(WFGoTask *task, std::nullptr_t&& func)
+{
+	static_cast<__WFGoTask *>(task)->set_go_func(nullptr);
+}
 
 /**********Template Thread Task Factory**********/
 
@@ -597,6 +745,89 @@ public:
 };
 
 template<class INPUT, class OUTPUT>
+class __WFTimedThreadTask : public __WFThreadTask<INPUT, OUTPUT>
+{
+protected:
+	virtual void dispatch();
+	virtual SubTask *done();
+
+protected:
+	virtual void handle(int state, int error);
+
+protected:
+	static void timer_callback(WFTimerTask *timer);
+
+protected:
+	time_t seconds;
+	long nanoseconds;
+	std::atomic<int> ref;
+
+public:
+	__WFTimedThreadTask(time_t seconds, long nanoseconds,
+						ExecQueue *queue, Executor *executor,
+						std::function<void (INPUT *, OUTPUT *)>&& rt,
+						std::function<void (WFThreadTask<INPUT, OUTPUT> *)>&& cb) :
+		__WFThreadTask<INPUT, OUTPUT>(queue, executor, std::move(rt), std::move(cb)),
+		ref(4)
+	{
+		this->seconds = seconds;
+		this->nanoseconds = nanoseconds;
+	}
+};
+
+template<class INPUT, class OUTPUT>
+void __WFTimedThreadTask<INPUT, OUTPUT>::dispatch()
+{
+	WFTimerTask *timer;
+
+	timer = WFTaskFactory::create_timer_task(this->seconds, this->nanoseconds,
+											 __WFTimedThreadTask::timer_callback);
+	timer->user_data = this;
+
+	this->__WFThreadTask<INPUT, OUTPUT>::dispatch();
+	timer->start();
+}
+
+template<class INPUT, class OUTPUT>
+SubTask *__WFTimedThreadTask<INPUT, OUTPUT>::done()
+{
+	if (this->callback)
+		this->callback(this);
+
+	return series_of(this)->pop();
+}
+
+template<class INPUT, class OUTPUT>
+void __WFTimedThreadTask<INPUT, OUTPUT>::handle(int state, int error)
+{
+	if (--this->ref == 3)
+	{
+		this->state = state;
+		this->error = error;
+		this->subtask_done();
+	}
+
+	if (--this->ref == 0)
+		delete this;
+}
+
+template<class INPUT, class OUTPUT>
+void __WFTimedThreadTask<INPUT, OUTPUT>::timer_callback(WFTimerTask *timer)
+{
+	auto *task = (__WFTimedThreadTask<INPUT, OUTPUT> *)timer->user_data;
+
+	if (--task->ref == 3)
+	{
+		task->state = WFT_STATE_ABORTED;
+		task->error = 0;
+		task->subtask_done();
+	}
+
+	if (--task->ref == 0)
+		delete task;
+}
+
+template<class INPUT, class OUTPUT>
 WFThreadTask<INPUT, OUTPUT> *
 WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(const std::string& queue_name,
 						std::function<void (INPUT *, OUTPUT *)> routine,
@@ -610,6 +841,20 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(const std::string& queue_
 
 template<class INPUT, class OUTPUT>
 WFThreadTask<INPUT, OUTPUT> *
+WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(time_t seconds, long nanoseconds,
+						const std::string& queue_name,
+						std::function<void (INPUT *, OUTPUT *)> routine,
+						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
+{
+	return new __WFTimedThreadTask<INPUT, OUTPUT>(seconds, nanoseconds,
+												  WFGlobal::get_exec_queue(queue_name),
+												  WFGlobal::get_compute_executor(),
+												  std::move(routine),
+												  std::move(callback));
+}
+
+template<class INPUT, class OUTPUT>
+WFThreadTask<INPUT, OUTPUT> *
 WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(ExecQueue *queue, Executor *executor,
 						std::function<void (INPUT *, OUTPUT *)> routine,
 						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
@@ -617,6 +862,19 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(ExecQueue *queue, Executo
 	return new __WFThreadTask<INPUT, OUTPUT>(queue, executor,
 											 std::move(routine),
 											 std::move(callback));
+}
+
+template<class INPUT, class OUTPUT>
+WFThreadTask<INPUT, OUTPUT> *
+WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(time_t seconds, long nanoseconds,
+						ExecQueue *queue, Executor *executor,
+						std::function<void (INPUT *, OUTPUT *)> routine,
+						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
+{
+	return new __WFTimedThreadTask<INPUT, OUTPUT>(seconds, nanoseconds,
+												  queue, executor,
+												  std::move(routine),
+												  std::move(callback));
 }
 
 template<class INPUT, class OUTPUT>

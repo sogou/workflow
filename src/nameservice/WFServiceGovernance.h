@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 #include <atomic>
+#include <functional>
 #include "URIParser.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
@@ -58,14 +59,6 @@ static constexpr struct AddressParams ADDRESS_PARAMS_DEFAULT =
 	.weight				=	1,
 	.server_type		=	0,	/* 0 for main and 1 for backup. */
 	.group_id			=	-1,
-};
-
-enum ServerChangeState
-{
-	ADD_SERVER		=	0,
-	REMOVE_SERVER	=	1,
-	RECOVER_SERVER	=	2,
-	FUSE_SERVER		=	3,
 };
 
 class PolicyAddrParams
@@ -123,10 +116,17 @@ public:
 	void enable_server(const std::string& address);
 	void disable_server(const std::string& address);
 	virtual void get_current_address(std::vector<std::string>& addr_list);
-	virtual void server_list_change(const EndpointAddress *address, int state)
-	{}
+
 	void set_mttr_second(unsigned int second) { this->mttr_second = second; }
 	static bool in_select_history(WFNSTracing *tracing, EndpointAddress *addr);
+
+public:
+	using pre_select_t = std::function<WFConditional *(WFRouterTask *)>;
+
+	void set_pre_select(pre_select_t pre_select)
+	{
+		pre_select_ = std::move(pre_select);
+	}
 
 public:
 	WFServiceGovernance() :
@@ -166,9 +166,11 @@ private:
 	void fuse_server_to_breaker(EndpointAddress *addr);
 	void check_breaker_locked(int64_t cur_time);
 
+private:
 	struct list_head breaker_list;
 	pthread_mutex_t breaker_lock;
 	unsigned int mttr_second;
+	pre_select_t pre_select_;
 
 protected:
 	virtual EndpointAddress *first_strategy(const ParsedURI& uri,
@@ -193,6 +195,7 @@ protected:
 	pthread_rwlock_t rwlock;
 	std::atomic<int> nalives;
 	bool try_another;
+	friend class WFSGResolverTask;
 };
 
 #endif

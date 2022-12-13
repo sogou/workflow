@@ -1,11 +1,11 @@
-[中文版入口](README_cn.md)
+[简体中文版（推荐）](README_cn.md)
 
 ## Sogou C++ Workflow
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
-[![Build Status](https://travis-ci.com/sogou/workflow.svg?branch=master)](https://travis-ci.com/sogou/workflow)
+[![Build Status](https://img.shields.io/github/workflow/status/sogou/workflow/ci%20build)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
 
 As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method, online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
 
@@ -41,7 +41,6 @@ int main()
 * To realize any **high-performance** and **high-concurrency** back-end service with a very complex relationship between computing and networking.
 * To build a **micro service** system.
   * This project has built-in **service governance** and **load balancing** features.
-  * The [workflow-k8s](https://github.com/sogou/workflow-k8s) plugin enables using name service with Kubernetes automated deployment.
 * Wiki link : [PaaS Architecture](https://github.com/sogou/workflow/wiki)
 
 #### Compiling and running environment
@@ -49,7 +48,7 @@ int main()
 * This project supports `Linux`, `macOS`, `Windows`, `Android` and other operating systems.
   * `Windows` version is currently released as an independent [branch](https://github.com/sogou/workflow/tree/windows), using `iocp` to implement asynchronous networking. All user interfaces are consistent with the `Linux` version.
 * Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors, `loongson` processors.
-* Relies on `OpenSSL`; `OpenSSL 1.1` and above is recommended. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch. But still need to link `crypto` for `md5` and `sha1`.
+* Master branch requires SSL and `OpenSSL 1.1` or above is recommended. Fully compatible with BoringSSL. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch. But still need to link `crypto` for `md5` and `sha1`.
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
@@ -62,23 +61,8 @@ cd tutorial
 make
 ~~~~
 
-### Get started (Debian Linux):
-Sogou C++ Workflow has been packaged for Debian. It is currently in Debian sid (unstable) but will eventually be placed into the stable repository.
-
-In order to access the unstable repository, you will need to edit your /etc/apt/sources.list file.
-
-Simply add the 'unstable' sub branch to your repo:
-~~~~sh
-deb http://deb.debian.org/ main contrib non-free 
---> 
-deb http://deb.debian.org/ unstable main contrib non-free
-~~~~
-
-Once that is added, update your repo list and then you should be able to install it:
-~~~~sh
-sudo apt-get update
-~~~~
-
+### Get started (Debian Linux, ubuntu 22.04):
+Sogou C++ Workflow has been packaged for Debian Linux and ubuntu 22.04.  
 To install the Workflow library for development purposes:
 ~~~~sh
 sudo apt-get install libworkflow-dev
@@ -88,6 +72,10 @@ To install the Workflow library for deployment:
 ~~~~sh
 sudo apt-get install libworkflow1
 ~~~~
+
+### Get stated (xmake)
+
+If you want to use xmake to build workflow, you can see [xmake build document](docs/en/xmake.md)
 
 # Tutorials
 
@@ -117,7 +105,8 @@ sudo apt-get install libworkflow1
 * Timing tasks and counting tasks
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
-  * [Conditional and resource pool](docs/en/about-conditional.md)
+  * [About resource pool](docs/en/about-resource-pool.md)
+  * [About module](docs/en/about-module.md)
 * Service governance
   * [About service governance](docs/en/about-service-governance.md)
   * [More documents about upstream](docs/en/about-upstream.md)
@@ -127,7 +116,7 @@ sudo apt-get install libworkflow1
   * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
   * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 
-#### System design features
+#### Programming paradigm
 
 We believe that a typical back-end program=protocol+algorithm+workflow and should be developed completely independently.
 

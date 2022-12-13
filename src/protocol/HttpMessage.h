@@ -93,45 +93,28 @@ public:
 									  this->parser) == 0;
 	}
 
-	bool is_header_complete() const
-	{
-		return http_parser_header_complete(this->parser);
-	}
-
-	bool has_connection_header() const
-	{
-		return http_parser_has_connection(this->parser);
-	}
-
-	bool has_content_length_header() const
-	{
-		return http_parser_has_content_length(this->parser);
-	}
-
-	bool has_keep_alive_header() const
-	{
-		return http_parser_has_keep_alive(this->parser);
-	}
-
 	bool get_parsed_body(const void **body, size_t *size) const
 	{
 		return http_parser_get_body(body, size, this->parser) == 0;
-	}
-
-	/* Call when the message is incomplete, but you want the parsed body.
-	 * If get_parse_body() still returns false after calling this function,
-	 * even header is incomplete. In a success state task, messages are
-	 * always complete. */
-	void end_parsing()
-	{
-		http_parser_close_message(this->parser);
 	}
 
 	/* Output body is for sending. Want to transfer a message received, maybe:
 	 * msg->get_parsed_body(&body, &size);
 	 * msg->append_output_body_nocopy(body, size); */
 	bool append_output_body(const void *buf, size_t size);
+
+	bool append_output_body(const char *buf)
+	{
+		return this->append_output_body(buf, strlen(buf));
+	}
+
 	bool append_output_body_nocopy(const void *buf, size_t size);
+
+	bool append_output_body_nocopy(const char *buf)
+	{
+		return this->append_output_body_nocopy(buf, strlen(buf));
+	}
+
 	void clear_output_body();
 
 	size_t get_output_body_size() const
@@ -139,7 +122,7 @@ public:
 		return this->output_body_size;
 	}
 
-	/* std::string interface */
+	/* std::string interfaces */
 public:
 	bool get_http_version(std::string& version) const
 	{
@@ -178,12 +161,39 @@ public:
 		return this->append_output_body(buf.c_str(), buf.size());
 	}
 
-protected:
-	http_parser_t *parser;
-	size_t cur_size;
+	bool append_output_body_nocopy(const std::string& buf)
+	{
+		return this->append_output_body_nocopy(buf.c_str(), buf.size());
+	}
 
+	/* for http task implementations. */
 public:
-	/* for header visitors. */
+	bool is_header_complete() const
+	{
+		return http_parser_header_complete(this->parser);
+	}
+
+	bool has_connection_header() const
+	{
+		return http_parser_has_connection(this->parser);
+	}
+
+	bool has_content_length_header() const
+	{
+		return http_parser_has_content_length(this->parser);
+	}
+
+	bool has_keep_alive_header() const
+	{
+		return http_parser_has_keep_alive(this->parser);
+	}
+
+	void end_parsing()
+	{
+		http_parser_close_message(this->parser);
+	}
+
+	/* for header cursor implementations. */
 	const http_parser_t *get_parser() const
 	{
 		return this->parser;
@@ -192,6 +202,10 @@ public:
 protected:
 	virtual int encode(struct iovec vectors[], int max);
 	virtual int append(const void *buf, size_t *size);
+
+protected:
+	http_parser_t *parser;
+	size_t cur_size;
 
 private:
 	struct list_head *combine_from(struct list_head *pos, size_t size);
@@ -219,7 +233,6 @@ public:
 		}
 	}
 
-	/* for std::move() */
 public:
 	HttpMessage(HttpMessage&& msg);
 	HttpMessage& operator = (HttpMessage&& msg);
@@ -248,7 +261,7 @@ public:
 		return http_parser_set_uri(uri, this->parser) == 0;
 	}
 
-	/* std::string interface */
+	/* std::string interfaces */
 public:
 	bool get_method(std::string& method) const
 	{
@@ -295,7 +308,6 @@ private:
 public:
 	HttpRequest() : HttpMessage(false) { }
 
-	/* for std::move() */
 public:
 	HttpRequest(HttpRequest&& req) = default;
 	HttpRequest& operator = (HttpRequest&& req) = default;
@@ -324,13 +336,7 @@ public:
 		return http_parser_set_phrase(phrase, this->parser) == 0;
 	}
 
-	/* Tell the parser, it is a HEAD response. */
-	void parse_zero_body()
-	{
-		this->parser->transfer_length = 0;
-	}
-
-	/* std::string interface */
+	/* std::string interfaces */
 public:
 	bool get_status_code(std::string& code) const
 	{
@@ -368,13 +374,19 @@ public:
 		return this->set_reason_phrase(phrase.c_str());
 	}
 
+public:
+	/* Tell the parser, it is a HEAD response. For implementations. */
+	void parse_zero_body()
+	{
+		this->parser->transfer_length = 0;
+	}
+
 protected:
 	virtual int append(const void *buf, size_t *size);
 
 public:
 	HttpResponse() : HttpMessage(true) { }
 
-	/* for std::move() */
 public:
 	HttpResponse(HttpResponse&& resp) = default;
 	HttpResponse& operator = (HttpResponse&& resp) = default;

@@ -50,7 +50,7 @@ private:
 	std::atomic<size_t> *conn_count;
 };
 
-long WFServerBase::ssl_ctx_callback(SSL *ssl, int *al, void *arg)
+int WFServerBase::ssl_ctx_callback(SSL *ssl, int *al, void *arg)
 {
 	WFServerBase *server = (WFServerBase *)arg;
 	const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);

@@ -100,12 +100,16 @@ WFNSPolicy *WFNameService::get_policy(const char *name)
 	WFNSPolicy *policy = this->default_policy;
 	struct WFNSPolicyEntry *entry;
 
-	pthread_rwlock_rdlock(&this->rwlock);
-	entry = this->get_policy_entry(name);
-	if (entry)
-		policy = entry->policy;
+	if (this->root.rb_node)
+	{
+		pthread_rwlock_rdlock(&this->rwlock);
+		entry = this->get_policy_entry(name);
+		if (entry)
+			policy = entry->policy;
 
-	pthread_rwlock_unlock(&this->rwlock);
+		pthread_rwlock_unlock(&this->rwlock);
+	}
+
 	return policy;
 }
 

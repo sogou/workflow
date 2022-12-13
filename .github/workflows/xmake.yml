@@ -1,0 +1,40 @@
+name: xmake build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build-linux
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ libssl-dev libgtest-dev
+
+    - name: setup xmake
+      uses: xmake-io/github-action-setup-xmake@v1
+      with:
+        xmake-version: latest
+
+    - name: pull code
+      uses: actions/checkout@v2
+
+    - name: xmake
+      run: |
+        xmake -r
+        xmake -g test
+        xmake -g tutorial
+        xmake -g benchmark
+
+    - name : run shared
+      run: |
+        xmake f --type=shared
+        xmake -r
+        xmake -g test
+        xmake -g tutorial
+        xmake -g benchmark
+
+

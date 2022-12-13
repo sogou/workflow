@@ -209,6 +209,13 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	return ret;
 }
 
+void CommMessageIn::renew()
+{
+	CommSession *session = this->entry->session;
+	session->timeout = -1;
+	session->begin_time.tv_nsec = -1;
+}
+
 int CommService::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 					  int listen_timeout, int response_timeout)
 {
@@ -560,6 +567,7 @@ int Communicator::send_message_async(struct iovec vectors[], int cnt,
 	data.operation = PD_OP_WRITE;
 	data.fd = entry->sockfd;
 	data.ssl = entry->ssl;
+	data.partial_written = Communicator::partial_written;
 	data.context = entry;
 	data.write_iov = entry->write_iov;
 	data.iovcnt = cnt;
@@ -802,6 +810,7 @@ void Communicator::handle_reply_result(struct poller_result *res)
 		{
 			__sync_add_and_fetch(&entry->ref, 1);
 			res->data.operation = PD_OP_READ;
+			res->data.create_message = Communicator::create_request;
 			res->data.message = NULL;
 			pthread_mutex_lock(&target->mutex);
 			if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
@@ -859,6 +868,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	case PR_ST_FINISHED:
 		entry->state = CONN_STATE_RECEIVING;
 		res->data.operation = PD_OP_READ;
+		res->data.create_message = Communicator::create_reply;
 		res->data.message = NULL;
 		timeout = session->first_timeout();
 		if (timeout == 0)
@@ -912,10 +922,12 @@ struct CommConnEntry *Communicator::accept_conn(CommServiceTarget *target,
 												CommService *service)
 {
 	struct CommConnEntry *entry;
+	size_t size;
 
 	if (__set_fd_nonblock(target->sockfd) >= 0)
 	{
-		entry = (struct CommConnEntry *)malloc(sizeof (struct CommConnEntry));
+		size = offsetof(struct CommConnEntry, mutex);
+		entry = (struct CommConnEntry *)malloc(size);
 		if (entry)
 		{
 			entry->conn = service->new_connection(target->sockfd);
@@ -966,6 +978,7 @@ void Communicator::handle_listen_result(struct poller_result *res)
 			else
 			{
 				res->data.operation = PD_OP_READ;
+				res->data.create_message = Communicator::create_request;
 				res->data.message = NULL;
 				timeout = target->response_timeout;
 			}
@@ -1033,6 +1046,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 			if (ret == 0)
 			{
 				res->data.operation = PD_OP_READ;
+				res->data.create_message = Communicator::create_reply;
 				res->data.message = NULL;
 				timeout = session->first_timeout();
 				if (timeout == 0)
@@ -1087,6 +1101,7 @@ void Communicator::handle_ssl_accept_result(struct poller_result *res)
 	{
 	case PR_ST_FINISHED:
 		res->data.operation = PD_OP_READ;
+		res->data.create_message = Communicator::create_request;
 		res->data.message = NULL;
 		timeout = target->response_timeout;
 		if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
@@ -1162,8 +1177,12 @@ void Communicator::handler_thread_routine(void *context)
 	Communicator *comm = (Communicator *)context;
 	struct poller_result *res;
 
-	while ((res = (struct poller_result *)msgqueue_get(comm->queue)) != NULL)
+	while (1)
 	{
+		res = (struct poller_result *)msgqueue_get(comm->msgqueue);
+		if (!res)
+			break;
+
 		switch (res->data.operation)
 		{
 		case PD_OP_READ:
@@ -1195,7 +1214,8 @@ void Communicator::handler_thread_routine(void *context)
 	}
 }
 
-int Communicator::append(const void *buf, size_t *size, poller_message_t *msg)
+int Communicator::append_request(const void *buf, size_t *size,
+								 poller_message_t *msg)
 {
 	CommMessageIn *in = (CommMessageIn *)msg;
 	struct CommConnEntry *entry = in->entry;
@@ -1207,17 +1227,37 @@ int Communicator::append(const void *buf, size_t *size, poller_message_t *msg)
 	if (ret > 0)
 	{
 		entry->state = CONN_STATE_SUCCESS;
-		if (entry->service)
-			timeout = -1;
-		else
+		timeout = -1;
+	}
+	else if (ret == 0 && session->timeout != 0)
+		timeout = Communicator::next_timeout(session);
+	else
+		return ret;
+
+	/* This set_timeout() never fails, which is very important. */
+	mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
+	return ret;
+}
+
+int Communicator::append_reply(const void *buf, size_t *size,
+							   poller_message_t *msg)
+{
+	CommMessageIn *in = (CommMessageIn *)msg;
+	struct CommConnEntry *entry = in->entry;
+	CommSession *session = entry->session;
+	int timeout;
+	int ret;
+
+	ret = in->append(buf, size);
+	if (ret > 0)
+	{
+		entry->state = CONN_STATE_SUCCESS;
+		timeout = session->keep_alive_timeout();
+		session->timeout = timeout; /* Reuse session's timeout field. */
+		if (timeout == 0)
 		{
-			timeout = session->keep_alive_timeout();
-			session->timeout = timeout; /* Reuse session's timeout field. */
-			if (timeout == 0)
-			{
-				mpoller_del(entry->sockfd, entry->mpoller);
-				return ret;
-			}
+			mpoller_del(entry->sockfd, entry->mpoller);
+			return ret;
 		}
 	}
 	else if (ret == 0 && session->timeout != 0)
@@ -1235,12 +1275,20 @@ int Communicator::append(const void *buf, size_t *size, poller_message_t *msg)
 	return ret;
 }
 
-int Communicator::create_service_session(struct CommConnEntry *entry)
+poller_message_t *Communicator::create_request(void *context)
 {
+	struct CommConnEntry *entry = (struct CommConnEntry *)context;
 	CommService *service = entry->service;
 	CommTarget *target = entry->target;
 	CommSession *session;
 	int timeout;
+
+	if (entry->state == CONN_STATE_IDLE)
+	{
+		pthread_mutex_lock(&target->mutex);
+		/* do nothing */
+		pthread_mutex_unlock(&target->mutex);
+	}
 
 	pthread_mutex_lock(&service->mutex);
 	if (entry->state == CONN_STATE_KEEPALIVE)
@@ -1251,58 +1299,51 @@ int Communicator::create_service_session(struct CommConnEntry *entry)
 	pthread_mutex_unlock(&service->mutex);
 	if (!entry)
 	{
-		errno = ENOENT;
-		return -1;
+		errno = EBADMSG;
+		return NULL;
 	}
 
 	session = service->new_session(entry->seq, entry->conn);
-	if (session)
+	if (!session)
+		return NULL;
+
+	session->passive = 1;
+	entry->session = session;
+	session->target = target;
+	session->conn = entry->conn;
+	session->seq = entry->seq++;
+	session->out = NULL;
+	session->in = NULL;
+
+	timeout = Communicator::first_timeout_recv(session);
+	mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
+	entry->state = CONN_STATE_RECEIVING;
+
+	((CommServiceTarget *)target)->incref();
+
+	session->in = session->message_in();
+	if (session->in)
 	{
-		session->passive = 1;
-		entry->session = session;
-		session->target = target;
-		session->conn = entry->conn;
-		session->seq = entry->seq++;
-		session->out = NULL;
-		session->in = NULL;
-
-		timeout = Communicator::first_timeout_recv(session);
-		mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
-		entry->state = CONN_STATE_RECEIVING;
-
-		((CommServiceTarget *)target)->incref();
-		return 0;
+		session->in->poller_message_t::append = Communicator::append_request;
+		session->in->entry = entry;
 	}
 
-	return -1;
+	return session->in;
 }
 
-poller_message_t *Communicator::create_message(void *context)
+poller_message_t *Communicator::create_reply(void *context)
 {
 	struct CommConnEntry *entry = (struct CommConnEntry *)context;
 	CommSession *session;
 
 	if (entry->state == CONN_STATE_IDLE)
 	{
-		pthread_mutex_t *mutex;
-
-		if (entry->service)
-			mutex = &entry->target->mutex;
-		else
-			mutex = &entry->mutex;
-
-		pthread_mutex_lock(mutex);
+		pthread_mutex_lock(&entry->mutex);
 		/* do nothing */
-		pthread_mutex_unlock(mutex);
+		pthread_mutex_unlock(&entry->mutex);
 	}
 
-	if (entry->state == CONN_STATE_CONNECTED ||
-		entry->state == CONN_STATE_KEEPALIVE)
-	{
-		if (Communicator::create_service_session(entry) < 0)
-			return NULL;
-	}
-	else if (entry->state != CONN_STATE_RECEIVING)
+	if (entry->state != CONN_STATE_RECEIVING)
 	{
 		errno = EBADMSG;
 		return NULL;
@@ -1312,7 +1353,7 @@ poller_message_t *Communicator::create_message(void *context)
 	session->in = session->message_in();
 	if (session->in)
 	{
-		session->in->poller_message_t::append = Communicator::append;
+		session->in->poller_message_t::append = Communicator::append_reply;
 		session->in->entry = entry;
 	}
 
@@ -1348,7 +1389,7 @@ void Communicator::callback(struct poller_result *res, void *context)
 			break;
 
 	default:
-		msgqueue_put(res, comm->queue);
+		msgqueue_put(res, comm->msgqueue);
 		return;
 	}
 
@@ -1490,7 +1531,7 @@ int Communicator::create_handler_threads(size_t handler_threads)
 		if (i == handler_threads)
 			return 0;
 
-		msgqueue_set_nonblock(this->queue);
+		msgqueue_set_nonblock(this->msgqueue);
 		thrdpool_destroy(NULL, this->thrdpool);
 	}
 
@@ -1500,15 +1541,16 @@ int Communicator::create_handler_threads(size_t handler_threads)
 int Communicator::create_poller(size_t poller_threads)
 {
 	struct poller_params params = {
-		.max_open_files		=	65536,
-		.create_message		=	Communicator::create_message,
-		.partial_written	=	Communicator::partial_written,
+		.max_open_files		=	(size_t)sysconf(_SC_OPEN_MAX),
 		.callback			=	Communicator::callback,
 		.context			=	this
 	};
 
-	this->queue = msgqueue_create(4096, sizeof (struct poller_result));
-	if (this->queue)
+	if ((ssize_t)params.max_open_files < 0)
+		return -1;
+
+	this->msgqueue = msgqueue_create(4096, sizeof (struct poller_result));
+	if (this->msgqueue)
 	{
 		this->mpoller = mpoller_create(&params, poller_threads);
 		if (this->mpoller)
@@ -1519,7 +1561,7 @@ int Communicator::create_poller(size_t poller_threads)
 			mpoller_destroy(this->mpoller);
 		}
 
-		msgqueue_destroy(this->queue);
+		msgqueue_destroy(this->msgqueue);
 	}
 
 	return -1;
@@ -1543,7 +1585,7 @@ int Communicator::init(size_t poller_threads, size_t handler_threads)
 
 		mpoller_stop(this->mpoller);
 		mpoller_destroy(this->mpoller);
-		msgqueue_destroy(this->queue);
+		msgqueue_destroy(this->msgqueue);
 	}
 
 	return -1;
@@ -1553,10 +1595,10 @@ void Communicator::deinit()
 {
 	this->stop_flag = 1;
 	mpoller_stop(this->mpoller);
-	msgqueue_set_nonblock(this->queue);
+	msgqueue_set_nonblock(this->msgqueue);
 	thrdpool_destroy(NULL, this->thrdpool);
 	mpoller_destroy(this->mpoller);
-	msgqueue_destroy(this->queue);
+	msgqueue_destroy(this->msgqueue);
 }
 
 int Communicator::nonblock_connect(CommTarget *target)
@@ -1626,65 +1668,86 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 	return NULL;
 }
 
-struct CommConnEntry *Communicator::get_idle_conn(CommTarget *target)
-{
-	struct CommConnEntry *entry;
-	struct list_head *pos;
-
-	list_for_each(pos, &target->idle_list)
-	{
-		entry = list_entry(pos, struct CommConnEntry, list);
-		if (mpoller_set_timeout(entry->sockfd, -1, this->mpoller) >= 0)
-		{
-			list_del(pos);
-			return entry;
-		}
-	}
-
-	errno = ENOENT;
-	return NULL;
-}
-
 int Communicator::request_idle_conn(CommSession *session, CommTarget *target)
 {
 	struct CommConnEntry *entry;
+	struct list_head *pos;
 	int ret = -1;
 
-	pthread_mutex_lock(&target->mutex);
-	entry = this->get_idle_conn(target);
-	if (entry)
-		pthread_mutex_lock(&entry->mutex);
-	pthread_mutex_unlock(&target->mutex);
-	if (entry)
+	while (1)
 	{
-		entry->session = session;
-		session->conn = entry->conn;
-		session->seq = entry->seq++;
-		session->out = session->message_out();
-		if (session->out)
-			ret = this->send_message(entry);
-
-		if (ret < 0)
+		pthread_mutex_lock(&target->mutex);
+		if (!list_empty(&target->idle_list))
 		{
-			entry->error = errno;
-			mpoller_del(entry->sockfd, this->mpoller);
-			entry->state = CONN_STATE_ERROR;
-			ret = 1;
+			pos = target->idle_list.next;
+			entry = list_entry(pos, struct CommConnEntry, list);
+			list_del(pos);
+			pthread_mutex_lock(&entry->mutex);
+		}
+		else
+			entry = NULL;
+
+		pthread_mutex_unlock(&target->mutex);
+		if (!entry)
+		{
+			errno = ENOENT;
+			return -1;
 		}
 
+		if (mpoller_set_timeout(entry->sockfd, -1, this->mpoller) >= 0)
+			break;
+
+		entry->state = CONN_STATE_CLOSING;
 		pthread_mutex_unlock(&entry->mutex);
 	}
 
+	entry->session = session;
+	session->conn = entry->conn;
+	session->seq = entry->seq++;
+	session->out = session->message_out();
+	if (session->out)
+		ret = this->send_message(entry);
+
+	if (ret < 0)
+	{
+		entry->error = errno;
+		mpoller_del(entry->sockfd, this->mpoller);
+		entry->state = CONN_STATE_ERROR;
+		ret = 1;
+	}
+
+	pthread_mutex_unlock(&entry->mutex);
 	return ret;
+}
+
+int Communicator::request_new_conn(CommSession *session, CommTarget *target)
+{
+	struct CommConnEntry *entry;
+	struct poller_data data;
+	int timeout;
+
+	entry = this->launch_conn(session, target);
+	if (entry)
+	{
+		session->conn = entry->conn;
+		session->seq = entry->seq++;
+		data.operation = PD_OP_CONNECT;
+		data.fd = entry->sockfd;
+		data.ssl = NULL;
+		data.context = entry;
+		timeout = session->target->connect_timeout;
+		if (mpoller_add(&data, timeout, this->mpoller) >= 0)
+			return 0;
+
+		this->release_conn(entry);
+	}
+
+	return -1;
 }
 
 int Communicator::request(CommSession *session, CommTarget *target)
 {
-	struct CommConnEntry *entry;
-	struct poller_data data;
 	int errno_bak;
-	int timeout;
-	int ret;
 
 	if (session->passive)
 	{
@@ -1696,28 +1759,14 @@ int Communicator::request(CommSession *session, CommTarget *target)
 	session->target = target;
 	session->out = NULL;
 	session->in = NULL;
-	ret = this->request_idle_conn(session, target);
-	while (ret < 0)
+	if (this->request_idle_conn(session, target) < 0)
 	{
-		entry = this->launch_conn(session, target);
-		if (entry)
+		if (this->request_new_conn(session, target) < 0)
 		{
-			session->conn = entry->conn;
-			session->seq = entry->seq++;
-			data.operation = PD_OP_CONNECT;
-			data.fd = entry->sockfd;
-			data.ssl = NULL;
-			data.context = entry;
-			timeout = session->target->connect_timeout;
-			if (mpoller_add(&data, timeout, this->mpoller) >= 0)
-				break;
-
-			this->release_conn(entry);
+			session->conn = NULL;
+			session->seq = 0;
+			return -1;
 		}
-
-		session->conn = NULL;
-		session->seq = 0;
-		return -1;
 	}
 
 	errno = errno_bak;
@@ -1784,13 +1833,15 @@ void Communicator::unbind(CommService *service)
 int Communicator::reply_idle_conn(CommSession *session, CommTarget *target)
 {
 	struct CommConnEntry *entry;
+	struct list_head *pos;
 	int ret = -1;
 
 	pthread_mutex_lock(&target->mutex);
 	if (!list_empty(&target->idle_list))
 	{
-		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
-		list_del(&entry->list);
+		pos = target->idle_list.next;
+		entry = list_entry(pos, struct CommConnEntry, list);
+		list_del(pos);
 
 		session->out = session->message_out();
 		if (session->out)

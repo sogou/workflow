@@ -20,24 +20,23 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include "list.h"
+#include "msgqueue.h"
 #include "thrdpool.h"
 
 struct __thrdpool
 {
-	struct list_head task_queue;
+	msgqueue_t *msgqueue;
 	size_t nthreads;
 	size_t stacksize;
 	pthread_t tid;
 	pthread_mutex_t mutex;
-	pthread_cond_t cond;
 	pthread_key_t key;
 	pthread_cond_t *terminate;
 };
 
 struct __thrdpool_task_entry
 {
-	struct list_head list;
+	void *link;
 	struct thrdpool_task task;
 };
 
@@ -46,25 +45,17 @@ static pthread_t __zero_tid;
 static void *__thrdpool_routine(void *arg)
 {
 	thrdpool_t *pool = (thrdpool_t *)arg;
-	struct list_head **pos = &pool->task_queue.next;
 	struct __thrdpool_task_entry *entry;
 	void (*task_routine)(void *);
 	void *task_context;
 	pthread_t tid;
 
 	pthread_setspecific(pool->key, pool);
-	while (1)
+	while (!pool->terminate)
 	{
-		pthread_mutex_lock(&pool->mutex);
-		while (!pool->terminate && list_empty(&pool->task_queue))
-			pthread_cond_wait(&pool->cond, &pool->mutex);
-
-		if (pool->terminate)
+		entry = (struct __thrdpool_task_entry *)msgqueue_get(pool->msgqueue);
+		if (!entry)
 			break;
-
-		entry = list_entry(*pos, struct __thrdpool_task_entry, list);
-		list_del(*pos);
-		pthread_mutex_unlock(&pool->mutex);
 
 		task_routine = entry->task.routine;
 		task_context = entry->task.context;
@@ -80,6 +71,7 @@ static void *__thrdpool_routine(void *arg)
 	}
 
 	/* One thread joins another. Don't need to keep all thread IDs. */
+	pthread_mutex_lock(&pool->mutex);
 	tid = pool->tid;
 	pool->tid = pthread_self();
 	if (--pool->nthreads == 0)
@@ -92,37 +84,13 @@ static void *__thrdpool_routine(void *arg)
 	return NULL;
 }
 
-static int __thrdpool_init_locks(thrdpool_t *pool)
-{
-	int ret;
-
-	ret = pthread_mutex_init(&pool->mutex, NULL);
-	if (ret == 0)
-	{
-		ret = pthread_cond_init(&pool->cond, NULL);
-		if (ret == 0)
-			return 0;
-
-		pthread_mutex_destroy(&pool->mutex);
-	}
-
-	errno = ret;
-	return -1;
-}
-
-static void __thrdpool_destroy_locks(thrdpool_t *pool)
-{
-	pthread_mutex_destroy(&pool->mutex);
-	pthread_cond_destroy(&pool->cond);
-}
-
 static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 {
 	pthread_cond_t term = PTHREAD_COND_INITIALIZER;
 
 	pthread_mutex_lock(&pool->mutex);
+	msgqueue_set_nonblock(pool->msgqueue);
 	pool->terminate = &term;
-	pthread_cond_broadcast(&pool->cond);
 
 	if (in_pool)
 	{
@@ -177,14 +145,18 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 	int ret;
 
 	pool = (thrdpool_t *)malloc(sizeof (thrdpool_t));
-	if (pool)
+	if (!pool)
+		return NULL;
+
+	pool->msgqueue = msgqueue_create((size_t)-1, 0);
+	if (pool->msgqueue)
 	{
-		if (__thrdpool_init_locks(pool) >= 0)
+		ret = pthread_mutex_init(&pool->mutex, NULL);
+		if (ret == 0)
 		{
 			ret = pthread_key_create(&pool->key, NULL);
 			if (ret == 0)
 			{
-				INIT_LIST_HEAD(&pool->task_queue);
 				pool->stacksize = stacksize;
 				pool->nthreads = 0;
 				memset(&pool->tid, 0, sizeof (pthread_t));
@@ -194,28 +166,26 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 
 				pthread_key_delete(pool->key);
 			}
-			else
-				errno = ret;
 
-			__thrdpool_destroy_locks(pool);
+			pthread_mutex_destroy(&pool->mutex);
 		}
 
-		free(pool);
+		errno = ret;
+		msgqueue_destroy(pool->msgqueue);
 	}
 
+	free(pool);
 	return NULL;
 }
 
 inline void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
-								thrdpool_t *pool)
-{
-	struct __thrdpool_task_entry *entry = (struct __thrdpool_task_entry *)buf;
+								thrdpool_t *pool);
 
-	entry->task = *task;
-	pthread_mutex_lock(&pool->mutex);
-	list_add_tail(&entry->list, &pool->task_queue);
-	pthread_cond_signal(&pool->cond);
-	pthread_mutex_unlock(&pool->mutex);
+void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
+						 thrdpool_t *pool)
+{
+	((struct __thrdpool_task_entry *)buf)->task = *task;
+	msgqueue_put(buf, pool->msgqueue);
 }
 
 int thrdpool_schedule(const struct thrdpool_task *task, thrdpool_t *pool)
@@ -258,7 +228,9 @@ int thrdpool_increase(thrdpool_t *pool)
 	return -1;
 }
 
-inline int thrdpool_in_pool(thrdpool_t *pool)
+inline int thrdpool_in_pool(thrdpool_t *pool);
+
+int thrdpool_in_pool(thrdpool_t *pool)
 {
 	return pthread_getspecific(pool->key) == pool;
 }
@@ -268,13 +240,14 @@ void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 {
 	int in_pool = thrdpool_in_pool(pool);
 	struct __thrdpool_task_entry *entry;
-	struct list_head *pos, *tmp;
 
 	__thrdpool_terminate(in_pool, pool);
-	list_for_each_safe(pos, tmp, &pool->task_queue)
+	while (1)
 	{
-		entry = list_entry(pos, struct __thrdpool_task_entry, list);
-		list_del(pos);
+		entry = (struct __thrdpool_task_entry *)msgqueue_get(pool->msgqueue);
+		if (!entry)
+			break;
+
 		if (pending)
 			pending(&entry->task);
 
@@ -282,7 +255,8 @@ void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 	}
 
 	pthread_key_delete(pool->key);
-	__thrdpool_destroy_locks(pool);
+	pthread_mutex_destroy(&pool->mutex);
+	msgqueue_destroy(pool->msgqueue);
 	if (!in_pool)
 		free(pool);
 }

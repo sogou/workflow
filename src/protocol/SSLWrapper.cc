@@ -285,7 +285,7 @@ int SSLWrapper::feedback(const void *buf, size_t size)
 	return -1;
 }
 
-int ServiceSSLWrapper::append(const void *buf, size_t *size)
+int ServerSSLWrapper::append(const void *buf, size_t *size)
 {
 	char *ptr;
 	long len;

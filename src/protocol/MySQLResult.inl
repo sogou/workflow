@@ -16,6 +16,7 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <math.h>
 #include <string>
 #include <utility>
 #include "mysql_byteorder.h"
@@ -175,10 +176,8 @@ inline int MySQLCell::as_int() const
 	if (!this->is_int())
 		return 0;
 
-	char num[MYSQL_INT_STR_LENGTH + 1];
-	memcpy(num, this->data, this->len);
-	num[this->len] = '\0';
-	return atoi(num);
+	std::string num((char *)this->data, this->len);
+	return atoi(num.c_str());
 }
 
 inline bool MySQLCell::is_float() const
@@ -189,12 +188,10 @@ inline bool MySQLCell::is_float() const
 inline float MySQLCell::as_float() const
 {
 	if (!this->is_float())
-		return 0;
+		return NAN;
 
-	char num[MYSQL_FLOAT_STR_LENGTH + 1];
-	memcpy(num, this->data, this->len);
-	num[this->len] = '\0';
-	return strtof(num, NULL);
+	std::string num((char *)this->data, this->len);
+	return strtof(num.c_str(), NULL);
 }
 
 inline bool MySQLCell::is_double() const
@@ -205,12 +202,10 @@ inline bool MySQLCell::is_double() const
 inline double MySQLCell::as_double() const
 {
 	if (!this->is_double())
-		return 0;
+		return NAN;
 
-	char num[MYSQL_DOUBLE_STR_LENGTH + 1];
-	memcpy(num, this->data, this->len);
-	num[this->len] = '\0';
-	return strtod(num, NULL);
+	std::string num((char *)this->data, this->len);
+	return strtod(num.c_str(), NULL);
 }
 
 inline bool MySQLCell::is_ulonglong() const
@@ -221,12 +216,10 @@ inline bool MySQLCell::is_ulonglong() const
 inline unsigned long long MySQLCell::as_ulonglong() const
 {
 	if (!this->is_ulonglong())
-		return 0;
+		return (unsigned long long)-1;
 
-	char num[MYSQL_LONG_STR_LENGTH + 1];
-	memcpy(num, this->data, this->len);
-	num[this->len] = '\0';
-	return strtoull(num, NULL, 10);
+	std::string num((char *)this->data, this->len);
+	return strtoull(num.c_str(), NULL, 10);
 }
 
 inline bool MySQLCell::is_date() const
@@ -272,6 +265,7 @@ inline std::string MySQLCell::as_datetime() const
 inline bool MySQLCell::is_string() const
 {
 	return (this->data_type == MYSQL_TYPE_DECIMAL ||
+			this->data_type == MYSQL_TYPE_NEWDECIMAL ||
 			this->data_type == MYSQL_TYPE_STRING ||
 			this->data_type == MYSQL_TYPE_VARCHAR ||
 			this->data_type == MYSQL_TYPE_VAR_STRING ||

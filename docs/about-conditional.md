@@ -1,115 +1,104 @@
-# 条件任务与资源池
+# 条件任务与观察者模式
 
-在我们用workflow写异步程序时经常会遇到这样一些场景：
-* 任务运行时需要先从某个池子里获得一个资源。任务运行结束，则会把资源放回池子，让下一个需要资源的任务运行。
-* 网络通信时需要对某一个或一些通信目标做总的并发度限制，但又不希望占用线程等待。
-* 我们有许多随机到达的任务，处在不同的series里。但这些任务必须**串行**的运行。
+有的时候，我们需要让任务在某个条件下才被执行。条件任务（WFConditional）就是用于解决这种问题。  
+条件任务是一种任务包装器，可以包装任何的任务并取代原任务。通过对条件任务发送信号来触发被包装任务的执行。  
 
-所有这些需求，都可以用资源池模块来解决。我们的[WFDnsResolver](https://github.com/sogou/workflow/blob/master/src/nameservice/WFDnsResolver.cc)就是通过这个方法来实现对dns server的并发度控制的。
-
-# 资源池的接口
-在[WFResourcePool.h](https://github.com/sogou/workflow/blob/master/src/factory/WFResourcePool.h)里，定义了资源池模块的接口：
+# 条件任务的创建
+在[WFTaskFactory.h](/src/factory/WFTaskFactory.h)里，可以看到条件任务的创建接口。
 ~~~cpp
-class WFResourcePool
+class WFTaskFactory
 {
 public:
-    WFConditional *get(SubTask *task, void **resbuf);
-    WFConditional *get(SubTask *task);
-    void post(void *res);
-    ...
-
-protected:
-    virtual void *pop()
-    {
-        return this->data.res[this->data.index++];
-    }
-
-    virtual void push(void *res)
-    {
-        this->data.res[--this->data.index] = res;
-    }
-    ...
-
+    static WFConditional *create_conditional(SubTask *task);
+    static WFConditional *create_conditional(SubTask *task, void **msgbuf);
+};
+~~~
+可以看到，我们通过工厂的create_conditional接口创建条件任务。  
+其中，task为被包装的任务。msgbuf是用于接收消息的缓冲区，如果无需关注消息的具体内容，msgbuf可以缺省。  
+WFConditional的主要接口：
+~~~cpp
+class WFConditional : public WFGenericTask
+{
 public:
-    WFResourcePool(void *const *res, size_t n);
-    WFResourcePool(size_t n);
+    virtual void signal(void *msg);
     ...
 };
 ~~~
-#### 构造函数
-第一个构造函数接受一个资源数组，长度为n。数组每个元素为一个void \*。内部会再分配一份相同大小的内存，把数组复制走。  
-如果你的初始资源都是nullptr，那么你可以使用第二个构造函数，只需要传n，而无需先建立一个全部为nullptr的指针数组。  
-大概看看内部实现就明白了：
-~~~cpp
-void WFResourcePool::create(size_t n)
-{
-    this->data.res = new void *[n];
-    this->data.value = n;
-    ...
-}
-
-WFResourcePool::WFResourcePool(void *const *res, size_t n)
-{
-    this->create(n);
-    memcpy(this->data.res, res, n * sizeof (void *));
-}
-
-WFResourcePool::WFResourcePool(size_t n)
-{
-    this->create(n);
-    memset(this->data.res, 0, n * sizeof (void *));
-}
-~~~
-
-#### 使用接口
-用户使用get()接口，把任务打包成一个conditional。conditional是一个条件任务，条件满足时运行其包装的任务。  
-get()接口可包含第二个参数是一个void \*\*resbuf，用于保存所获得的资源。  
-接下来，用户只需要用这个conditional取代原来的任务使用就好了，可以start或串进任务流。  
-注意conditional是在它被执行时去尝试获得资源的，而不是在它被创建的时候。要不然的话，以下代码就会被卡死：
-~~~cpp
-WFResourcePool pool(1);
-
-int f()
-{
-    WFHttpTask *t1 = WFTaskFactory::create_http_task(..., [](void *){pool.post(nullptr);});
-    WFHttpTask *t2 = WFTaskFactory::create_http_task(..., [](void *){pool.post(nullptr);});
-
-    WFConditional *c1 = pool.get(t1, &t1->user_data);  // 用user_data来保存res是一种实用方法。
-    WFConditional *c2 = pool.get(t2, &t2->user_data);
-
-    c2->start();
-    // wait for t2 finish here.
-    ...
-    c1->start();
-    ...
-}
-~~~
-以上代码c1先创建，等待t2结束后才运行。这里并不会出现c2卡死，因为conditional是在执行时才获得资源的。  
-当用户对资源使用完毕（一般在任务callback里），需要通过post()接口把资源放回池子。  
-post()时的res参数，**无需**与get()得到res的一致。  
-
-#### 派生
-从上面的pop()和push()函数我们可以看到，我们对资源的使用默认是FILO，即先进后出的。  
-使用FILO的原因是，大多数场景下，刚刚被释放的资源应该优先被复用。  
-但是，用户可以通过派生的方式，非常简单的实现一个FIFO资源池。只需要重写pop()和push()两个virtual函数即可。  
-如果需要，你还可以实现可动态扩展和收缩的资源池。
+WFConditional是一种任务，所以，它满足普通workflow任务的一切属性。特别的接口只有signal，用于发送信号。  
 
 # 示例
-我们准备抓取一份URL列表，但要求总的并发度不超过max_p。我们当然可以用parallel来实现，但使用资源池可以更简单：
+
+以下示例，通过timer和conditional，实现一个延迟1秒执行的计算任务。
 ~~~cpp
-int fetch_with_max(std::vector<std::string>& url_list, size_t max_p)
+int main()
 {
-    WFResourcePool pool(max_p);
-
-    for (std::string& url : url_list)
-    {
-        WFHttpTask *task = WFTaskFactory::create_http_task(url, [&pool](WFHttpTask *task) {
-            pool.post(nullptr);
-        });
-        WFConditional *cond = pool.get(task);  // 无需保存res，可以不传resbuf参数。
-        cond->start();
-    }
-
-    // wait_here...
+    WFGoTask *task = WFTaskFactory::create_go_task("test", [](){ printf("Done\n"); });
+    WFConditional *cond = WFTaskFactory::create_conditional(task);
+    WFTimerTask *timer = WFTaskFactory::create_timer_task(1, 0, [cond](void *){
+        cond->signal(NULL);
+    });
+    timer->start();
+    cond->start();
+    getchar();
 }
 ~~~
+这个示例里，在定时器的回调里向cond发送信号，让被包装的go task可以被执行。  
+注意，无论cond->signal()与cond->start()哪一个先被调用，程序都完全正确。  
+
+# 观察者模式
+
+我们看到，如果直接对cond发送信息，需要发送者直接持有cond的指针，这在一些情况下并不是很方便。  
+于是，我们引入了观察者模式，也就是命名的条件任务。通过向某个名称发送信号，同时唤醒所有在这个名称下的条件任务。  
+命名条件任务的创建与唤醒：
+~~~cpp
+class WFTaskFactory
+{
+public:
+    static WFConditional *create_conditional(const std::string& cond_name, SubTask *task);
+    static WFConditional *create_conditional(const std::string& cond_name, SubTask *task, void **msgbuf);
+    static void signal_by_name(const std::string& cond_name, void *msg);
+};
+~~~
+我们看到，与普通条件任务唯一区别是，命名条件任务创建时，需要传入一个cond_name。  
+而signal_by_name()接口，将msg发送到所有在这个名称上等待的条件任务，将它们全部唤醒。这就相当于实现了观察者模式。  
+# 示例
+
+还是上面的延迟计算示例，我们增加到两个计算任务并用观察者模式来实现。用”slot1”作为条件任务名。
+~~~cpp
+int main()
+{
+    WFGoTask *task1 = WFTaskFactory::create_go_task("test”, [](){ printf(“test1 done\n"); });
+    WFGoTask *task2 = WFTaskFactory::create_go_task("test”, [](){ printf(“test2 done\n"); });
+    WFConditional *cond1 = WFTaskFactory::create_conditional(“slot1”, task1);
+    WFConditional *cond2 = WFTaskFactory::create_conditional(“slot1”, task2);
+    WFTimerTask *timer = WFTaskFactory::create_timer_task(1, 0, [](void *){
+        WFTaskFactory::signal_by_name(“slot1”, NULL);
+    });
+    timer->start();
+    cond1->start();
+    cond2->start();
+    getchar();
+}
+~~~
+我们看到，在这个示例里，timer在回调中通过signal_by_name方法，同时唤醒了slot1下两个计算任务。  
+
+# 使用条件任务注意事项
+
+Workflow里的任何任务，如果创建之后不想运行，都可以通过dismiss接口直接释放。  
+对于条件任务，如果要被dismiss（或者在某个被cancel的series里），必须保证这个条件任务没有被signal过。
+以下代码的行为无定义：
+~~~cpp
+int main()
+{
+    WFEmptyTask *task = WFTaskFactory::create_empty_task();
+    WFConditional *cond = WFTaskFactory::create_conditional(“slot1”, task);
+    WFTimerTask *timer = WFTaskFactory::create_timer_task(0, 0, [](void *) {
+        WFTaskFactory::signal_by_name(“slot1”);
+    });
+    timer->start();
+    cond->dismiss();  // 取消任务
+    getchar();
+}
+~~~
+显然，如果timer的callback里已经执行或正在执行了signal_by_name，cond被signal，再dismiss()是一种错误行为。  
+这种情况一般也只会出现在命名条件任务里。所以，dismiss一个命名条件任务，需要特别的小心。  

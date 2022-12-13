@@ -625,6 +625,13 @@ public:
 		return *this;
 	}
 
+	KafkaConfig(const KafkaConfig& copy)
+	{
+		this->ptr = copy.ptr;
+		this->ref = copy.ref;
+		++*this->ref;
+	}
+
 	KafkaConfig& operator= (const KafkaConfig& copy)
 	{
 		if (this != &copy)
@@ -634,6 +641,7 @@ public:
 			this->ref = copy.ref;
 			++*this->ref;
 		}
+
 		return *this;
 	}
 
@@ -731,7 +739,14 @@ public:
 		return *this;
 	}
 
-	KafkaRecord& operator= (KafkaRecord& copy)
+	KafkaRecord(const KafkaRecord& copy)
+	{
+		this->ptr = copy.ptr;
+		this->ref = copy.ref;
+		++*this->ref;
+	}
+
+	KafkaRecord& operator= (const KafkaRecord& copy)
 	{
 		if (this != &copy)
 		{
@@ -740,6 +755,7 @@ public:
 			this->ref = copy.ref;
 			++*this->ref;
 		}
+
 		return *this;
 	}
 
@@ -809,7 +825,12 @@ public:
 	long long get_low_watermark() const { return this->ptr->low_watermark; }
 	void set_low_watermark(long long offset) { this->ptr->low_watermark = offset; }
 
-	bool reach_high_watermark() const { return this->ptr->offset == this->ptr->high_watermark; }
+	void clear_records()
+	{
+		INIT_LIST_HEAD(&this->ptr->record_list);
+		this->curpos = &this->ptr->record_list;
+		this->startpos = this->endpos = this->curpos;
+	}
 
 public:
 	KafkaToppar()
@@ -861,7 +882,7 @@ public:
 		this->endpos = copy.endpos;
 	}
 
-	KafkaToppar& operator= (KafkaToppar& copy)
+	KafkaToppar& operator= (const KafkaToppar& copy)
 	{
 		if (this != &copy)
 		{
@@ -873,6 +894,7 @@ public:
 			this->startpos = copy.startpos;
 			this->endpos = copy.endpos;
 		}
+
 		return *this;
 	}
 
@@ -948,6 +970,19 @@ public:
 	void record_rollback()
 	{
 		this->curpos = this->curpos->prev;
+	}
+
+	KafkaRecord *get_tail_record()
+	{
+		if (&this->ptr->record_list != this->ptr->record_list.prev)
+		{
+			return (KafkaRecord *)list_entry(this->ptr->record_list.prev,
+					KafkaRecord, list);
+		}
+		else
+		{
+			return NULL;
+		}
 	}
 
 private:
@@ -1216,7 +1251,7 @@ public:
 		++*this->ref;
 	}
 
-	KafkaMeta& operator= (KafkaMeta& copy)
+	KafkaMeta& operator= (const KafkaMeta& copy)
 	{
 		if (this != &copy)
 		{
@@ -1225,6 +1260,7 @@ public:
 			this->ref = copy.ref;
 			++*this->ref;
 		}
+
 		return *this;
 	}
 
@@ -1411,8 +1447,7 @@ public:
 		return this->coordinator;
 	}
 
-	int run_assignor(KafkaMetaList *meta_list, KafkaMetaList *alien_meta_list,
-					 const char *protocol_name);
+	int run_assignor(KafkaMetaList *meta_list, const char *protocol_name);
 
 	void add_subscriber(KafkaMetaList *meta_list,
 						std::vector<KafkaMetaSubscriber> *subscribers);

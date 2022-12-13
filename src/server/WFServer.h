@@ -176,7 +176,7 @@ private:
 	int init(const struct sockaddr *bind_addr, socklen_t addrlen,
 			 const char *cert_file, const char *key_file);
 	int init_ssl_ctx(const char *cert_file, const char *key_file);
-	static long ssl_ctx_callback(SSL *ssl, int *al, void *arg);
+	static int ssl_ctx_callback(SSL *ssl, int *al, void *arg);
 	virtual int create_listen_fd();
 	virtual void handle_unbound();
 

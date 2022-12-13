@@ -34,11 +34,7 @@ public:
 	virtual void dispatch()
 	{
 		if (this->service->request(this) < 0)
-		{
-			this->state = IOS_STATE_ERROR;
-			this->error = errno;
-			this->subtask_done();
-		}
+			this->handle(IOS_STATE_ERROR, errno);
 	}
 
 protected:

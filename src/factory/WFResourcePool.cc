@@ -22,7 +22,7 @@
 #include "WFTask.h"
 #include "WFResourcePool.h"
 
-class __WFConditional : public WFConditional
+class __RPConditional : public WFConditional
 {
 public:
 	struct list_head list;
@@ -33,14 +33,14 @@ public:
 	virtual void signal(void *res) { }
 
 public:
-	__WFConditional(SubTask *task, void **resbuf,
+	__RPConditional(SubTask *task, void **resbuf,
 					struct WFResourcePool::Data *data) :
 		WFConditional(task, resbuf)
 	{
 		this->data = data;
 	}
 
-	__WFConditional(SubTask *task,
+	__RPConditional(SubTask *task,
 					struct WFResourcePool::Data *data) :
 		WFConditional(task)
 	{
@@ -48,7 +48,7 @@ public:
 	}
 };
 
-void __WFConditional::dispatch()
+void __RPConditional::dispatch()
 {
 	struct WFResourcePool::Data *data = this->data;
 
@@ -64,12 +64,12 @@ void __WFConditional::dispatch()
 
 WFConditional *WFResourcePool::get(SubTask *task, void **resbuf)
 {
-	return new __WFConditional(task, resbuf, &this->data);
+	return new __RPConditional(task, resbuf, &this->data);
 }
 
 WFConditional *WFResourcePool::get(SubTask *task)
 {
-	return new __WFConditional(task, &this->data);
+	return new __RPConditional(task, &this->data);
 }
 
 void WFResourcePool::create(size_t n)
@@ -101,7 +101,7 @@ void WFResourcePool::post(void *res)
 	data->mutex.lock();
 	if (++data->value <= 0)
 	{
-		cond = list_entry(data->wait_list.next, __WFConditional, list);
+		cond = list_entry(data->wait_list.next, __RPConditional, list);
 		list_del(data->wait_list.next);
 	}
 	else

@@ -41,18 +41,6 @@
 #include "WFDnsClient.h"
 #include "WFDnsResolver.h"
 
-/*
-DNS_CACHE_LEVEL_0	->	NO cache
-DNS_CACHE_LEVEL_1	->	TTL MIN
-DNS_CACHE_LEVEL_2	->	TTL [DEFAULT]
-DNS_CACHE_LEVEL_3	->	Forever
-*/
-
-#define DNS_CACHE_LEVEL_0		0
-#define DNS_CACHE_LEVEL_1		1
-#define DNS_CACHE_LEVEL_2		2
-#define DNS_CACHE_LEVEL_3		3
-
 #define HOSTS_LINEBUF_INIT_SIZE	128
 #define PORT_STR_MAX			5
 
@@ -68,12 +56,7 @@ static constexpr struct addrinfo __ai_hints =
 	.ai_flags = 0,
 #endif
 	.ai_family = AF_UNSPEC,
-	.ai_socktype = SOCK_STREAM,
-	.ai_protocol = 0,
-	.ai_addrlen = 0,
-	.ai_addr = NULL,
-	.ai_canonname = NULL,
-	.ai_next = NULL
+	.ai_socktype = SOCK_STREAM
 };
 
 struct DnsContext
@@ -223,116 +206,59 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 	return task;
 }
 
-class WFResolverTask : public WFRouterTask
-{
-public:
-	WFResolverTask(const struct WFNSParams *params, int dns_cache_level,
-				   unsigned int dns_ttl_default, unsigned int dns_ttl_min,
-				   const struct EndpointParams *endpoint_params,
-				   router_callback_t&& cb) :
-		WFRouterTask(std::move(cb))
-	{
-		type_ = params->type;
-		host_ = params->uri.host ? params->uri.host : "";
-		port_ = params->uri.port ? atoi(params->uri.port) : 0;
-		info_ = params->info;
-		dns_cache_level_ = dns_cache_level;
-		dns_ttl_default_ = dns_ttl_default;
-		dns_ttl_min_ = dns_ttl_min;
-		endpoint_params_ = *endpoint_params;
-		first_addr_only_ = params->fixed_addr;
-	}
-
-private:
-	virtual void dispatch();
-	virtual SubTask *done();
-	void thread_dns_callback(ThreadDnsTask *dns_task);
-	void dns_single_callback(WFDnsTask *dns_task);
-	static void dns_partial_callback(WFDnsTask *dns_task);
-	void dns_parallel_callback(const ParallelWork *pwork);
-	void dns_callback_internal(DnsOutput *dns_task,
-							   unsigned int ttl_default,
-							   unsigned int ttl_min);
-
-private:
-	TransportType type_;
-	std::string host_;
-	std::string info_;
-	unsigned short port_;
-	bool first_addr_only_;
-	bool query_dns_;
-	int dns_cache_level_;
-	unsigned int dns_ttl_default_;
-	unsigned int dns_ttl_min_;
-	struct EndpointParams endpoint_params_;
-};
-
 void WFResolverTask::dispatch()
 {
-	if (dns_cache_level_ != DNS_CACHE_LEVEL_0)
+	const ParsedURI& uri = ns_params_.uri;
+	host_ = uri.host ? uri.host : "";
+	port_ = uri.port ? atoi(uri.port) : 0;
+
+	DnsCache *dns_cache = WFGlobal::get_dns_cache();
+	const DnsCache::DnsHandle *addr_handle;
+	std::string hostname = host_;
+
+	if (ns_params_.retry_times == 0)
+		addr_handle = dns_cache->get_ttl(hostname, port_);
+	else
+		addr_handle = dns_cache->get_confident(hostname, port_);
+
+	if (addr_handle)
 	{
-		DnsCache *dns_cache = WFGlobal::get_dns_cache();
-		const DnsCache::DnsHandle *addr_handle;
+		RouteManager *route_manager = WFGlobal::get_route_manager();
+		struct addrinfo *addrinfo = addr_handle->value.addrinfo;
+		struct addrinfo first;
 
-		switch (dns_cache_level_)
+		if (ns_params_.fixed_addr && addrinfo->ai_next)
 		{
-		case DNS_CACHE_LEVEL_1:
-			addr_handle = dns_cache->get_confident(host_, port_);
-			break;
-
-		case DNS_CACHE_LEVEL_2:
-			addr_handle = dns_cache->get_ttl(host_, port_);
-			break;
-
-		case DNS_CACHE_LEVEL_3:
-			addr_handle = dns_cache->get(host_, port_);
-			break;
-
-		default:
-			addr_handle = NULL;
-			break;
+			first = *addrinfo;
+			first.ai_next = NULL;
+			addrinfo = &first;
 		}
 
-		if (addr_handle)
+		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
+							   &ep_params_, hostname, this->result) < 0)
 		{
-			RouteManager *route_manager = WFGlobal::get_route_manager();
-			struct addrinfo *addrinfo = addr_handle->value.addrinfo;
-			struct addrinfo first;
-
-			if (first_addr_only_ && addrinfo->ai_next)
-			{
-				first = *addrinfo;
-				first.ai_next = NULL;
-				addrinfo = &first;
-			}
-
-			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
-								   host_, this->result) < 0)
-			{
-				this->state = WFT_STATE_SYS_ERROR;
-				this->error = errno;
-			}
-			else
-				this->state = WFT_STATE_SUCCESS;
-
-			dns_cache->release(addr_handle);
-			query_dns_ = false;
-			this->subtask_done();
-			return;
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
 		}
+		else
+			this->state = WFT_STATE_SUCCESS;
+
+		dns_cache->release(addr_handle);
+		this->subtask_done();
+		return;
 	}
 
-	if (!host_.empty())
+	if (*host_)
 	{
-		char front = host_.front();
-		char back = host_.back();
+		char front = host_[0];
+		char back = host_[hostname.size() - 1];
 		struct in6_addr addr;
 		int ret;
 
-		if (host_.find(':') != std::string::npos)
-			ret = inet_pton(AF_INET6, host_.c_str(), &addr);
+		if (strchr(host_, ':'))
+			ret = inet_pton(AF_INET6, host_, &addr);
 		else if (isdigit(back) && isdigit(front))
-			ret = inet_pton(AF_INET, host_.c_str(), &addr);
+			ret = inet_pton(AF_INET, host_, &addr);
 		else if (front == '/')
 			ret = 1;
 		else
@@ -340,13 +266,12 @@ void WFResolverTask::dispatch()
 
 		if (ret == 1)
 		{
-			DnsInput dns_in(host_, port_, true); // 'true' means numeric host
+			DnsInput dns_in(hostname, port_, true); // 'true' means numeric host
 			DnsOutput dns_out;
 
 			DnsRoutine::run(&dns_in, &dns_out);
 			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
-			query_dns_ = false;
 			this->subtask_done();
 			return;
 		}
@@ -356,7 +281,7 @@ void WFResolverTask::dispatch()
 	if (hosts)
 	{
 		struct addrinfo *ai;
-		int ret = __readaddrinfo(hosts, host_.c_str(), port_, &__ai_hints, &ai);
+		int ret = __readaddrinfo(hosts, host_, port_, &__ai_hints, &ai);
 
 		if (ret == 0)
 		{
@@ -364,7 +289,6 @@ void WFResolverTask::dispatch()
 			DnsRoutine::create(&out, ret, ai);
 			__add_passive_flags((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
-			query_dns_ = false;
 			this->subtask_done();
 			return;
 		}
@@ -381,7 +305,7 @@ void WFResolverTask::dispatch()
 			auto&& cb = std::bind(&WFResolverTask::dns_single_callback,
 								  this,
 								  std::placeholders::_1);
-			WFDnsTask *dns_task = client->create_dns_task(host_, std::move(cb));
+			WFDnsTask *dns_task = client->create_dns_task(hostname, std::move(cb));
 
 			if (family == AF_INET6)
 				dns_task->get_req()->set_question_type(DNS_TYPE_AAAA);
@@ -401,10 +325,10 @@ void WFResolverTask::dispatch()
 			dctx[0].port = port_;
 			dctx[1].port = port_;
 
-			task_v4 = client->create_dns_task(host_, dns_partial_callback);
+			task_v4 = client->create_dns_task(hostname, dns_partial_callback);
 			task_v4->user_data = dctx;
 
-			task_v6 = client->create_dns_task(host_, dns_partial_callback);
+			task_v6 = client->create_dns_task(hostname, dns_partial_callback);
 			task_v6->get_req()->set_question_type(DNS_TYPE_AAAA);
 			task_v6->user_data = dctx + 1;
 
@@ -428,12 +352,12 @@ void WFResolverTask::dispatch()
 		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
 							  this,
 							  std::placeholders::_1);
-		ThreadDnsTask *dns_task = __create_thread_dns_task(host_, port_,
+		ThreadDnsTask *dns_task = __create_thread_dns_task(hostname, port_,
 														   std::move(cb));
 		series_of(this)->push_front(dns_task);
 	}
 
-	query_dns_ = true;
+	has_next_ = true;
 	this->subtask_done();
 }
 
@@ -441,21 +365,24 @@ SubTask *WFResolverTask::done()
 {
 	SeriesWork *series = series_of(this);
 
-	if (!query_dns_)
+	if (!has_next_)
 	{
 		if (this->callback)
 			this->callback(this);
 
 		delete this;
 	}
+	else
+		has_next_ = false;
 
 	return series->pop();
 }
 
-void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
+void WFResolverTask::dns_callback_internal(void *thrd_dns_output,
 										   unsigned int ttl_default,
 										   unsigned int ttl_min)
 {
+	DnsOutput *dns_out = (DnsOutput *)thrd_dns_output;
 	int dns_error = dns_out->get_error();
 
 	if (dns_error)
@@ -477,12 +404,13 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 		DnsCache *dns_cache = WFGlobal::get_dns_cache();
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
 		const DnsCache::DnsHandle *addr_handle;
+		std::string hostname = host_;
 
-		addr_handle = dns_cache->put(host_, port_, addrinfo,
+		addr_handle = dns_cache->put(hostname, port_, addrinfo,
 									 (unsigned int)ttl_default,
 									 (unsigned int)ttl_min);
-		if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
-							   host_, this->result) < 0)
+		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
+							   &ep_params_, hostname, this->result) < 0)
 		{
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;
@@ -494,15 +422,16 @@ void WFResolverTask::dns_callback_internal(DnsOutput *dns_out,
 	}
 }
 
-void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
+void WFResolverTask::dns_single_callback(void *net_dns_task)
 {
+	WFDnsTask *dns_task = (WFDnsTask *)net_dns_task;
 	WFGlobal::get_dns_respool()->post(NULL);
 
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		struct addrinfo *ai = NULL;
 		int ret;
-		
+
 		ret = protocol::DnsUtil::getaddrinfo(dns_task->get_resp(), port_, &ai);
 		DnsOutput out;
 		DnsRoutine::create(&out, ret, ai);
@@ -520,8 +449,9 @@ void WFResolverTask::dns_single_callback(WFDnsTask *dns_task)
 	delete this;
 }
 
-void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
+void WFResolverTask::dns_partial_callback(void *net_dns_task)
 {
+	WFDnsTask *dns_task = (WFDnsTask *)net_dns_task;
 	WFGlobal::get_dns_respool()->post(NULL);
 
 	struct DnsContext *ctx = (struct DnsContext *)dns_task->user_data;
@@ -538,8 +468,9 @@ void WFResolverTask::dns_partial_callback(WFDnsTask *dns_task)
 		ctx->eai_error = EAI_NONAME;
 }
 
-void WFResolverTask::dns_parallel_callback(const ParallelWork *pwork)
+void WFResolverTask::dns_parallel_callback(const void *parallel)
 {
+	const ParallelWork *pwork = (const ParallelWork *)parallel;
 	struct DnsContext *c4 = (struct DnsContext *)(pwork->get_context());
 	struct DnsContext *c6 = c4 + 1;
 	DnsOutput out;
@@ -581,8 +512,10 @@ void WFResolverTask::dns_parallel_callback(const ParallelWork *pwork)
 	delete this;
 }
 
-void WFResolverTask::thread_dns_callback(ThreadDnsTask *dns_task)
+void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
 {
+	ThreadDnsTask *dns_task = (ThreadDnsTask *)thrd_dns_task;
+
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		DnsOutput *out = dns_task->get_output();
@@ -601,27 +534,14 @@ void WFResolverTask::thread_dns_callback(ThreadDnsTask *dns_task)
 	delete this;
 }
 
-WFRouterTask *
-WFDnsResolver::create(const struct WFNSParams *params, int dns_cache_level,
-					  unsigned int dns_ttl_default, unsigned int dns_ttl_min,
-					  const struct EndpointParams *endpoint_params,
-					  router_callback_t&& callback)
-{
-	return new WFResolverTask(params, dns_cache_level, dns_ttl_default,
-							  dns_ttl_min, endpoint_params,
-							  std::move(callback));
-}
-
 WFRouterTask *WFDnsResolver::create_router_task(const struct WFNSParams *params,
 												router_callback_t callback)
 {
 	const struct WFGlobalSettings *settings = WFGlobal::get_global_settings();
 	unsigned int dns_ttl_default = settings->dns_ttl_default;
 	unsigned int dns_ttl_min = settings->dns_ttl_min;
-	const struct EndpointParams *endpoint_params = &settings->endpoint_params;
-	int dns_cache_level = params->retry_times == 0 ? DNS_CACHE_LEVEL_2 :
-													 DNS_CACHE_LEVEL_1;
-	return create(params, dns_cache_level, dns_ttl_default, dns_ttl_min,
-				  endpoint_params, std::move(callback));
+	const struct EndpointParams *ep_params = &settings->endpoint_params;
+	return new WFResolverTask(params, dns_ttl_default, dns_ttl_min, ep_params,
+							  std::move(callback));
 }
 

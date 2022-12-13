@@ -327,6 +327,7 @@ struct EndpointParams
     int connect_timeout;
     int response_timeout;
     int ssl_connect_timeout;
+    bool use_tls_sni;
 };
 
 static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
@@ -335,6 +336,7 @@ static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
     .connect_timeout        = 10 * 1000,
     .response_timeout       = 10 * 1000,
     .ssl_connect_timeout    = 10 * 1000,
+    .use_tls_sni            = false,
 };
 
 struct AddressParams

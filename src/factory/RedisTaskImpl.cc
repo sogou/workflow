@@ -19,6 +19,7 @@
 */
 
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
@@ -153,11 +154,14 @@ bool ComplexRedisTask::init_success()
 	//https://stackoverflow.com/questions/26964595/whats-the-correct-way-to-use-a-unix-domain-socket-in-requests-framework
 	//https://stackoverflow.com/questions/27037990/connecting-to-postgres-via-database-url-and-unix-socket-in-rails
 
-	//todo userinfo=username:password
-	if (uri_.userinfo && uri_.userinfo[0] == ':' && uri_.userinfo[1])
+	if (uri_.userinfo)
 	{
-		password_.assign(uri_.userinfo + 1);
-		StringUtil::url_decode(password_);
+		char *p = strchr(uri_.userinfo, ':');
+		if (p)
+		{
+			password_.assign(p + 1);
+			StringUtil::url_decode(password_);
+		}
 	}
 
 	if (uri_.path && uri_.path[0] == '/' && uri_.path[1])
@@ -219,7 +223,6 @@ bool ComplexRedisTask::need_redirect()
 
 			return true;
 		}
-		return false;
 	}
 
 	return false;
@@ -243,6 +246,7 @@ bool ComplexRedisTask::finish_once()
 				this->error = WFT_ERR_REDIS_ACCESS_DENIED;
 			}
 		}
+
 		return false;
 	}
 

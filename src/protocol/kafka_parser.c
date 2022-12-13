@@ -288,7 +288,6 @@ int kafka_broker_get_api_version(const kafka_api_t *api, int api_key,
 
 	retp = bsearch(&sk, api->api, api->elements,
 				   sizeof(*api->api), kafka_api_version_key_cmp);
-
 	if (!retp)
 		return -1;
 
@@ -328,7 +327,7 @@ void kafka_config_init(kafka_config_t *conf)
 	conf->fetch_timeout = 100;
 	conf->fetch_min_bytes = 1;
 	conf->fetch_max_bytes = 50 * 1024 * 1024;
-	conf->fetch_msg_max_bytes = 1024 * 1024;
+	conf->fetch_msg_max_bytes = 10 * 1024 * 1024;
 	conf->offset_timestamp = KAFKA_TIMESTAMP_LATEST;
 	conf->commit_timestamp = 0;
 	conf->session_timeout = 10*1000;
@@ -364,7 +363,7 @@ void kafka_config_deinit(kafka_config_t *conf)
 
 void kafka_partition_init(kafka_partition_t *partition)
 {
-	partition->error = KAFKA_NONE;
+	partition->error = 0;
 	partition->partition_index = -1;
 	kafka_broker_init(&partition->leader);
 	partition->replica_nodes = NULL;
@@ -413,7 +412,7 @@ void kafka_broker_deinit(kafka_broker_t *broker)
 
 void kafka_meta_init(kafka_meta_t *meta)
 {
-	meta->error = KAFKA_NONE;
+	meta->error = 0;
 	meta->topic_name = NULL;
 	meta->error_message = NULL;
 	meta->is_internal = 0;
@@ -438,7 +437,7 @@ void kafka_meta_deinit(kafka_meta_t *meta)
 
 void kafka_topic_partition_init(kafka_topic_partition_t *toppar)
 {
-	toppar->error = KAFKA_NONE;
+	toppar->error = 0;
 	toppar->topic_name = NULL;
 	toppar->partition = -1;
 	toppar->preferred_read_replica = -1;
@@ -462,18 +461,18 @@ void kafka_record_header_init(kafka_record_header_t *header)
 {
 	header->key = NULL;
 	header->key_len = 0;
-	header->key_is_move = 0;
+	header->key_is_moved = 0;
 	header->value = NULL;
 	header->value_len = 0;
-	header->value_is_move = 0;
+	header->value_is_moved = 0;
 }
 
 void kafka_record_header_deinit(kafka_record_header_t *header)
 {
-	if (!header->key_is_move)
+	if (!header->key_is_moved)
 		free(header->key);
 
-	if (!header->value_is_move)
+	if (!header->value_is_moved)
 		free(header->value);
 }
 
@@ -481,14 +480,14 @@ void kafka_record_init(kafka_record_t *record)
 {
 	record->key = NULL;
 	record->key_len = 0;
-	record->key_is_move = 0;
+	record->key_is_moved = 0;
 	record->value = NULL;
 	record->value_len = 0;
-	record->value_is_move = 0;
+	record->value_is_moved = 0;
 	record->timestamp = 0;
 	record->offset = 0;
 	INIT_LIST_HEAD(&record->header_list);
-	record->status = KAFKA_UNKNOWN_SERVER_ERROR;
+	record->status = 0;
 	record->toppar = NULL;
 }
 
@@ -497,10 +496,10 @@ void kafka_record_deinit(kafka_record_t *record)
 	struct list_head *tmp, *pos;
 	kafka_record_header_t *header;
 
-	if (!record->key_is_move)
+	if (!record->key_is_moved)
 		free(record->key);
 
-	if (!record->value_is_move)
+	if (!record->value_is_moved)
 		free(record->value);
 
 	list_for_each_safe(pos, tmp, &record->header_list)
@@ -533,7 +532,7 @@ void kafka_member_deinit(kafka_member_t *member)
 void kafka_cgroup_init(kafka_cgroup_t *cgroup)
 {
 	INIT_LIST_HEAD(&cgroup->assigned_toppar_list);
-	cgroup->error = KAFKA_NONE;
+	cgroup->error = 0;
 	cgroup->error_msg = NULL;
 	kafka_broker_init(&cgroup->coordinator);
 	cgroup->leader_id = NULL;
@@ -570,12 +569,12 @@ void kafka_block_init(kafka_block_t *block)
 {
 	block->buf = NULL;
 	block->len = 0;
-	block->is_move = 0;
+	block->is_moved = 0;
 }
 
 void kafka_block_deinit(kafka_block_t *block)
 {
-	if (!block->is_move)
+	if (!block->is_moved)
 		free(block->buf);
 }
 
@@ -614,7 +613,8 @@ int kafka_parser_append_message(const void *buf, size_t *size,
 
 	if (s > parser->message_size - parser->cur_size)
 	{
-		memcpy(parser->msgbuf + parser->cur_size, buf, parser->message_size - parser->cur_size);
+		memcpy(parser->msgbuf + parser->cur_size, buf,
+			   parser->message_size - parser->cur_size);
 		parser->cur_size = parser->message_size;
 	}
 	else
@@ -761,6 +761,7 @@ static int scram_get_attr(const struct iovec *inbuf, char attr,
 	size_t of = 0;
 	void *ptr;
 	char ochar, nchar;
+
 	for (of = 0; of < inbuf->iov_len;)
 	{
 		ptr = (char *)inbuf->iov_base + of;
@@ -852,6 +853,7 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 	unsigned char tempdest[EVP_MAX_MD_SIZE];
 	unsigned char *saltplus;
 	int i, j;
+
 	saltplus = alloca(salt->iov_len + 4);
 	if (!saltplus)
 		return -1;
@@ -907,7 +909,7 @@ static int scram_hmac(const EVP_MD *evp, const struct iovec *key,
 }
 
 static void scram_h(kafka_scram_t *scram, const struct iovec *str,
-		struct iovec *out)
+					struct iovec *out)
 {
 	scram->scram_h((const unsigned char *)str->iov_base, str->iov_len,
 				  (unsigned char *)out->iov_base);
@@ -1105,6 +1107,7 @@ static int kafka_sasl_scram_recv(const char *buf, size_t len, void *p, void *q)
 	kafka_config_t *conf = (kafka_config_t *)p;
 	kafka_sasl_t *sasl = (kafka_sasl_t *)q;
 	int ret = -1;
+
 	switch(sasl->scram.state)
 	{
 	case KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE:
@@ -1133,6 +1136,7 @@ static int scram_generate_nonce(struct iovec *iov)
 {
 	int i;
 	char *ptr = (char *)malloc(33);
+
 	if (!ptr)
 		return -1;
 
@@ -1149,7 +1153,7 @@ static int kafka_sasl_scram_client_new(void *p, kafka_sasl_t *sasl)
 {
 	kafka_config_t *conf = (kafka_config_t *)p;
 	size_t ulen = strlen(conf->username);
-	size_t tlen = 8; //strlen("n,,n=,r=");
+	size_t tlen = strlen("n,,n=,r=");
 	size_t olen = ulen + tlen + 32;
 	void *ptr;
 

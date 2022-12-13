@@ -163,6 +163,7 @@ struct EndpointParams
     int connect_timeout;
     int response_timeout;
     int ssl_connect_timeout;
+    bool use_tls_sni;
 };
 
 // In ServiceGovernance.h

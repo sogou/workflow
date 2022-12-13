@@ -198,6 +198,13 @@ protected:
 	class Series : public SeriesWork
 	{
 	public:
+		virtual void cancel()
+		{
+			this->SeriesWork::cancel();
+			if (this->get_last_task() == this->task)
+				this->unset_last_task();
+		}
+
 		Series(WFServerTask<REQ, RESP> *task) :
 			SeriesWork(&task->processor, nullptr)
 		{

@@ -32,241 +32,74 @@
 #define KAFKA_HEARTBEAT_INIT	(1<<6)
 #define KAFKA_HEARTBEAT_DOING	(1<<7)
 #define KAFKA_HEARTBEAT_DONE	(1<<8)
+#define KAFKA_DEINIT			(1<<30)
 
 using namespace protocol;
 
-using KafkaComplexTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
-											 __kafka_callback_t>;
+using ComplexKafkaTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
+											 struct __ComplexKafkaTaskCtx>;
 
 enum MetaStatus
 {
-	META_EMPTY = -1,
 	META_UNINIT,
 	META_DOING,
 	META_INITED,
 };
 
-class KafkaLockStatus
-{
-public:
-	KafkaLockStatus()
-	{
-		this->status = new int(0);
-		this->cnt = new std::atomic<int>(1);
-		this->mutex = new std::mutex;
-		this->ref = new std::atomic<int>(1);
-	}
-
-	~KafkaLockStatus()
-	{
-		if (--*this->ref == 0)
-		{
-			delete this->ref;
-			delete this->cnt;
-			delete this->status;
-			delete this->mutex;
-		}
-	}
-
-	KafkaLockStatus(const KafkaLockStatus& copy)
-	{
-		this->~KafkaLockStatus();
-		this->ref = copy.ref;
-		++*this->ref;
-		this->cnt = copy.cnt;
-		this->mutex = copy.mutex;
-		this->status = copy.status;
-	}
-
-	KafkaLockStatus& operator= (const KafkaLockStatus& copy)
-	{
-		this->~KafkaLockStatus();
-		this->ref = copy.ref;
-		++*this->ref;
-		this->cnt = copy.cnt;
-		this->mutex = copy.mutex;
-		this->status = copy.status;
-		return *this;
-	}
-
-	std::mutex *get_mutex() { return this->mutex; }
-	int *get_status() { return this->status; }
-
-	std::atomic<int> *get_cnt()
-	{
-		return this->cnt;
-	}
-
-	void add_cnt()
-	{
-		(*this->cnt)++;
-	}
-
-	void dec_cnt()
-	{
-		(*this->cnt)--;
-	}
-
-private:
-	std::mutex *mutex;
-	int *status;
-	std::atomic<int> *cnt;
-	std::atomic<int> *ref;
-};
-
 class KafkaMember
 {
 public:
-	KafkaMember()
+	KafkaMember() : status(0), ref(1) {}
+
+	void incref()
 	{
-		this->ref = new std::atomic<int>(1);
-		this->broker_hosts = new std::vector<std::string>;
-		this->cgroup = new KafkaCgroup;
-		this->meta_list = new KafkaMetaList;
-		this->broker_list = new KafkaBrokerList;
-		this->lock_status = new KafkaLockStatus;
-		this->broker_map = new KafkaBrokerMap;
-		this->meta_map = new std::map<std::string, enum MetaStatus>;
+		++this->ref;
 	}
 
-	~KafkaMember()
+	void decref()
 	{
-		if (--*this->ref == 0)
-		{
-			delete this->ref;
-			delete this->broker_hosts;
-			delete this->cgroup;
-			delete this->meta_list;
-			delete this->broker_list;
-			delete this->broker_map;
-			delete this->lock_status;
-			delete this->meta_map;
-		}
+		if (--this->ref == 0)
+			delete this;
 	}
 
-	std::vector<std::string> *broker_hosts;
-	KafkaCgroup *cgroup;
-	KafkaMetaList *meta_list;
-	KafkaBrokerList *broker_list;
-	KafkaBrokerMap *broker_map;
-	KafkaLockStatus *lock_status;
-	std::map<std::string, enum MetaStatus> *meta_map;
-
-private:
-	std::atomic<int> *ref;
-};
-
-class KafkaHeartbeat
-{
-public:
-	void set_cgroup(const KafkaCgroup& cgroup)
-	{
-		this->cgroup = cgroup;
-	}
-
-	KafkaCgroup *get_cgroup()
-	{
-		return &this->cgroup;
-	}
-
-	void set_meta_list(const KafkaMetaList& meta_list)
-	{
-		this->meta_list = meta_list;
-	}
-
-	KafkaMetaList *get_meta_list()
-	{
-		return &this->meta_list;
-	}
-
-	void set_config(const KafkaConfig& config)
-	{
-		this->config = config;
-	}
-
-	KafkaConfig *get_config()
-	{
-		return &this->config;
-	}
-
-	void set_url(const std::string& url)
-	{
-		this->url = url;
-	}
-
-	std::string get_url()
-	{
-		return this->url;
-	}
-
-	void set_userinfo(const std::string& userinfo)
-	{
-		this->userinfo = userinfo;
-	}
-
-	std::string get_userinfo()
-	{
-		return this->userinfo;
-	}
-
-	void set_lock_status(const KafkaLockStatus& lock_status)
-	{
-		this->lock_status = lock_status;
-	}
-
-	KafkaLockStatus *get_lock_status()
-	{
-		return &this->lock_status;
-	}
-
-	void set_client(WFKafkaClient *client)
-	{
-		this->client = client;
-	}
-
-	WFKafkaClient *get_client()
-	{
-		return this->client;
-	}
-
-private:
+	std::vector<std::string> broker_hosts;
 	KafkaCgroup cgroup;
 	KafkaMetaList meta_list;
+	KafkaBrokerMap broker_map;
 	KafkaConfig config;
-	std::string url;
-	std::string userinfo;
-	KafkaLockStatus lock_status;
-	WFKafkaClient *client;
+	std::map<std::string, enum MetaStatus> meta_map;
+	std::mutex mutex;
+	int status;
+	std::atomic<int> ref;
 };
 
-class ComplexKafkaTask : public WFKafkaTask
+class KafkaClientTask : public WFKafkaTask
 {
 public:
-	ComplexKafkaTask(const std::string& query, int retry_max,
-					 kafka_callback_t&& callback,
-					 WFKafkaClient *client) :
+	KafkaClientTask(const std::string& query, int retry_max,
+					kafka_callback_t&& callback,
+					WFKafkaClient *client) :
 		WFKafkaTask(retry_max, std::move(callback))
 	{
 		this->api_type = Kafka_Unknown;
-		this->client = client;
-		this->lock_status = *client->member->lock_status;
-		this->lock_status.add_cnt();
-		this->cgroup = *client->member->cgroup;
-		this->client_meta_list = *client->member->meta_list;
-		this->client_broker_list = *client->member->broker_list;
-		this->client_broker_map = *client->member->broker_map;
+		this->kafka_error = 0;
+		this->member = client->member;
 		this->query = query;
 
-		if (!client->member->broker_hosts->empty())
+		this->member->incref();
+		this->member->mutex.lock();
+		this->config = client->member->config;
+		if (!this->member->broker_hosts.empty())
 		{
-			int rpos = rand() % client->member->broker_hosts->size();
-			this->url = client->member->broker_hosts->at(rpos);
+			int rpos = rand() % this->member->broker_hosts.size();
+			this->url = this->member->broker_hosts.at(rpos);
 		}
+		this->member->mutex.unlock();
 	}
 
-	virtual ~ComplexKafkaTask()
+	virtual ~KafkaClientTask()
 	{
-		this->lock_status.get_cnt()->fetch_sub(1);
+		this->member->decref();
 	}
 
 	std::string *get_url() { return &this->url; }
@@ -279,6 +112,8 @@ protected:
 	virtual bool add_produce_record(const std::string& topic, int partition,
 									KafkaRecord record);
 
+	virtual bool add_offset_toppar(const KafkaToppar& toppar);
+
 	virtual void dispatch();
 
 	virtual void parse_query();
@@ -290,7 +125,8 @@ private:
 	static void kafka_merge_meta_list(KafkaMetaList* dst,
 									  KafkaMetaList* src);
 
-	static void kafka_merge_broker_list(KafkaBrokerMap *dst,
+	static void kafka_merge_broker_list(std::vector<std::string> *hosts,
+										KafkaBrokerMap *dst,
 										KafkaBrokerList *src);
 
 	static void kafka_cgroup_callback(__WFKafkaTask *task);
@@ -305,7 +141,7 @@ private:
 
 	static void kafka_leavegroup_callback(__WFKafkaTask *task);
 
-	static void kafka_rebalance_proc(KafkaHeartbeat *t);
+	static void kafka_rebalance_proc(KafkaMember *member);
 
 	static void kafka_rebalance_callback(__WFKafkaTask *task);
 
@@ -313,15 +149,19 @@ private:
 
 	void kafka_process_toppar_offset(KafkaToppar *task_toppar);
 
+	int arrange_toppar(int api_type);
+
 	int arrange_produce();
 
 	int arrange_fetch();
 
 	int arrange_commit();
 
+	int arrange_offset();
+
 	inline KafkaBroker *get_broker(int node_id)
 	{
-		return this->client_broker_map.find_item(node_id);
+		return this->member->broker_map.find_item(node_id);
 	}
 
 	int get_node_id(const KafkaToppar *toppar);
@@ -332,12 +172,8 @@ private:
 	std::string get_userinfo() { return this->userinfo; }
 
 private:
-	WFKafkaClient *client;
-	KafkaLockStatus lock_status;
-	KafkaMetaList client_meta_list;
-	KafkaBrokerList client_broker_list;
-	KafkaBrokerMap client_broker_map;
-	KafkaCgroup cgroup;
+	KafkaMember *member;
+	KafkaBroker broker;
 	std::map<int, KafkaTopparList> toppar_list_map;
 	std::string url;
 	std::string query;
@@ -347,16 +183,16 @@ private:
 	friend class WFKafkaClient;
 };
 
-int ComplexKafkaTask::get_node_id(const KafkaToppar *toppar)
+int KafkaClientTask::get_node_id(const KafkaToppar *toppar)
 {
 	int preferred_read_replica = toppar->get_preferred_read_replica();
 	if (preferred_read_replica >= 0)
 		return preferred_read_replica;
 
 	bool flag = false;
-	this->client_meta_list.rewind();
+	this->member->meta_list.rewind();
 	KafkaMeta *meta;
-	while ((meta = this->client_meta_list.get_next()) != NULL)
+	while ((meta = this->member->meta_list.get_next()) != NULL)
 	{
 		if (strcmp(meta->get_topic(), toppar->get_topic()) == 0)
 		{
@@ -375,47 +211,48 @@ int ComplexKafkaTask::get_node_id(const KafkaToppar *toppar)
 	return broker->node_id;
 }
 
-void ComplexKafkaTask::kafka_offsetcommit_callback(__WFKafkaTask *task)
+void KafkaClientTask::kafka_offsetcommit_callback(__WFKafkaTask *task)
 {
-	ComplexKafkaTask *t = (ComplexKafkaTask *)task->user_data;
-	if (task->get_state() == 0)
+	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
+	if (task->get_state() == WFT_STATE_SUCCESS)
 		t->result.set_resp(std::move(*task->get_resp()), 0);
 
 	t->finish = true;
 	t->state = task->get_state();
 	t->error = task->get_error();
+	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
 }
 
-void ComplexKafkaTask::kafka_leavegroup_callback(__WFKafkaTask *task)
+void KafkaClientTask::kafka_leavegroup_callback(__WFKafkaTask *task)
 {
-	ComplexKafkaTask *t = (ComplexKafkaTask *)task->user_data;
+	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
 	t->finish = true;
 	t->state = task->get_state();
 	t->error = task->get_error();
+	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
 }
 
-void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
+void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 {
-	KafkaHeartbeat *t = (KafkaHeartbeat *)task->user_data;
+	KafkaMember *member = (KafkaMember *)task->user_data;
 
-	if (task->get_state() == WFT_STATE_ABORTED ||
-		t->get_lock_status()->get_cnt()->fetch_add(0) == 1)
+	member->mutex.lock();
+	if (member->status & KAFKA_DEINIT)
 	{
-		delete t;
+		member->mutex.unlock();
+		member->decref();
 		return;
 	}
 
-	t->get_lock_status()->get_mutex()->lock();
-
-	if (task->get_state() == 0)
+	if (task->get_state() == WFT_STATE_SUCCESS)
 	{
-		*t->get_lock_status()->get_status() |= KAFKA_CGROUP_DONE;
-		*t->get_lock_status()->get_status() &= (~(KAFKA_CGROUP_INIT|KAFKA_CGROUP_DOING));
+		member->status |= KAFKA_CGROUP_DONE;
+		member->status &= (~(KAFKA_CGROUP_INIT|KAFKA_CGROUP_DOING));
 
-		if (*t->get_lock_status()->get_status() & KAFKA_HEARTBEAT_INIT)
+		if (member->status & KAFKA_HEARTBEAT_INIT)
 		{
 			__WFKafkaTask *kafka_task;
-			KafkaBroker *coordinator = t->get_cgroup()->get_coordinator();
+			KafkaBroker *coordinator = member->cgroup.get_coordinator();
 
 			const struct sockaddr *addr;
 			socklen_t socklen;
@@ -423,125 +260,122 @@ void ComplexKafkaTask::kafka_rebalance_callback(__WFKafkaTask *task)
 
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr,
 																 socklen,
-																 t->get_userinfo(),
+																 "",
 																 0,
 																 kafka_heartbeat_callback);
-			kafka_task->user_data = t;
+			kafka_task->user_data = member;
 			kafka_task->get_req()->set_api_type(Kafka_Heartbeat);
-			kafka_task->get_req()->set_cgroup(*t->get_cgroup());
+			kafka_task->get_req()->set_cgroup(member->cgroup);
 			kafka_task->get_req()->set_broker(*coordinator);
 			kafka_task->start();
-			*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_DOING;
-			*t->get_lock_status()->get_status() &= ~KAFKA_HEARTBEAT_INIT;
+			member->status |= KAFKA_HEARTBEAT_DOING;
+			member->status &= ~KAFKA_HEARTBEAT_INIT;
 		}
 
-		t->get_lock_status()->get_mutex()->unlock();
+		member->mutex.unlock();
 
 		char name[64];
-		snprintf(name, 64, "%p.cgroup", t->get_client());
+		snprintf(name, 64, "%p.cgroup", member);
 		WFTaskFactory::count_by_name(name, (unsigned int)-1);
 	}
 	else
-		kafka_rebalance_proc(t);
+		kafka_rebalance_proc(member);
 }
 
-void ComplexKafkaTask::kafka_rebalance_proc(KafkaHeartbeat *t)
+void KafkaClientTask::kafka_rebalance_proc(KafkaMember *member)
 {
-	if (t->get_lock_status()->get_cnt()->fetch_add(0) == 1)
-	{
-		t->get_lock_status()->get_mutex()->unlock();
-		delete t;
-		return;
-	}
-
-	__WFKafkaTask *task;
-	task = __WFKafkaTaskFactory::create_kafka_task(t->get_url(), 0,
-												   kafka_rebalance_callback);
-	task->user_data = t;
-	task->get_req()->set_config(*t->get_config());
-	task->get_req()->set_api_type(Kafka_FindCoordinator);
-	task->get_req()->set_cgroup(*t->get_cgroup());
-	task->get_req()->set_meta_list(*t->get_meta_list());
-
-	*t->get_lock_status()->get_status() |= KAFKA_CGROUP_DOING;
-	*t->get_lock_status()->get_status() &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_INIT));
-
-	*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_INIT;
-	*t->get_lock_status()->get_status() &= (~(KAFKA_HEARTBEAT_DONE|KAFKA_HEARTBEAT_DOING));
-
-	t->get_lock_status()->get_mutex()->unlock();
-
-	task->start();
-}
-
-void ComplexKafkaTask::kafka_heartbeat_callback(__WFKafkaTask *task)
-{
-	KafkaHeartbeat *t = (KafkaHeartbeat *)task->user_data;
-
-	if (task->get_state() == WFT_STATE_ABORTED ||
-		t->get_lock_status()->get_cnt()->fetch_add(0) == 1)
-	{
-		delete t;
-		return;
-	}
-
-	t->get_lock_status()->get_mutex()->lock();
-
-	if (t->get_cgroup()->get_error() != 0)
-	{
-		kafka_rebalance_proc(t);
-		return;
-	}
-	else
-	{
-		*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_DONE;
-		*t->get_lock_status()->get_status() &= ~KAFKA_HEARTBEAT_DOING;
-		WFTimerTask *timer_task;
-		timer_task = WFTaskFactory::create_timer_task(KAFKA_HEARTBEAT_INTERVAL,
-													  kafka_timer_callback);
-		timer_task->user_data = t;
-		timer_task->start();
-	}
-
-	t->get_lock_status()->get_mutex()->unlock();
-}
-
-void ComplexKafkaTask::kafka_timer_callback(WFTimerTask *task)
-{
-	KafkaHeartbeat *t = (KafkaHeartbeat *)task->user_data;
-
-	if (task->get_state() == WFT_STATE_ABORTED ||
-		t->get_lock_status()->get_cnt()->fetch_add(0) == 1)
-	{
-		delete t;
-		return;
-	}
-
-	t->get_lock_status()->get_mutex()->lock();
-
-	*t->get_lock_status()->get_status() |= KAFKA_HEARTBEAT_DOING;
-	__WFKafkaTask *kafka_task;
-	KafkaBroker *coordinator = t->get_cgroup()->get_coordinator();
+	KafkaBroker *coordinator = member->cgroup.get_coordinator();
 
 	const struct sockaddr *addr;
 	socklen_t socklen;
 	coordinator->get_broker_addr(&addr, &socklen);
 
-	kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-														 t->get_userinfo(), 0,
+	__WFKafkaTask *task;
+	task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen, "", 0,
+												   kafka_rebalance_callback);
+	task->user_data = member;
+	task->get_req()->set_config(member->config);
+	task->get_req()->set_api_type(Kafka_FindCoordinator);
+	task->get_req()->set_cgroup(member->cgroup);
+	task->get_req()->set_meta_list(member->meta_list);
+
+	member->status |= KAFKA_CGROUP_DOING;
+	member->status &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_INIT));
+
+	member->status |= KAFKA_HEARTBEAT_INIT;
+	member->status &= (~(KAFKA_HEARTBEAT_DONE|KAFKA_HEARTBEAT_DOING));
+
+	task->start();
+
+	member->mutex.unlock();
+}
+
+void KafkaClientTask::kafka_heartbeat_callback(__WFKafkaTask *task)
+{
+	KafkaMember *member = (KafkaMember *)task->user_data;
+
+	member->mutex.lock();
+	if (member->status & KAFKA_DEINIT)
+	{
+		member->mutex.unlock();
+		member->decref();
+		return;
+	}
+
+
+	if (member->cgroup.get_error() != 0)
+	{
+		kafka_rebalance_proc(member);
+		return;
+	}
+	else
+	{
+		member->status |= KAFKA_HEARTBEAT_DONE;
+		member->status &= ~KAFKA_HEARTBEAT_DOING;
+		WFTimerTask *timer_task;
+		timer_task = WFTaskFactory::create_timer_task(KAFKA_HEARTBEAT_INTERVAL,
+													  kafka_timer_callback);
+		timer_task->user_data = member;
+		timer_task->start();
+	}
+
+	member->mutex.unlock();
+}
+
+void KafkaClientTask::kafka_timer_callback(WFTimerTask *task)
+{
+	KafkaMember *member = (KafkaMember *)task->user_data;
+
+	member->mutex.lock();
+	if (member->status & KAFKA_DEINIT)
+	{
+		member->mutex.unlock();
+		member->decref();
+		return;
+	}
+
+	member->status |= KAFKA_HEARTBEAT_DOING;
+	__WFKafkaTask *kafka_task;
+	KafkaBroker *coordinator = member->cgroup.get_coordinator();
+
+	const struct sockaddr *addr;
+	socklen_t socklen;
+	coordinator->get_broker_addr(&addr, &socklen);
+
+	kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen, "", 0,
 														 kafka_heartbeat_callback);
 
-	kafka_task->user_data = t;
-	kafka_task->get_req()->set_config(*t->get_config());
+	kafka_task->user_data = member;
+	kafka_task->get_req()->set_config(member->config);
 	kafka_task->get_req()->set_api_type(Kafka_Heartbeat);
-	kafka_task->get_req()->set_cgroup(*t->get_cgroup());
+	kafka_task->get_req()->set_cgroup(member->cgroup);
 	kafka_task->get_req()->set_broker(*coordinator);
 	kafka_task->start();
 
-	t->get_lock_status()->get_mutex()->unlock();
+	member->mutex.unlock();
 }
 
-void ComplexKafkaTask::kafka_merge_meta_list(KafkaMetaList *dst,
+void KafkaClientTask::kafka_merge_meta_list(KafkaMetaList *dst,
 											 KafkaMetaList *src)
 {
 	src->rewind();
@@ -565,33 +399,44 @@ void ComplexKafkaTask::kafka_merge_meta_list(KafkaMetaList *dst,
 	}
 }
 
-void ComplexKafkaTask::kafka_merge_broker_list(KafkaBrokerMap *dst,
+void KafkaClientTask::kafka_merge_broker_list(std::vector<std::string> *hosts,
+											   KafkaBrokerMap *dst,
 											   KafkaBrokerList *src)
 {
+	hosts->clear();
 	src->rewind();
 	KafkaBroker *src_broker;
 	while ((src_broker = src->get_next()) != NULL)
 	{
+		std::string host = "kafka://";
+		host = host + src_broker->get_host() + ":" +
+			std::to_string(src_broker->get_port());
+		hosts->emplace_back(std::move(host));
+
 		if (!dst->find_item(src_broker->get_node_id()))
 			dst->add_item(*src_broker, src_broker->get_node_id());
 	}
 }
 
-void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
+void KafkaClientTask::kafka_meta_callback(__WFKafkaTask *task)
 {
-	ComplexKafkaTask *t = (ComplexKafkaTask *)task->user_data;
-	t->lock_status.get_mutex()->lock();
-	if (task->get_state() == WFT_STATE_SUCCESS)
+	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
+	t->member->mutex.lock();
+	t->state = task->get_state();
+	t->error = task->get_error();
+	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
+	if (t->state == WFT_STATE_SUCCESS)
 	{
-		kafka_merge_meta_list(&t->client_meta_list,
+		kafka_merge_meta_list(&t->member->meta_list,
 							  task->get_resp()->get_meta_list());
 
 		t->meta_list.rewind();
 		KafkaMeta *meta;
 		while ((meta = t->meta_list.get_next()) != NULL)
-			(*t->client->member->meta_map)[meta->get_topic()] = META_INITED;
+			(t->member->meta_map)[meta->get_topic()] = META_INITED;
 
-		kafka_merge_broker_list(&t->client_broker_map,
+		kafka_merge_broker_list(&t->member->broker_hosts,
+								&t->member->broker_map,
 								task->get_resp()->get_broker_list());
 	}
 	else
@@ -599,102 +444,104 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 		t->meta_list.rewind();
 		KafkaMeta *meta;
 		while ((meta = t->meta_list.get_next()) != NULL)
-			(*t->client->member->meta_map)[meta->get_topic()] = META_UNINIT;
+			(t->member->meta_map)[meta->get_topic()] = META_UNINIT;
 
-		t->state = WFT_STATE_TASK_ERROR;
-		t->error = WFT_ERR_KAFKA_META_FAILED;
 		t->finish = true;
 	}
 
 	char name[64];
-	snprintf(name, 64, "%p.meta", t->client);
-	t->lock_status.get_mutex()->unlock();
+	snprintf(name, 64, "%p.meta", t->member);
+	t->member->mutex.unlock();
 	WFTaskFactory::count_by_name(name, (unsigned int)-1);
 }
 
-void ComplexKafkaTask::kafka_cgroup_callback(__WFKafkaTask *task)
+void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 {
-	ComplexKafkaTask *t = (ComplexKafkaTask *)task->user_data;
-	t->lock_status.get_mutex()->lock();
-	if (task->get_state() == 0)
+	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
+	t->member->mutex.lock();
+	t->state = task->get_state();
+	t->error = task->get_error();
+	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
+	if (t->state == WFT_STATE_SUCCESS)
 	{
-		*t->lock_status.get_status() |= KAFKA_CGROUP_DONE;
-		*t->lock_status.get_status() &= (~(KAFKA_CGROUP_INIT|KAFKA_CGROUP_DOING));
+		kafka_merge_meta_list(&t->member->meta_list,
+							  task->get_resp()->get_meta_list());
 
-		if (*t->lock_status.get_status() & KAFKA_HEARTBEAT_INIT)
+		t->meta_list.rewind();
+		KafkaMeta *meta;
+		while ((meta = t->meta_list.get_next()) != NULL)
+			(t->member->meta_map)[meta->get_topic()] = META_INITED;
+
+		kafka_merge_broker_list(&t->member->broker_hosts,
+								&t->member->broker_map,
+								task->get_resp()->get_broker_list());
+
+		t->member->status |= KAFKA_CGROUP_DONE;
+		t->member->status &= (~(KAFKA_CGROUP_INIT|KAFKA_CGROUP_DOING));
+
+		if (t->member->status & KAFKA_HEARTBEAT_INIT)
 		{
-			KafkaHeartbeat *hb = new KafkaHeartbeat;
-			hb->set_cgroup(t->cgroup);
-			hb->set_meta_list(t->client_meta_list);
-			hb->set_config(t->config);
-			hb->set_url(t->url);
-			hb->set_userinfo(t->userinfo);
-			t->lock_status.add_cnt();
-			hb->set_lock_status(t->lock_status);
-			hb->set_client(t->client);
+			t->member->incref();
 			__WFKafkaTask *kafka_task;
-			KafkaBroker *coordinator = t->cgroup.get_coordinator();
+			KafkaBroker *coordinator = t->member->cgroup.get_coordinator();
 
 			const struct sockaddr *addr;
 			socklen_t socklen;
 			coordinator->get_broker_addr(&addr, &socklen);
 
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-																 t->get_userinfo(),
-																 t->retry_max,
+																 "", 0,
 																 kafka_heartbeat_callback);
-			kafka_task->user_data = hb;
-			kafka_task->get_req()->set_config(t->config);
+			kafka_task->user_data = t->member;
+			kafka_task->get_req()->set_config(t->member->config);
 			kafka_task->get_req()->set_api_type(Kafka_Heartbeat);
-			kafka_task->get_req()->set_cgroup(t->cgroup);
+			kafka_task->get_req()->set_cgroup(t->member->cgroup);
 			kafka_task->get_req()->set_broker(*coordinator);
 			kafka_task->start();
-			*t->lock_status.get_status() |= KAFKA_HEARTBEAT_DOING;
-			*t->lock_status.get_status() &= ~KAFKA_HEARTBEAT_INIT;
+			t->member->status |= KAFKA_HEARTBEAT_DOING;
+			t->member->status &= ~KAFKA_HEARTBEAT_INIT;
 		}
-
-		t->state = WFT_STATE_SUCCESS;
-		t->error = 0;
 	}
 	else
 	{
-		*t->lock_status.get_status() |= KAFKA_CGROUP_INIT;
-		*t->lock_status.get_status() &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_DOING));
-
-		t->state = WFT_STATE_TASK_ERROR;
-		t->error = WFT_ERR_KAFKA_CGROUP_FAILED;
+		t->member->status |= KAFKA_CGROUP_INIT;
+		t->member->status &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_DOING));
 		t->finish = true;
 	}
 
 	char name[64];
-	snprintf(name, 64, "%p.cgroup", t->client);
-	t->lock_status.get_mutex()->unlock();
+	snprintf(name, 64, "%p.cgroup", t->member);
+	t->member->mutex.unlock();
 	WFTaskFactory::count_by_name(name, (unsigned int)-1);
 }
 
-void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
+void KafkaClientTask::kafka_parallel_callback(const ParallelWork *pwork)
 {
-	ComplexKafkaTask *t = (ComplexKafkaTask *)pwork->get_context();
+	KafkaClientTask *t = (KafkaClientTask *)pwork->get_context();
 	t->finish = true;
 	t->state = WFT_STATE_TASK_ERROR;
 	t->error = 0;
 
 	std::pair<int, int> *state_error;
 	bool flag = false;
+	int state = WFT_STATE_SUCCESS;
 	int error = 0;
+	int kafka_error = 0;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
-		if (state_error->first != WFT_STATE_SUCCESS)
+		if ((state_error->first >> 16) != WFT_STATE_SUCCESS)
 		{
 			if (!flag)
 			{
 				flag = true;
-				t->lock_status.get_mutex()->lock();
+				t->member->mutex.lock();
 				t->set_meta_status(META_UNINIT);
-				t->lock_status.get_mutex()->unlock();
+				t->member->mutex.unlock();
 			}
-			error = state_error->second;
+			state = state_error->first >> 16;
+			error = state_error->first & 0xffff;
+			kafka_error = state_error->second;
 		}
 		else
 		{
@@ -705,40 +552,41 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 	}
 
 	if (t->state != WFT_STATE_SUCCESS)
+	{
+		t->state = state;
 		t->error = error;
+		t->kafka_error = kafka_error;
+	}
 }
 
-void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
+void KafkaClientTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 {
 	KafkaToppar *toppar;
 
 	struct list_head *pos;
-	list_for_each(pos, this->cgroup.get_assigned_toppar_list())
+	list_for_each(pos, this->member->cgroup.get_assigned_toppar_list())
 	{
-		toppar = this->cgroup.get_assigned_toppar_by_pos(pos);
+		toppar = this->member->cgroup.get_assigned_toppar_by_pos(pos);
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
-			if (task_toppar->get_error() == KAFKA_NONE &&
-				!task_toppar->reach_high_watermark())
-				toppar->set_offset(task_toppar->get_offset() + 1);
-			else
-				toppar->set_offset(task_toppar->get_offset());
-
+			long long offset = task_toppar->get_offset() - 1;
+			KafkaRecord *last_record = task_toppar->get_tail_record();
+			if (last_record)
+				offset = last_record->get_offset();
+			toppar->set_offset(offset + 1);
 			toppar->set_low_watermark(task_toppar->get_low_watermark());
-			toppar->set_low_watermark(task_toppar->get_high_watermark());
-
-			break;
+			toppar->set_high_watermark(task_toppar->get_high_watermark());
 		}
 	}
 }
 
-void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
+void KafkaClientTask::kafka_move_task_callback(__WFKafkaTask *task)
 {
 	std::pair<int, int> *state_error = new std::pair<int, int>;
 
-	state_error->first = task->get_state();
-	state_error->second = task->get_error();
+	state_error->first = (task->get_state() << 16) + task->get_error();
+	state_error->second = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
 	series_of(task)->set_context(state_error);
 
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
@@ -753,11 +601,14 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 			kafka_process_toppar_offset(task_toppar);
 	}
 
-	long idx = (long)(task->user_data);
-	this->result.set_resp(std::move(*task->get_resp()), idx);
+	if (task->get_state() == WFT_STATE_SUCCESS)
+	{
+		long idx = (long)(task->user_data);
+		this->result.set_resp(std::move(*task->get_resp()), idx);
+	}
 }
 
-void ComplexKafkaTask::generate_info()
+void KafkaClientTask::generate_info()
 {
 	if (this->config.get_sasl_mech())
 	{
@@ -766,13 +617,23 @@ void ComplexKafkaTask::generate_info()
 		this->userinfo += this->config.get_sasl_password();
 		this->userinfo += ":";
 		this->userinfo += this->config.get_sasl_mech();
+		this->userinfo += ":";
+		this->userinfo += std::to_string((intptr_t)this->member);
 		this->userinfo += "@";
+		this->url = "kafka://" + this->userinfo +
+		  this->url.substr(this->url.find("kafka://") + 8);
+	}
+	else
+	{
+		char buf[64];
+		snprintf(buf, sizeof(buf), "user:pass:sasl:%p@", this->member);
+		this->userinfo = buf;
 		this->url = "kafka://" + this->userinfo +
 			this->url.substr(this->url.find("kafka://") + 8);
 	}
 }
 
-void ComplexKafkaTask::parse_query()
+void KafkaClientTask::parse_query()
 {
 	auto query_kv = URIParser::split_query_strict(this->query);
 	int api_type = this->api_type;
@@ -793,6 +654,8 @@ void ComplexKafkaTask::parse_query()
 					this->api_type = Kafka_Metadata;
 				else if (strcasecmp(v.c_str(), "leavegroup") == 0)
 					this->api_type = Kafka_LeaveGroup;
+				else if (strcasecmp(v.c_str(), "listoffsets") == 0)
+					this->api_type = Kafka_ListOffsets;
 			}
 		}
 		else if (strcasecmp(kv.first.c_str(), "topic") == 0)
@@ -803,14 +666,18 @@ void ComplexKafkaTask::parse_query()
 	}
 }
 
-enum MetaStatus ComplexKafkaTask::get_meta_status()
+enum MetaStatus KafkaClientTask::get_meta_status()
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
-	enum MetaStatus ret = META_EMPTY;
+	enum MetaStatus ret = META_INITED;
+	std::set<std::string> unique;
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
-		switch((*this->client->member->meta_map)[meta->get_topic()])
+		if (!unique.insert(meta->get_topic()).second)
+			continue;
+
+		switch(this->member->meta_map[meta->get_topic()])
 		{
 		case META_DOING:
 			return META_DOING;
@@ -822,10 +689,7 @@ enum MetaStatus ComplexKafkaTask::get_meta_status()
 
 		case META_UNINIT:
 			ret = META_UNINIT;
-			(*this->client->member->meta_map)[meta->get_topic()] = META_DOING;
-			break;
-
-		default:
+			this->member->meta_map[meta->get_topic()] = META_DOING;
 			break;
 		}
 	}
@@ -833,15 +697,15 @@ enum MetaStatus ComplexKafkaTask::get_meta_status()
 	return ret;
 }
 
-void ComplexKafkaTask::set_meta_status(enum MetaStatus status)
+void KafkaClientTask::set_meta_status(enum MetaStatus status)
 {
-	this->client_meta_list.rewind();
+	this->member->meta_list.rewind();
 	KafkaMeta *meta;
-	while ((meta = this->client_meta_list.get_next()) != NULL)
-		(*this->client->member->meta_map)[meta->get_topic()] = status;
+	while ((meta = this->member->meta_list.get_next()) != NULL)
+		this->member->meta_map[meta->get_topic()] = status;
 }
 
-void ComplexKafkaTask::dispatch()
+void KafkaClientTask::dispatch()
 {
 	__WFKafkaTask *task;
 	WFCounterTask *counter;
@@ -858,7 +722,37 @@ void ComplexKafkaTask::dispatch()
 
 	this->generate_info();
 
-	this->lock_status.get_mutex()->lock();
+	this->member->mutex.lock();
+
+	if (this->member->status & KAFKA_CGROUP_DOING)
+	{
+		char name[64];
+		snprintf(name, 64, "%p.cgroup", this->member);
+		counter = WFTaskFactory::create_counter_task(name, 1, nullptr);
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(counter);
+		this->member->mutex.unlock();
+		this->subtask_done();
+		return;
+	}
+	else if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit) &&
+			 (this->member->status & KAFKA_CGROUP_INIT))
+	{
+		task = __WFKafkaTaskFactory::create_kafka_task(this->url,
+													   this->retry_max,
+													   kafka_cgroup_callback);
+		task->user_data = this;
+		task->get_req()->set_config(this->config);
+		task->get_req()->set_api_type(Kafka_FindCoordinator);
+		task->get_req()->set_cgroup(this->member->cgroup);
+		task->get_req()->set_meta_list(this->meta_list);
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(task);
+		this->member->status |= KAFKA_CGROUP_DOING;
+		this->member->mutex.unlock();
+		this->subtask_done();
+		return;
+	}
 
 	char name[64];
 	switch(this->get_meta_status())
@@ -873,86 +767,29 @@ void ComplexKafkaTask::dispatch()
 		task->get_req()->set_meta_list(this->meta_list);
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(task);
-		this->lock_status.get_mutex()->unlock();
+		this->member->mutex.unlock();
 		this->subtask_done();
 		return;
 
 	case META_DOING:
-		snprintf(name, 64, "%p.meta", this->client);
+		snprintf(name, 64, "%p.meta", this->member);
 		counter = WFTaskFactory::create_counter_task(name, 1, nullptr);
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(counter);
-		this->lock_status.get_mutex()->unlock();
+		this->member->mutex.unlock();
 		this->subtask_done();
 		return;
 
 	case META_INITED:
 		break;
+	}
 
-	case META_EMPTY:
+	if (arrange_toppar(this->api_type) < 0)
+	{
 		this->state = WFT_STATE_TASK_ERROR;
-		this->error = WFT_ERR_KAFKA_META_FAILED;
+		this->error = WFT_ERR_KAFKA_ARRANGE_FAILED;
 		this->finish = true;
-		this->lock_status.get_mutex()->unlock();
-		this->subtask_done();
-		return;
-	}
-
-	if (*this->lock_status.get_status() & KAFKA_CGROUP_DOING)
-	{
-		char name[64];
-		snprintf(name, 64, "%p.cgroup", this->client);
-		counter = WFTaskFactory::create_counter_task(name, 1, nullptr);
-		series_of(this)->push_front(this);
-		series_of(this)->push_front(counter);
-		this->lock_status.get_mutex()->unlock();
-		this->subtask_done();
-		return;
-	}
-	else if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit) &&
-			 (*this->lock_status.get_status() & KAFKA_CGROUP_INIT))
-	{
-		KafkaBroker *broker = this->client_broker_map.get_first_entry();
-		if (!broker)
-		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
-			this->finish = true;
-			this->lock_status.get_mutex()->unlock();
-			this->subtask_done();
-			return;
-		}
-
-		if (broker->is_to_addr())
-		{
-			const struct sockaddr *addr;
-			socklen_t socklen;
-			broker->get_broker_addr(&addr, &socklen);
-
-			task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
-														   this->get_userinfo(),
-														   this->retry_max,
-														   kafka_cgroup_callback);
-		}
-		else
-		{
-			task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
-														   broker->get_port(),
-														   this->get_userinfo(),
-														   this->retry_max,
-														   kafka_cgroup_callback);
-		}
-
-		task->user_data = this;
-		task->get_req()->set_config(this->config);
-		task->get_req()->set_api_type(Kafka_FindCoordinator);
-		task->get_req()->set_broker(*broker);
-		task->get_req()->set_cgroup(this->cgroup);
-		task->get_req()->set_meta_list(this->client_meta_list);
-		series_of(this)->push_front(this);
-		series_of(this)->push_front(task);
-		*this->lock_status.get_status() |= KAFKA_CGROUP_DOING;
-		this->lock_status.get_mutex()->unlock();
+		this->member->mutex.unlock();
 		this->subtask_done();
 		return;
 	}
@@ -961,19 +798,20 @@ void ComplexKafkaTask::dispatch()
 	switch(this->api_type)
 	{
 	case Kafka_Produce:
-		if (arrange_produce() < 0 || this->toppar_list_map.size() == 0)
+		if (this->toppar_list_map.size() == 0)
 		{
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_PRODUCE_FAILED;
 			this->finish = true;
 			break;
 		}
+
 		parallel = Workflow::create_parallel_work(kafka_parallel_callback);
 		this->result.create(this->toppar_list_map.size());
 		parallel->set_context(this);
 		for (auto &v : this->toppar_list_map)
 		{
-			auto cb = std::bind(&ComplexKafkaTask::kafka_move_task_callback, this,
+			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
 			if (broker->is_to_addr())
@@ -1001,8 +839,8 @@ void ComplexKafkaTask::dispatch()
 			task->get_req()->set_broker(*broker);
 			task->get_req()->set_api_type(Kafka_Produce);
 			task->user_data = (void *)parallel->size();
-			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
-			*ctask->get_mutable_ctx() = cb;
+			ComplexKafkaTask *ctask = static_cast<ComplexKafkaTask *>(task);
+			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}
@@ -1011,8 +849,7 @@ void ComplexKafkaTask::dispatch()
 		break;
 
 	case Kafka_Fetch:
-		if (arrange_fetch() < 0 ||
-			this->toppar_list_map.size() == 0)
+		if (this->toppar_list_map.size() == 0)
 		{
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_FETCH_FAILED;
@@ -1025,7 +862,7 @@ void ComplexKafkaTask::dispatch()
 		parallel->set_context(this);
 		for (auto &v : this->toppar_list_map)
 		{
-			auto cb = std::bind(&ComplexKafkaTask::kafka_move_task_callback, this,
+			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
 			if (broker->is_to_addr())
@@ -1053,8 +890,8 @@ void ComplexKafkaTask::dispatch()
 			task->get_req()->set_broker(*broker);
 			task->get_req()->set_api_type(Kafka_Fetch);
 			task->user_data = (void *)parallel->size();
-			KafkaComplexTask *ctask = static_cast<KafkaComplexTask *>(task);
-			*ctask->get_mutable_ctx() = cb;
+			ComplexKafkaTask *ctask = static_cast<ComplexKafkaTask *>(task);
+			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}
@@ -1068,7 +905,7 @@ void ComplexKafkaTask::dispatch()
 		break;
 
 	case Kafka_OffsetCommit:
-		if (!this->cgroup.get_group() || arrange_commit() < 0)
+		if (!this->member->cgroup.get_group())
 		{
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_COMMIT_FAILED;
@@ -1078,7 +915,7 @@ void ComplexKafkaTask::dispatch()
 		else
 		{
 			this->result.create(1);
-			KafkaBroker *coordinator = this->cgroup.get_coordinator();
+			KafkaBroker *coordinator = this->member->cgroup.get_coordinator();
 
 			const struct sockaddr *addr;
 			socklen_t socklen;
@@ -1090,7 +927,7 @@ void ComplexKafkaTask::dispatch()
 														   kafka_offsetcommit_callback);
 			task->user_data = this;
 			task->get_req()->set_config(this->config);
-			task->get_req()->set_cgroup(this->cgroup);
+			task->get_req()->set_cgroup(this->member->cgroup);
 			task->get_req()->set_broker(*coordinator);
 			task->get_req()->set_toppar_list(this->toppar_list);
 			task->get_req()->set_api_type(this->api_type);
@@ -1100,7 +937,7 @@ void ComplexKafkaTask::dispatch()
 		}
 
 	case Kafka_LeaveGroup:
-		if (!this->cgroup.get_group())
+		if (!this->member->cgroup.get_group())
 		{
 			this->state = WFT_STATE_TASK_ERROR;
 			this->error = WFT_ERR_KAFKA_LEAVEGROUP_FAILED;
@@ -1109,7 +946,7 @@ void ComplexKafkaTask::dispatch()
 		}
 		else
 		{
-			KafkaBroker *coordinator = this->cgroup.get_coordinator();
+			KafkaBroker *coordinator = this->member->cgroup.get_coordinator();
 
 			const struct sockaddr *addr;
 			socklen_t socklen;
@@ -1126,11 +963,62 @@ void ComplexKafkaTask::dispatch()
 				task->get_req()->set_config(this->config);
 				task->get_req()->set_api_type(Kafka_LeaveGroup);
 				task->get_req()->set_broker(*coordinator);
-				task->get_req()->set_cgroup(this->cgroup);
+				task->get_req()->set_cgroup(this->member->cgroup);
 				series_of(this)->push_front(this);
 				series_of(this)->push_front(task);
 			}
 		}
+		break;
+
+	case Kafka_ListOffsets:
+		if (this->toppar_list_map.size() == 0)
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_KAFKA_LIST_OFFSETS_FAILED;
+			this->finish = true;
+			break;
+		}
+
+		parallel = Workflow::create_parallel_work(kafka_parallel_callback);
+		this->result.create(this->toppar_list_map.size());
+		parallel->set_context(this);
+		for (auto &v : this->toppar_list_map)
+		{
+			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
+								std::placeholders::_1);
+			KafkaBroker *broker = get_broker(v.first);
+			if (broker->is_to_addr())
+			{
+				const struct sockaddr *addr;
+				socklen_t socklen;
+				broker->get_broker_addr(&addr, &socklen);
+
+				task = __WFKafkaTaskFactory::create_kafka_task(addr, socklen,
+															   this->get_userinfo(),
+															   this->retry_max,
+															   nullptr);
+			}
+			else
+			{
+				task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
+															   broker->get_port(),
+															   this->get_userinfo(),
+															   this->retry_max,
+															   nullptr);
+			}
+
+			task->get_req()->set_config(this->config);
+			task->get_req()->set_toppar_list(v.second);
+			task->get_req()->set_broker(*broker);
+			task->get_req()->set_api_type(Kafka_ListOffsets);
+			task->user_data = (void *)parallel->size();
+			ComplexKafkaTask *ctask = static_cast<ComplexKafkaTask *>(task);
+			ctask->get_mutable_ctx()->cb = cb;
+			series = Workflow::create_series_work(task, nullptr);
+			parallel->add_series(series);
+		}
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(parallel);
 		break;
 
 	default:
@@ -1140,19 +1028,19 @@ void ComplexKafkaTask::dispatch()
 		break;
 	}
 
-	this->lock_status.get_mutex()->unlock();
+	this->member->mutex.unlock();
 	this->subtask_done();
 }
 
-bool ComplexKafkaTask::add_topic(const std::string& topic)
+bool KafkaClientTask::add_topic(const std::string& topic)
 {
 	bool flag = false;
-	this->lock_status.get_mutex()->lock();
+	this->member->mutex.lock();
 
 	this->topic_set.insert(topic);
-	this->client_meta_list.rewind();
+	this->member->meta_list.rewind();
 	KafkaMeta *meta;
-	while ((meta = this->client_meta_list.get_next()) != NULL)
+	while ((meta = this->member->meta_list.get_next()) != NULL)
 	{
 		if (meta->get_topic() == topic)
 		{
@@ -1163,22 +1051,22 @@ bool ComplexKafkaTask::add_topic(const std::string& topic)
 
 	if (!flag)
 	{
-		(*this->client->member->meta_map)[topic] = META_UNINIT;
+		this->member->meta_map[topic] = META_UNINIT;
 
 		KafkaMeta tmp;
 		if (!tmp.set_topic(topic))
 		{
-			this->lock_status.get_mutex()->unlock();
+			this->member->mutex.unlock();
 			return false;
 		}
 
 		this->meta_list.add_item(tmp);
-		this->client_meta_list.add_item(tmp);
+		this->member->meta_list.add_item(tmp);
 
-		if (this->cgroup.get_group())
+		if (this->member->cgroup.get_group())
 		{
-			*this->lock_status.get_status() |= KAFKA_CGROUP_INIT;
-			*this->lock_status.get_status() &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_DOING));
+			this->member->status |= KAFKA_CGROUP_INIT;
+			this->member->status &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_DOING));
 		}
 	}
 	else
@@ -1189,7 +1077,7 @@ bool ComplexKafkaTask::add_topic(const std::string& topic)
 		{
 			if (strcmp(exist->get_topic(), meta->get_topic()) == 0)
 			{
-				this->lock_status.get_mutex()->unlock();
+				this->member->mutex.unlock();
 				return true;
 			}
 		}
@@ -1197,22 +1085,22 @@ bool ComplexKafkaTask::add_topic(const std::string& topic)
 		this->meta_list.add_item(*meta);
 	}
 
-	this->lock_status.get_mutex()->unlock();
+	this->member->mutex.unlock();
 
 	return true;
 }
 
-bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
+bool KafkaClientTask::add_toppar(const KafkaToppar& toppar)
 {
-	if (this->cgroup.get_group())
+	if (this->member->cgroup.get_group())
 		return false;
 
 	bool flag = false;
-	this->lock_status.get_mutex()->lock();
+	this->member->mutex.lock();
 
-	this->client_meta_list.rewind();
+	this->member->meta_list.rewind();
 	KafkaMeta *meta;
-	while ((meta = this->client_meta_list.get_next()) != NULL)
+	while ((meta = this->member->meta_list.get_next()) != NULL)
 	{
 		if (strcmp(meta->get_topic(), toppar.get_topic()) == 0)
 		{
@@ -1227,14 +1115,14 @@ bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
 		KafkaMeta tmp;
 		if (!tmp.set_topic(toppar.get_topic()))
 		{
-			this->lock_status.get_mutex()->unlock();
+			this->member->mutex.unlock();
 			return false;
 		}
 
 		KafkaToppar new_toppar;
 		if (!new_toppar.set_topic_partition(toppar.get_topic(), toppar.get_partition()))
 		{
-			this->lock_status.get_mutex()->unlock();
+			this->member->mutex.unlock();
 			return false;
 		}
 
@@ -1242,12 +1130,12 @@ bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
 		this->toppar_list.add_item(new_toppar);
 
 		this->meta_list.add_item(tmp);
-		this->client_meta_list.add_item(tmp);
+		this->member->meta_list.add_item(tmp);
 
-		if (this->cgroup.get_group())
+		if (this->member->cgroup.get_group())
 		{
-			*this->lock_status.get_status() |= KAFKA_CGROUP_INIT;
-			*this->lock_status.get_status() &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_DOING));
+			this->member->status |= KAFKA_CGROUP_INIT;
+			this->member->status &= (~(KAFKA_CGROUP_DONE|KAFKA_CGROUP_DOING));
 		}
 	}
 	else
@@ -1259,7 +1147,7 @@ bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
 			if (strcmp(exist->get_topic(), toppar.get_topic()) == 0 &&
 				exist->get_partition() == toppar.get_partition())
 			{
-				this->lock_status.get_mutex()->unlock();
+				this->member->mutex.unlock();
 				return true;
 			}
 		}
@@ -1267,7 +1155,7 @@ bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
 		KafkaToppar new_toppar;
 		if (!new_toppar.set_topic_partition(toppar.get_topic(), toppar.get_partition()))
 		{
-			this->lock_status.get_mutex()->unlock();
+			this->member->mutex.unlock();
 			return true;
 		}
 
@@ -1277,12 +1165,12 @@ bool ComplexKafkaTask::add_toppar(const KafkaToppar& toppar)
 		this->meta_list.add_item(*meta);
 	}
 
-	this->lock_status.get_mutex()->unlock();
+	this->member->mutex.unlock();
 
 	return true;
 }
 
-bool ComplexKafkaTask::add_produce_record(const std::string& topic,
+bool KafkaClientTask::add_produce_record(const std::string& topic,
 										  int partition,
 										  KafkaRecord record)
 {
@@ -1347,7 +1235,78 @@ static bool check_replace_toppar(KafkaTopparList *toppar_list, KafkaToppar *topp
 	return false;
 }
 
-int ComplexKafkaTask::arrange_commit()
+int KafkaClientTask::arrange_toppar(int api_type)
+{
+	switch(api_type)
+	{
+	case Kafka_Produce:
+		return this->arrange_produce();
+
+	case Kafka_Fetch:
+		return this->arrange_fetch();
+
+	case Kafka_ListOffsets:
+		return this->arrange_offset();
+
+	case Kafka_OffsetCommit:
+		return this->arrange_commit();
+
+	default:
+		return 0;
+	}
+}
+
+bool KafkaClientTask::add_offset_toppar(const protocol::KafkaToppar& toppar)
+{
+	if (!add_topic(toppar.get_topic()))
+		return false;
+
+	KafkaToppar *exist;
+	bool found = false;
+	while ((exist = this->toppar_list.get_next()) != NULL)
+	{
+		if (strcmp(exist->get_topic(), toppar.get_topic()) == 0 &&
+				exist->get_partition() == toppar.get_partition())
+		{
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+	{
+		KafkaToppar toppar_t;
+		toppar_t.set_topic_partition(toppar.get_topic(), toppar.get_partition());
+		this->toppar_list.add_item(std::move(toppar_t));
+	}
+
+	return true;
+}
+
+int KafkaClientTask::arrange_offset()
+{
+	this->toppar_list.rewind();
+	KafkaToppar *toppar;
+	while ((toppar = this->toppar_list.get_next()) != NULL)
+	{
+		int node_id = get_node_id(toppar);
+		if (node_id < 0)
+			return -1;
+
+		if (this->toppar_list_map.find(node_id) == this->toppar_list_map.end())
+			this->toppar_list_map[node_id] = (KafkaTopparList());
+
+		KafkaToppar new_toppar;
+		if (!new_toppar.set_topic_partition(toppar->get_topic(), toppar->get_partition()))
+			return -1;
+
+		this->toppar_list_map[node_id].add_item(std::move(new_toppar));
+	}
+
+	return 0;
+}
+
+int KafkaClientTask::arrange_commit()
 {
 	this->toppar_list.rewind();
 	KafkaTopparList new_toppar_list;
@@ -1361,38 +1320,33 @@ int ComplexKafkaTask::arrange_commit()
 	return 0;
 }
 
-int ComplexKafkaTask::arrange_fetch()
+int KafkaClientTask::arrange_fetch()
 {
 	this->meta_list.rewind();
 	for (auto& topic : topic_set)
 	{
-		if (this->cgroup.get_group())
+		if (this->member->cgroup.get_group())
 		{
-			this->cgroup.assigned_toppar_rewind();
+			this->member->cgroup.assigned_toppar_rewind();
 			KafkaToppar *toppar;
-			while ((toppar = this->cgroup.get_assigned_toppar_next()) != NULL)
+			while ((toppar = this->member->cgroup.get_assigned_toppar_next()) != NULL)
 			{
 				if (topic.compare(toppar->get_topic()) == 0)
 				{
 					int node_id = get_node_id(toppar);
 					if (node_id < 0)
-					{
-						this->lock_status.get_mutex()->unlock();
 						return -1;
-					}
 
 					if (this->toppar_list_map.find(node_id) == this->toppar_list_map.end())
 						this->toppar_list_map[node_id] = (KafkaTopparList());
 
 					KafkaToppar new_toppar;
 					if (!new_toppar.set_topic_partition(toppar->get_topic(), toppar->get_partition()))
-					{
-						this->lock_status.get_mutex()->unlock();
 						return -1;
-					}
 
 					new_toppar.set_offset(toppar->get_offset());
 					new_toppar.set_low_watermark(toppar->get_low_watermark());
+					new_toppar.set_high_watermark(toppar->get_high_watermark());
 					this->toppar_list_map[node_id].add_item(std::move(new_toppar));
 				}
 			}
@@ -1407,20 +1361,14 @@ int ComplexKafkaTask::arrange_fetch()
 				{
 					int node_id = get_node_id(toppar);
 					if (node_id < 0)
-					{
-						this->lock_status.get_mutex()->unlock();
 						return -1;
-					}
 
 					if (this->toppar_list_map.find(node_id) == this->toppar_list_map.end())
 						this->toppar_list_map[node_id] = KafkaTopparList();
 
 					KafkaToppar new_toppar;
 					if (!new_toppar.set_topic_partition(toppar->get_topic(), toppar->get_partition()))
-					{
-						this->lock_status.get_mutex()->unlock();
 						return -1;
-					}
 
 					new_toppar.set_offset(toppar->get_offset());
 					new_toppar.set_low_watermark(toppar->get_low_watermark());
@@ -1433,7 +1381,7 @@ int ComplexKafkaTask::arrange_fetch()
 	return 0;
 }
 
-int ComplexKafkaTask::arrange_produce()
+int KafkaClientTask::arrange_produce()
 {
 	this->toppar_list.rewind();
 	KafkaToppar *toppar;
@@ -1447,7 +1395,7 @@ int ComplexKafkaTask::arrange_produce()
 			{
 				int partition_num;
 				const KafkaMeta *meta;
-				meta = get_meta(toppar->get_topic(), &this->client_meta_list);
+				meta = get_meta(toppar->get_topic(), &this->member->meta_list);
 				if (!meta)
 					return -1;
 
@@ -1579,74 +1527,58 @@ int WFKafkaClient::init(const std::string& broker)
 	}
 
 	this->member = new KafkaMember;
-	*this->member->broker_hosts = std::move(broker_hosts);
-
+	this->member->broker_hosts = std::move(broker_hosts);
 	return 0;
 }
 
 int WFKafkaClient::init(const std::string& broker, const std::string& group)
 {
-	if (this->init(broker) == 0)
-	{
-		this->member->cgroup->set_group(group);
-
-		*this->member->lock_status->get_status() |=
-			KAFKA_CGROUP_INIT | KAFKA_HEARTBEAT_INIT;
-
-		return 0;
-	}
-	else
-		return -1;
+	this->init(broker);
+	this->member->cgroup.set_group(group);
+	this->member->status |= KAFKA_CGROUP_INIT | KAFKA_HEARTBEAT_INIT;
+	return 0;
 }
 
-void WFKafkaClient::deinit()
+int WFKafkaClient::deinit()
 {
-	this->member->lock_status->dec_cnt();
-	delete this->member;
-	this->member = NULL;
-}
-
-WFKafkaClient::WFKafkaClient()
-{
-	this->member = NULL;
-}
-
-WFKafkaClient::~WFKafkaClient()
-{
-	delete this->member;
+	this->member->mutex.lock();
+	this->member->status |= KAFKA_DEINIT;
+	this->member->mutex.unlock();
+	this->member->decref();
+	return 0;
 }
 
 WFKafkaTask *WFKafkaClient::create_kafka_task(const std::string& query,
 											  int retry_max,
 											  kafka_callback_t cb)
 {
-	WFKafkaTask *task = new ComplexKafkaTask(query, retry_max, std::move(cb),
-											 this);
+	WFKafkaTask *task = new KafkaClientTask(query, retry_max, std::move(cb),
+											this);
 	return task;
 }
 
 WFKafkaTask *WFKafkaClient::create_kafka_task(int retry_max,
 											  kafka_callback_t cb)
 {
-	WFKafkaTask *task = new ComplexKafkaTask("", retry_max, std::move(cb), this);
+	WFKafkaTask *task = new KafkaClientTask("", retry_max, std::move(cb), this);
 	return task;
 }
 
 WFKafkaTask *WFKafkaClient::create_leavegroup_task(int retry_max,
 												   kafka_callback_t cb)
 {
-	WFKafkaTask *task = new ComplexKafkaTask("api=leavegroup", retry_max,
-											 std::move(cb), this);
+	WFKafkaTask *task = new KafkaClientTask("api=leavegroup", retry_max,
+											std::move(cb), this);
 	return task;
+}
+
+void WFKafkaClient::set_config(protocol::KafkaConfig conf)
+{
+	this->member->config = std::move(conf);
 }
 
 KafkaMetaList *WFKafkaClient::get_meta_list()
 {
-	return this->member->meta_list;
-}
-
-KafkaBrokerList *WFKafkaClient::get_broker_list()
-{
-	return this->member->broker_list;
+	return &this->member->meta_list;
 }
 

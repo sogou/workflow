@@ -146,7 +146,7 @@ int TutorialMessage::append(const void *buf, size_t size)
         return -1;
     }
 
-    memcpy(this->body, buf, body_left);
+    memcpy(this->body, buf, size);
     if (size < body_left)
         return 0;
 
@@ -191,37 +191,45 @@ server与普通的http server没有什么区别。我们优先IPv6启动，这�
 
 # client端
 
-client端的逻辑是从标准IO接收用户输入，构造出请求发往server并得到结果。  
-为了简单，读取标准输入的过程都在callback里完成，因此我们会先发出一条空请求。同样为了安全我们限制server回复包不超4KB。  
-client端唯一需要了解的就是怎么产生一个自定义协议的client任务，在[WFTaskFactory.h](../src/factory/WFTaskFactory.h)有三个接口可以选择：
+client端的逻辑是从标准IO接收用户输入，构造出请求发往server并得到结果。这里我们使用了WFRepeaterTask来实现这个重复过程，直到用户的输入为空。
+此外，为了安全我们限制server回复包不超4KB。  
+client端唯一需要了解的就是怎么产生一个自定义协议的client任务，在[WFTaskFactory.h](../src/factory/WFTaskFactory.h)有四个接口可以选择：
 ~~~cpp
 template<class REQ, class RESP>
 class WFNetworkTaskFactory
 {
 private:
-    using T = WFNetworkTask<REQ, RESP>;
+	using T = WFNetworkTask<REQ, RESP>;
 
 public:
-    static T *create_client_task(TransportType type,
-                                 const std::string& host,
-                                 unsigned short port,
-                                 int retry_max,
-                                 std::function<void (T *)> callback);
+	static T *create_client_task(TransportType type,
+								 const std::string& host,
+								 unsigned short port,
+								 int retry_max,
+								 std::function<void (T *)> callback);
 
-    static T *create_client_task(TransportType type,
-                                 const std::string& url,
-                                 int retry_max,
-                                 std::function<void (T *)> callback);
+	static T *create_client_task(TransportType type,
+								 const std::string& url,
+								 int retry_max,
+								 std::function<void (T *)> callback);
 
-    static T *create_client_task(TransportType type,
-                                 const URI& uri,
-                                 int retry_max,
-                                 std::function<void (T *)> callback);
+	static T *create_client_task(TransportType type,
+								 const ParsedURI& uri,
+								 int retry_max,
+								 std::function<void (T *)> callback);
+
+	static T *create_client_task(TransportType type,
+								 const struct sockaddr *addr,
+								 socklen_t addrlen,
+								 int retry_max,
+								 std::function<void (T *)> callback);
+
     ...
 };
 ~~~
 其中，TransportType指定传输层协议，目前可选的值包括TT_TCP，TT_UDP，TT_SCTP和TT_TCP_SSL。  
-三个接口的区别不大，在我们这个示例里暂时不需要URL，我们用域名和端口来创建任务。  
+四个接口的区别不大，在我们这个示例里暂时不需要URL，我们用域名和端口来创建任务。  
+如果用户需要使用Unix Domain Protocol访问server，则需要用最后一个接口，直接传入sockaddr。  
 实际的调用代码如下。我们派生了WFTaskFactory类，但这个派生并非必须的。
 ~~~cpp
 using namespace protocol;
@@ -249,7 +257,7 @@ client的其它代码涉及的知识点在之前的示例里都包含了。请�
 
 # 内置协议的请求是怎么产生的
 
-现在系统中内置了http, redis，mysql，kafka四种协议。我们可以通过相同的方法产生一个http或redis任务吗？比如：  
+现在系统中内置了http, redis，mysql，kafka，dns等协议。我们可以通过相同的方法产生一个http或redis任务吗？比如：  
 ~~~cpp
 WFHttpTask *task = WFNetworkTaskFactory<protocol::HttpRequest, protocol::HttpResponse>::create_client_task(...);
 ~~~

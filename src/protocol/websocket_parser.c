@@ -61,8 +61,7 @@ void websocket_parser_init(websocket_parser_t *parser)
 
 void websocket_parser_deinit(websocket_parser_t *parser)
 {
-	if (parser->payload_length != 0)
-		free(parser->payload_data);
+	free(parser->payload_data);
 }
 
 // 4: FIN 0 0 0  4:opcode | 1: MASK 7:PAYLOAD_LENGTH |
@@ -156,6 +155,8 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 
 int websocket_parser_parse(websocket_parser_t *parser)
 {
+	unsigned char *p;
+
 	if (parser->opcode < WebSocketFrameContinuation || 
 		(parser->opcode < WebSocketFrameConnectionClose &&
 		 parser->opcode > WebSocketFrameBinary) ||
@@ -165,9 +166,12 @@ int websocket_parser_parse(websocket_parser_t *parser)
 		return -1;
 	}
 
-	unsigned char *p = (unsigned char *)parser->payload_data;
+	if (parser->payload_data == NULL)
+		return 0;
 
-	if (parser->opcode == WebSocketFrameConnectionClose && p != NULL)
+	p = (unsigned char *)parser->payload_data;
+
+	if (parser->opcode == WebSocketFrameConnectionClose)
 	{
 		parser->status_code = ntohs(*((uint16_t*)p));
 		p = malloc(parser->payload_length - 2);
@@ -207,46 +211,51 @@ void websocket_parser_mask_data(websocket_parser_t *parser)
 //https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
 unsigned char *utf8_check(unsigned char *s, size_t len)
 {
-  unsigned char *end = s + len;
-  while (*s && s != end) {
-    if (*s < 0x80)
-      /* 0xxxxxxx */
-      s++;
-    else if ((s[0] & 0xe0) == 0xc0) {
-      /* 110XXXXx 10xxxxxx */
-      if ((s[1] & 0xc0) != 0x80 ||
-	  (s[0] & 0xfe) == 0xc0)                        /* overlong? */
-	return s;
-      else
-	s += 2;
-    } else if ((s[0] & 0xf0) == 0xe0) {
-      /* 1110XXXX 10Xxxxxx 10xxxxxx */
-      if ((s[1] & 0xc0) != 0x80 ||
-	  (s[2] & 0xc0) != 0x80 ||
-	  (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) ||    /* overlong? */
-	  (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) ||    /* surrogate? */
-	  (s[0] == 0xef && s[1] == 0xbf &&
-	   (s[2] & 0xfe) == 0xbe))                      /* U+FFFE or U+FFFF? */
-	return s;
-      else
-	s += 3;
-    } else if ((s[0] & 0xf8) == 0xf0) {
-      /* 11110XXX 10XXxxxx 10xxxxxx 10xxxxxx */
-      if ((s[1] & 0xc0) != 0x80 ||
-	  (s[2] & 0xc0) != 0x80 ||
-	  (s[3] & 0xc0) != 0x80 ||
-	  (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) ||    /* overlong? */
-	  (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) /* > U+10FFFF? */
-	return s;
-      else
-	s += 4;
-    } else
-      return s;
-  }
+	unsigned char *end = s + len;
+	while (*s && s != end)
+	{
+		if (*s < 0x80) /* 0xxxxxxx */
+			s++;
+		else if ((s[0] & 0xe0) == 0xc0) /* 110XXXXx 10xxxxxx */
+		{
+			if ((s[1] & 0xc0) != 0x80 || (s[0] & 0xfe) == 0xc0) /* overlong? */
+				return s;
+			else
+				s += 2;
+		}
+		else if ((s[0] & 0xf0) == 0xe0) /* 1110XXXX 10Xxxxxx 10xxxxxx */
+		{
+			if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
+				(s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || /* overlong? */
+				(s[0] == 0xed && (s[1] & 0xe0) == 0xa0) || /* surrogate? */
+				(s[0] == 0xef && s[1] == 0xbf &&
+				(s[2] & 0xfe) == 0xbe)) /* U+FFFE or U+FFFF? */
+			{
+				return s;
+			}
+			else
+				s += 3;
+		}
+		else if ((s[0] & 0xf8) == 0xf0) /* 11110XXX 10XXxxxx 10xxxxxx 10xxxxxx */
+		{
+			if ((s[1] & 0xc0) != 0x80 ||
+				(s[2] & 0xc0) != 0x80 ||
+				(s[3] & 0xc0) != 0x80 ||
+				(s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) || /* overlong? */
+				(s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) /* > U+10FFFF? */
+			{
+				return s;
+			}
+			else
+				s += 4;
+		}
+		else
+			return s;
+	}
 
-  if (s == end)
-    return s;
+	if (s == end)
+		return s;
 
-  return NULL;
+	return NULL;
 }
 

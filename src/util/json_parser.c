@@ -922,7 +922,7 @@ const json_value_t *json_object_insert_after(const json_value_t *val,
 	va_list ap;
 
 	if (val)
-		pos = &list_entry(val, json_member_t, list)->list;
+		pos = &list_entry(val, json_member_t, value)->list;
 	else
 		pos = &obj->head;
 
@@ -941,7 +941,7 @@ const json_value_t *json_object_insert_before(const json_value_t *val,
 	va_list ap;
 
 	if (val)
-		pos = &list_entry(val, json_member_t, list)->list;
+		pos = &list_entry(val, json_member_t, value)->list;
 	else
 		pos = &obj->head;
 
@@ -1047,7 +1047,7 @@ const json_value_t *json_array_insert_after(const json_value_t *val,
 	va_list ap;
 
 	if (val)
-		pos = &list_entry(val, json_element_t, list)->list;
+		pos = &list_entry(val, json_element_t, value)->list;
 	else
 		pos = &arr->head;
 
@@ -1065,7 +1065,7 @@ const json_value_t *json_array_insert_before(const json_value_t *val,
 	va_list ap;
 
 	if (val)
-		pos = &list_entry(val, json_element_t, list)->list;
+		pos = &list_entry(val, json_element_t, value)->list;
 	else
 		pos = &arr->head;
 

@@ -540,6 +540,7 @@ int Communicator::send_message_async(struct iovec vectors[], int cnt,
 	data.operation = PD_OP_WRITE;
 	data.fd = entry->sockfd;
 	data.ssl = entry->ssl;
+	data.partial_written = Communicator::partial_written;
 	data.context = entry;
 	data.write_iov = entry->write_iov;
 	data.iovcnt = cnt;
@@ -782,6 +783,7 @@ void Communicator::handle_reply_result(struct poller_result *res)
 		{
 			__sync_add_and_fetch(&entry->ref, 1);
 			res->data.operation = PD_OP_READ;
+			res->data.create_message = Communicator::create_request;
 			res->data.message = NULL;
 			pthread_mutex_lock(&target->mutex);
 			if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
@@ -839,6 +841,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	case PR_ST_FINISHED:
 		entry->state = CONN_STATE_RECEIVING;
 		res->data.operation = PD_OP_READ;
+		res->data.create_message = Communicator::create_reply;
 		res->data.message = NULL;
 		timeout = session->first_timeout();
 		if (timeout == 0)
@@ -947,6 +950,7 @@ void Communicator::handle_listen_result(struct poller_result *res)
 			else
 			{
 				res->data.operation = PD_OP_READ;
+				res->data.create_message = Communicator::create_request;
 				res->data.message = NULL;
 				timeout = target->response_timeout;
 			}
@@ -1014,6 +1018,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 			if (ret == 0)
 			{
 				res->data.operation = PD_OP_READ;
+				res->data.create_message = Communicator::create_reply;
 				res->data.message = NULL;
 				timeout = session->first_timeout();
 				if (timeout == 0)
@@ -1066,6 +1071,7 @@ void Communicator::handle_ssl_accept_result(struct poller_result *res)
 	{
 	case PR_ST_FINISHED:
 		res->data.operation = PD_OP_READ;
+		res->data.create_message = Communicator::create_request;
 		res->data.message = NULL;
 		timeout = target->response_timeout;
 		if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
@@ -1239,12 +1245,20 @@ int Communicator::append_reply(const void *buf, size_t *size,
 	return ret;
 }
 
-int Communicator::create_service_session(struct CommConnEntry *entry)
+poller_message_t *Communicator::create_request(void *context)
 {
+	struct CommConnEntry *entry = (struct CommConnEntry *)context;
 	CommService *service = entry->service;
 	CommTarget *target = entry->target;
 	CommSession *session;
 	int timeout;
+
+	if (entry->state == CONN_STATE_IDLE)
+	{
+		pthread_mutex_lock(&target->mutex);
+		/* do nothing */
+		pthread_mutex_unlock(&target->mutex);
+	}
 
 	pthread_mutex_lock(&service->mutex);
 	if (entry->state == CONN_STATE_KEEPALIVE)
@@ -1255,54 +1269,28 @@ int Communicator::create_service_session(struct CommConnEntry *entry)
 	pthread_mutex_unlock(&service->mutex);
 	if (!entry)
 	{
-		errno = ENOENT;
-		return -1;
-	}
-
-	session = service->new_session(entry->seq, entry->conn);
-	if (session)
-	{
-		session->passive = 1;
-		entry->session = session;
-		session->target = target;
-		session->conn = entry->conn;
-		session->seq = entry->seq++;
-		session->out = NULL;
-		session->in = NULL;
-
-		timeout = Communicator::first_timeout_recv(session);
-		mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
-		entry->state = CONN_STATE_RECEIVING;
-
-		((CommServiceTarget *)target)->incref();
-		return 0;
-	}
-
-	return -1;
-}
-
-poller_message_t *Communicator::create_request(struct CommConnEntry *entry)
-{
-	CommSession *session;
-
-	if (entry->state == CONN_STATE_IDLE)
-	{
-		pthread_mutex_lock(&entry->target->mutex);
-		/* do nothing */
-		pthread_mutex_unlock(&entry->target->mutex);
-	}
-
-	if (entry->state != CONN_STATE_KEEPALIVE &&
-		entry->state != CONN_STATE_CONNECTED)
-	{
 		errno = EBADMSG;
 		return NULL;
 	}
 
-	if (Communicator::create_service_session(entry) < 0)
+	session = service->new_session(entry->seq, entry->conn);
+	if (!session)
 		return NULL;
 
-	session = entry->session;
+	session->passive = 1;
+	entry->session = session;
+	session->target = target;
+	session->conn = entry->conn;
+	session->seq = entry->seq++;
+	session->out = NULL;
+	session->in = NULL;
+
+	timeout = Communicator::first_timeout_recv(session);
+	mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
+	entry->state = CONN_STATE_RECEIVING;
+
+	((CommServiceTarget *)target)->incref();
+
 	session->in = session->message_in();
 	if (session->in)
 	{
@@ -1313,8 +1301,9 @@ poller_message_t *Communicator::create_request(struct CommConnEntry *entry)
 	return session->in;
 }
 
-poller_message_t *Communicator::create_reply(struct CommConnEntry *entry)
+poller_message_t *Communicator::create_reply(void *context)
 {
+	struct CommConnEntry *entry = (struct CommConnEntry *)context;
 	CommSession *session;
 
 	if (entry->state == CONN_STATE_IDLE)
@@ -1341,16 +1330,6 @@ poller_message_t *Communicator::create_reply(struct CommConnEntry *entry)
 	return session->in;
 }
 
-poller_message_t *Communicator::create_message(void *context)
-{
-	struct CommConnEntry *entry = (struct CommConnEntry *)context;
-
-	if (entry->service)
-		return Communicator::create_request(entry);
-	else
-		return Communicator::create_reply(entry);
-}
-
 int Communicator::partial_written(size_t n, void *context)
 {
 	struct CommConnEntry *entry = (struct CommConnEntry *)context;
@@ -1360,12 +1339,6 @@ int Communicator::partial_written(size_t n, void *context)
 	timeout = Communicator::next_timeout(session);
 	mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
 	return 0;
-}
-
-void Communicator::callback(struct poller_result *res, void *context)
-{
-	msgqueue_t *msgqueue = (msgqueue_t *)context;
-	msgqueue_put(res, msgqueue);
 }
 
 void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
@@ -1390,6 +1363,12 @@ void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
 
 	close(sockfd);
 	return NULL;
+}
+
+void Communicator::callback(struct poller_result *res, void *context)
+{
+	msgqueue_t *msgqueue = (msgqueue_t *)context;
+	msgqueue_put(res, msgqueue);
 }
 
 int Communicator::create_handler_threads(size_t handler_threads)
@@ -1423,8 +1402,6 @@ int Communicator::create_poller(size_t poller_threads)
 {
 	struct poller_params params = {
 		.max_open_files		=	(size_t)sysconf(_SC_OPEN_MAX),
-		.create_message		=	Communicator::create_message,
-		.partial_written	=	Communicator::partial_written,
 		.callback			=	Communicator::callback,
 	};
 

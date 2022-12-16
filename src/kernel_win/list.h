@@ -174,7 +174,7 @@ static inline void list_splice_init(struct list_head *list,
  * @member:	the name of the list_struct within the struct.
  */
 #define list_entry(ptr, type, member) \
-	((type *)((char *)(ptr) - offsetof(type, member)))
+	((type *)((char *)(ptr)-(size_t)(&((type *)0)->member)))
 
 /**
  * list_for_each	-	iterate over a list
@@ -236,23 +236,6 @@ static inline void INIT_SLIST_HEAD(struct slist_head *list)
 	list->last = &list->first;
 }
 
-static inline void slist_add_head(struct slist_node *node,
-								  struct slist_head *list)
-{
-	node->next = list->first.next;
-	list->first.next = node;
-	if (!node->next)
-		list->last = node;
-}
-
-static inline void slist_add_tail(struct slist_node *node,
-								  struct slist_head *list)
-{
-	node->next = (struct slist_node *)0;
-	list->last->next = node;
-	list->last = node;
-}
-
 static inline void slist_add_after(struct slist_node *node,
 								   struct slist_node *prev,
 								   struct slist_head *list)
@@ -263,11 +246,18 @@ static inline void slist_add_after(struct slist_node *node,
 		list->last = node;
 }
 
-static inline void slist_del_head(struct slist_head *list)
+static inline void slist_add_head(struct slist_node *node,
+								  struct slist_head *list)
 {
-	list->first.next = list->first.next->next;
-	if (!list->first.next)
-		list->last = &list->first;
+	slist_add_after(node, &list->first, list);
+}
+
+static inline void slist_add_tail(struct slist_node *node,
+								  struct slist_head *list)
+{
+	node->next = (struct slist_node *)0;
+	list->last->next = node;
+	list->last = node;
 }
 
 static inline void slist_del_after(struct slist_node *prev,
@@ -276,6 +266,11 @@ static inline void slist_del_after(struct slist_node *prev,
 	prev->next = prev->next->next;
 	if (!prev->next)
 		list->last = prev;
+}
+
+static inline void slist_del_head(struct slist_head *list)
+{
+	slist_del_after(&list->first, list);
 }
 
 static inline int slist_empty(struct slist_head *list)
@@ -312,7 +307,7 @@ static inline void slist_splice_init(struct slist_head *list,
 }
 
 #define slist_entry(ptr, type, member) \
-	((type *)((char *)(ptr) - offsetof(type, member)))
+	((type *)((char *)(ptr)-(size_t)(&((type *)0)->member)))
 
 #define slist_for_each(pos, head) \
 	for (pos = (head)->first.next; pos; pos = pos->next)

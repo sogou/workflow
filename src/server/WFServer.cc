@@ -67,30 +67,23 @@ int WFServerBase::ssl_ctx_callback(SSL *ssl, int *al, void *arg)
 	return SSL_TLSEXT_ERR_OK;
 }
 
-int WFServerBase::init_ssl_ctx(const char *cert_file, const char *key_file)
+SSL_CTX *WFServerBase::new_ssl_ctx(const char *cert_file, const char *key_file)
 {
 	SSL_CTX *ssl_ctx = WFGlobal::new_ssl_server_ctx();
 
 	if (!ssl_ctx)
-		return -1;
+		return NULL;
 
-	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
 	if (SSL_CTX_use_certificate_file(ssl_ctx, cert_file, SSL_FILETYPE_PEM) > 0 &&
 		SSL_CTX_use_PrivateKey_file(ssl_ctx, key_file, SSL_FILETYPE_PEM) > 0 &&
 		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback) > 0 &&
 		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this) > 0)
 	{
-		this->set_ssl(ssl_ctx, this->params.ssl_accept_timeout);
-		return 0;
+		return ssl_ctx;
 	}
 
 	SSL_CTX_free(ssl_ctx);
-	return -1;
-}
-
-void WFServerBase::delete_connection(WFConnection *conn)
-{
-	delete (WFServerConnection *)conn;
+	return NULL;
 }
 
 int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
@@ -109,11 +102,15 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 
 	if (key_file && cert_file)
 	{
-		if (this->init_ssl_ctx(cert_file, key_file) < 0)
+		SSL_CTX *ssl_ctx = this->new_ssl_ctx(cert_file, key_file);
+
+		if (!ssl_ctx)
 		{
 			this->deinit();
 			return -1;
 		}
+
+		this->set_ssl(ssl_ctx, this->params.ssl_accept_timeout);
 	}
 
 	this->scheduler = WFGlobal::get_scheduler();
@@ -130,7 +127,7 @@ int WFServerBase::create_listen_fd()
 
 		this->get_addr(&bind_addr, &addrlen);
 		this->listen_fd = (int)socket(bind_addr->sa_family, SOCK_STREAM, 0);
-		if (listen_fd >= 0)
+		if (this->listen_fd >= 0)
 		{
 			setsockopt(this->listen_fd, SOL_SOCKET, SO_REUSEADDR,
 					   (const char *)(&reuse), sizeof (int));
@@ -156,6 +153,11 @@ WFConnection *WFServerBase::new_connection(int accept_fd)
 	this->conn_count--;
 	errno = EMFILE;
 	return NULL;
+}
+
+void WFServerBase::delete_connection(WFConnection *conn)
+{
+	delete (WFServerConnection *)conn;
 }
 
 void WFServerBase::handle_unbound()

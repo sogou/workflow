@@ -152,22 +152,8 @@ public:
 private:
 	int init(const char *cert, const char *key)
 	{
-		ssl_ctx = WFGlobal::new_ssl_server_ctx();
-
-		if (!ssl_ctx)
-			return -1;
-
-		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL);
-		if (SSL_CTX_use_certificate_file(ssl_ctx, cert, SSL_FILETYPE_PEM) > 0 &&
-			SSL_CTX_use_PrivateKey_file(ssl_ctx, key, SSL_FILETYPE_PEM) > 0 &&
-			SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback) > 0 &&
-			SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this) > 0)
-		{
-			return 0;
-		}
-
-		deinit();
-		return -1;
+		ssl_ctx = new_ssl_ctx();
+		return !this->ctx;
 	}
 
 	void deinit()
@@ -177,11 +163,6 @@ private:
 			SSL_CTX_free(ssl_ctx);
 			ssl_ctx = NULL;
 		}
-	}
-
-	static int ssl_ctx_callback(SSL *, int *, void *)
-	{
-		return SSL_TLSEXT_ERR_OK;
 	}
 
 private:

@@ -153,7 +153,7 @@ private:
 	int init(const char *cert, const char *key)
 	{
 		ssl_ctx = new_ssl_ctx();
-		return !this->ctx;
+		return !this->ssl_ctx;
 	}
 
 	void deinit()

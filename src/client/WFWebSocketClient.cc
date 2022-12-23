@@ -76,6 +76,7 @@ int WebSocketClient::init(const struct WFWebSocketParams *params)
 void WebSocketClient::deinit()
 {
 	SeriesWork *series;
+	this->channel->set_pointer(NULL);
 	series = Workflow::create_series_work(this->channel,
 										  [](const SeriesWork *series){
 		ComplexWebSocketChannel *channel;

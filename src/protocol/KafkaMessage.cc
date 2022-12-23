@@ -3061,6 +3061,7 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 								  KafkaMetaList *meta_list,
 								  KafkaBrokerList *broker_list)
 {
+	KafkaMetaList lst;
 	int32_t topic_cnt;
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 
@@ -3081,15 +3082,21 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 		if (!meta)
 			return -1;
 
-		kafka_meta_t *ptr = meta->get_raw_ptr();
+		KafkaMeta new_mta;
+		new_mta.set_topic(topic_name);
+
+		kafka_meta_t *ptr = new_mta.get_raw_ptr();
 		ptr->error = error;
 
 		if (api_version >= 1)
 			CHECK_RET(parse_i8(buf, size, &ptr->is_internal));
 
-		CHECK_RET(kafka_meta_parse_partition(buf, size, meta, broker_list));
+		CHECK_RET(kafka_meta_parse_partition(buf, size, &new_mta, broker_list));
+
+		lst.add_item(std::move(new_mta));
 	}
 
+	*meta_list = std::move(lst);
 	return 0;
 }
 

@@ -517,6 +517,7 @@ bool __ComplexKafkaTask::process_metadata()
 		}
 	}
 
+	this->get_req()->set_meta_list(*msg->get_meta_list());
 	if (msg->get_cgroup()->get_group())
 	{
 		if (msg->get_cgroup()->is_leader())

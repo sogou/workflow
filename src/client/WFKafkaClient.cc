@@ -95,6 +95,8 @@ public:
 			this->url = this->member->broker_hosts.at(rpos);
 		}
 		this->member->mutex.unlock();
+
+		this->info_generated = false;
 	}
 
 	virtual ~KafkaClientTask()
@@ -179,6 +181,8 @@ private:
 	std::string query;
 	std::set<std::string> topic_set;
 	std::string userinfo;
+
+	bool info_generated;
 
 	friend class WFKafkaClient;
 };
@@ -610,6 +614,11 @@ void KafkaClientTask::kafka_move_task_callback(__WFKafkaTask *task)
 
 void KafkaClientTask::generate_info()
 {
+	if (this->info_generated)
+		return;
+
+	this->info_generated = true;
+
 	if (this->config.get_sasl_mech())
 	{
 		this->userinfo = this->config.get_sasl_username();

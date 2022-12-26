@@ -21,7 +21,7 @@ target("wfkafka")
         set_kind("phony")
     end
 
-before_build(function (target)
+on_load(function (package)
     local include_path = path.join(get_config("workflow_inc"), "workflow")
     if (not os.isdir(include_path)) then
     	os.mkdir(include_path)

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 project(util)
 
 set(SRC
+	sha1.c
 	json_parser.c
 	EncodeStream.cc
 	StringUtil.cc

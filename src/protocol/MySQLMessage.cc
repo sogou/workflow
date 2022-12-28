@@ -249,20 +249,14 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	return 1;
 }
 
-static inline void __sha1(const std::string& str, unsigned char *md)
+static inline std::string __sha1_str(const std::string& str)
 {
+	unsigned char sha1[20];
 	SHA_CTX ctx;
 	SHA1_Init(&ctx);
 	SHA1_Update(&ctx, str.c_str(), str.size());
-	SHA1_Final(md, &ctx);
-}
-
-static inline std::string __sha1_bin(const std::string& str)
-{
-	unsigned char md[20];
-
-	__sha1(str, md);
-	return std::string((const char *)md, 20);
+	SHA1_Final(sha1, &ctx);
+	return std::string((const char *)sha1, 20);
 }
 
 #define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
@@ -335,8 +329,8 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	else
 	{
 		native.push_back((char)20);
-		std::string first = __sha1_bin(password_);
-		std::string second = __sha1_bin(challenge_ + __sha1_bin(first));
+		std::string first = __sha1_str(password_);
+		std::string second = __sha1_str(challenge_ + __sha1_str(first));
 
 		for (int i = 0; i < 20; i++)
 			native.push_back(first[i] ^ second[i]);

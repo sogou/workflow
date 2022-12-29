@@ -198,11 +198,14 @@ private:
 
 class DnsRequest : public DnsMessage
 {
-	static std::atomic<uint16_t> req_id_;
 public:
 	DnsRequest()
 	{
-		dns_parser_set_id(req_id_++, this->parser);
+		uint64_t req_id;
+		do
+			req_id = DnsRequest::req_id_++;
+		while (req_id == 0);
+		dns_parser_set_id(req_id, this->parser);
 	}
 
 	DnsRequest(DnsRequest&& req) = default;
@@ -212,6 +215,9 @@ public:
 	{
 		dns_parser_set_question(host, qtype, qclass, this->parser);
 	}
+
+private:
+	static std::atomic<uint16_t> req_id_;
 };
 
 class DnsResponse : public DnsMessage

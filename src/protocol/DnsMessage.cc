@@ -176,7 +176,7 @@ int DnsMessage::append(const void *buf, size_t *size)
 	return ret;
 }
 
-std::atomic<uint16_t> DnsRequest::req_id_;
+std::atomic<uint16_t> DnsRequest::req_id_(1);
 
 int DnsResponse::append(const void *buf, size_t *size)
 {

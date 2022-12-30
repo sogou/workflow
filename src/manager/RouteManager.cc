@@ -392,7 +392,6 @@ static uint64_t __generate_key(TransportType type,
 {
 	std::string buf((const char *)&type, sizeof (TransportType));
 	uint64_t sha1[3];
-	SHA_CTX ctx;
 
 	if (!other_info.empty())
 		buf += other_info;
@@ -435,9 +434,7 @@ static uint64_t __generate_key(TransportType type,
 		buf.append((const char *)addrinfo->ai_addr, addrinfo->ai_addrlen);
 	}
 
-	SHA1_Init(&ctx);
-	SHA1_Update(&ctx, buf.c_str(), buf.size());
-	SHA1_Final((unsigned char *)sha1, &ctx);
+	SHA1((const unsigned char *)buf.c_str(), buf.size(), (unsigned char *)sha1);
 	return sha1[1];
 }
 

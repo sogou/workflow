@@ -252,10 +252,7 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 static inline std::string __sha1_str(const std::string& str)
 {
 	unsigned char sha1[20];
-	SHA_CTX ctx;
-	SHA1_Init(&ctx);
-	SHA1_Update(&ctx, str.c_str(), str.size());
-	SHA1_Final(sha1, &ctx);
+	SHA1((const unsigned char *)str.c_str(), str.size(), sha1);
 	return std::string((const char *)sha1, 20);
 }
 

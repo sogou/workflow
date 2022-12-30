@@ -17,7 +17,7 @@
 */
 
 #include <openssl/ssl.h>
-#include <openssl/md5.h>
+#include <openssl/sha.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -105,7 +105,7 @@ struct RouteParams
 {
 	TransportType transport_type;
 	const struct addrinfo *addrinfo;
-	uint64_t md5_64;
+	uint64_t sha1_64;
 	SSL_CTX *ssl_ctx;
 	int connect_timeout;
 	int ssl_connect_timeout;
@@ -124,7 +124,7 @@ public:
 	std::mutex mutex;
 	std::vector<CommSchedTarget *> targets;
 	struct list_head breaker_list;
-	uint64_t md5_64;
+	uint64_t sha1_64;
 	int nleft;
 	int nbreak;
 
@@ -214,7 +214,7 @@ int RouteResultEntry::init(const struct RouteParams *params)
 		{
 			this->targets.push_back(target);
 			this->request_object = target;
-			this->md5_64 = params->md5_64;
+			this->sha1_64 = params->sha1_64;
 			return 0;
 		}
 
@@ -227,7 +227,7 @@ int RouteResultEntry::init(const struct RouteParams *params)
 		if (this->add_group_targets(params) >= 0)
 		{
 			this->request_object = this->group;
-			this->md5_64 = params->md5_64;
+			this->sha1_64 = params->sha1_64;
 			return 0;
 		}
 
@@ -391,8 +391,8 @@ static uint64_t __generate_key(TransportType type,
 							   const std::string& hostname)
 {
 	std::string buf((const char *)&type, sizeof (TransportType));
-	uint64_t md5[2];
-	MD5_CTX ctx;
+	uint64_t sha1[3];
+	SHA_CTX ctx;
 
 	if (!other_info.empty())
 		buf += other_info;
@@ -435,10 +435,10 @@ static uint64_t __generate_key(TransportType type,
 		buf.append((const char *)addrinfo->ai_addr, addrinfo->ai_addrlen);
 	}
 
-	MD5_Init(&ctx);
-	MD5_Update(&ctx, buf.c_str(), buf.size());
-	MD5_Final((unsigned char *)md5, &ctx);
-	return md5[0];
+	SHA1_Init(&ctx);
+	SHA1_Update(&ctx, buf.c_str(), buf.size());
+	SHA1_Final((unsigned char *)sha1, &ctx);
+	return sha1[1];
 }
 
 RouteManager::~RouteManager()
@@ -461,8 +461,8 @@ int RouteManager::get(TransportType type,
 					  const std::string& hostname,
 					  RouteResult& result)
 {
-	uint64_t md5_64 = __generate_key(type, addrinfo, other_info,
-									 endpoint_params, hostname);
+	uint64_t sha1_64 = __generate_key(type, addrinfo, other_info,
+									  endpoint_params, hostname);
 	struct rb_node **p = &cache_.rb_node;
 	struct rb_node *parent = NULL;
 	RouteResultEntry *bound = NULL;
@@ -473,7 +473,7 @@ int RouteManager::get(TransportType type,
 	{
 		parent = *p;
 		entry = rb_entry(*p, RouteResultEntry, rb);
-		if (md5_64 <= entry->md5_64)
+		if (sha1_64 <= entry->sha1_64)
 		{
 			bound = entry;
 			p = &(*p)->rb_left;
@@ -482,7 +482,7 @@ int RouteManager::get(TransportType type,
 			p = &(*p)->rb_right;
 	}
 
-	if (bound && bound->md5_64 == md5_64)
+	if (bound && bound->sha1_64 == sha1_64)
 	{
 		entry = bound;
 		entry->check_breaker();
@@ -503,7 +503,7 @@ int RouteManager::get(TransportType type,
 		struct RouteParams params = {
 			.transport_type			=	type,
 			.addrinfo 				= 	addrinfo,
-			.md5_64					=	md5_64,
+			.sha1_64				=	sha1_64,
 			.ssl_ctx 				=	ssl_ctx,
 			.connect_timeout		=	endpoint_params->connect_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,

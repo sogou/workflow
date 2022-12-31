@@ -184,8 +184,6 @@ void DnsMessage::set_question_name(const std::string& name)
 	parser->question.qname = strdup(name.c_str());
 }
 
-std::atomic<uint16_t> DnsRequest::req_id_(1);
-
 int DnsResponse::append(const void *buf, size_t *size)
 {
 	int ret = this->DnsMessage::append(buf, size);

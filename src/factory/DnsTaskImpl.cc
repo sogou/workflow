@@ -74,7 +74,7 @@ CommMessageOut *ComplexDnsTask::message_out()
 
 int ComplexDnsTask::keep_alive_timeout()
 {
-	if (this->get_task_seq() == (2 << 16) - 2)
+	if (this->get_task_seq() == (1 << 16) - 2)
 		return 0;
 
 	return this->WFClientTask::keep_alive_timeout();

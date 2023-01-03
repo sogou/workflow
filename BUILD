@@ -263,6 +263,7 @@ cc_library(
 	],
 	deps = [
 		':common',
+		':http',
 	],
 	visibility = ["//visibility:public"],
 )

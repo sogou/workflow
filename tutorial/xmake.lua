@@ -1,7 +1,7 @@
 set_group("tutorial")
 set_default(false)
 
-if not is_os("macosx") then
+if not is_plat("macosx") then
     add_ldflags("-lrt")
 end
 
@@ -10,10 +10,10 @@ function all_examples()
     for _, x in ipairs(os.files("*.cc")) do
         local item = {}
         local s = path.filename(x)
-        if((s == "upstream_unittest.cc" and get_config("upstream") == false) or
-           ((s == "tutorial-02-redis_cli.cc" or s == "tutorial-03-wget_to_redis.cc") and get_config("redis") == false) or
-           (s == "tutorial-12-mysql_cli.cc" and get_config("mysql") == false) or
-           (s == "tutorial-14-consul_cli.cc" and get_config("consul") == false) or
+        if ((s == "upstream_unittest.cc" and not has_config("upstream")) or
+           ((s == "tutorial-02-redis_cli.cc" or s == "tutorial-03-wget_to_redis.cc") and not has_config("redis")) or
+           (s == "tutorial-12-mysql_cli.cc" and not has_config("mysql")) or
+           (s == "tutorial-14-consul_cli.cc" and not has_config("consul")) or
            (s == "tutorial-13-kafka_cli.cc")) then
         else
             table.insert(item, s:sub(1, #s - 3))       -- target
@@ -32,7 +32,7 @@ target(example[1])
 end
 
 target("tutorial-13-kafka_cli")
-    if (get_config("kafka") == true) then
+    if has_config("kafka") then
         set_kind("binary")
         add_files("tutorial-13-kafka_cli.cc")
         add_packages("zlib", "snappy", "zstd", "lz4")

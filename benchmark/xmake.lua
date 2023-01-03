@@ -3,7 +3,7 @@ set_default(false)
 
 add_deps("workflow")
 
-if not is_os("macosx") then
+if not is_plat("macosx") then
     add_ldflags("-lrt")
 end
 

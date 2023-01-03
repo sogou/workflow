@@ -31,7 +31,7 @@ jobs:
 
     - name : run shared
       run: |
-        xmake f --type=shared
+        xmake f -k shared
         xmake -r
         xmake -g test
         xmake -g tutorial

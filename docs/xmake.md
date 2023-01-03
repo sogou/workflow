@@ -38,13 +38,13 @@ sudo xmake install
 
 ```
 // 编译静态库
-xmake f --type=static
+xmake f -k static
 xmake -r
 ```
 
 ```
 // 编译动态库
-xmake f --type=shared
+xmake f -k shared
 xmake -r
 ```
 
@@ -58,7 +58,6 @@ xmake -r
 Command options (Project Configuration):
 
         --workflow_inc=WORKFLOW_INC        workflow inc (default: /media/psf/pro/workflow/_include)
-        --type=TYPE                        build lib static/shared (default: static)
         --upstream=[y|n]                   build upstream component (default: y)
         --consul=[y|n]                     build consul component
         --workflow_lib=WORKFLOW_LIB        workflow lib (default: /media/psf/pro/workflow/_lib)

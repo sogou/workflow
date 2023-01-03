@@ -17,9 +17,9 @@ function all_tests()
     for _, x in ipairs(os.files("**.cc")) do
         local item = {}
         local s = path.filename(x)
-        if ((s == "upstream_unittest.cc" and get_config("upstream") == false) or
-            (s == "redis_unittest.cc" and get_config("redis") == false) or
-            (s == "mysql_unittest.cc" and get_config("mysql") == false)) then
+        if ((s == "upstream_unittest.cc" and not has_config("upstream")) or
+            (s == "redis_unittest.cc" and not has_config("redis")) or
+            (s == "mysql_unittest.cc" and not has_config("mysql"))) then
         else
             table.insert(item, s:sub(1, #s - 3)) -- target
             table.insert(item, path.relative(x, ".")) -- source

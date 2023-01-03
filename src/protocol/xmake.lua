@@ -10,7 +10,7 @@ target("basic_protocol")
               "HttpUtil.cc")
 
 target("mysql_protocol")
-    if (get_config("mysql") == true) then
+    if has_config("mysql") then
         add_files("mysql_stream.c",
                   "mysql_parser.c",
                   "mysql_byteorder.c",
@@ -24,7 +24,7 @@ target("mysql_protocol")
     end
 
 target("redis_protocol")
-    if (get_config("redis") == true) then
+    if has_config("redis") then
         add_files("redis_parser.c", "RedisMessage.cc")
         set_kind("object")
         add_deps("basic_protocol")
@@ -37,7 +37,7 @@ target("protocol")
     add_deps("basic_protocol", "mysql_protocol", "redis_protocol")
 
 target("kafka_message")
-    if (get_config("kafka") == true) then
+    if has_config("kafka") then
         add_files("KafkaMessage.cc")
         set_kind("object")
         add_cxxflags("-fno-rtti")
@@ -47,12 +47,13 @@ target("kafka_message")
     end
 
 target("kafka_protocol")
-    if (get_config("kafka") == true) then
+    if has_config("kafka") then
         set_kind("object")
         add_files("kafka_parser.c",
                   "KafkaDataTypes.cc",
                   "KafkaResult.cc")
         add_deps("kafka_message", "protocol")
+        add_packages("zlib", "snappy", "zstd", "lz4")
     else
         set_kind("phony")
     end

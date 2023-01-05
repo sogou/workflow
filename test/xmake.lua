@@ -8,7 +8,7 @@ add_deps("workflow")
 add_packages("gtest")
 add_links("gtest_main")
 
-if not is_os("macosx") then
+if not is_plat("macosx") then
     add_ldflags("-lrt")
 end
 

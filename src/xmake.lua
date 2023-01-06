@@ -27,8 +27,8 @@ target("workflow")
             os.mkdir(include_path)
         end
 
-        os.cp(path.join("$(projectdir)", "src/**.h"), include_path)
-        os.cp(path.join("$(projectdir)", "src/**.inl"), include_path)
+        os.cp(path.join("$(projectdir)", "src/include/**.h"), include_path)
+        os.cp(path.join("$(projectdir)", "src/include/**.inl"), include_path)
     end)
 
     after_clean(function (target)

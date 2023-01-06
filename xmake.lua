@@ -31,11 +31,5 @@ set_config("buildir", "build.xmake")
 add_cflags("-fPIC", "-pipe")
 add_cxxflags("-fPIC", "-pipe", "-Wno-invalid-offsetof")
 
-after_clean(function (target)
-    os.rm(get_config("workflow_inc"))
-    os.rm(get_config("workflow_lib"))
-    os.rm("$(buildir)")
-end)
-
 includes("src", "test", "benchmark", "tutorial")
 

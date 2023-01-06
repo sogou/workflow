@@ -5,10 +5,14 @@ after_build(function (target)
     if (not os.isdir(lib_dir)) then
         os.mkdir(lib_dir)
     end
+    shared_suffix = "*.so"
+    if is_plat("macosx") then
+        shared_suffix = "*.dylib"
+    end
     if target:is_static() then
         os.mv(path.join("$(projectdir)", target:targetdir(), "*.a"), lib_dir)
     else
-        os.mv(path.join("$(projectdir)", target:targetdir(), "*.so"), lib_dir)
+        os.mv(path.join("$(projectdir)", target:targetdir(), shared_suffix), lib_dir)
     end
 end)
 

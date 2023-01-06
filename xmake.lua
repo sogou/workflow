@@ -8,7 +8,7 @@ option("consul",        {description = "build consul component", default = true}
 option("mysql",         {description = "build mysql component", default = true})
 option("redis",         {description = "build redis component", default = true})
 option("upstream",      {description = "build upstream component", default = true})
-option("memcheck",    {description = "valgrind memcheck", default = false})
+option("memcheck",      {description = "valgrind memcheck", default = false})
 
 add_rules("mode.release", "mode.debug")
 set_languages("c90", "c++11")

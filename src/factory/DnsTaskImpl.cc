@@ -41,7 +41,6 @@ public:
 
 protected:
 	virtual CommMessageOut *message_out();
-	virtual int keep_alive_timeout();
 	virtual bool init_success();
 	virtual bool finish_once();
 
@@ -63,21 +62,13 @@ CommMessageOut *ComplexDnsTask::message_out()
 	TransportType type = this->get_transport_type();
 
 	if (req->get_id() == 0)
-		req->set_id(this->get_task_seq() + 1);
+		req->set_id((this->get_task_seq() + 1) * 99991 % 65535 + 1);
 	resp->set_request_id(req->get_id());
 	resp->set_request_name(req->get_question_name());
 	req->set_single_packet(type == TT_UDP);
 	resp->set_single_packet(type == TT_UDP);
 
 	return this->WFClientTask::message_out();
-}
-
-int ComplexDnsTask::keep_alive_timeout()
-{
-	if (this->get_task_seq() == (1 << 16) - 2)
-		return 0;
-
-	return this->WFClientTask::keep_alive_timeout();
 }
 
 bool ComplexDnsTask::init_success()

@@ -368,6 +368,8 @@ int ComplexMySQLTask::keep_alive_timeout()
 					error_ = WFT_ERR_MYSQL_ACCESS_DENIED;
 				else
 					error_ = WFT_ERR_MYSQL_INVALID_CHARACTER_SET;
+
+				return 0;
 			}
 		}
 	}

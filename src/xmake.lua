@@ -38,13 +38,17 @@ target("workflow")
     end)
 
     on_install(function (target)
-	    os.mkdir(target:installdir("include"))
-	    os.mkdir(target:installdir("lib"))
+        os.mkdir(path.join(target:installdir(), "include/workflow"))
+        os.mkdir(path.join(target:installdir(), "lib"))
         os.cp(path.join(get_config("workflow_inc"), "workflow"), path.join(target:installdir(), "include"))
+        shared_suffix = "*.so"
+        if is_plat("macosx") then
+            shared_suffix = "*.dylib"
+        end
         if target:is_static() then
             os.cp(path.join(get_config("workflow_lib"), "*.a"), path.join(target:installdir(), "lib"))
         else
-            os.cp(path.join(get_config("workflow_lib"), "*.so"), path.join(target:installdir(), "lib"))
+            os.cp(path.join(get_config("workflow_lib"), shared_suffix), path.join(target:installdir(), "lib"))
         end
     end)
 

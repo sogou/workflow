@@ -38,8 +38,8 @@ target("workflow")
     end)
 
     on_install(function (target)
-	os.mkdir(target:installdir("include"))
-	os.mkdir(target:installdir("lib"))
+	    os.mkdir(target:installdir("include"))
+	    os.mkdir(target:installdir("lib"))
         os.cp(path.join(get_config("workflow_inc"), "workflow"), path.join(target:installdir(), "include"))
         if target:is_static() then
             os.cp(path.join(get_config("workflow_lib"), "*.a"), path.join(target:installdir(), "lib"))

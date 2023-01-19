@@ -12,6 +12,7 @@ option("memcheck",      {description = "valgrind memcheck", default = false})
 
 if is_mode("release") then
     set_optimize("faster")
+    set_strip("all")
 elseif is_mode("debug") then
     set_symbols("debug")
     set_optimize("none")

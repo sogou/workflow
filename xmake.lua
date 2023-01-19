@@ -10,7 +10,14 @@ option("redis",         {description = "build redis component", default = true})
 option("upstream",      {description = "build upstream component", default = true})
 option("memcheck",      {description = "valgrind memcheck", default = false})
 
-add_rules("mode.release", "mode.debug")
+if is_mode("release") then
+    set_optimize("faster")
+    set_strip("all")
+elseif is_mode("debug") then
+    set_symbols("debug")
+    set_optimize("none")
+end
+
 set_languages("c90", "c++11")
 set_warnings("all")
 set_exceptions("no-cxx")

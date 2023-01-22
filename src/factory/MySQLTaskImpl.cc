@@ -69,6 +69,7 @@ private:
 		ST_SSL_REQUEST,
 		ST_AUTH_REQUEST,
 		ST_CHARSET_REQUEST,
+		ST_FIRST_USER_REQUEST,
 		ST_USER_REQUEST
 	};
 
@@ -211,8 +212,7 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		req->set_query("SET NAMES " + res_charset_);
 		break;
 
-	case ST_USER_REQUEST:
-		is_user_request_ = true;
+	case ST_FIRST_USER_REQUEST:
 		if (this->is_fixed_addr())
 		{
 			auto *target = (RouteManager::RouteTarget *)this->get_target();
@@ -228,6 +228,8 @@ CommMessageOut *ComplexMySQLTask::message_out()
 			target->state = 1;
 		}
 
+	case ST_USER_REQUEST:
+		is_user_request_ = true;
 		req = (MySQLRequest *)this->WFComplexClientTask::message_out();
 		break;
 
@@ -266,6 +268,7 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		resp = new MySQLResponse;
 		break;
 
+	case ST_FIRST_USER_REQUEST:
 	case ST_USER_REQUEST:
 		resp = (MySQLResponse *)this->WFComplexClientTask::message_in();
 		break;
@@ -368,7 +371,7 @@ int ComplexMySQLTask::keep_alive_timeout()
 		if (res_charset_.size() != 0)
 			conn->state = ST_CHARSET_REQUEST;
 		else
-			conn->state = ST_USER_REQUEST;
+			conn->state = ST_FIRST_USER_REQUEST;
 
 		break;
 
@@ -381,9 +384,11 @@ int ComplexMySQLTask::keep_alive_timeout()
 			return 0;
 		}
 
-		conn->state = ST_USER_REQUEST;
+		conn->state = ST_FIRST_USER_REQUEST;
 		break;
 
+	case ST_FIRST_USER_REQUEST:
+		conn->state = ST_USER_REQUEST;
 	case ST_USER_REQUEST:
 		return this->keep_alive_timeo;
 

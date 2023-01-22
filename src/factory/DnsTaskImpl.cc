@@ -62,7 +62,7 @@ CommMessageOut *ComplexDnsTask::message_out()
 	TransportType type = this->get_transport_type();
 
 	if (req->get_id() == 0)
-		req->set_id((this->get_task_seq() + 1) * 99991 % 65535 + 1);
+		req->set_id((this->get_seq() + 1) * 99991 % 65535 + 1);
 	resp->set_request_id(req->get_id());
 	resp->set_request_name(req->get_question_name());
 	req->set_single_packet(type == TT_UDP);

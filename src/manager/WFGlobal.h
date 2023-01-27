@@ -34,7 +34,6 @@
 #include "WFResourcePool.h"
 #include "WFNameService.h"
 #include "WFDnsResolver.h"
-#include "EndpointParams.h"
 
 /**
  * @file    WFGlobal.h

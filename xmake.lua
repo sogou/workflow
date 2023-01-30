@@ -18,7 +18,7 @@ elseif is_mode("debug") then
     set_optimize("none")
 end
 
-set_languages("c90", "c++11")
+set_languages("gnu90", "c++11")
 set_warnings("all")
 set_exceptions("no-cxx")
 

@@ -114,7 +114,7 @@ CommMessageOut *ComplexHttpTask::message_out()
 			header.value = "close";
 			header.value_len = strlen("close");
 		}
-	
+
 		req->add_header(&header);
 	}
 
@@ -445,25 +445,25 @@ protected:
 private:
 	struct SSLConnection : public WFConnection
 	{
-		SSL *ssl_;
-		SSLHandshaker handshaker_;
-		SSLWrapper wrapper_;
-		SSLConnection(SSL *ssl) : handshaker_(ssl), wrapper_(&wrapper_, ssl)
+		SSL *ssl;
+		SSLHandshaker handshaker;
+		SSLWrapper wrapper;
+		SSLConnection(SSL *ssl) : handshaker(ssl), wrapper(&wrapper, ssl)
 		{
-			ssl_ = ssl;
+			this->ssl = ssl;
 		}
 	};
 
 	SSLHandshaker *get_ssl_handshaker() const
 	{
-		return &((SSLConnection *)this->get_connection())->handshaker_;
+		return &((SSLConnection *)this->get_connection())->handshaker;
 	}
 
 	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
 	{
 		SSLConnection *conn = (SSLConnection *)this->get_connection();
-		conn->wrapper_ = SSLWrapper(msg, conn->ssl_);
-		return &conn->wrapper_;
+		conn->wrapper = SSLWrapper(msg, conn->ssl);
+		return &conn->wrapper;
 	}
 
 	int init_ssl_connection();
@@ -493,7 +493,7 @@ int ComplexHttpProxyTask::init_ssl_connection()
 	auto&& deleter = [] (void *ctx)
 	{
 		SSLConnection *ssl_conn = (SSLConnection *)ctx;
-		SSL_free(ssl_conn->ssl_);
+		SSL_free(ssl_conn->ssl);
 		delete ssl_conn;
 	};
 	conn->set_context(ssl_conn, std::move(deleter));
@@ -960,11 +960,11 @@ CommMessageOut *WFHttpServerTask::message_out()
 
 struct ServerSSLConnection : public WFConnection
 {
-	SSL *ssl_;
-	ServerSSLWrapper wrapper_;
-	ServerSSLConnection(SSL *ssl) : wrapper_(&wrapper_, ssl)
+	SSL *ssl;
+	ServerSSLWrapper wrapper;
+	ServerSSLConnection(SSL *ssl) : wrapper(&wrapper, ssl)
 	{
-		ssl_ = ssl;
+		this->ssl = ssl;
 	}
 };
 
@@ -1003,9 +1003,9 @@ private:
 	ServerSSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
 	{
 		auto *conn = (ServerSSLConnection *)this->get_connection();
-		conn->wrapper_.~ServerSSLWrapper();
-		new (&conn->wrapper_) ServerSSLWrapper(msg, conn->ssl_);
-		return &conn->wrapper_;
+		conn->wrapper.~ServerSSLWrapper();
+		new (&conn->wrapper) ServerSSLWrapper(msg, conn->ssl);
+		return &conn->wrapper;
 	}
 };
 
@@ -1024,7 +1024,7 @@ WFHttpTask *__new_https_server_session(long long seq, CommConnection *conn,
 
 		c->set_context(ssl_conn, [](void *ssl_conn) {
 			auto *conn = (ServerSSLConnection *)ssl_conn;
-			SSL_free(conn->ssl_);
+			SSL_free(conn->ssl);
 			delete conn;
 		});
 	}

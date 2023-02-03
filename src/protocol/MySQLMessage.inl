@@ -72,7 +72,9 @@ private:
 	uint32_t capability_flags_;
 	uint8_t character_set_;
 	uint16_t status_flags_;
-	uint8_t auth_plugin_data_part_2_[12];
+	uint8_t auth_plugin_data_len_;
+	uint8_t auth_plugin_data_part_2_[246];
+	std::string auth_plugin_name_;
 	bool disallowed_;
 
 public:

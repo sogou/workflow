@@ -197,12 +197,23 @@ int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 	return this->MySQLMessage::encode(vectors, max);
 }
 
+#define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
+#define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
+#define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
+#define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
+#define MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS	0x00010000
+#define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
+#define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
+#define MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH		0x00080000
+#define MYSQL_CAPFLAG_CLIENT_LOCAL_FILES		0x00000080
+
 int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t buflen)
 {
 	const unsigned char *end = buf + buflen;
 	const unsigned char *pos;
 	uint16_t cap_flags_lower;
 	uint16_t cap_flags_upper;
+	size_t len;
 
 	if (buflen == 0)
 		return -2;
@@ -233,6 +244,8 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 
 	server_version_.assign((const char *)buf, pos - buf);
 	buf = pos + 1;
+
+	// TODO: check overflow
 	connection_id_ = uint4korr(buf);
 	buf += 4;
 	memcpy(auth_plugin_data_part_1_, buf, 8);
@@ -243,9 +256,19 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	status_flags_ = uint2korr(buf);
 	buf += 2;
 	cap_flags_upper = uint2korr(buf);
-	buf += 13;
-	memcpy(auth_plugin_data_part_2_, buf, 12);
+	buf += 2;
 	capability_flags_ = (cap_flags_upper << 16U) + cap_flags_lower;
+	auth_plugin_data_len_ = *buf++;
+	// 10 bytes reserved. All 0s.
+	buf += 10;
+	len = 12;
+	if (auth_plugin_data_len_ >= 22)
+		len = auth_plugin_data_len_ - 9;
+	memcpy(auth_plugin_data_part_2_, buf, len);
+	buf += len;
+	buf++;	// one byte zero
+	if (capability_flags_ & MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH)
+		auth_plugin_name_.assign((const char *)buf);
 	return 1;
 }
 
@@ -258,15 +281,6 @@ static inline std::string __sha1_str(const std::string& str)
 	SHA1_Final(sha1, &ctx);
 	return std::string((const char *)sha1, 20);
 }
-
-#define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
-#define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
-#define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
-#define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
-#define MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS	0x00010000
-#define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
-#define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
-#define MYSQL_CAPFLAG_CLIENT_LOCAL_FILES		0x00000080
 
 int MySQLSSLRequest::encode(struct iovec vectors[], int max)
 {
@@ -281,7 +295,8 @@ int MySQLSSLRequest::encode(struct iovec vectors[], int max)
 				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
 				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
-				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS);
+				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS |
+				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH);
 	pos += 4;
 	int4store(pos, 0);
 	pos += 4;
@@ -318,7 +333,8 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
 				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
-				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS);
+				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS |
+				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH);
 	pos += 4;
 	int4store(pos, 0);
 	pos += 4;

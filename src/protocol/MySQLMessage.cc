@@ -213,7 +213,7 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	const unsigned char *pos;
 	uint16_t cap_flags_lower;
 	uint16_t cap_flags_upper;
-	size_t len;
+	int len;
 
 	if (buflen == 0)
 		return -2;
@@ -239,7 +239,7 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	while (pos < end && *pos)
 		pos++;
 
-	if (pos >= end || end - pos < 43)
+	if (pos >= end || end - pos < 32)
 		return -2;
 
 	server_version_.assign((const char *)buf, pos - buf);
@@ -261,14 +261,24 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	auth_plugin_data_len_ = *buf++;
 	// 10 bytes reserved. All 0s.
 	buf += 10;
+
 	len = 12;
 	if (auth_plugin_data_len_ >= 22)
 		len = auth_plugin_data_len_ - 9;
+
+	if (end - buf < len + 1)
+		return -2;
+
 	memcpy(auth_plugin_data_part_2_, buf, len);
-	buf += len;
-	buf++;	// one byte zero
+	buf += len + 1;
 	if (capability_flags_ & MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH)
+	{
+		if (buf == end || *(end - 1) != '\0')
+			return -2;
+
 		auth_plugin_name_.assign((const char *)buf);
+	}
+
 	return 1;
 }
 

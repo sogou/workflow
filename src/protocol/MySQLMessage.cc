@@ -400,6 +400,36 @@ int MySQLAuthRequest::decode_packet(const unsigned char *buf, size_t buflen)
 	return 1;
 }
 
+int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
+{
+	const unsigned char *end = buf + buflen;
+	const unsigned char *pos;
+
+	if (end == buf)
+		return -2;
+
+	if (*buf == 0xfe)
+	{
+		pos = ++buf;
+		while (pos < end && *pos)
+			pos++;
+
+		if (pos >= end)
+			return -2;
+
+		plugin_name_.assign((const char *)buf, pos - buf);
+		buf = pos + 1;
+		if (buf == end || *(end - 1) != '\0')
+			return -2;
+
+		plugin_data_.assign((const char *)buf, end - 1 - buf);
+		auth_switch_ = true;
+		return 1;
+	}
+
+	return MySQLResponse::decode_packet(buf, buflen);
+}
+
 void MySQLResponse::set_ok_packet()
 {
 	uint16_t zero16 = 0;

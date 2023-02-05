@@ -152,7 +152,6 @@ class MySQLAuthResponse : public MySQLResponse
 public:
 	std::string auth_plugin_name() const { return plugin_name_; }
 	std::string auth_plugin_data() const { return plugin_data_; }
-	bool auth_switched() const { return auth_switch_; }
 
 private:
 	virtual int decode_packet(const unsigned char *buf, size_t buflen);
@@ -160,14 +159,40 @@ private:
 private:
 	std::string plugin_name_;
 	std::string plugin_data_;
-	bool auth_switch_;
 
 public:
-	MySQLAuthResponse() : auth_switch_(false) { }
+	MySQLAuthResponse() { }
 	//move constructor
 	MySQLAuthResponse(MySQLAuthResponse&& move) = default;
 	//move operator
 	MySQLAuthResponse& operator= (MySQLAuthResponse&& move) = default;
+};
+
+class MySQLBytesRequest : public MySQLRequest
+{
+public:
+	void set_bytes(const void *bytes, size_t len)
+	{
+		buf_.assign((const char *)bytes, len);
+	}
+
+	std::string get_bytes() const
+	{
+		return buf_;
+	}
+
+private:
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		buf_.assign((const char *)buf, buflen);
+		return 1;
+	}
+
+private:
+	MySQLBytesRequest() { }
+	MySQLBytesRequest(MySQLBytesRequest&& move) = default;
+    //move operator
+    MySQLBytesRequest& operator= (MySQLBytesRequest&& move) = default;
 };
 
 //////////

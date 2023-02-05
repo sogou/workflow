@@ -408,8 +408,13 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 	if (end == buf)
 		return -2;
 
-	if (*buf == 0xfe)
+	switch (*buf)
 	{
+	case 0x00:
+	case 0xff:
+		return MySQLResponse::decode_packet(buf, buflen);
+
+	case 0xfe:
 		pos = ++buf;
 		while (pos < end && *pos)
 			pos++;
@@ -423,11 +428,11 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 			return -2;
 
 		plugin_data_.assign((const char *)buf, end - 1 - buf);
-		auth_switch_ = true;
 		return 1;
-	}
 
-	return MySQLResponse::decode_packet(buf, buflen);
+	default:
+		return -2;
+	}
 }
 
 void MySQLResponse::set_ok_packet()

@@ -68,6 +68,7 @@ private:
 	{
 		ST_SSL_REQUEST,
 		ST_AUTH_REQUEST,
+		ST_AUTH_SWITCH_REQUEST,
 		ST_CHARSET_REQUEST,
 		ST_FIRST_USER_REQUEST,
 		ST_USER_REQUEST
@@ -75,6 +76,7 @@ private:
 
 	struct MyConnection : public WFConnection
 	{
+		std::string auth_plugin_name;
 		char challenge[20];
 		unsigned char mysql_seqid;
 		enum ConnState state;
@@ -86,7 +88,8 @@ private:
 		}
 	};
 
-	int check_handshake();
+	int check_handshake(MySQLHandshakeResponse *resp);
+	int auth_switch(MySQLAuthResponse *resp, MyConnection *conn);
 
 	SSL *get_ssl() const
 	{
@@ -184,6 +187,7 @@ static SSL *__create_ssl(SSL_CTX *ssl_ctx)
 
 CommMessageOut *ComplexMySQLTask::message_out()
 {
+	MySQLAuthSwitchRequest *auth_switch_req;
 	MySQLAuthRequest *auth_req;
 	MySQLRequest *req;
 
@@ -202,9 +206,18 @@ CommMessageOut *ComplexMySQLTask::message_out()
 	case ST_AUTH_REQUEST:
 		req = new MySQLAuthRequest;
 		auth_req = (MySQLAuthRequest *)req;
-		auth_req->set_challenge(conn->challenge);
 		auth_req->set_auth(username_, password_, db_, character_set_);
-		req->set_seqid(conn->mysql_seqid++);
+		auth_req->set_challenge(conn->challenge);
+		req->set_seqid(conn->mysql_seqid);
+		break;
+
+	case ST_AUTH_SWITCH_REQUEST:
+		req = new MySQLAuthSwitchRequest;
+		auth_switch_req = (MySQLAuthSwitchRequest *)req;
+		auth_switch_req->set_password(password_);
+		auth_switch_req->set_auth_plugin_name(conn->auth_plugin_name);
+		auth_switch_req->set_challenge(conn->challenge);
+		req->set_seqid(conn->mysql_seqid);
 		break;
 
 	case ST_CHARSET_REQUEST:
@@ -264,6 +277,10 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		resp = new MySQLAuthResponse;
 		break;
 
+	case ST_AUTH_SWITCH_REQUEST:
+		resp = new MySQLAuthSwitchResponse;
+		break;
+
 	case ST_CHARSET_REQUEST:
 		resp = new MySQLResponse;
 		break;
@@ -287,9 +304,8 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		return new MySSLWrapper(resp, get_ssl());
 }
 
-int ComplexMySQLTask::check_handshake()
+int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 {
-	auto *resp = (MySQLHandshakeResponse *)this->get_message_in();
 	SSL *ssl = NULL;
 
 	if (resp->host_disallowed())
@@ -337,15 +353,34 @@ int ComplexMySQLTask::check_handshake()
 	return MYSQL_KEEPALIVE_DEFAULT;
 }
 
+int ComplexMySQLTask::auth_switch(MySQLAuthResponse *resp, MyConnection *conn)
+{
+	std::string name = resp->get_auth_plugin_name();
+
+	if (name == "mysql_clear_password" && !is_ssl_)
+	{
+		state_ = WFT_STATE_SYS_ERROR;
+		error_ = EBADMSG;
+		return 0;
+	}
+
+	conn->mysql_seqid = resp->get_seqid() + 1;
+	conn->auth_plugin_name = std::move(name);
+	resp->get_challenge(conn->challenge);
+	conn->state = ST_AUTH_SWITCH_REQUEST;
+	return MYSQL_KEEPALIVE_DEFAULT;
+}
+
 int ComplexMySQLTask::keep_alive_timeout()
 {
+	auto *msg = (ProtocolMessage *)this->get_message_in();
+
 	state_ = WFT_STATE_SUCCESS;
 	error_ = 0;
 	if (this->get_seq() == 0)
-		return check_handshake();
+		return check_handshake((MySQLHandshakeResponse *)msg);
 
 	auto *conn = (MyConnection *)this->get_connection();
-	auto *msg = (ProtocolMessage *)this->get_message_in();
 	MySQLResponse *resp;
 
 	if (is_ssl_)
@@ -360,13 +395,17 @@ int ComplexMySQLTask::keep_alive_timeout()
 		break;
 
 	case ST_AUTH_REQUEST:
-		if (!resp->is_ok_packet())
+	case ST_AUTH_SWITCH_REQUEST:
+		if (resp->is_error_packet())
 		{
 			this->resp = std::move(*resp);
 			state_ = WFT_STATE_TASK_ERROR;
 			error_ = WFT_ERR_MYSQL_ACCESS_DENIED;
 			return 0;
 		}
+
+		if (conn->state == ST_AUTH_REQUEST && !resp->is_ok_packet())
+			return auth_switch((MySQLAuthResponse *)resp, conn);
 
 		if (res_charset_.size() != 0)
 			conn->state = ST_CHARSET_REQUEST;

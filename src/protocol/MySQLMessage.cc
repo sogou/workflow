@@ -434,6 +434,40 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 	}
 }
 
+int MySQLAuthSwitchRequest::encode(struct iovec vectors[], int max)
+{
+	if (auth_plugin_name_ == "mysql_clear_password")
+	{
+		buf_ = password_;
+		buf_.push_back('\0');
+	}
+	else if (auth_plugin_name_ == "mysql_native_password")
+	{
+		std::string seed = std::string((const char *)challenge_, 20);
+		std::string first = __sha1_str(password_);
+		std::string second = __sha1_str(seed + __sha1_str(first));
+
+		buf_.clear();
+		for (int i = 0; i < 20; i++)
+			buf_.push_back(first[i] ^ second[i]);
+	}
+	else if (auth_plugin_name_ == "sha256_password")
+	{
+		// TODO
+	}
+	else if (auth_plugin_name_ == "caching_sha2_password")
+	{
+		// TODO
+	}
+	else
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
+	return this->MySQLMessage::encode(vectors, max);
+}
+
 void MySQLResponse::set_ok_packet()
 {
 	uint16_t zero16 = 0;

@@ -172,32 +172,46 @@ public:
 	MySQLAuthResponse& operator= (MySQLAuthResponse&& move) = default;
 };
 
-class MySQLBytesRequest : public MySQLRequest
+class MySQLAuthSwitchRequest : public MySQLRequest
 {
 public:
-	void set_bytes(const void *bytes, size_t len)
+	void set_password(const std::string& password)
 	{
-		buf_.assign((const char *)bytes, len);
+		password_ = password;
 	}
 
-	std::string get_bytes() const
+	void set_auth_plugin_name(const std::string& name)
 	{
-		return buf_;
+		auth_plugin_name_ = name;
+	}
+
+	void set_challenge(const char *arr)
+	{
+		memcpy(challenge_, arr, 20);
 	}
 
 private:
+	virtual int encode(struct iovec vectors[], int max);
+
 	virtual int decode_packet(const unsigned char *buf, size_t buflen)
 	{
 		buf_.assign((const char *)buf, buflen);
 		return 1;
 	}
 
-private:
-	MySQLBytesRequest() { }
-	MySQLBytesRequest(MySQLBytesRequest&& move) = default;
-    //move operator
-    MySQLBytesRequest& operator= (MySQLBytesRequest&& move) = default;
+	std::string password_;
+	std::string auth_plugin_name_;
+	uint8_t challenge_[20];
+
+public:
+	MySQLAuthSwitchRequest() { }
+	//move constructor
+	MySQLAuthSwitchRequest(MySQLAuthSwitchRequest&& move) = default;
+	//move operator
+	MySQLAuthSwitchRequest& operator= (MySQLAuthSwitchRequest&& move) = default;
 };
+
+using MySQLAuthSwitchResponse = MySQLResponse;
 
 //////////
 

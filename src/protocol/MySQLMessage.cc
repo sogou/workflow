@@ -186,14 +186,14 @@ int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 	buf_.append((const char *)&protocol_version_, 1);
 	buf_.append(server_version_.c_str(), server_version_.size() + 1);
 	buf_.append((const char *)&connection_id_, 4);
-	buf_.append((const char *)auth_plugin_data_part_1_, 8);
+	buf_.append((const char *)auth_plugin_data_, 8);
 	buf_.append(empty, 1);
 	buf_.append((const char *)&cap_flags_lower, 2);
 	buf_.append((const char *)&character_set_, 1);
 	buf_.append((const char *)&status_flags_, 2);
 	buf_.append((const char *)&cap_flags_upper, 2);
 	buf_.append(empty, 11);
-	buf_.append((const char *)auth_plugin_data_part_2_, 12);
+	buf_.append((const char *)auth_plugin_data_ + 8, 12);
 	return this->MySQLMessage::encode(vectors, max);
 }
 
@@ -213,7 +213,6 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	const unsigned char *pos;
 	uint16_t cap_flags_lower;
 	uint16_t cap_flags_upper;
-	int len;
 
 	if (buflen == 0)
 		return -2;
@@ -239,7 +238,7 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	while (pos < end && *pos)
 		pos++;
 
-	if (pos >= end || end - pos < 32)
+	if (pos >= end || end - pos < 45)
 		return -2;
 
 	server_version_.assign((const char *)buf, pos - buf);
@@ -248,7 +247,7 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	// TODO: check overflow
 	connection_id_ = uint4korr(buf);
 	buf += 4;
-	memcpy(auth_plugin_data_part_1_, buf, 8);
+	memcpy(auth_plugin_data_, buf, 8);
 	buf += 9;
 	cap_flags_lower = uint2korr(buf);
 	buf += 2;
@@ -261,22 +260,18 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	auth_plugin_data_len_ = *buf++;
 	// 10 bytes reserved. All 0s.
 	buf += 10;
-
-	len = 12;
-	if (auth_plugin_data_len_ >= 22)
-		len = auth_plugin_data_len_ - 9;
-
-	if (end - buf < len + 1)
+	// auth_plugin_data always 20 bytes
+	if (auth_plugin_data_len_ > 21)
 		return -2;
 
-	memcpy(auth_plugin_data_part_2_, buf, len);
-	buf += len + 1;
+	memcpy(auth_plugin_data_ + 8, buf, 12);
+	buf += 13;
 	if (capability_flags_ & MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH)
 	{
 		if (buf == end || *(end - 1) != '\0')
 			return -2;
 
-		auth_plugin_name_.assign((const char *)buf);
+		auth_plugin_name_.assign((const char *)buf, end - 1 - buf);
 	}
 
 	return 1;
@@ -355,8 +350,9 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	else
 	{
 		native.push_back((char)20);
+		std::string seed = std::string((const char *)challenge_, 20);
 		std::string first = __sha1_str(password_);
-		std::string second = __sha1_str(challenge_ + __sha1_str(first));
+		std::string second = __sha1_str(seed + __sha1_str(first));
 
 		for (int i = 0; i < 20; i++)
 			native.push_back(first[i] ^ second[i]);
@@ -422,12 +418,15 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 		if (pos >= end)
 			return -2;
 
-		plugin_name_.assign((const char *)buf, pos - buf);
+		auth_plugin_name_.assign((const char *)buf, pos - buf);
 		buf = pos + 1;
 		if (buf == end || *(end - 1) != '\0')
 			return -2;
 
-		plugin_data_.assign((const char *)buf, end - 1 - buf);
+		if (end - 1 - buf != 20)
+			return -2;
+
+		memcpy(auth_plugin_data_, buf, 20);
 		return 1;
 
 	default:

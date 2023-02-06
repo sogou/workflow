@@ -35,27 +35,28 @@ private:
 class MySQLHandshakeResponse : public MySQLResponse
 {
 public:
+	std::string get_server_version() const { return server_version_; }
+	std::string get_auth_plugin_name() const { return auth_plugin_name_; }
+
 	void get_challenge(char *arr) const
 	{
-		memcpy(arr, auth_plugin_data_part_1_, 8);
-		memcpy(arr + 8, auth_plugin_data_part_2_, 12);
+		memcpy(arr, auth_plugin_data_, 20);
 	}
 
 	virtual int encode(struct iovec vectors[], int max);
 
 	void server_set(uint8_t protocol_version, const std::string server_version,
-					uint32_t connection_id, const uint8_t *auth1,
+					uint32_t connection_id, const uint8_t *auth_plugin_data,
 					uint32_t capability_flags, uint8_t character_set,
-					uint16_t status_flags, const uint8_t *auth2)
+					uint16_t status_flags)
 	{
 		protocol_version_ = protocol_version;
 		server_version_ = server_version;
 		connection_id_ = connection_id;
-		memcpy(auth_plugin_data_part_1_, auth1, 8);
+		memcpy(auth_plugin_data_, auth_plugin_data, 20);
 		capability_flags_ = capability_flags;
 		character_set_ = character_set;
 		status_flags_ = status_flags;
-		memcpy(auth_plugin_data_part_2_, auth2, 12);
 	}
 
 	bool host_disallowed() const { return disallowed_; }
@@ -65,16 +66,15 @@ public:
 private:
 	virtual int decode_packet(const unsigned char *buf, size_t buflen);
 
-	uint8_t protocol_version_;
 	std::string server_version_;
-	uint32_t connection_id_;
-	uint8_t auth_plugin_data_part_1_[8];
-	uint32_t capability_flags_;
-	uint8_t character_set_;
-	uint16_t status_flags_;
-	uint8_t auth_plugin_data_len_;
-	uint8_t auth_plugin_data_part_2_[246];
 	std::string auth_plugin_name_;
+	uint8_t auth_plugin_data_[20];
+	uint32_t connection_id_;
+	uint32_t capability_flags_;
+	uint16_t status_flags_;
+	uint8_t character_set_;
+	uint8_t auth_plugin_data_len_;
+	uint8_t protocol_version_;
 	bool disallowed_;
 
 public:
@@ -126,7 +126,7 @@ public:
 
 	void set_challenge(const char *arr)
 	{
-		challenge_.assign(arr, 20);
+		memcpy(challenge_, arr, 20);
 	}
 
 private:
@@ -136,7 +136,7 @@ private:
 	std::string username_;
 	std::string password_;
 	std::string db_;
-	std::string challenge_;
+	uint8_t challenge_[20];
 	int character_set_;
 
 public:
@@ -150,15 +150,19 @@ public:
 class MySQLAuthResponse : public MySQLResponse
 {
 public:
-	std::string auth_plugin_name() const { return plugin_name_; }
-	std::string auth_plugin_data() const { return plugin_data_; }
+	std::string get_auth_plugin_name() const { return auth_plugin_name_; }
+
+	void get_challenge(char *arr) const
+	{
+		memcpy(arr, auth_plugin_data_, 20);
+	}
 
 private:
 	virtual int decode_packet(const unsigned char *buf, size_t buflen);
 
 private:
-	std::string plugin_name_;
-	std::string plugin_data_;
+	std::string auth_plugin_name_;
+	uint8_t auth_plugin_data_[20];
 
 public:
 	MySQLAuthResponse() { }

@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #include <sys/uio.h>
@@ -376,7 +376,7 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	*pos = (uint8_t)character_set_;
 
 	if (password_.empty())
-		str.push_back('\0');
+		str.push_back((char)0);
 	else if (auth_plugin_name_ == CACHING_SHA2_PASSWORD)
 	{
 		str.push_back((char)32);

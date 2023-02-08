@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
 */
 
@@ -69,6 +69,7 @@ private:
 		ST_SSL_REQUEST,
 		ST_AUTH_REQUEST,
 		ST_AUTH_SWITCH_REQUEST,
+		ST_CLEAR_PASSWORD_REQUEST,
 		ST_PUBLIC_KEY_REQUEST,
 		ST_CHARSET_REQUEST,
 		ST_FIRST_USER_REQUEST,
@@ -212,6 +213,8 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		req->set_seqid(conn->mysql_seqid);
 		break;
 
+	case ST_CLEAR_PASSWORD_REQUEST:
+		conn->auth_plugin_name = "mysql_clear_password";
 	case ST_AUTH_SWITCH_REQUEST:
 		req = new MySQLAuthSwitchRequest;
 		auth_switch_req = (MySQLAuthSwitchRequest *)req;
@@ -275,10 +278,8 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		return new SSLHandshaker(get_ssl());
 
 	case ST_AUTH_REQUEST:
-		resp = new MySQLAuthResponse;
-		break;
-
 	case ST_AUTH_SWITCH_REQUEST:
+	case ST_CLEAR_PASSWORD_REQUEST:
 		resp = new MySQLAuthResponse;
 		break;
 
@@ -359,7 +360,8 @@ int ComplexMySQLTask::auth_switch(MySQLAuthResponse *resp, MyConnection *conn)
 {
 	std::string name = resp->get_auth_plugin_name();
 
-	if (name == "mysql_clear_password" && !is_ssl_)
+	if (name.empty() || (name == "mysql_clear_password" && !is_ssl_) ||
+		conn->state != ST_AUTH_REQUEST)
 	{
 		state_ = WFT_STATE_SYS_ERROR;
 		error_ = EBADMSG;
@@ -399,17 +401,10 @@ int ComplexMySQLTask::keep_alive_timeout()
 
 	case ST_AUTH_REQUEST:
 	case ST_AUTH_SWITCH_REQUEST:
-		if (resp->is_error_packet())
-		{
-			this->resp = std::move(*resp);
-			state_ = WFT_STATE_TASK_ERROR;
-			error_ = WFT_ERR_MYSQL_ACCESS_DENIED;
-			return 0;
-		}
-
+	case ST_CLEAR_PASSWORD_REQUEST:
 		if (resp->is_ok_packet())
 		{
-			if (res_charset_.size() != 0)
+			if (!res_charset_.empty())
 				conn->state = ST_CHARSET_REQUEST;
 			else
 				conn->state = ST_FIRST_USER_REQUEST;
@@ -417,24 +412,24 @@ int ComplexMySQLTask::keep_alive_timeout()
 			break;
 		}
 
+		if (resp->is_error_packet() || conn->state == ST_CLEAR_PASSWORD_REQUEST)
+		{
+			this->resp = std::move(*resp);
+			state_ = WFT_STATE_TASK_ERROR;
+			error_ = WFT_ERR_MYSQL_ACCESS_DENIED;
+			return 0;
+		}
+
 		auth_resp = (MySQLAuthResponse *)resp;
 		if (auth_resp->is_continue())
 		{
+			conn->mysql_seqid = auth_resp->get_seqid() + 1;
 			if (is_ssl_)
-				auth_resp->set_auth_plugin_name("mysql_clear_password");
+				conn->state = ST_CLEAR_PASSWORD_REQUEST;
 			else
-			{
 				conn->state = ST_PUBLIC_KEY_REQUEST;
-				conn->mysql_seqid = auth_resp->get_seqid() + 1;
-				break;
-			}
-		}
-		else if (auth_resp->get_auth_plugin_name().size() == 0 ||
-				 conn->state == ST_AUTH_SWITCH_REQUEST)
-		{
-			state_ = WFT_STATE_SYS_ERROR;
-			error_ = EBADMSG;
-			return 0;
+
+			break;
 		}
 
 		return auth_switch(auth_resp, conn);

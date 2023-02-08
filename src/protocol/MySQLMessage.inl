@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #include <stdint.h>
@@ -166,16 +166,6 @@ public:
 	bool is_continue() const
 	{
 		return continue_;
-	}
-
-	void set_auth_plugin_name(const std::string& name)
-	{
-		auth_plugin_name_ = name;
-	}
-
-	void set_seed(const unsigned char seed[20])
-	{
-		memcpy(seed_, seed, 20);
 	}
 
 private:

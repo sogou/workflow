@@ -244,7 +244,6 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	server_version_.assign((const char *)buf, pos - buf);
 	buf = pos + 1;
 
-	// TODO: check overflow
 	connection_id_ = uint4korr(buf);
 	buf += 4;
 	memcpy(auth_plugin_data_, buf, 8);
@@ -277,14 +276,25 @@ int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t bufle
 	return 1;
 }
 
-static inline std::string __sha1_str(const std::string& str)
+static std::string __native_password_encrypt(const std::string& password,
+											 unsigned char seed[20])
 {
-	unsigned char sha1[20];
-	SHA_CTX ctx;
-	SHA1_Init(&ctx);
-	SHA1_Update(&ctx, str.c_str(), str.size());
-	SHA1_Final(sha1, &ctx);
-	return std::string((const char *)sha1, 20);
+	unsigned char buf1[20];
+	unsigned char buf2[40];
+	unsigned char *p = buf2 + 20;
+	int i;
+
+	// The password is encrypted with:
+	// SHA1( password ) ^ SHA1( seed + SHA1( SHA1( password ) ) )
+	SHA1((unsigned char *)password.c_str(), password.size(), buf1);
+	memcpy(p, buf1, 20);
+	SHA1(p, 20, p);
+	memcpy(buf2, seed, 20);
+	SHA1(buf2, 40, buf2);
+	for (i = 0; i < 20; i++)
+		buf1[i] ^= buf2[i];
+
+	return std::string((const char *)buf1, 20);
 }
 
 int MySQLSSLRequest::encode(struct iovec vectors[], int max)
@@ -328,9 +338,9 @@ int MySQLSSLRequest::encode(struct iovec vectors[], int max)
 
 int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 {
-	std::string native;
 	unsigned char header[32] = {0};
 	unsigned char *pos = header;
+	std::string str;
 
 	int4store(pos, MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
 				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
@@ -346,22 +356,17 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	*pos = (uint8_t)character_set_;
 
 	if (password_.empty())
-		native.push_back((char)0);
+		str.push_back('\0');
 	else
 	{
-		native.push_back((char)20);
-		std::string seed = std::string((const char *)challenge_, 20);
-		std::string first = __sha1_str(password_);
-		std::string second = __sha1_str(seed + __sha1_str(first));
-
-		for (int i = 0; i < 20; i++)
-			native.push_back(first[i] ^ second[i]);
+		str.push_back((char)20);
+		str += __native_password_encrypt(password_, seed_);
 	}
 
 	buf_.clear();
 	buf_.append((char *)header, 32);
 	buf_.append(username_.c_str(), username_.size() + 1);
-	buf_.append(native);
+	buf_.append(str);
 	buf_.append(db_.c_str(), db_.size() + 1);
 	return this->MySQLMessage::encode(vectors, max);
 }
@@ -426,7 +431,7 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 		if (end - 1 - buf != 20)
 			return -2;
 
-		memcpy(auth_plugin_data_, buf, 20);
+		memcpy(seed_, buf, 20);
 		return 1;
 
 	default:
@@ -442,15 +447,7 @@ int MySQLAuthSwitchRequest::encode(struct iovec vectors[], int max)
 		buf_.push_back('\0');
 	}
 	else if (auth_plugin_name_ == "mysql_native_password")
-	{
-		std::string seed = std::string((const char *)challenge_, 20);
-		std::string first = __sha1_str(password_);
-		std::string second = __sha1_str(seed + __sha1_str(first));
-
-		buf_.clear();
-		for (int i = 0; i < 20; i++)
-			buf_.push_back(first[i] ^ second[i]);
-	}
+		buf_ = __native_password_encrypt(password_, seed_);
 	else if (auth_plugin_name_ == "sha256_password")
 	{
 		// TODO

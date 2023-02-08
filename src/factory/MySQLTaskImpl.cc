@@ -77,7 +77,7 @@ private:
 	struct MyConnection : public WFConnection
 	{
 		std::string auth_plugin_name;
-		char challenge[20];
+		unsigned char seed[20];
 		unsigned char mysql_seqid;
 		enum ConnState state;
 		SSL *ssl;
@@ -207,7 +207,7 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		req = new MySQLAuthRequest;
 		auth_req = (MySQLAuthRequest *)req;
 		auth_req->set_auth(username_, password_, db_, character_set_);
-		auth_req->set_challenge(conn->challenge);
+		auth_req->set_seed(conn->seed);
 		req->set_seqid(conn->mysql_seqid);
 		break;
 
@@ -216,7 +216,7 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		auth_switch_req = (MySQLAuthSwitchRequest *)req;
 		auth_switch_req->set_password(password_);
 		auth_switch_req->set_auth_plugin_name(conn->auth_plugin_name);
-		auth_switch_req->set_challenge(conn->challenge);
+		auth_switch_req->set_seed(conn->seed);
 		req->set_seqid(conn->mysql_seqid);
 		break;
 
@@ -341,7 +341,7 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 	auto *my_conn = new MyConnection(ssl);
 
 	my_conn->mysql_seqid = resp->get_seqid() + 1;
-	resp->get_challenge(my_conn->challenge);
+	resp->get_seed(my_conn->seed);
 	my_conn->state = is_ssl_ ? ST_SSL_REQUEST : ST_AUTH_REQUEST;
 	conn->set_context(my_conn, [](void *ctx) {
 		auto *my_conn = (MyConnection *)ctx;
@@ -366,7 +366,7 @@ int ComplexMySQLTask::auth_switch(MySQLAuthResponse *resp, MyConnection *conn)
 
 	conn->mysql_seqid = resp->get_seqid() + 1;
 	conn->auth_plugin_name = std::move(name);
-	resp->get_challenge(conn->challenge);
+	resp->get_seed(conn->seed);
 	conn->state = ST_AUTH_SWITCH_REQUEST;
 	return MYSQL_KEEPALIVE_DEFAULT;
 }

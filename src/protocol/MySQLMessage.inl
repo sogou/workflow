@@ -38,22 +38,22 @@ public:
 	std::string get_server_version() const { return server_version_; }
 	std::string get_auth_plugin_name() const { return auth_plugin_name_; }
 
-	void get_challenge(char *arr) const
+	void get_seed(unsigned char seed[20]) const
 	{
-		memcpy(arr, auth_plugin_data_, 20);
+		memcpy(seed, auth_plugin_data_, 20);
 	}
 
 	virtual int encode(struct iovec vectors[], int max);
 
 	void server_set(uint8_t protocol_version, const std::string server_version,
-					uint32_t connection_id, const uint8_t *auth_plugin_data,
+					uint32_t connection_id, const unsigned char seed[20],
 					uint32_t capability_flags, uint8_t character_set,
 					uint16_t status_flags)
 	{
 		protocol_version_ = protocol_version;
 		server_version_ = server_version;
 		connection_id_ = connection_id;
-		memcpy(auth_plugin_data_, auth_plugin_data, 20);
+		memcpy(auth_plugin_data_, seed, 20);
 		capability_flags_ = capability_flags;
 		character_set_ = character_set;
 		status_flags_ = status_flags;
@@ -68,7 +68,7 @@ private:
 
 	std::string server_version_;
 	std::string auth_plugin_name_;
-	uint8_t auth_plugin_data_[20];
+	unsigned char auth_plugin_data_[20];
 	uint32_t connection_id_;
 	uint32_t capability_flags_;
 	uint16_t status_flags_;
@@ -124,9 +124,9 @@ public:
 		character_set_ = character_set;
 	}
 
-	void set_challenge(const char *arr)
+	void set_seed(const unsigned char seed[20])
 	{
-		memcpy(challenge_, arr, 20);
+		memcpy(seed_, seed, 20);
 	}
 
 private:
@@ -136,7 +136,7 @@ private:
 	std::string username_;
 	std::string password_;
 	std::string db_;
-	uint8_t challenge_[20];
+	unsigned char seed_[20];
 	int character_set_;
 
 public:
@@ -152,9 +152,9 @@ class MySQLAuthResponse : public MySQLResponse
 public:
 	std::string get_auth_plugin_name() const { return auth_plugin_name_; }
 
-	void get_challenge(char *arr) const
+	void get_seed(unsigned char seed[20]) const
 	{
-		memcpy(arr, auth_plugin_data_, 20);
+		memcpy(seed, seed_, 20);
 	}
 
 private:
@@ -162,7 +162,7 @@ private:
 
 private:
 	std::string auth_plugin_name_;
-	uint8_t auth_plugin_data_[20];
+	unsigned char seed_[20];
 
 public:
 	MySQLAuthResponse() { }
@@ -185,9 +185,9 @@ public:
 		auth_plugin_name_ = name;
 	}
 
-	void set_challenge(const char *arr)
+	void set_seed(const unsigned char seed[20])
 	{
-		memcpy(challenge_, arr, 20);
+		memcpy(seed_, seed, 20);
 	}
 
 private:
@@ -201,7 +201,7 @@ private:
 
 	std::string password_;
 	std::string auth_plugin_name_;
-	uint8_t challenge_[20];
+	unsigned char seed_[20];
 
 public:
 	MySQLAuthSwitchRequest() { }

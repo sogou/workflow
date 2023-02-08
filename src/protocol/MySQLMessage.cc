@@ -36,6 +36,11 @@ namespace protocol
 
 #define MYSQL_PAYLOAD_MAX	((1 << 24) - 1)
 
+#define MYSQL_NATIVE_PASSWORD	"mysql_native_password"
+#define CACHING_SHA2_PASSWORD	"caching_sha2_password"
+#define SHA256_PASSWORD			"sha256_password"
+#define MYSQL_CLEAR_PASSWORD	"mysql_clear_password"
+
 MySQLMessage::~MySQLMessage()
 {
 	if (parser_)
@@ -281,20 +286,35 @@ static std::string __native_password_encrypt(const std::string& password,
 {
 	unsigned char buf1[20];
 	unsigned char buf2[40];
-	unsigned char *p = buf2 + 20;
 	int i;
 
-	// The password is encrypted with:
 	// SHA1( password ) ^ SHA1( seed + SHA1( SHA1( password ) ) )
 	SHA1((unsigned char *)password.c_str(), password.size(), buf1);
-	memcpy(p, buf1, 20);
-	SHA1(p, 20, p);
+	SHA1(buf1, 20, buf2 + 20);
 	memcpy(buf2, seed, 20);
 	SHA1(buf2, 40, buf2);
 	for (i = 0; i < 20; i++)
 		buf1[i] ^= buf2[i];
 
 	return std::string((const char *)buf1, 20);
+}
+
+static std::string __caching_sha2_password_encrypt(const std::string& password,
+												   unsigned char seed[20])
+{
+	unsigned char buf1[32];
+	unsigned char buf2[52];
+	int i;
+
+	// SHA256( password ) ^ SHA256( SHA256( SHA256( password ) ) + seed)
+	SHA256((unsigned char *)password.c_str(), password.size(), buf1);
+	SHA256(buf1, 32, buf2);
+	memcpy(buf2 + 32, seed, 20);
+	SHA256(buf2, 52, buf2);
+	for (i = 0; i < 32; i++)
+		buf1[i] ^= buf2[i];
+
+	return std::string((const char *)buf1, 32);
 }
 
 int MySQLSSLRequest::encode(struct iovec vectors[], int max)
@@ -357,6 +377,11 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 
 	if (password_.empty())
 		str.push_back('\0');
+	else if (auth_plugin_name_ == CACHING_SHA2_PASSWORD)
+	{
+		str.push_back((char)32);
+		str += __caching_sha2_password_encrypt(password_, seed_);
+	}
 	else
 	{
 		str.push_back((char)20);
@@ -368,6 +393,9 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	buf_.append(username_.c_str(), username_.size() + 1);
 	buf_.append(str);
 	buf_.append(db_.c_str(), db_.size() + 1);
+	if (auth_plugin_name_.size() != 0)
+		buf_.append(auth_plugin_name_.c_str(), auth_plugin_name_.size() + 1);
+
 	return this->MySQLMessage::encode(vectors, max);
 }
 
@@ -441,20 +469,22 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 
 int MySQLAuthSwitchRequest::encode(struct iovec vectors[], int max)
 {
-	if (auth_plugin_name_ == "mysql_clear_password")
+	if (auth_plugin_name_ == MYSQL_NATIVE_PASSWORD)
+	{
+		buf_ = __native_password_encrypt(password_, seed_);
+	}
+	else if (auth_plugin_name_ == CACHING_SHA2_PASSWORD)
+	{
+		buf_ = __caching_sha2_password_encrypt(password_, seed_);
+	}
+	else if (auth_plugin_name_ == SHA256_PASSWORD)
+	{
+		// TODO
+	}
+	else if (auth_plugin_name_ == MYSQL_CLEAR_PASSWORD)
 	{
 		buf_ = password_;
 		buf_.push_back('\0');
-	}
-	else if (auth_plugin_name_ == "mysql_native_password")
-		buf_ = __native_password_encrypt(password_, seed_);
-	else if (auth_plugin_name_ == "sha256_password")
-	{
-		// TODO
-	}
-	else if (auth_plugin_name_ == "caching_sha2_password")
-	{
-		// TODO
 	}
 	else
 	{

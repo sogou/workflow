@@ -124,6 +124,11 @@ public:
 		character_set_ = character_set;
 	}
 
+	void set_auth_plugin_name(const std::string& name)
+	{
+		auth_plugin_name_ = name;
+	}
+
 	void set_seed(const unsigned char seed[20])
 	{
 		memcpy(seed_, seed, 20);
@@ -136,6 +141,7 @@ private:
 	std::string username_;
 	std::string password_;
 	std::string db_;
+	std::string auth_plugin_name_;
 	unsigned char seed_[20];
 	int character_set_;
 
@@ -210,8 +216,6 @@ public:
 	//move operator
 	MySQLAuthSwitchRequest& operator= (MySQLAuthSwitchRequest&& move) = default;
 };
-
-using MySQLAuthSwitchResponse = MySQLResponse;
 
 //////////
 

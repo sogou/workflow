@@ -278,7 +278,7 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		break;
 
 	case ST_AUTH_SWITCH_REQUEST:
-		resp = new MySQLAuthSwitchResponse;
+		resp = new MySQLAuthResponse;
 		break;
 
 	case ST_CHARSET_REQUEST:
@@ -341,6 +341,7 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 	auto *my_conn = new MyConnection(ssl);
 
 	my_conn->mysql_seqid = resp->get_seqid() + 1;
+	my_conn->auth_plugin_name = resp->get_auth_plugin_name();
 	resp->get_seed(my_conn->seed);
 	my_conn->state = is_ssl_ ? ST_SSL_REQUEST : ST_AUTH_REQUEST;
 	conn->set_context(my_conn, [](void *ctx) {

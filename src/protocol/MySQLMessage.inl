@@ -163,15 +163,31 @@ public:
 		memcpy(seed, seed_, 20);
 	}
 
+	bool is_continue() const
+	{
+		return continue_;
+	}
+
+	void set_auth_plugin_name(const std::string& name)
+	{
+		auth_plugin_name_ = name;
+	}
+
+	void set_seed(const unsigned char seed[20])
+	{
+		memcpy(seed_, seed, 20);
+	}
+
 private:
 	virtual int decode_packet(const unsigned char *buf, size_t buflen);
 
 private:
 	std::string auth_plugin_name_;
 	unsigned char seed_[20];
+	bool continue_;
 
 public:
-	MySQLAuthResponse() { }
+	MySQLAuthResponse() : continue_(false) { }
 	//move constructor
 	MySQLAuthResponse(MySQLAuthResponse&& move) = default;
 	//move operator

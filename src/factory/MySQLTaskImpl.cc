@@ -69,6 +69,7 @@ private:
 		ST_SSL_REQUEST,
 		ST_AUTH_REQUEST,
 		ST_AUTH_SWITCH_REQUEST,
+		ST_PUBLIC_KEY_REQUEST,
 		ST_CHARSET_REQUEST,
 		ST_FIRST_USER_REQUEST,
 		ST_USER_REQUEST
@@ -382,6 +383,7 @@ int ComplexMySQLTask::keep_alive_timeout()
 		return check_handshake((MySQLHandshakeResponse *)msg);
 
 	auto *conn = (MyConnection *)this->get_connection();
+	MySQLAuthResponse *auth_resp;
 	MySQLResponse *resp;
 
 	if (is_ssl_)
@@ -405,15 +407,37 @@ int ComplexMySQLTask::keep_alive_timeout()
 			return 0;
 		}
 
-		if (conn->state == ST_AUTH_REQUEST && !resp->is_ok_packet())
-			return auth_switch((MySQLAuthResponse *)resp, conn);
+		if (resp->is_ok_packet())
+		{
+			if (res_charset_.size() != 0)
+				conn->state = ST_CHARSET_REQUEST;
+			else
+				conn->state = ST_FIRST_USER_REQUEST;
 
-		if (res_charset_.size() != 0)
-			conn->state = ST_CHARSET_REQUEST;
-		else
-			conn->state = ST_FIRST_USER_REQUEST;
+			break;
+		}
 
-		break;
+		auth_resp = (MySQLAuthResponse *)resp;
+		if (auth_resp->is_continue())
+		{
+			if (is_ssl_)
+				auth_resp->set_auth_plugin_name("mysql_clear_password");
+			else
+			{
+				conn->state = ST_PUBLIC_KEY_REQUEST;
+				conn->mysql_seqid = auth_resp->get_seqid() + 1;
+				break;
+			}
+		}
+		else if (auth_resp->get_auth_plugin_name().size() == 0 ||
+				 conn->state == ST_AUTH_SWITCH_REQUEST)
+		{
+			state_ = WFT_STATE_SYS_ERROR;
+			error_ = EBADMSG;
+			return 0;
+		}
+
+		return auth_switch(auth_resp, conn);
 
 	case ST_CHARSET_REQUEST:
 		if (!resp->is_ok_packet())

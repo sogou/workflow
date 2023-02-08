@@ -433,6 +433,9 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 {
 	const unsigned char *end = buf + buflen;
 	const unsigned char *pos;
+	const unsigned char *str;
+	unsigned long long len;
+	int ret;
 
 	if (end == buf)
 		return -2;
@@ -463,6 +466,27 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 		return 1;
 
 	default:
+		pos = buf;
+		ret = decode_string(&str, &len, &pos, end);
+		if (ret <= 0)
+			return ret;
+
+		if (len == 1)
+		{
+			if (*str == 0x03)
+			{
+				if (end > pos)
+					return MySQLResponse::decode_packet(pos, end - pos);
+				else
+					return 0;
+			}
+			else if (*str == 0x04)
+			{
+				continue_ = true;
+				return 1;
+			}
+		}
+
 		return -2;
 	}
 }

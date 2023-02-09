@@ -535,8 +535,63 @@ int MySQLPublicKeyResponse::encode(struct iovec vectors[], int max)
 	return MySQLMessage::encode(vectors, max);
 }
 
+int MySQLRSAAuthRequest::rsa_encrypt(void *ctx)
+{
+	EVP_PKEY_CTX *pkey_ctx = (EVP_PKEY_CTX *)ctx;
+	std::string pass = password_;
+	unsigned char *p = (unsigned char *)pass.c_str();
+	unsigned char out[256];
+	size_t outlen = 256;
+
+	for (size_t i = 0; i < pass.size(); i++)
+		p[i] ^= seed_[i % 20];
+
+	if (EVP_PKEY_encrypt_init(pkey_ctx) > 0 &&
+		EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_OAEP_PADDING) > 0 &&
+		EVP_PKEY_encrypt(pkey_ctx, out, &outlen, p, pass.size()) > 0)
+	{
+		buf_.assign((char *)out, 256);
+		return 0;
+	}
+
+	return -1;
+}
+
 int MySQLRSAAuthRequest::encode(struct iovec vectors[], int max)
 {
+	RSA *rsa;
+	BIO *bio;
+
+	bio = BIO_new_mem_buf(public_key_.c_str(), public_key_.size());
+	if (!bio)
+		return -1;
+
+	rsa = PEM_read_bio_RSA_PUBKEY(bio, NULL, NULL, NULL);
+	BIO_free(bio);
+
+	EVP_PKEY_CTX *ctx;
+	EVP_PKEY *pkey;
+	int ret = -1;
+
+	pkey = EVP_PKEY_new();
+	if (pkey)
+	{
+		EVP_PKEY_assign_RSA(pkey, rsa);
+		ctx = EVP_PKEY_CTX_new(pkey, NULL);
+		if (ctx)
+		{
+			ret = rsa_encrypt(ctx);
+			EVP_PKEY_CTX_free(ctx);
+		}
+
+		EVP_PKEY_free(pkey);
+	}
+	else
+		RSA_free(rsa);
+
+	if (ret < 0)
+		return -1;
+
 	return MySQLMessage::encode(vectors, max);
 }
 

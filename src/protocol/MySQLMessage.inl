@@ -307,6 +307,8 @@ private:
 		return -2;
 	}
 
+	int rsa_encrypt(void *ctx);
+
 	std::string password_;
 	std::string public_key_;
 	unsigned char seed_[20];

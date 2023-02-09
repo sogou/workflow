@@ -38,7 +38,6 @@ namespace protocol
 
 #define MYSQL_NATIVE_PASSWORD	"mysql_native_password"
 #define CACHING_SHA2_PASSWORD	"caching_sha2_password"
-#define SHA256_PASSWORD			"sha256_password"
 #define MYSQL_CLEAR_PASSWORD	"mysql_clear_password"
 
 MySQLMessage::~MySQLMessage()
@@ -376,15 +375,15 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	*pos = (uint8_t)character_set_;
 
 	if (password_.empty())
-		str.push_back((char)0);
+		str.push_back(0);
 	else if (auth_plugin_name_ == CACHING_SHA2_PASSWORD)
 	{
-		str.push_back((char)32);
+		str.push_back(32);
 		str += __caching_sha2_password_encrypt(password_, seed_);
 	}
 	else
 	{
-		str.push_back((char)20);
+		str.push_back(20);
 		str += __native_password_encrypt(password_, seed_);
 	}
 
@@ -501,10 +500,6 @@ int MySQLAuthSwitchRequest::encode(struct iovec vectors[], int max)
 	{
 		buf_ = __caching_sha2_password_encrypt(password_, seed_);
 	}
-	else if (auth_plugin_name_ == SHA256_PASSWORD)
-	{
-		// TODO
-	}
 	else if (auth_plugin_name_ == MYSQL_CLEAR_PASSWORD)
 	{
 		buf_ = password_;
@@ -517,6 +512,32 @@ int MySQLAuthSwitchRequest::encode(struct iovec vectors[], int max)
 	}
 
 	return this->MySQLMessage::encode(vectors, max);
+}
+
+int MySQLPublicKeyResponse::decode_packet(const unsigned char *buf,
+										  size_t buflen)
+{
+	if (buflen == 0 || *buf != 0x01)
+		return -2;
+
+	if (buflen == 1)
+		return 0;
+
+	public_key_.assign((const char *)buf + 1, buflen - 1);
+	return 1;
+}
+
+int MySQLPublicKeyResponse::encode(struct iovec vectors[], int max)
+{
+	buf_.clear();
+	buf_.push_back(0x01);
+	buf_ += public_key_;
+	return MySQLMessage::encode(vectors, max);
+}
+
+int MySQLRSAAuthRequest::encode(struct iovec vectors[], int max)
+{
+	return MySQLMessage::encode(vectors, max);
 }
 
 void MySQLResponse::set_ok_packet()

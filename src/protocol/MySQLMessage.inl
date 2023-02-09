@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <utility>
 #include <string>
 #include <openssl/ssl.h>
 #include "SSLWrapper.h"
@@ -113,20 +114,20 @@ public:
 class MySQLAuthRequest : public MySQLRequest
 {
 public:
-	void set_auth(const std::string& username,
-				  const std::string& password,
-				  const std::string& db,
+	void set_auth(const std::string username,
+				  const std::string password,
+				  const std::string db,
 				  int character_set)
 	{
-		username_ = username;
-		password_ = password;
-		db_ = db;
+		username_ = std::move(username);
+		password_ = std::move(password);
+		db_ = std::move(db);
 		character_set_ = character_set;
 	}
 
-	void set_auth_plugin_name(const std::string& name)
+	void set_auth_plugin_name(std::string name)
 	{
-		auth_plugin_name_ = name;
+		auth_plugin_name_ = std::move(name);
 	}
 
 	void set_seed(const unsigned char seed[20])
@@ -187,14 +188,14 @@ public:
 class MySQLAuthSwitchRequest : public MySQLRequest
 {
 public:
-	void set_password(const std::string& password)
+	void set_password(std::string password)
 	{
-		password_ = password;
+		password_ = std::move(password);
 	}
 
-	void set_auth_plugin_name(const std::string& name)
+	void set_auth_plugin_name(std::string name)
 	{
-		auth_plugin_name_ = name;
+		auth_plugin_name_ = std::move(name);
 	}
 
 	void set_seed(const unsigned char seed[20])
@@ -205,10 +206,10 @@ public:
 private:
 	virtual int encode(struct iovec vectors[], int max);
 
+	/* Not implemented. */
 	virtual int decode_packet(const unsigned char *buf, size_t buflen)
 	{
-		buf_.assign((const char *)buf, buflen);
-		return 1;
+		return -2;
 	}
 
 	std::string password_;
@@ -221,6 +222,101 @@ public:
 	MySQLAuthSwitchRequest(MySQLAuthSwitchRequest&& move) = default;
 	//move operator
 	MySQLAuthSwitchRequest& operator= (MySQLAuthSwitchRequest&& move) = default;
+};
+
+class MySQLPublicKeyRequest : public MySQLRequest
+{
+public:
+	void set_caching_sha2() { byte_ = 0x02; }
+	void set_sha256() { byte_ = 0x01; }
+
+private:
+	virtual int encode(struct iovec vectors[], int max)
+	{
+		buf_.assign(&byte_, 1);
+		return MySQLRequest::encode(vectors, max);
+	}
+
+	/* Not implemented. */
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		return -2;
+	}
+
+	char byte_;
+
+public:
+	MySQLPublicKeyRequest() : byte_(0x01) { }
+	//move constructor
+	MySQLPublicKeyRequest(MySQLPublicKeyRequest&& move) = default;
+	//move operator
+	MySQLPublicKeyRequest& operator= (MySQLPublicKeyRequest&& move) = default;
+};
+
+class MySQLPublicKeyResponse : public MySQLResponse
+{
+public:
+	std::string get_public_key() const
+	{
+		return public_key_;
+	}
+
+	void set_public_key(std::string key)
+	{
+		public_key_ = std::move(key);
+	}
+
+private:
+	virtual int encode(struct iovec vectors[], int max);
+	virtual int decode_packet(const unsigned char *buf, size_t buflen);
+
+	std::string public_key_;
+
+public:
+	MySQLPublicKeyResponse() { }
+	//move constructor
+	MySQLPublicKeyResponse(MySQLPublicKeyResponse&& move) = default;
+	//move operator
+	MySQLPublicKeyResponse& operator= (MySQLPublicKeyResponse&& move) = default;
+};
+
+class MySQLRSAAuthRequest : public MySQLRequest
+{
+public:
+	void set_password(std::string password)
+	{
+		password_ = std::move(password);
+	}
+
+	void set_public_key(std::string key)
+	{
+		public_key_ = std::move(key);
+	}
+
+	void set_seed(const unsigned char seed[20])
+	{
+		memcpy(seed_, seed, 20);
+	}
+
+private:
+	virtual int encode(struct iovec vectors[], int max);
+
+	/* Not implemented. */
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		return -2;
+	}
+
+	std::string password_;
+	std::string public_key_;
+	unsigned char seed_[20];
+
+public:
+	MySQLRSAAuthRequest() { }
+	//move constructor
+	MySQLRSAAuthRequest(MySQLRSAAuthRequest&& move) = default;
+	//move operator
+	MySQLRSAAuthRequest& operator= (MySQLRSAAuthRequest&& move) = default;
 };
 
 //////////

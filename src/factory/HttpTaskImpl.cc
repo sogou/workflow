@@ -550,10 +550,7 @@ CommMessageIn *ComplexHttpProxyTask::message_in()
 		return get_ssl_handshaker();
 
 	auto *msg = (ProtocolMessage *)this->ComplexHttpTask::message_in();
-	if (is_ssl_)
-		return get_ssl_wrapper(msg);
-
-	return msg;
+	return is_ssl_ ? get_ssl_wrapper(msg) : msg;
 }
 
 int ComplexHttpProxyTask::keep_alive_timeout()

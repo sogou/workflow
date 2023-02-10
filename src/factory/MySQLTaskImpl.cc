@@ -369,7 +369,7 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 	auto *my_conn = new MyConnection(ssl);
 
 	my_conn->str = resp->get_auth_plugin_name();
-	if (my_conn->str == "sha256_password")
+	if (!password_.empty() && my_conn->str == "sha256_password")
 		my_conn->str = "caching_sha2_password";
 
 	resp->get_seed(my_conn->seed);
@@ -397,7 +397,11 @@ int ComplexMySQLTask::auth_switch(MySQLAuthResponse *resp, MyConnection *conn)
 		return 0;
 	}
 
-	if (name == "sha256_password")
+	if (password_.empty())
+	{
+		conn->state = ST_CLEAR_PASSWORD_REQUEST;
+	}
+	else if (name == "sha256_password")
 	{
 		if (is_ssl_)
 			conn->state = ST_CLEAR_PASSWORD_REQUEST;

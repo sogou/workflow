@@ -491,7 +491,11 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 
 int MySQLAuthSwitchRequest::encode(struct iovec vectors[], int max)
 {
-	if (auth_plugin_name_ == MYSQL_NATIVE_PASSWORD)
+	if (password_.empty())
+	{
+		buf_ = "\0";
+	}
+	else if (auth_plugin_name_ == MYSQL_NATIVE_PASSWORD)
 	{
 		buf_ = __native_password_encrypt(password_, seed_);
 	}

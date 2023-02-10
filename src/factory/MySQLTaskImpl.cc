@@ -369,6 +369,9 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 	auto *my_conn = new MyConnection(ssl);
 
 	my_conn->str = resp->get_auth_plugin_name();
+	if (my_conn->str == "sha256_password")
+		my_conn->str = "caching_sha2_password";
+
 	resp->get_seed(my_conn->seed);
 	my_conn->state = is_ssl_ ? ST_SSL_REQUEST : ST_AUTH_REQUEST;
 	my_conn->mysql_seqid = resp->get_seqid() + 1;
@@ -480,7 +483,6 @@ int ComplexMySQLTask::keep_alive_timeout()
 		conn->str = ((MySQLPublicKeyResponse *)resp)->get_public_key();
 		conn->state = ST_RSA_AUTH_REQUEST;
 		break;
-
 
 	case ST_CHARSET_REQUEST:
 		if (!resp->is_ok_packet())

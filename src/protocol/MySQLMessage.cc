@@ -17,7 +17,6 @@
            Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <sys/uio.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
@@ -573,6 +572,8 @@ int MySQLRSAAuthRequest::encode(struct iovec vectors[], int max)
 
 	rsa = PEM_read_bio_RSA_PUBKEY(bio, NULL, NULL, NULL);
 	BIO_free(bio);
+	if (!rsa)
+		return -1;
 
 	EVP_PKEY_CTX *pkey_ctx;
 	EVP_PKEY *pkey;

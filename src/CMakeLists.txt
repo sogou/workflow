@@ -100,11 +100,8 @@ if (KAFKA STREQUAL "y")
 		$<TARGET_OBJECTS:protocol_kafka>
 		$<TARGET_OBJECTS:factory_kafka>
 	)
-	if (APPLE)
-		target_link_libraries(${KAFKA_SHARED_LIB_NAME}
-							  ${SHARED_LIB_NAME} z lz4 zstd ${SNAPPY_LIB}
-							  OpenSSL::SSL OpenSSL::Crypto pthread)
-	endif ()
+	target_link_libraries(${KAFKA_SHARED_LIB_NAME}
+						  ${SHARED_LIB_NAME} z lz4 zstd ${SNAPPY_LIB})
 	set_target_properties(${KAFKA_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka" VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 endif ()
 

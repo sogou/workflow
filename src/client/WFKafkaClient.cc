@@ -19,7 +19,6 @@
 
 #include <unistd.h>
 #include <stdint.h>
-#include <cstddef>
 #include <string.h>
 #include <set>
 #include "WFKafkaClient.h"
@@ -1511,7 +1510,7 @@ int WFKafkaClient::init(const std::string& broker)
 	if (pos == std::string::npos)
 	{
 		std::string host = broker;
-		if (host.find("kafka://") != 0)
+		if (strncasecmp(host.c_str(), "kafka://", 8) != 0)
 			host = "kafka://" + host;
 		broker_hosts.emplace_back(host);
 	}
@@ -1520,7 +1519,7 @@ int WFKafkaClient::init(const std::string& broker)
 		do
 		{
 			std::string host = broker.substr(ppos, pos - ppos);
-			if (host.find("kafka://") != 0)
+			if (strncasecmp(host.c_str(), "kafka://", 8) != 0)
 				host = "kafka://" + host;
 			broker_hosts.emplace_back(host);
 
@@ -1529,7 +1528,7 @@ int WFKafkaClient::init(const std::string& broker)
 		} while (pos != std::string::npos);
 
 		std::string host = broker.substr(ppos, pos - ppos);
-		if (host.find("kafka://") != 0)
+		if (strncasecmp(host.c_str(), "kafka://", 8) != 0)
 			host = "kafka://" + host;
 		broker_hosts.emplace_back(host);
 	}

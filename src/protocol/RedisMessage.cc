@@ -18,10 +18,10 @@
 */
 
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sstream>
 #include <utility>
+#include "EncodeStream.h"
 #include "RedisMessage.h"
 
 namespace protocol
@@ -426,6 +426,30 @@ std::string RedisValue::debug_string() const
 	return ret;
 }
 
+RedisValue::~RedisValue()
+{
+	free_data();
+}
+
+RedisMessage::RedisMessage():
+	parser_(new redis_parser_t),
+	stream_(new EncodeStream),
+	cur_size_(0),
+	asking_(false)
+{
+	redis_parser_init(parser_);
+}
+
+RedisMessage::~RedisMessage()
+{
+	if (parser_)
+	{
+		redis_parser_deinit(parser_);
+		delete parser_;
+		delete stream_;
+	}
+}
+
 RedisMessage::RedisMessage(RedisMessage&& move) :
 	ProtocolMessage(std::move(move))
 {
@@ -628,8 +652,8 @@ int RedisRequest::append(const void *buf, size_t *size)
 		if (get_command(command) &&
 			strcasecmp(command.c_str(), REDIS_ASK_COMMAND) == 0)
 		{
-			redis_parser_deinit(this->parser_);
-			redis_parser_init(this->parser_);
+			redis_parser_deinit(parser_);
+			redis_parser_init(parser_);
 			set_asking(true);
 
 			ret = this->feedback(REDIS_OK_RESPONSE, strlen(REDIS_OK_RESPONSE));
@@ -652,8 +676,8 @@ int RedisResponse::append(const void *buf, size_t *size)
 
 	if (ret > 0 && is_asking())
 	{
-		redis_parser_deinit(this->parser_);
-		redis_parser_init(this->parser_);
+		redis_parser_deinit(parser_);
+		redis_parser_init(parser_);
 		ret = 0;
 		set_asking(false);
 	}

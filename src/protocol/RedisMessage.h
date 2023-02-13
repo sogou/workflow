@@ -24,7 +24,6 @@
 #include <string>
 #include <vector>
 #include "ProtocolMessage.h"
-#include "EncodeStream.h"
 #include "redis_parser.h"
 
 /**
@@ -141,7 +140,7 @@ protected:
 	virtual int append(const void *buf, size_t *size);
 	bool encode_reply(redis_reply_t *reply);
 
-	::EncodeStream *stream_;
+	class EncodeStream *stream_;
 
 private:
 	size_t cur_size_;
@@ -214,11 +213,6 @@ inline RedisValue::RedisValue():
 	type_(REDIS_REPLY_TYPE_NIL),
 	data_(NULL)
 {
-}
-
-inline RedisValue::~RedisValue()
-{
-	free_data();
 }
 
 inline RedisValue::RedisValue(const RedisValue& copy):
@@ -302,25 +296,6 @@ inline void RedisValue::set_nil()
 inline void RedisValue::clear()
 {
 	set_nil();
-}
-
-inline RedisMessage::RedisMessage():
-	parser_(new redis_parser_t),
-	stream_(new ::EncodeStream),
-	cur_size_(0),
-	asking_(false)
-{
-	redis_parser_init(parser_);
-}
-
-inline RedisMessage::~RedisMessage()
-{
-	if (parser_)
-	{
-		redis_parser_deinit(parser_);
-		delete parser_;
-		delete stream_;
-	}
 }
 
 inline bool RedisMessage::parse_success() const { return parser_->parse_succ; }

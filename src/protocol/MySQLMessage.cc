@@ -179,9 +179,19 @@ std::string MySQLRequest::get_query() const
 	return std::string(buf_.c_str() + 1);
 }
 
+#define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
+#define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
+#define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
+#define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
+#define MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS	0x00010000
+#define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
+#define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
+#define MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH		0x00080000
+#define MYSQL_CAPFLAG_CLIENT_LOCAL_FILES		0x00000080
+
 int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 {
-	const char empty[11] = {0};
+	const char empty[10] = {0};
 	uint16_t cap_flags_lower = capability_flags_ & 0xffffffff;
 	uint16_t cap_flags_upper = capability_flags_ >> 16;
 
@@ -195,20 +205,15 @@ int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 	buf_.append((const char *)&character_set_, 1);
 	buf_.append((const char *)&status_flags_, 2);
 	buf_.append((const char *)&cap_flags_upper, 2);
-	buf_.append(empty, 11);
+	buf_.push_back(21);
+	buf_.append(empty, 10);
 	buf_.append((const char *)auth_plugin_data_ + 8, 12);
-	return this->MySQLMessage::encode(vectors, max);
-}
+	buf_.push_back(0);
+	if (capability_flags_ & MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH)
+		buf_.append(MYSQL_NATIVE_PASSWORD, strlen(MYSQL_NATIVE_PASSWORD) + 1);
 
-#define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
-#define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
-#define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
-#define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
-#define MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS	0x00010000
-#define MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS		0x00020000
-#define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
-#define MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH		0x00080000
-#define MYSQL_CAPFLAG_CLIENT_LOCAL_FILES		0x00000080
+	return MySQLMessage::encode(vectors, max);
+}
 
 int MySQLHandshakeResponse::decode_packet(const unsigned char *buf, size_t buflen)
 {
@@ -337,7 +342,7 @@ int MySQLSSLRequest::encode(struct iovec vectors[], int max)
 
 	buf_.clear();
 	buf_.append((char *)header, 32);
-	ret = this->MySQLMessage::encode(vectors, max);
+	ret = MySQLMessage::encode(vectors, max);
 	if (ret >= 0)
 	{
 		max -= ret;
@@ -394,7 +399,7 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 	if (auth_plugin_name_.size() != 0)
 		buf_.append(auth_plugin_name_.c_str(), auth_plugin_name_.size() + 1);
 
-	return this->MySQLMessage::encode(vectors, max);
+	return MySQLMessage::encode(vectors, max);
 }
 
 int MySQLAuthRequest::decode_packet(const unsigned char *buf, size_t buflen)
@@ -514,7 +519,7 @@ int MySQLAuthSwitchRequest::encode(struct iovec vectors[], int max)
 		return -1;
 	}
 
-	return this->MySQLMessage::encode(vectors, max);
+	return MySQLMessage::encode(vectors, max);
 }
 
 int MySQLPublicKeyResponse::decode_packet(const unsigned char *buf,

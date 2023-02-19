@@ -16,8 +16,6 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
-#include <openssl/sha.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -30,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <openssl/ssl.h>
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
@@ -105,7 +104,7 @@ struct RouteParams
 {
 	TransportType transport_type;
 	const struct addrinfo *addrinfo;
-	uint64_t sha1_64;
+	uint64_t key;
 	SSL_CTX *ssl_ctx;
 	int connect_timeout;
 	int ssl_connect_timeout;
@@ -124,7 +123,7 @@ public:
 	std::mutex mutex;
 	std::vector<CommSchedTarget *> targets;
 	struct list_head breaker_list;
-	uint64_t sha1_64;
+	uint64_t key;
 	int nleft;
 	int nbreak;
 
@@ -214,7 +213,7 @@ int RouteResultEntry::init(const struct RouteParams *params)
 		{
 			this->targets.push_back(target);
 			this->request_object = target;
-			this->sha1_64 = params->sha1_64;
+			this->key = params->key;
 			return 0;
 		}
 
@@ -227,7 +226,7 @@ int RouteResultEntry::init(const struct RouteParams *params)
 		if (this->add_group_targets(params) >= 0)
 		{
 			this->request_object = this->group;
-			this->sha1_64 = params->sha1_64;
+			this->key = params->key;
 			return 0;
 		}
 
@@ -384,6 +383,20 @@ static inline bool __addr_less(const struct addrinfo *x, const struct addrinfo *
 	return __addr_cmp(x, y) < 0;
 }
 
+static uint64_t __fnv_hash(const unsigned char *data, size_t size)
+{
+	uint64_t hash = 14695981039346656037ULL;
+
+	while (size)
+	{
+		hash ^= (const uint64_t)*data++;
+		hash *= 1099511628211ULL;
+		size--;
+	}
+
+	return hash;
+}
+
 static uint64_t __generate_key(TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
@@ -391,8 +404,6 @@ static uint64_t __generate_key(TransportType type,
 							   const std::string& hostname)
 {
 	std::string buf((const char *)&type, sizeof (TransportType));
-	uint64_t sha1[3];
-	SHA_CTX ctx;
 
 	if (!other_info.empty())
 		buf += other_info;
@@ -435,10 +446,7 @@ static uint64_t __generate_key(TransportType type,
 		buf.append((const char *)addrinfo->ai_addr, addrinfo->ai_addrlen);
 	}
 
-	SHA1_Init(&ctx);
-	SHA1_Update(&ctx, buf.c_str(), buf.size());
-	SHA1_Final((unsigned char *)sha1, &ctx);
-	return sha1[1];
+	return __fnv_hash((const unsigned char *)buf.c_str(), buf.size());
 }
 
 RouteManager::~RouteManager()
@@ -461,8 +469,8 @@ int RouteManager::get(TransportType type,
 					  const std::string& hostname,
 					  RouteResult& result)
 {
-	uint64_t sha1_64 = __generate_key(type, addrinfo, other_info,
-									  endpoint_params, hostname);
+	uint64_t key = __generate_key(type, addrinfo, other_info,
+								  endpoint_params, hostname);
 	struct rb_node **p = &cache_.rb_node;
 	struct rb_node *parent = NULL;
 	RouteResultEntry *bound = NULL;
@@ -473,7 +481,7 @@ int RouteManager::get(TransportType type,
 	{
 		parent = *p;
 		entry = rb_entry(*p, RouteResultEntry, rb);
-		if (sha1_64 <= entry->sha1_64)
+		if (key <= entry->key)
 		{
 			bound = entry;
 			p = &(*p)->rb_left;
@@ -482,7 +490,7 @@ int RouteManager::get(TransportType type,
 			p = &(*p)->rb_right;
 	}
 
-	if (bound && bound->sha1_64 == sha1_64)
+	if (bound && bound->key == key)
 	{
 		entry = bound;
 		entry->check_breaker();
@@ -503,7 +511,7 @@ int RouteManager::get(TransportType type,
 		struct RouteParams params = {
 			.transport_type			=	type,
 			.addrinfo 				= 	addrinfo,
-			.sha1_64				=	sha1_64,
+			.key					=	key,
 			.ssl_ctx 				=	ssl_ctx,
 			.connect_timeout		=	endpoint_params->connect_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,

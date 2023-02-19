@@ -106,10 +106,10 @@ struct RouteParams
 	const struct addrinfo *addrinfo;
 	uint64_t key;
 	SSL_CTX *ssl_ctx;
+	unsigned int max_connections;
 	int connect_timeout;
-	int ssl_connect_timeout;
 	int response_timeout;
-	size_t max_connections;
+	int ssl_connect_timeout;
 	bool use_tls_sni;
 	const std::string& hostname;
 };
@@ -404,11 +404,12 @@ static uint64_t __generate_key(TransportType type,
 							   const std::string& hostname)
 {
 	std::string buf((const char *)&type, sizeof (TransportType));
+	unsigned int max_conn = ep_params->max_connections;
 
 	if (!other_info.empty())
 		buf += other_info;
 
-	buf.append((const char *)&ep_params->max_connections, sizeof (size_t));
+	buf.append((const char *)&max_conn, sizeof (unsigned int));
 	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
 	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
 	if (type == TT_TCP_SSL)
@@ -465,12 +466,12 @@ RouteManager::~RouteManager()
 int RouteManager::get(TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
-					  const struct EndpointParams *endpoint_params,
+					  const struct EndpointParams *ep_params,
 					  const std::string& hostname,
 					  RouteResult& result)
 {
 	uint64_t key = __generate_key(type, addrinfo, other_info,
-								  endpoint_params, hostname);
+								  ep_params, hostname);
 	struct rb_node **p = &cache_.rb_node;
 	struct rb_node *parent = NULL;
 	RouteResultEntry *bound = NULL;
@@ -505,7 +506,7 @@ int RouteManager::get(TransportType type,
 			static SSL_CTX *client_ssl_ctx = WFGlobal::get_ssl_client_ctx();
 
 			ssl_ctx = client_ssl_ctx;
-			ssl_connect_timeout = endpoint_params->ssl_connect_timeout;
+			ssl_connect_timeout = ep_params->ssl_connect_timeout;
 		}
 
 		struct RouteParams params = {
@@ -513,11 +514,11 @@ int RouteManager::get(TransportType type,
 			.addrinfo 				= 	addrinfo,
 			.key					=	key,
 			.ssl_ctx 				=	ssl_ctx,
-			.connect_timeout		=	endpoint_params->connect_timeout,
+			.max_connections		=	(unsigned int)ep_params->max_connections,
+			.connect_timeout		=	ep_params->connect_timeout,
+			.response_timeout		=	ep_params->response_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,
-			.response_timeout		=	endpoint_params->response_timeout,
-			.max_connections		=	endpoint_params->max_connections,
-			.use_tls_sni			=	endpoint_params->use_tls_sni,
+			.use_tls_sni			=	ep_params->use_tls_sni,
 			.hostname				=	hostname,
 		};
 

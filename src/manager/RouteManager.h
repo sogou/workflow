@@ -62,7 +62,7 @@ public:
 	int get(TransportType type,
 			const struct addrinfo *addrinfo,
 			const std::string& other_info,
-			const struct EndpointParams *endpoint_params,
+			const struct EndpointParams *ep_params,
 			const std::string& hostname,
 			RouteResult& result);
 

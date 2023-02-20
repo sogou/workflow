@@ -21,8 +21,10 @@
 #include <string.h>
 #include <errno.h>
 #include <string>
-#include <openssl/ssl.h>
 #include <openssl/sha.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/evp.h>
 #include <utility>
 #include "SSLWrapper.h"
 #include "mysql_byteorder.h"

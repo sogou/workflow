@@ -574,40 +574,32 @@ int MySQLRSAAuthRequest::rsa_encrypt(void *ctx)
 
 int MySQLRSAAuthRequest::encode(struct iovec vectors[], int max)
 {
-	RSA *rsa;
 	BIO *bio;
-
-	bio = BIO_new_mem_buf(public_key_.c_str(), public_key_.size());
-	if (!bio)
-		return -1;
-
-	rsa = PEM_read_bio_RSA_PUBKEY(bio, NULL, NULL, NULL);
-	BIO_free(bio);
-	if (!rsa)
-		return -1;
-
-	EVP_PKEY_CTX *pkey_ctx;
 	EVP_PKEY *pkey;
+	EVP_PKEY_CTX *pkey_ctx;
 	int ret = -1;
 
-	pkey = EVP_PKEY_new();
-	if (pkey)
+	bio = BIO_new_mem_buf(public_key_.c_str(), public_key_.size());
+	if (bio)
 	{
-		EVP_PKEY_assign_RSA(pkey, rsa);
-		pkey_ctx = EVP_PKEY_CTX_new(pkey, NULL);
-		if (pkey_ctx)
+		pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+		if (pkey)
 		{
-			ret = rsa_encrypt(pkey_ctx);
-			EVP_PKEY_CTX_free(pkey_ctx);
+			pkey_ctx = EVP_PKEY_CTX_new(pkey, NULL);
+			if (pkey_ctx)
+			{
+				ret = rsa_encrypt(pkey_ctx);
+				EVP_PKEY_CTX_free(pkey_ctx);
+			}
+
+			EVP_PKEY_free(pkey);
 		}
 
-		EVP_PKEY_free(pkey);
+		BIO_free(bio);
 	}
-	else
-		RSA_free(rsa);
 
 	if (ret < 0)
-		return -1;
+		return ret;
 
 	return MySQLMessage::encode(vectors, max);
 }

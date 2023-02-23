@@ -22,7 +22,7 @@ enable_testing()
 set(CXX_STD "c++11")
 
 find_package(GTest REQUIRED)
-get_filename_component(GTEST_PATH ${GTEST_LIBRARY} DIRECTORY)
+get_filename_component(GTEST_PATH ${GTEST_LIBRARY} ABSOLUTE DIRECTORY)
 execute_process(COMMAND grep Version "${GTEST_PATH}/pkgconfig/gtest.pc"
 				RESULT_VARIABLE GTEST_VERSION_RESULT
 				OUTPUT_VARIABLE GTEST_VERSION_OUTPUT)

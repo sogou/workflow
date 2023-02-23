@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-
+    name: ubuntu
     runs-on: ubuntu-latest
 
     steps:
@@ -17,3 +17,33 @@ jobs:
       run: make
     - name: make tutorial
       run: make tutorial
+      
+  test:
+    name: fedora
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Setup Podman
+        run: |
+          sudo apt update
+          sudo apt-get -y install podman
+          podman pull fedora:rawhide
+      - name: Get source
+        uses: actions/checkout@v3
+        with:
+          path: 'workflow'
+      - name: Create container and run tests
+        run: |
+          {
+              echo 'FROM fedora:rawhide'
+              echo 'RUN dnf -y update'
+              echo 'RUN dnf -y install cmake gcc-c++ gtest-devel make openssl-devel redis sed valgrind'
+              echo 'RUN dnf clean all'
+              echo 'COPY workflow workflow'
+              echo 'WORKDIR /workflow'
+              echo "RUN cmake" 
+              echo "RUN make"
+              echo "RUN make check"
+              echo "RUN make tutorial"
+          } > podmanfile
+          podman build --tag fedorarawhide -f ./podmanfile

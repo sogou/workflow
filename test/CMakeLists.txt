@@ -71,7 +71,8 @@ foreach(src ${TEST_LIST})
 	add_dependencies(check ${src})
 endforeach()
 
-foreach(src ${TEST_LIST})
-	add_test(${src}-memory-check ${memcheck_command} ./${src})
-endforeach()
-
+if (NOT ${CMAKE_MEMORYCHECK_COMMAND} STREQUAL "CMAKE_MEMORYCHECK_COMMAND-NOTFOUND")
+	foreach(src ${TEST_LIST})
+		add_test(${src}-memory-check ${memcheck_command} ./${src})
+	endforeach()
+endif ()

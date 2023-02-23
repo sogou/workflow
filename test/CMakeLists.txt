@@ -22,7 +22,11 @@ enable_testing()
 set(CXX_STD "c++11")
 
 find_package(GTest REQUIRED)
-get_filename_component(GTEST_PATH ${GTEST_LIBRARY} ABSOLUTE DIRECTORY)
+if (GTest_VERSION VERSION_GREATER_EQUAL "1.13.0")
+	set(CXX_STD "c++14")
+endif ()
+# May not always have GTest_VERSION defined, but may have gtest.pc file
+get_filename_component(GTEST_PATH ${GTEST_LIBRARY} DIRECTORY)
 execute_process(COMMAND grep Version "${GTEST_PATH}/pkgconfig/gtest.pc"
 				RESULT_VARIABLE GTEST_VERSION_RESULT
 				OUTPUT_VARIABLE GTEST_VERSION_OUTPUT)

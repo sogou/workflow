@@ -230,8 +230,11 @@ int SSLWrapper::append(const void *buf, size_t *size)
 
 	*size = ret;
 	ret = this->append_message();
-	if (ret > 0)
-		BIO_reset(SSL_get_wbio(this->ssl));
+	if (ret != 0)
+	{
+		if (BIO_reset(SSL_get_wbio(this->ssl)) <= 0)
+			ret = -1;
+	}
 
 	return ret;
 }
@@ -291,8 +294,11 @@ int ServerSSLWrapper::append(const void *buf, size_t *size)
 	if (n == len)
 	{
 		ret = this->append_message();
-		if (ret > 0)
-			BIO_reset(SSL_get_wbio(this->ssl));
+		if (ret != 0)
+		{
+			if (BIO_reset(SSL_get_wbio(this->ssl)) <= 0)
+				ret = -1;
+		}
 
 		return ret;
 	}

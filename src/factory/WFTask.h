@@ -729,9 +729,9 @@ public:
 		this->create = std::move(create);
 	}
 
-	void set_callback(std::function<void (WFRepeaterTask *)> callback)
+	void set_callback(std::function<void (WFRepeaterTask *)> cb)
 	{
-		this->callback = std::move(callback);
+		this->callback = std::move(cb);
 	}
 
 protected:

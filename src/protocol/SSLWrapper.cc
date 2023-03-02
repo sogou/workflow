@@ -18,8 +18,8 @@
 
 #include <errno.h>
 #include <openssl/ssl.h>
-#include <openssl/err.h>
 #include <openssl/bio.h>
+#include <openssl/err.h>
 #include "SSLWrapper.h"
 
 namespace protocol
@@ -117,16 +117,8 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 	int ret;
 
 	ret = __ssl_handshake(buf, size, this->ssl, &ptr, &len);
-	if (ret < 0)
-		return -1;
-
-	if (ret > 0)
-	{
-		if (SSL_set_ex_data(this->ssl, this->ssl_ex_data_index, ptr) <= 0)
-			return -1;
-
-		return 1;
-	}
+	if (ret != 0)
+		return ret;
 
 	if (len > 0)
 		n = this->feedback(ptr, len);
@@ -149,14 +141,6 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 	char *ptr;
 	long len;
 	int ret;
-
-	if (SSL_get_ex_data(this->ssl, this->ssl_ex_data_index))
-	{
-		if (SSL_set_ex_data(this->ssl, this->ssl_ex_data_index, NULL) <= 0)
-			return -1;
-	}
-	else if (BIO_reset(wbio) <= 0)
-		return -1;
 
 	ret = this->ProtocolWrapper::encode(vectors, max);
 	if ((unsigned int)ret > (unsigned int)max)
@@ -245,7 +229,14 @@ int SSLWrapper::append(const void *buf, size_t *size)
 		return -1;
 
 	*size = ret;
-	return this->append_message();
+	ret = this->append_message();
+	if (ret != 0)
+	{
+		if (BIO_reset(SSL_get_wbio(this->ssl)) <= 0)
+			ret = -1;
+	}
+
+	return ret;
 }
 
 int SSLWrapper::feedback(const void *buf, size_t size)
@@ -290,6 +281,7 @@ int ServerSSLWrapper::append(const void *buf, size_t *size)
 	char *ptr;
 	long len;
 	long n;
+	int ret;
 
 	if (__ssl_handshake(buf, size, this->ssl, &ptr, &len) < 0)
 		return -1;
@@ -300,7 +292,16 @@ int ServerSSLWrapper::append(const void *buf, size_t *size)
 		n = 0;
 
 	if (n == len)
-		return this->append_message();
+	{
+		ret = this->append_message();
+		if (ret != 0)
+		{
+			if (BIO_reset(SSL_get_wbio(this->ssl)) <= 0)
+				ret = -1;
+		}
+
+		return ret;
+	}
 
 	if (n >= 0)
 		errno = EAGAIN;

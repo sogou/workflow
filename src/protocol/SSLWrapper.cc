@@ -117,7 +117,10 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 		return ret;
 
 	if (len > 0)
+	{
 		n = this->feedback(ptr, len);
+		BIO_reset(SSL_get_wbio(this->ssl));
+	}
 	else
 		n = 0;
 
@@ -275,7 +278,10 @@ int ServerSSLWrapper::append(const void *buf, size_t *size)
 		return -1;
 
 	if (len > 0)
+	{
 		n = this->ProtocolMessage::feedback(ptr, len);
+		BIO_reset(SSL_get_wbio(this->ssl));
+	}
 	else
 		n = 0;
 

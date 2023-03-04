@@ -307,7 +307,7 @@ int HttpRequest::handle_expect_continue()
 	if (ret != strlen(HTTP_100_RESP))
 	{
 		if (ret >= 0)
-			errno = EAGAIN;
+			errno = ENOBUFS;
 		return -1;
 	}
 

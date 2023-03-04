@@ -3819,7 +3819,7 @@ int KafkaResponse::handle_sasl_continue()
 		if (ret != (int)iovecs[i].iov_len)
 		{
 			if (ret >= 0)
-				errno = EAGAIN;
+				errno = ENOBUFS;
 			return -1;
 		}
 	}

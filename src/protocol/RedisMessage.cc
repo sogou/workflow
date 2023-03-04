@@ -659,7 +659,7 @@ int RedisRequest::append(const void *buf, size_t *size)
 			ret = this->feedback(REDIS_OK_RESPONSE, strlen(REDIS_OK_RESPONSE));
 			if (ret != strlen(REDIS_OK_RESPONSE))
 			{
-				errno = EAGAIN;
+				errno = ENOBUFS;
 				ret = -1;
 			}
 			else

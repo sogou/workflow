@@ -73,6 +73,18 @@ To install the Workflow library for deployment:
 sudo apt-get install libworkflow1
 ~~~~
 
+### Get started (Fedora Linux):
+Sogou C++ Workflow has been packaged for Fedora Linux.  
+To install the Workflow library for development purposes:
+~~~~sh
+sudo dnf install workflow-devel
+~~~~
+
+To install the Workflow library for deployment:
+~~~~sh
+sudo dnf install workflow
+~~~~
+
 ### Get started (xmake)
 
 If you want to use xmake to build workflow, you can see [xmake build document](docs/en/xmake.md)

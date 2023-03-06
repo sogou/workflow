@@ -30,7 +30,6 @@
 #include <pthread.h>
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
-#include <openssl/err.h>
 #include "list.h"
 #include "msgqueue.h"
 #include "thrdpool.h"
@@ -1183,14 +1182,6 @@ void Communicator::handler_thread_routine(void *context)
 
 		free(res);
 	}
-
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-# ifdef CRYPTO_LOCK_ECDH
-	ERR_remove_thread_state(NULL);
-# else
-	ERR_remove_state(0);
-# endif
-#endif
 }
 
 int Communicator::append_request(const void *buf, size_t *size,

@@ -330,30 +330,7 @@ public:
 	}
 
 	CommScheduler *get_scheduler() { return &scheduler_; }
-	IOService *get_io_service()
-	{
-		if (!fio_flag_)
-		{
-			fio_mutex_.lock();
-			if (!fio_flag_)
-			{
-				fio_service_ = new __FileIOService(&scheduler_);
-				//todo EAGAIN 65536->2
-				if (fio_service_->init(8192) < 0)
-					abort();
-
-				if (fio_service_->bind() < 0)
-					abort();
-
-				fio_flag_ = true;
-			}
-
-			fio_mutex_.unlock();
-		}
-
-		return fio_service_;
-	}
-
+	IOService *get_io_service();
 	static bool is_created() { return created_; }
 
 private:
@@ -392,6 +369,35 @@ private:
 
 bool __CommManager::created_ = false;
 
+inline IOService *__CommManager::get_io_service()
+{
+	if (!fio_flag_)
+	{
+		fio_mutex_.lock();
+		if (!fio_flag_)
+		{
+			int maxevents = 65536;
+
+			fio_service_ = new __FileIOService(&scheduler_);
+			while (fio_service_->init(maxevents) < 0)
+			{
+				if (errno != EAGAIN || maxevents == 256)
+					abort();
+				maxevents /= 2;
+			}
+
+			if (fio_service_->bind() < 0)
+				abort();
+
+			fio_flag_ = true;
+		}
+
+		fio_mutex_.unlock();
+	}
+
+	return fio_service_;
+}
+
 class __ExecManager
 {
 protected:
@@ -404,40 +410,7 @@ public:
 		return &kInstance;
 	}
 
-	ExecQueue *get_exec_queue(const std::string& queue_name)
-	{
-		ExecQueue *queue = NULL;
-		ExecQueueMap::const_iterator iter;
-
-		pthread_rwlock_rdlock(&rwlock_);
-		iter = queue_map_.find(queue_name);
-		if (iter != queue_map_.cend())
-			queue = iter->second;
-
-		pthread_rwlock_unlock(&rwlock_);
-		if (queue)
-			return queue;
-
-		pthread_rwlock_wrlock(&rwlock_);
-		iter = queue_map_.find(queue_name);
-		if (iter == queue_map_.cend())
-		{
-			queue = new ExecQueue();
-			if (queue->init() >= 0)
-				queue_map_.emplace(queue_name, queue);
-			else
-			{
-				delete queue;
-				queue = NULL;
-			}
-		}
-		else
-			queue = iter->second;
-
-		pthread_rwlock_unlock(&rwlock_);
-		return queue;
-	}
-
+	ExecQueue *get_exec_queue(const std::string& queue_name);
 	Executor *get_compute_executor() { return &compute_executor_; }
 
 private:
@@ -469,6 +442,40 @@ private:
 	ExecQueueMap queue_map_;
 	Executor compute_executor_;
 };
+
+inline ExecQueue *__ExecManager::get_exec_queue(const std::string& queue_name)
+{
+	ExecQueue *queue = NULL;
+	ExecQueueMap::const_iterator iter;
+
+	pthread_rwlock_rdlock(&rwlock_);
+	iter = queue_map_.find(queue_name);
+	if (iter != queue_map_.cend())
+		queue = iter->second;
+
+	pthread_rwlock_unlock(&rwlock_);
+	if (queue)
+		return queue;
+
+	pthread_rwlock_wrlock(&rwlock_);
+	iter = queue_map_.find(queue_name);
+	if (iter == queue_map_.cend())
+	{
+		queue = new ExecQueue();
+		if (queue->init() >= 0)
+			queue_map_.emplace(queue_name, queue);
+		else
+		{
+			delete queue;
+			queue = NULL;
+		}
+	}
+	else
+		queue = iter->second;
+
+	pthread_rwlock_unlock(&rwlock_);
+	return queue;
+}
 
 #define MAX(x, y)	((x) >= (y) ? (x) : (y))
 #define HOSTS_LINEBUF_INIT_SIZE	128

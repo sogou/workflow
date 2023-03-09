@@ -167,7 +167,7 @@ private:
 
 	int get_node_id(const KafkaToppar *toppar);
 
-	enum MetaStatus get_meta_status(KafkaMetaList &uninit_meta_list);
+	enum MetaStatus get_meta_status(KafkaMetaList *uninit_meta_list);
 	void set_meta_status(enum MetaStatus status);
 
 	std::string get_userinfo() { return this->userinfo; }
@@ -378,7 +378,7 @@ void KafkaClientTask::kafka_timer_callback(WFTimerTask *task)
 }
 
 void KafkaClientTask::kafka_merge_meta_list(KafkaMetaList *dst,
-											 KafkaMetaList *src)
+											KafkaMetaList *src)
 {
 	src->rewind();
 	KafkaMeta *src_meta;
@@ -402,8 +402,8 @@ void KafkaClientTask::kafka_merge_meta_list(KafkaMetaList *dst,
 }
 
 void KafkaClientTask::kafka_merge_broker_list(std::vector<std::string> *hosts,
-											   KafkaBrokerMap *dst,
-											   KafkaBrokerList *src)
+											  KafkaBrokerMap *dst,
+											  KafkaBrokerList *src)
 {
 	hosts->clear();
 	src->rewind();
@@ -673,7 +673,7 @@ void KafkaClientTask::parse_query()
 	}
 }
 
-enum MetaStatus KafkaClientTask::get_meta_status(KafkaMetaList &uninit_meta_list)
+enum MetaStatus KafkaClientTask::get_meta_status(KafkaMetaList *uninit_meta_list)
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
@@ -689,7 +689,7 @@ enum MetaStatus KafkaClientTask::get_meta_status(KafkaMetaList &uninit_meta_list
 		{
 		case META_UNINIT:
 			this->member->meta_map[meta->get_topic()] = META_DOING;
-			uninit_meta_list.add_item(*meta);
+			uninit_meta_list->add_item(*meta);
 			ret = META_UNINIT;
 			break;
 
@@ -766,7 +766,7 @@ void KafkaClientTask::dispatch()
 	KafkaMetaList uninit_meta_list;
 	char name[64];
 
-	switch(this->get_meta_status(uninit_meta_list))
+	switch(this->get_meta_status(&uninit_meta_list))
 	{
 	case META_UNINIT:
 		task = __WFKafkaTaskFactory::create_kafka_task(this->url,
@@ -1182,8 +1182,8 @@ bool KafkaClientTask::add_toppar(const KafkaToppar& toppar)
 }
 
 bool KafkaClientTask::add_produce_record(const std::string& topic,
-										  int partition,
-										  KafkaRecord record)
+										 int partition,
+										 KafkaRecord record)
 {
 	if (!add_topic(topic))
 		return false;

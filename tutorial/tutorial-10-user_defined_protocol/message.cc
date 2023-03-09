@@ -55,6 +55,7 @@ int TutorialMessage::append(const void *buf, size_t size)
 			this->head_received += size;
 			return 0;
 		}
+		this->head_received += head_left;
 
 		memcpy(p, buf, head_left);
 		size -= head_left;
@@ -83,7 +84,8 @@ int TutorialMessage::append(const void *buf, size_t size)
 		return -1;
 	}
 
-	memcpy(this->body, buf, size);
+	memcpy(this->body + this->body_received, buf, size);
+	this->body_received += size;
 	if (size < body_left)
 		return 0;
 
@@ -107,10 +109,9 @@ int TutorialMessage::set_message_body(const void *body, size_t size)
 	return 0;
 }
 
-TutorialMessage::TutorialMessage(TutorialMessage&& msg)
+TutorialMessage::TutorialMessage(TutorialMessage&& msg) :
+	ProtocolMessage(std::move(msg))
 {
-	*(ProtocolMessage *)this = std::move(msg);
-
 	memcpy(this->head, msg.head, 4);
 	this->head_received = msg.head_received;
 	this->body = msg.body;
@@ -126,8 +127,7 @@ TutorialMessage& TutorialMessage::operator = (TutorialMessage&& msg)
 {
 	if (&msg != this)
 	{
-		this->size_limit = msg.size_limit;
-		msg.size_limit = (size_t)-1;
+		*(ProtocolMessage *)this = std::move(msg);
 
 		memcpy(this->head, msg.head, 4);
 		this->head_received = msg.head_received;

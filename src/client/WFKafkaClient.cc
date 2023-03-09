@@ -167,7 +167,7 @@ private:
 
 	int get_node_id(const KafkaToppar *toppar);
 
-	enum MetaStatus get_meta_status();
+	enum MetaStatus get_meta_status(KafkaMetaList &uninit_meta_list);
 	void set_meta_status(enum MetaStatus status);
 
 	std::string get_userinfo() { return this->userinfo; }
@@ -673,12 +673,13 @@ void KafkaClientTask::parse_query()
 	}
 }
 
-enum MetaStatus KafkaClientTask::get_meta_status()
+enum MetaStatus KafkaClientTask::get_meta_status(KafkaMetaList &uninit_meta_list)
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
 	enum MetaStatus ret = META_INITED;
 	std::set<std::string> unique;
+
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		if (!unique.insert(meta->get_topic()).second)
@@ -686,17 +687,18 @@ enum MetaStatus KafkaClientTask::get_meta_status()
 
 		switch(this->member->meta_map[meta->get_topic()])
 		{
-		case META_DOING:
-			return META_DOING;
-
-		case META_INITED:
-			this->meta_list.del_cur();
-			delete meta;
+		case META_UNINIT:
+			this->member->meta_map[meta->get_topic()] = META_DOING;
+			uninit_meta_list.add_item(*meta);
+			ret = META_UNINIT;
 			break;
 
-		case META_UNINIT:
-			ret = META_UNINIT;
-			this->member->meta_map[meta->get_topic()] = META_DOING;
+		case META_DOING:
+			if (ret == META_INITED)
+				ret = META_DOING;
+			break;
+
+		case META_INITED:
 			break;
 		}
 	}
@@ -761,8 +763,10 @@ void KafkaClientTask::dispatch()
 		return;
 	}
 
+	KafkaMetaList uninit_meta_list;
 	char name[64];
-	switch(this->get_meta_status())
+
+	switch(this->get_meta_status(uninit_meta_list))
 	{
 	case META_UNINIT:
 		task = __WFKafkaTaskFactory::create_kafka_task(this->url,
@@ -771,7 +775,7 @@ void KafkaClientTask::dispatch()
 		task->user_data = this;
 		task->get_req()->set_config(this->config);
 		task->get_req()->set_api_type(Kafka_Metadata);
-		task->get_req()->set_meta_list(this->meta_list);
+		task->get_req()->set_meta_list(uninit_meta_list);
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(task);
 		this->member->mutex.unlock();

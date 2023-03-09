@@ -123,8 +123,8 @@ protected:
 private:
 	static void kafka_meta_callback(__WFKafkaTask *task);
 
-	static void kafka_merge_meta_list(KafkaMetaList* dst,
-									  KafkaMetaList* src);
+	static void kafka_merge_meta_list(KafkaMetaList *dst,
+									  KafkaMetaList *src);
 
 	static void kafka_merge_broker_list(std::vector<std::string> *hosts,
 										KafkaBrokerMap *dst,

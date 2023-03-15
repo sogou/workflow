@@ -30,6 +30,19 @@ using namespace protocol;
 #define KAFKA_KEEPALIVE_DEFAULT	(60 * 1000)
 #define KAFKA_ROUNDTRIP_TIMEOUT (5 * 1000)
 
+static KafkaCgroup __create_cgroup(const KafkaCgroup *c)
+{
+	KafkaCgroup g;
+	const char *member_id = c->get_member_id();
+
+	if (member_id)
+		g.set_member_id(member_id);
+
+	g.set_group(c->get_group());
+
+	return g;
+}
+
 /**********Client**********/
 
 class __ComplexKafkaTask : public WFComplexClientTask<KafkaRequest, KafkaResponse,
@@ -279,6 +292,16 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	resp->set_api_version(req->get_api_version());
 	resp->duplicate(*req);
 
+	switch (req->get_api_type())
+	{
+	case Kafka_FindCoordinator:
+	case Kafka_Heartbeat:
+		resp->set_cgroup(__create_cgroup(req->get_cgroup()));
+		break;
+	default:
+		break;
+	}
+
 	return this->WFComplexClientTask::message_in();
 }
 
@@ -426,7 +449,8 @@ bool __ComplexKafkaTask::check_redirect()
 
 bool __ComplexKafkaTask::process_find_coordinator()
 {
-	ctx_.kafka_error = this->get_resp()->get_cgroup()->get_error();
+	KafkaCgroup *cgroup = this->get_resp()->get_cgroup();
+	ctx_.kafka_error = cgroup->get_error();
 	if (ctx_.kafka_error)
 	{
 		this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
@@ -435,6 +459,7 @@ bool __ComplexKafkaTask::process_find_coordinator()
 	}
 	else
 	{
+		this->get_req()->set_cgroup(*cgroup);
 		is_redirect_ = check_redirect();
 		this->get_req()->set_api_type(Kafka_JoinGroup);
 		return true;

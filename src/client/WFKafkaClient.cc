@@ -50,10 +50,14 @@ enum MetaStatus
 class KafkaMember
 {
 public:
-	KafkaMember()
-		: cgroup_status(KAFKA_CGROUP_UNINIT), heartbeat_status(KAFKA_HEARTBEAT_UNINIT),
-		  heartbeat_series(NULL), cgroup_outdated(false), kafka_deinit(false), ref(1)
-	{}
+	KafkaMember() : ref(1)
+	{
+		cgroup_status = KAFKA_CGROUP_UNINIT;
+		heartbeat_status = KAFKA_HEARTBEAT_UNINIT;
+		heartbeat_series = NULL;
+		cgroup_outdated = false;
+		client_deinit = false;
+	}
 
 	void incref()
 	{
@@ -77,7 +81,7 @@ public:
 	int heartbeat_status;
 	void *heartbeat_series;
 	bool cgroup_outdated;
-	bool kafka_deinit;
+	bool client_deinit;
 	std::atomic<int> ref;
 };
 
@@ -249,7 +253,7 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 	SeriesWork *series = series_of(task);
 
 	member->mutex.lock();
-	if (member->kafka_deinit)
+	if (member->client_deinit)
 	{
 		member->mutex.unlock();
 		member->decref();
@@ -330,7 +334,7 @@ void KafkaClientTask::kafka_heartbeat_callback(__WFKafkaTask *task)
 
 	member->mutex.lock();
 
-	if (member->kafka_deinit || member->heartbeat_series != series)
+	if (member->client_deinit || member->heartbeat_series != series)
 	{
 		member->mutex.unlock();
 		member->decref();
@@ -361,7 +365,7 @@ void KafkaClientTask::kafka_timer_callback(WFTimerTask *task)
 	SeriesWork *series = series_of(task);
 
 	member->mutex.lock();
-	if (member->kafka_deinit || member->heartbeat_series != series)
+	if (member->client_deinit || member->heartbeat_series != series)
 	{
 		member->mutex.unlock();
 		member->decref();
@@ -1590,7 +1594,7 @@ int WFKafkaClient::init(const std::string& broker, const std::string& group)
 int WFKafkaClient::deinit()
 {
 	this->member->mutex.lock();
-	this->member->kafka_deinit = true;
+	this->member->client_deinit = true;
 	this->member->mutex.unlock();
 	this->member->decref();
 	return 0;

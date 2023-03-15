@@ -1701,23 +1701,62 @@ int KafkaMessage::encode_message(int api_type, struct iovec vectors[], int max)
 	return it->second(vectors, max);
 }
 
-static int kafka_get_api_version(const kafka_api_t *api, const KafkaConfig& conf,
-								 int api_type, int mvers, int message_version)
+static int kafka_api_get_max_ver(int api_type)
 {
-	int min_vers = 0;
+	switch (api_type)
+	{
+	case Kafka_Metadata:
+		return 4;
+	case Kafka_Produce:
+		return 7;
+	case Kafka_Fetch:
+		return 11;
+	case Kafka_FindCoordinator:
+		return 2;
+	case Kafka_JoinGroup:
+		return 5;
+	case Kafka_SyncGroup:
+		return 3;
+	case Kafka_Heartbeat:
+		return 3;
+	case Kafka_OffsetFetch:
+		return 1;
+	case Kafka_OffsetCommit:
+		return 7;
+	case Kafka_ListOffsets:
+		return 1;
+	case Kafka_LeaveGroup:
+		return 1;
+	case Kafka_ApiVersions:
+		return 0;
+	case Kafka_SaslHandshake:
+		return 1;
+	case Kafka_SaslAuthenticate:
+		return 0;
+	case Kafka_DescribeGroups:
+		return 0;
+	default:
+		return 0;
+	}
+}
+
+static int kafka_get_api_version(const kafka_api_t *api, const KafkaConfig& conf,
+								 int api_type, int max_ver, int message_version)
+{
+	int min_ver = 0;
 
 	if (api_type == Kafka_Produce)
 	{
 		if (message_version == 2)
-			min_vers = 3;
+			min_ver = 3;
 		else if (message_version == 1)
-			min_vers = 1;
+			min_ver = 1;
 
 		if (conf.get_compress_type() == Kafka_Zstd)
-			min_vers = 7;
+			min_ver = 7;
 	}
 
-	return kafka_broker_get_api_version(api, api_type, min_vers, mvers);
+	return kafka_broker_get_api_version(api, api_type, min_ver, max_ver);
 }
 
 int KafkaMessage::encode_head()
@@ -1726,6 +1765,8 @@ int KafkaMessage::encode_head()
 		this->api_version = 0;
 	else
 	{
+		int max_ver = kafka_api_get_max_ver(this->api_type);
+
 		if (this->api->features & KAFKA_FEATURE_MSGVER2)
 			this->message_version = 2;
 		else if (this->api->features & KAFKA_FEATURE_MSGVER1)
@@ -1745,10 +1786,8 @@ int KafkaMessage::encode_head()
 			this->config.set_compress_type(Kafka_NoCompress);
 		}
 
-		int mver = this->api_mver_map[this->api_type];
-
 		this->api_version = kafka_get_api_version(this->api, this->config,
-												  this->api_type, mver,
+												  this->api_type, max_ver,
 												  this->message_version);
 	}
 
@@ -2065,22 +2104,6 @@ KafkaRequest::KafkaRequest()
 	this->encode_func_map[Kafka_ApiVersions] = std::bind(&KafkaRequest::encode_apiversions, this, _1, _2);
 	this->encode_func_map[Kafka_SaslHandshake] = std::bind(&KafkaRequest::encode_saslhandshake, this, _1, _2);
 	this->encode_func_map[Kafka_SaslAuthenticate] = std::bind(&KafkaRequest::encode_saslauthenticate, this, _1, _2);
-
-	this->api_mver_map[Kafka_Metadata] = 4;
-	this->api_mver_map[Kafka_Produce] = 7;
-	this->api_mver_map[Kafka_Fetch] = 11;
-	this->api_mver_map[Kafka_FindCoordinator] = 2;
-	this->api_mver_map[Kafka_JoinGroup] = 5;
-	this->api_mver_map[Kafka_SyncGroup] = 3;
-	this->api_mver_map[Kafka_Heartbeat] = 3;
-	this->api_mver_map[Kafka_OffsetFetch] = 1;
-	this->api_mver_map[Kafka_OffsetCommit] = 7;
-	this->api_mver_map[Kafka_ListOffsets] = 1;
-	this->api_mver_map[Kafka_LeaveGroup] = 1;
-	this->api_mver_map[Kafka_ApiVersions] = 0;
-	this->api_mver_map[Kafka_SaslHandshake] = 1;
-	this->api_mver_map[Kafka_SaslAuthenticate] = 0;
-	this->api_mver_map[Kafka_DescribeGroups] = 0;
 }
 
 int KafkaRequest::encode_produce(struct iovec vectors[], int max)

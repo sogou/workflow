@@ -30,15 +30,15 @@ using namespace protocol;
 #define KAFKA_KEEPALIVE_DEFAULT	(60 * 1000)
 #define KAFKA_ROUNDTRIP_TIMEOUT (5 * 1000)
 
-static KafkaCgroup __create_cgroup(const KafkaCgroup &c)
+static KafkaCgroup __create_cgroup(const KafkaCgroup *c)
 {
 	KafkaCgroup g;
-	const char *member_id = c.get_member_id();
+	const char *member_id = c->get_member_id();
 
 	if (member_id)
 		g.set_member_id(member_id);
 
-	g.set_group(c.get_group());
+	g.set_group(c->get_group());
 
 	return g;
 }
@@ -296,7 +296,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	{
 	case Kafka_FindCoordinator:
 	case Kafka_Heartbeat:
-		resp->set_cgroup(__create_cgroup(*(req->get_cgroup())));
+		resp->set_cgroup(__create_cgroup(req->get_cgroup()));
 		break;
 	default:
 		break;

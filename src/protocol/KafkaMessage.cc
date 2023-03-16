@@ -3670,11 +3670,8 @@ int KafkaResponse::parse_offsetcommit(void **buf, size_t *size)
 
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 
-	if (topic_cnt < 0)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
+	if (topic_cnt <= 0)
+		return 0;
 
 	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{

@@ -3086,14 +3086,8 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 {
 	KafkaMetaList lst;
 	int32_t topic_cnt;
+
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
-
-	if (topic_cnt < 0)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
-
 	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		int16_t error;
@@ -3188,17 +3182,9 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 	int32_t partition;
 	int64_t base_offset, log_append_time, log_start_offset;
 	int32_t throttle_time;
-
-	CHECK_RET(parse_i32(buf, size, &topic_cnt));
-
-	if (topic_cnt < 0)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
-
 	int produce_timeout = this->config.get_produce_timeout() * 2;
 
+	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
@@ -3262,11 +3248,12 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 
 int KafkaResponse::parse_fetch(void **buf, size_t *size)
 {
+	int32_t throttle_time;
+
 	this->toppar_list.rewind();
 	KafkaToppar *toppar;
 	while ((toppar = this->toppar_list.get_next()) != NULL)
 		toppar->clear_records();
-	int32_t throttle_time;
 
 	if (this->api_version >= 1)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
@@ -3280,14 +3267,6 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	}
 
 	int32_t topic_cnt;
-	CHECK_RET(parse_i32(buf, size, &topic_cnt));
-
-	if (topic_cnt < 0)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
-
 	std::string topic_name;
 	int32_t partition_cnt;
 	int32_t partition;
@@ -3296,6 +3275,7 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	int64_t producer_id, first_offset;
 	int64_t high_watermark;
 
+	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
@@ -3354,25 +3334,18 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 
 int KafkaResponse::parse_listoffset(void **buf, size_t *size)
 {
-	int32_t throttle_time, topic_cnt;
-
-	if (this->api_version >= 2)
-		CHECK_RET(parse_i32(buf, size, &throttle_time));
-
-	CHECK_RET(parse_i32(buf, size, &topic_cnt));
-
-	if (topic_cnt < 0)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
-
+	int32_t throttle_time;
+	int32_t topic_cnt;
 	std::string topic_name;
 	int32_t partition_cnt;
 	int32_t partition;
 	int64_t offset_timestamp, offset;
 	int32_t offset_cnt;
 
+	if (this->api_version >= 2)
+		CHECK_RET(parse_i32(buf, size, &throttle_time));
+
+	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
@@ -3575,20 +3548,12 @@ int KafkaMessage::kafka_parse_member_assignment(const char *bbuf, size_t n,
 {
 	void **buf = (void **)&bbuf;
 	size_t *size = &n;
-	int32_t topic_cnt, partition_cnt;
+	int32_t topic_cnt;
+	int32_t partition_cnt;
 	int16_t version;
 	struct list_head *pos, *tmp;
 	std::string topic_name;
 	int32_t partition;
-
-	CHECK_RET(parse_i16(buf, size, &version));
-	CHECK_RET(parse_i32(buf, size, &topic_cnt));
-
-	if (topic_cnt < 0)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
 
 	list_for_each_safe(pos, tmp, cgroup->get_assigned_toppar_list())
 	{
@@ -3597,6 +3562,8 @@ int KafkaMessage::kafka_parse_member_assignment(const char *bbuf, size_t n,
 		delete toppar;
 	}
 
+	CHECK_RET(parse_i16(buf, size, &version));
+	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 	for (int32_t i = 0; i < topic_cnt; ++i)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
@@ -3664,13 +3631,6 @@ int KafkaResponse::parse_offsetfetch(void **buf, size_t *size)
 	int32_t partition;
 
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
-
-	if (topic_cnt < 0)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
-
 	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));
@@ -3711,10 +3671,6 @@ int KafkaResponse::parse_offsetcommit(void **buf, size_t *size)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
 
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
-
-	if (topic_cnt <= 0)
-		return 0;
-
 	for (int32_t topic_idx = 0; topic_idx < topic_cnt; ++topic_idx)
 	{
 		CHECK_RET(parse_string(buf, size, topic_name));

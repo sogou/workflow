@@ -156,6 +156,9 @@ public:
 	void set_sending(bool sending) { this->sending = sending; }
 	bool get_sending() const { return this->sending; }
 
+	void set_transport_type(TransportType type) { this->type = type; }
+	TransportType get_transport_type() const { return this->type; }
+
 protected:
 	virtual void dispatch();
 	virtual SubTask *done();
@@ -170,6 +173,7 @@ public:
 protected:
 	bool sending;
 	WFRouterTask *router_task;
+	TransportType type;
 	ParsedURI uri;
 	WFNSPolicy *ns_policy;
 	RouteManager::RouteResult route_result;
@@ -183,6 +187,7 @@ public:
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
 		this->sending = false;
+		this->type = TT_TCP;
 	}
 
 protected:
@@ -267,7 +272,7 @@ WFRouterTask *WFComplexChannel<MSG>::route()
 	auto&& cb = std::bind(&WFComplexChannel<MSG>::router_callback,
 						  this, std::placeholders::_1);
 	struct WFNSParams params = {
-		.type			=	TT_TCP,
+		.type			=	this->type,
 		.uri			=	this->uri,
 		.info			=	"",
 		.fixed_addr		=	true,

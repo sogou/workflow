@@ -48,7 +48,9 @@ int main(int argc, char *argv[])
 {
 	if (argc != 2)
 	{
-		fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[0]);
+		fprintf(stderr, "USAGE: %s <url>\n"
+				" url format: ws://host:ip\n"
+				"             wss://host:ip\n", argv[0]);
 		return 0;
 	}
 

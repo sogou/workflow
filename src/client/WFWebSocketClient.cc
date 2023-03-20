@@ -51,6 +51,8 @@ int WebSocketClient::init(const struct WFWebSocketParams *params)
 	this->channel->set_uri(uri);
 	this->channel->set_idle_timeout(params->idle_timeout);
 	this->channel->set_size_limit(params->size_limit);
+	if (uri.scheme && strcasecmp(uri.scheme, "wss") == 0)
+		this->channel->set_transport_type(TT_TCP_SSL);
 
 	if (params->sec_protocol)
 		this->channel->set_sec_protocol(params->sec_protocol);

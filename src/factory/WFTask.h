@@ -548,13 +548,16 @@ class WFMailboxTask : public WFGenericTask
 public:
 	void send(void *msg)
 	{
-		*this->next++ = msg;
-		this->count();
+		*this->mailbox = msg;
+		if (this->flag.exchange(true))
+		{
+			this->state = WFT_STATE_SUCCESS;
+			this->subtask_done();
+		}
 	}
 
-	void **get_mailbox(size_t *n)
+	void **get_mailbox() const
 	{
-		*n = this->next - this->mailbox;
 		return this->mailbox;
 	}
 
@@ -564,20 +567,14 @@ public:
 		this->callback = std::move(cb);
 	}
 
-public:
-	virtual void count()
+protected:
+	virtual void dispatch()
 	{
-		if (--this->value == 0)
+		if (this->flag.exchange(true))
 		{
 			this->state = WFT_STATE_SUCCESS;
 			this->subtask_done();
 		}
-	}
-
-protected:
-	virtual void dispatch()
-	{
-		this->WFMailboxTask::count();
 	}
 
 	virtual SubTask *done()
@@ -593,23 +590,20 @@ protected:
 
 protected:
 	void **mailbox;
-	std::atomic<void **> next;
-	std::atomic<size_t> value;
+	std::atomic<bool> flag;
 	std::function<void (WFMailboxTask *)> callback;
 
 public:
-	WFMailboxTask(void **mailbox, size_t size,
+	WFMailboxTask(void **mailbox,
 				  std::function<void (WFMailboxTask *)>&& cb) :
-		next(mailbox),
-		value(size + 1),
+		flag(false),
 		callback(std::move(cb))
 	{
 		this->mailbox = mailbox;
 	}
 
 	WFMailboxTask(std::function<void (WFMailboxTask *)>&& cb) :
-		next(&this->user_data),
-		value(2),
+		flag(false),
 		callback(std::move(cb))
 	{
 		this->mailbox = &this->user_data;

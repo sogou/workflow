@@ -256,11 +256,17 @@ public:
 	static void count_by_name(const std::string& counter_name, unsigned int n);
 
 public:
-	static WFMailboxTask *create_mailbox_task(size_t size,
-											  mailbox_callback_t callback);
+	static WFMailboxTask *create_mailbox_task(void **mailbox,
+											  mailbox_callback_t callback)
+	{
+		return new WFMailboxTask(mailbox, std::move(callback));
+	}
 
-	/* Use 'user_data' as mailbox. Store only one message. */
-	static WFMailboxTask *create_mailbox_task(mailbox_callback_t callback);
+	/* Use 'user_data' as mailbox. */
+	static WFMailboxTask *create_mailbox_task(mailbox_callback_t callback)
+	{
+		return new WFMailboxTask(std::move(callback));
+	}
 
 public:
 	static WFConditional *create_conditional(SubTask *task, void **msgbuf)

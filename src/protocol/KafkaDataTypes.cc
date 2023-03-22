@@ -382,6 +382,8 @@ KafkaCgroup::KafkaCgroup(const KafkaCgroup& copy)
 
 	if (copy.coordinator)
 		this->coordinator = new KafkaBroker(copy.coordinator->get_raw_ptr());
+	else
+		this->coordinator = NULL;
 }
 
 KafkaCgroup& KafkaCgroup::operator= (const KafkaCgroup& copy)
@@ -393,6 +395,8 @@ KafkaCgroup& KafkaCgroup::operator= (const KafkaCgroup& copy)
 
 	if (copy.coordinator)
 		this->coordinator = new KafkaBroker(copy.coordinator->get_raw_ptr());
+	else
+		this->coordinator = NULL;
 
 	return *this;
 }

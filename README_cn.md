@@ -57,6 +57,7 @@ make
 cd tutorial
 make
 ~~~
+#### Debian Linux或ubuntu上使用[apt-get](https://launchpad.net/ubuntu/+source/workflow)安装：
 作为是Debian Linux与Ubuntu Linux 22.04版自带软件，可以通过``apt-get``命令直接安装开发包：
 ~~~sh
 sudo apt-get install libworkflow-dev
@@ -65,8 +66,17 @@ sudo apt-get install libworkflow-dev
 ~~~sh
 sudo apt-get install workflow1
 ~~~
-注意Ubuntu Linux只有最新22.04版自带workflow。更推荐用git直接下载最新源代码编译。
-
+注意ubuntu只有最新22.04版或以上自带workflow。更推荐用git直接下载最新源代码编译。
+#### Fedora Linux上使用[dnf](https://packages.fedoraproject.org/pkgs/workflow)安装：
+Workflow也是Fedora Linux的自带软件，可以使用最新的rpm包管理工具``dnf``直接安装开发包：
+~~~~sh
+sudo dnf install workflow-devel
+~~~~
+或部署运行环境：
+~~~~sh
+sudo dnf install workflow
+~~~~
+#### 使用xmake
 如果你想用xmake去构建 workflow, 你可以看 [xmake build document](docs/xmake.md)
 
 # 示例教程

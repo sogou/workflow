@@ -55,6 +55,7 @@ int TutorialMessage::append(const void *buf, size_t size)
 			this->head_received += size;
 			return 0;
 		}
+		this->head_received += head_left;
 
 		memcpy(p, buf, head_left);
 		size -= head_left;
@@ -83,7 +84,8 @@ int TutorialMessage::append(const void *buf, size_t size)
 		return -1;
 	}
 
-	memcpy(this->body, buf, size);
+	memcpy(this->body + this->body_received, buf, size);
+	this->body_received += size;
 	if (size < body_left)
 		return 0;
 

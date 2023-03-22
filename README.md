@@ -61,7 +61,7 @@ cd tutorial
 make
 ~~~~
 
-### Get started (Debian Linux, ubuntu 22.04):
+#### With [apt-get](https://launchpad.net/ubuntu/+source/workflow) on Debian Linux, ubuntu:
 Sogou C++ Workflow has been packaged for Debian Linux and ubuntu 22.04.  
 To install the Workflow library for development purposes:
 ~~~~sh
@@ -73,7 +73,19 @@ To install the Workflow library for deployment:
 sudo apt-get install libworkflow1
 ~~~~
 
-### Get started (xmake)
+#### With [dnf](https://packages.fedoraproject.org/pkgs/workflow) on Fedora Linux:
+Sogou C++ Workflow has been packaged for Fedora Linux.  
+To install the Workflow library for development purposes:
+~~~~sh
+sudo dnf install workflow-devel
+~~~~
+
+To install the Workflow library for deployment:
+~~~~sh
+sudo dnf install workflow
+~~~~
+
+#### With xmake
 
 If you want to use xmake to build workflow, you can see [xmake build document](docs/en/xmake.md)
 

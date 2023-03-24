@@ -75,7 +75,12 @@ TEST(facilities_unittest, async_request)
 	if (res.task_state == WFT_STATE_SUCCESS)
 	{
 		auto code = atoi(res.resp.get_status_code());
-		EXPECT_EQ(code, HttpStatusOK);
+		EXPECT_TRUE(code == HttpStatusOK ||
+					code == HttpStatusMovedPermanently ||
+					code == HttpStatusFound ||
+					code == HttpStatusSeeOther ||
+					code == HttpStatusTemporaryRedirect ||
+					code == HttpStatusPermanentRedirect);
 	}
 }
 

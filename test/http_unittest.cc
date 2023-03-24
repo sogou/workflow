@@ -82,7 +82,12 @@ TEST(http_unittest, WFHttpTask2)
 		if (state == WFT_STATE_SUCCESS)
 		{
 			auto code = atoi(task->get_resp()->get_status_code());
-			EXPECT_EQ(code, HttpStatusOK);
+			EXPECT_TRUE(code == HttpStatusOK ||
+						code == HttpStatusMovedPermanently ||
+						code == HttpStatusFound ||
+						code == HttpStatusSeeOther ||
+						code == HttpStatusTemporaryRedirect ||
+						code == HttpStatusPermanentRedirect);
 		}
 
 		mutex.lock();

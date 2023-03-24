@@ -48,8 +48,8 @@ TEST(facilities_unittest, request)
 	req.set_method(HttpMethodGet);
 	req.set_http_version("HTTP/1.1");
 	req.set_request_uri("/");
-	req.set_header_pair("Host", "www.example.com");
-	auto res = WFFacilities::request<protocol::HttpRequest, protocol::HttpResponse>(TT_TCP, "http://www.example.com", std::move(req), 0);
+	req.set_header_pair("Host", "github.com");
+	auto res = WFFacilities::request<protocol::HttpRequest, protocol::HttpResponse>(TT_TCP, "http://github.com", std::move(req), 0);
 	//EXPECT_EQ(res.task_state, WFT_STATE_SUCCESS);
 	if (res.task_state == WFT_STATE_SUCCESS)
 	{
@@ -69,8 +69,8 @@ TEST(facilities_unittest, async_request)
 	req.set_method(HttpMethodGet);
 	req.set_http_version("HTTP/1.1");
 	req.set_request_uri("/");
-	req.set_header_pair("Host", "www.example.com");
-	auto res = WFFacilities::request<protocol::HttpRequest, protocol::HttpResponse>(TT_TCP_SSL, "https://www.example.com", std::move(req), 0);
+	req.set_header_pair("Host", "github.com");
+	auto res = WFFacilities::request<protocol::HttpRequest, protocol::HttpResponse>(TT_TCP_SSL, "https://github.com", std::move(req), 0);
 	//EXPECT_EQ(res.task_state, WFT_STATE_SUCCESS);
 	if (res.task_state == WFT_STATE_SUCCESS)
 	{

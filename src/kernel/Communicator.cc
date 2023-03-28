@@ -97,7 +97,7 @@ static int __bind_and_listen(int sockfd, const struct sockaddr *addr,
 			return -1;
 	}
 
-	return listen(sockfd, SOMAXCONN);
+	return listen(sockfd, SOMAXCONN < 4096 ? 4096 : SOMAXCONN);
 }
 
 static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)

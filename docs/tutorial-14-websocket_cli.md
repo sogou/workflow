@@ -136,8 +136,7 @@ void process(WFWebSocketTask *task)
 ``process()``函数里拿到的参数``WFWebSocketTask *task``，与callback回调函数里拿到的类型是一样的，因此用法也非常类似：
 
 - 可以通过``get_msg()``拿到对应的数据，也就是上述的``WebSocketFrame``；
-- 可以通过msg上的接口``get_opcode()``判断是什么类型的数据包，``process()``可能收到的数据包类型包括：**WebSocketFrameText**、**WebSocketFrameBinary**、**WebSocketFramePong**；
-
+- 可以通过msg上的接口``get_opcode()``判断是什么类型的数据包，``process()``可能收到的数据包类型包括：**WebSocketFrameText**、**WebSocketFrameBinary**、**WebSocketFramePong**、**WebSocketFrameConnectionClose**；
 #### 2. data
 
 无论是**文本**还是**二进制**，都由``bool get_data(const char **data, size_t *size) const``拿收到的数据。
@@ -200,7 +199,7 @@ client.init(&params);
 struct WFWebSocketParams
 {
     const char *url;         // 目标URL
-    int idle_timeout;        // client保持长连接的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：10s
+    int idle_timeout;        // client保持长连接的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：不断开
     int ping_interval;       // client自动发ping的时间间隔，用于做心跳，保持与远端的连接。默认：-1，不自动发ping(功能开发中)
     size_t size_limit;       // 每个数据包的大小限制，超过的话会拿到错误码1009(WSStatusCodeTooLarge)。默认：不限制
     bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：自动生成
@@ -228,6 +227,17 @@ struct WFWebSocketParams
 只有在第一个任务发出的时候，连接才会真正被建立。因此如果只希望监听server而没有写消息需求的用户依然需要手动发一个**PING**，让内部建立连接。可以通过client的``create_ping_task()``接口创建一个**PING** task，该回调函数里可以通过**state**判断连接是否可用，如果等于**WFT_STATE_SUCCESS**,则表示``process()``里已经随时可以接收server来的消息了。
 
 前面提到，需要发起**CLOSE** task关闭连接，回到该回调函数时则表示连接已关闭。
+
+如果连接被意外关闭，对方没有发**WebSocketFrameConnectionClose**，那么我们可以在一个``close()``函数上获得这个事件。我们可以在构造WebSocketClient时通过第二个函数传递进去，如下：
+
+```
+void connection_close()
+{
+    // connection is closed
+}
+
+WebSocketClient client(process, connection_close);
+```
 
 #### 3. 时序性保证
 

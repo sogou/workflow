@@ -504,7 +504,7 @@ public:
 	ComplexWebSocketChannel(CommSchedObject *object,
 							CommScheduler *scheduler,
 							bool auto_gen_mkey,
-							websocket_process_t&& process) :
+							websocket_process_t process) :
 		WFComplexChannel<protocol::WebSocketFrame>(object, scheduler,
 												   std::move(process)),
 		gen(rd())

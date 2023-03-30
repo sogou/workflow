@@ -772,7 +772,6 @@ bool __ComplexKafkaTask::finish_once()
 		this->disable_retry();
 		this->get_resp()->set_api_type(this->get_req()->get_api_type());
 		this->get_resp()->set_api_version(this->get_req()->get_api_version());
-		this->get_resp()->duplicate(*this->get_req());
 	}
 
 	if (ctx_.cb)

@@ -260,7 +260,6 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 		return;
 	}
 
-	int error = task->get_error();
 	if (task->get_state() == WFT_STATE_SUCCESS)
 	{
 		member->cgroup_status = KAFKA_CGROUP_DONE;

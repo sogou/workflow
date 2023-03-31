@@ -3625,7 +3625,7 @@ int KafkaResponse::parse_offsetcommit(void **buf, size_t *size)
 	int32_t partition_cnt;
 	int32_t partition;
 
-	if (this->api_version >= 1)
+	if (this->api_version >= 3)
 		CHECK_RET(parse_i32(buf, size, &throttle_time));
 
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));

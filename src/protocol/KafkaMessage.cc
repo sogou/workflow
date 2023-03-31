@@ -2611,10 +2611,7 @@ int KafkaRequest::encode_syncgroup(struct iovec vectors[], int max)
 		}
 	}
 	else
-	{
 		append_i32(this->msgbuf, 0);
-		append_bytes(this->msgbuf, "");
-	}
 
 	this->cur_size = this->msgbuf.size();
 

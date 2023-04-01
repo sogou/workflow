@@ -117,11 +117,12 @@ If you want to use xmake to build workflow, you can see [xmake build document](d
   * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
 * User-defined protocol
   * [A simple user-defined protocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
-* Timing tasks and counting tasks
+* Other important tasks/components
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
   * [About resource pool](docs/en/about-resource-pool.md)
   * [About module](docs/en/about-module.md)
+  * [About DAG](docs/en/tutorial-11-graph_task.md)
 * Service governance
   * [About service governance](docs/en/about-service-governance.md)
   * [More documents about upstream](docs/en/about-upstream.md)

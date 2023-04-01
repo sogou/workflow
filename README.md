@@ -61,6 +61,9 @@ cd tutorial
 make
 ~~~~
 
+#### With SRPC Tool (NEW!)：
+https://github.com/sogou/srpc/blob/master/tools/README.md
+
 #### With [apt-get](https://launchpad.net/ubuntu/+source/workflow) on Debian Linux, ubuntu:
 Sogou C++ Workflow has been packaged for Debian Linux and ubuntu 22.04.  
 To install the Workflow library for development purposes:

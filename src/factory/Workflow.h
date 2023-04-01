@@ -108,6 +108,9 @@ public:
 	}
 
 public:
+	virtual void *get_specific(const char *key) { return NULL; }
+
+public:
 	/* The next 3 functions are intended for task implementations only. */
 	SubTask *pop();
 

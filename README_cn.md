@@ -37,7 +37,6 @@ int main()
 * 实现任何计算与通讯关系非常复杂的高性能高并发的后端服务。
 * 构建微服务系统。
   * 项目内置服务治理与负载均衡等功能。
-  * 使用[workflow-k8s](https://github.com/sogou/workflow-k8s)插件，可将服务治理与kubernetes的自动部署融合。
 * Wiki链接 : [PaaS 架构图](https://github.com/sogou/workflow/wiki)
 
 #### 编译和运行环境

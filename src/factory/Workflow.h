@@ -122,12 +122,12 @@ public:
 
 	void unset_last_task() { this->last = NULL; }
 
-	ParallelTask *get_in_parallel() const { return this->in_parallel; }
+	const ParallelTask *get_in_parallel() const { return this->in_parallel; }
 
 protected:
 	SubTask *get_last_task() const { return this->last; }
 
-	void set_in_parallel(ParallelTask *parallel)
+	void set_in_parallel(const ParallelTask *parallel)
 	{
 		this->in_parallel = parallel;
 	}
@@ -152,7 +152,7 @@ private:
 	int back;
 	bool canceled;
 	bool finished;
-	ParallelTask *in_parallel;
+	const ParallelTask *in_parallel;
 	std::mutex mutex;
 
 protected:

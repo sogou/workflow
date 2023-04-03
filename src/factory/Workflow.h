@@ -111,7 +111,7 @@ public:
 	virtual void *get_specific(const char *key) { return NULL; }
 
 public:
-	/* The next 3 functions are intended for task implementations only. */
+	/* The following functions are intended for task implementations only. */
 	SubTask *pop();
 
 	void set_last_task(SubTask *last)
@@ -122,10 +122,15 @@ public:
 
 	void unset_last_task() { this->last = NULL; }
 
+	ParallelTask *get_in_parallel() const { return this->in_parallel; }
+
 protected:
 	SubTask *get_last_task() const { return this->last; }
 
-	void set_in_parallel() { this->in_parallel = true; }
+	void set_in_parallel(ParallelTask *parallel)
+	{
+		this->in_parallel = parallel;
+	}
 
 	void dismiss_recursive();
 
@@ -145,9 +150,9 @@ private:
 	int queue_size;
 	int front;
 	int back;
-	bool in_parallel;
 	bool canceled;
 	bool finished;
+	ParallelTask *in_parallel;
 	std::mutex mutex;
 
 protected:

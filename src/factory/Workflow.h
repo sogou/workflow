@@ -127,10 +127,7 @@ public:
 protected:
 	SubTask *get_last_task() const { return this->last; }
 
-	void set_in_parallel(const ParallelTask *parallel)
-	{
-		this->in_parallel = parallel;
-	}
+	void set_in_parallel(const ParallelTask *task) { this->in_parallel = task; }
 
 	void dismiss_recursive();
 

@@ -47,6 +47,7 @@ struct poller_data
 #define PD_OP_EVENT			8
 #define PD_OP_NOTIFY		9
 #define PD_OP_TIMER			10
+#define PD_OP_RECVFROM		11
 	short operation;
 	unsigned short iovcnt;
 	int fd;
@@ -58,6 +59,8 @@ struct poller_data
 		void *(*accept)(const struct sockaddr *, socklen_t, int, void *);
 		void *(*event)(void *);
 		void *(*notify)(void *, void *);
+		poller_message_t *(*create_message_from)(const struct sockaddr *,
+												 socklen_t, void *);
 	};
 	void *context;
 	union

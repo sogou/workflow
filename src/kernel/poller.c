@@ -477,6 +477,99 @@ static void __poller_handle_read(struct __poller_node *node,
 	poller->cb((struct poller_result *)node, poller->ctx);
 }
 
+static int __poller_append_message_from(const void *buf, size_t *n,
+										const struct sockaddr *addr,
+										socklen_t addrlen,
+										struct __poller_node *node,
+										poller_t *poller)
+{
+	poller_message_t *msg = node->data.message;
+	struct __poller_node *res;
+	int ret;
+
+	if (!msg)
+	{
+		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
+		if (!res)
+			return -1;
+
+		msg = node->data.create_message_from(addr, addrlen, node->data.context);
+		if (!msg)
+		{
+			free(res);
+			return -1;
+		}
+
+		node->data.message = msg;
+		node->res = res;
+	}
+	else
+		res = node->res;
+
+	ret = msg->append(buf, n, msg);
+	if (ret > 0)
+	{
+		res->data = node->data;
+		res->error = 0;
+		res->state = PR_ST_SUCCESS;
+		poller->cb((struct poller_result *)res, poller->ctx);
+
+		node->data.message = NULL;
+		node->res = NULL;
+	}
+
+	return ret;
+}
+
+static void __poller_handle_recvfrom(struct __poller_node *node,
+									 poller_t *poller)
+{
+	struct sockaddr_storage ss;
+	struct sockaddr *addr = (struct sockaddr *)&ss;
+	socklen_t addrlen;
+	ssize_t nleft;
+	size_t n;
+	char *p;
+
+	while (1)
+	{
+		p = poller->buf;
+		addrlen = sizeof (struct sockaddr_storage);
+		nleft = recvfrom(node->data.fd, p, POLLER_BUFSIZE, 0, addr, &addrlen);
+		if (nleft < 0)
+		{
+			if (errno == EAGAIN)
+				return;
+			else
+				break;
+		}
+
+		do
+		{
+			n = nleft;
+			if (__poller_append_message_from(p, &n, addr, addrlen, node,
+											 poller) >= 0)
+			{
+				nleft -= n;
+				p += n;
+			}
+			else
+				nleft = -1;
+		} while (nleft > 0);
+
+		if (nleft < 0)
+			break;
+	}
+
+	if (__poller_remove_node(node, poller))
+		return;
+
+	node->error = errno;
+	node->state = PR_ST_ERROR;
+	free(node->res);
+	poller->cb((struct poller_result *)node, poller->ctx);
+}
+
 #ifndef IOV_MAX
 # ifdef UIO_MAXIOV
 #  define IOV_MAX	UIO_MAXIOV
@@ -1006,6 +1099,9 @@ static void *__poller_thread_routine(void *arg)
 				case PD_OP_NOTIFY:
 					__poller_handle_notify(node, poller);
 					break;
+				case PD_OP_RECVFROM:
+					__poller_handle_recvfrom(node, poller);
+					break;
 				}
 			}
 			else if (node == (struct __poller_node *)1)
@@ -1240,6 +1336,9 @@ static int __poller_data_get_event(int *event, const struct poller_data *data)
 	case PD_OP_NOTIFY:
 		*event = EPOLLIN | EPOLLET;
 		return 1;
+	case PD_OP_RECVFROM:
+		*event = EPOLLIN | EPOLLET;
+		return !!data->message;
 	default:
 		errno = EINVAL;
 		return -1;

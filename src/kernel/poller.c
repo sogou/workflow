@@ -477,54 +477,6 @@ static void __poller_handle_read(struct __poller_node *node,
 	poller->cb((struct poller_result *)node, poller->ctx);
 }
 
-static void __poller_handle_recv_message(struct __poller_node *node,
-										 poller_t *poller)
-{
-	struct __poller_node *res = node->res;
-	struct sockaddr_storage ss;
-	struct sockaddr *addr = (struct sockaddr *)&ss;
-	socklen_t addrlen;
-	poller_message_t *msg;
-	void *p = poller->buf;
-	ssize_t n;
-
-	while (1)
-	{
-		addrlen = sizeof (struct sockaddr_storage);
-		n = recvfrom(node->data.fd, p, POLLER_BUFSIZE, 0, addr, &addrlen);
-		if (n < 0)
-		{
-			if (errno == EAGAIN)
-				return;
-			else
-				break;
-		}
-
-		msg = node->data.recv_message(addr, addrlen, p, n, node->data.context);
-		if (!msg)
-			break;
-
-		res->data = node->data;
-		res->data.message = msg;
-		res->error = 0;
-		res->state = PR_ST_SUCCESS;
-		poller->cb((struct poller_result *)res, poller->ctx);
-
-		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
-		node->res = res;
-		if (!res)
-			break;
-	}
-
-	if (__poller_remove_node(node, poller))
-		return;
-
-	node->error = errno;
-	node->state = PR_ST_ERROR;
-	free(node->res);
-	poller->cb((struct poller_result *)node, poller->ctx);
-}
-
 #ifndef IOV_MAX
 # ifdef UIO_MAXIOV
 #  define IOV_MAX	UIO_MAXIOV
@@ -781,17 +733,17 @@ static void __poller_handle_event(struct __poller_node *node,
 	struct __poller_node *res = node->res;
 	unsigned long long cnt = 0;
 	unsigned long long value;
-	ssize_t ret;
 	void *result;
+	ssize_t n;
 
 	while (1)
 	{
-		ret = read(node->data.fd, &value, sizeof (unsigned long long));
-		if (ret == sizeof (unsigned long long))
+		n = read(node->data.fd, &value, sizeof (unsigned long long));
+		if (n == sizeof (unsigned long long))
 			cnt += value;
 		else
 		{
-			if (ret >= 0)
+			if (n >= 0)
 				errno = EINVAL;
 			break;
 		}
@@ -838,13 +790,13 @@ static void __poller_handle_notify(struct __poller_node *node,
 								   poller_t *poller)
 {
 	struct __poller_node *res = node->res;
-	ssize_t ret;
 	void *result;
+	ssize_t n;
 
 	while (1)
 	{
-		ret = read(node->data.fd, &result, sizeof (void *));
-		if (ret == sizeof (void *))
+		n = read(node->data.fd, &result, sizeof (void *));
+		if (n == sizeof (void *))
 		{
 			result = node->data.notify(result, node->data.context);
 			if (!result)
@@ -861,11 +813,11 @@ static void __poller_handle_notify(struct __poller_node *node,
 			if (!res)
 				break;
 		}
-		else if (ret < 0 && errno == EAGAIN)
+		else if (n < 0 && errno == EAGAIN)
 			return;
 		else
 		{
-			if (ret > 0)
+			if (n > 0)
 				errno = EINVAL;
 			break;
 		}
@@ -874,7 +826,7 @@ static void __poller_handle_notify(struct __poller_node *node,
 	if (__poller_remove_node(node, poller))
 		return;
 
-	if (ret == 0)
+	if (n == 0)
 	{
 		node->error = 0;
 		node->state = PR_ST_FINISHED;
@@ -885,6 +837,54 @@ static void __poller_handle_notify(struct __poller_node *node,
 		node->state = PR_ST_ERROR;
 	}
 
+	free(node->res);
+	poller->cb((struct poller_result *)node, poller->ctx);
+}
+
+static void __poller_handle_recv_message(struct __poller_node *node,
+										 poller_t *poller)
+{
+	struct __poller_node *res = node->res;
+	struct sockaddr_storage ss;
+	struct sockaddr *addr = (struct sockaddr *)&ss;
+	socklen_t addrlen;
+	poller_message_t *msg;
+	void *p = poller->buf;
+	ssize_t n;
+
+	while (1)
+	{
+		addrlen = sizeof (struct sockaddr_storage);
+		n = recvfrom(node->data.fd, p, POLLER_BUFSIZE, 0, addr, &addrlen);
+		if (n < 0)
+		{
+			if (errno == EAGAIN)
+				return;
+			else
+				break;
+		}
+
+		msg = node->data.recv_message(addr, addrlen, p, n, node->data.context);
+		if (!msg)
+			break;
+
+		res->data = node->data;
+		res->data.message = msg;
+		res->error = 0;
+		res->state = PR_ST_SUCCESS;
+		poller->cb((struct poller_result *)res, poller->ctx);
+
+		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
+		node->res = res;
+		if (!res)
+			break;
+	}
+
+	if (__poller_remove_node(node, poller))
+		return;
+
+	node->error = errno;
+	node->state = PR_ST_ERROR;
 	free(node->res);
 	poller->cb((struct poller_result *)node, poller->ctx);
 }

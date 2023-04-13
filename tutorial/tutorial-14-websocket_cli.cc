@@ -44,6 +44,11 @@ void process(WFWebSocketTask *task)
 	}
 }
 
+void closed()
+{
+	fprintf(stderr, "connection is close by system\n");
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc != 2)
@@ -54,7 +59,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	WebSocketClient client(process);
+	WebSocketClient client(process, closed);
 	client.init(argv[1]);
 
 	WFFacilities::WaitGroup wg(1);

@@ -21,6 +21,32 @@
 #include "WebSocketMessage.h"
 #include "WFWebSocketClient.h"
 
+static void deinit_wait_callback(WFMailboxTask *task)
+{
+	ComplexWebSocketChannel *channel;
+	channel = (ComplexWebSocketChannel *)series_of(task)->get_context();
+	SubTask *next;
+
+	if (channel->is_established() == false)
+		return;
+
+	pthread_mutex_lock(&channel->mutex);
+	if (channel->get_sending() == false)
+	{
+		channel->set_sending(true);
+		channel->set_pointer(NULL);
+		next = channel;
+	}
+	else // if out_task started after deinit(), which is not recommanded
+	{
+		next = WFCondTaskFactory::create_wait_task(&channel->condition,
+												   deinit_wait_callback);
+	}
+	pthread_mutex_unlock(&channel->mutex);
+
+	series_of(task)->push_back(next);
+}
+
 WFWebSocketTask *WebSocketClient::create_websocket_task(websocket_callback_t cb)
 {
 	WFWebSocketTask *task = new ComplexWebSocketOutTask(this->channel,
@@ -69,9 +95,29 @@ int WebSocketClient::init(const struct WFWebSocketParams *params)
 void WebSocketClient::deinit()
 {
 	SeriesWork *series;
-	this->channel->set_pointer(NULL);
-	series = Workflow::create_series_work(this->channel,
-										  [](const SeriesWork *series){
+	SubTask *first;
+
+	if (this->channel->is_established() == false)
+	{
+		delete this->channel;
+		return;
+	}
+
+	pthread_mutex_lock(&this->channel->mutex);
+	if (this->channel->get_sending() == false)
+	{
+		this->channel->set_sending(true);
+		this->channel->set_pointer(NULL);
+		first = this->channel;
+	}
+	else
+	{
+		first = WFCondTaskFactory::create_wait_task(&this->channel->condition,
+													deinit_wait_callback);
+	}
+	pthread_mutex_unlock(&this->channel->mutex);
+
+	series = Workflow::create_series_work(first, [](const SeriesWork *series) {
 		ComplexWebSocketChannel *channel;
 		channel = (ComplexWebSocketChannel *)series->get_context();
 		delete channel;
@@ -115,10 +161,10 @@ void WebSocketClient::channel_callback(WFChannel<protocol::WebSocketFrame> *ch,
 	ComplexWebSocketChannel *channel = (ComplexWebSocketChannel *)ch;
 
 	pthread_mutex_lock(&channel->mutex);
-	if (channel->is_established() == 0)
+	if (channel->is_established() == false)
 	{
-		channel->set_state(WFT_STATE_SYS_ERROR);
-		channel->set_sending(false);
+//		channel->set_state(WFT_STATE_SYS_ERROR);
+//		channel->set_sending(false);
 		if (close != nullptr)
 			close();
 	}

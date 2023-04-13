@@ -165,6 +165,7 @@ protected:
 	virtual void handle_terminated();
 	virtual WFRouterTask *route();
 	void router_callback(WFRouterTask *task);
+	void wait_callback(WFMailboxTask *task);
 
 public:
 	pthread_mutex_t mutex;
@@ -229,14 +230,21 @@ SubTask *WFComplexChannel<MSG>::done()
 		return series->pop();
 	}
 
+	// dispacth() by handle_terminate() or deinit()
+	if (this->established == 0 &&
+		(WFComplexChannel<MSG> *)series->get_context() == this)
+	{
+		pthread_mutex_lock(&this->mutex);
+		this->sending = false;
+		this->condition.signal(NULL);
+		pthread_mutex_unlock(&this->mutex);
+	}
+
 	if (this->callback)
 		this->callback(this);
 
 	if (this->state == WFT_STATE_SUCCESS)
 		this->state = WFT_STATE_UNDEFINED;
-
-//	if (this->established == 0 && this->state == WFT_STATE_SYS_ERROR) // sending == false
-//		delete this;
 
 	return series->pop();
 }
@@ -244,26 +252,56 @@ SubTask *WFComplexChannel<MSG>::done()
 template<class MSG>
 void WFComplexChannel<MSG>::handle_terminated()
 {
-	WFMailboxTask *waiter;
-	bool shutdown = false;
+	SeriesWork *series;
+	SubTask *first;
+
+	if (this->established == 0)
+		return;
 
 	pthread_mutex_lock(&this->mutex);
-	Workflow::create_series_work(this, nullptr);
-
 	if (this->sending == false)
 	{
 		this->sending = true;
-		shutdown = true;
-	} else {
-		waiter = WFCondTaskFactory::create_wait_task(&this->condition,
-													 nullptr);
-		series_of(this)->push_front(this);
-		series_of(this)->push_front(waiter);
+		this->set_pointer(NULL);
+		first = this;
+	}
+	else
+	{
+		first = WFCondTaskFactory::create_wait_task(&this->condition,
+					std::bind(&WFComplexChannel<MSG>::wait_callback,
+							  this, std::placeholders::_1));
 	}
 	pthread_mutex_unlock(&this->mutex);
 
-	if (shutdown == true)
-		this->dispatch();
+	series = Workflow::create_series_work(first, nullptr);
+	series->set_context(this);
+	series->start();
+}
+
+template<class MSG>
+void WFComplexChannel<MSG>::wait_callback(WFMailboxTask *task)
+{
+	SubTask *next;
+
+	if (this->established == 0)
+		return;
+
+	pthread_mutex_lock(&this->mutex);
+	if (this->sending == false)
+	{
+		this->sending = true;
+		this->set_pointer(NULL);
+		next = this;
+	}
+	else
+	{
+		next = WFCondTaskFactory::create_wait_task(&this->condition,
+							std::bind(&WFComplexChannel<MSG>::wait_callback,
+									  this, std::placeholders::_1));
+	}
+	pthread_mutex_unlock(&this->mutex);
+
+	series_of(task)->push_back(next);
 }
 
 template<class MSG>
@@ -504,7 +542,7 @@ public:
 	ComplexWebSocketChannel(CommSchedObject *object,
 							CommScheduler *scheduler,
 							bool auto_gen_mkey,
-							websocket_process_t&& process) :
+							websocket_process_t process) :
 		WFComplexChannel<protocol::WebSocketFrame>(object, scheduler,
 												   std::move(process)),
 		gen(rd())

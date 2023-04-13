@@ -51,6 +51,8 @@ static constexpr struct WFWebSocketParams WEBSOCKET_PARAMS_DEFAULT =
 class WebSocketClient
 {
 public:
+	using websocket_close_t = std::function<void ()>;
+
 	int init(const std::string& url);
 	int init(const struct WFWebSocketParams *params);
 	void deinit();
@@ -60,13 +62,26 @@ public:
 	WFWebSocketTask *create_close_task(websocket_callback_t cb);
 
 private:
+	void channel_callback(WFChannel<protocol::WebSocketFrame> *channel,
+						  websocket_close_t close);
+
+private:
 	ComplexWebSocketChannel *channel;
 	websocket_process_t process;
+	websocket_close_t close;
 
 public:
 	WebSocketClient(websocket_process_t process) :
-		process(std::move(process))
+		process(std::move(process)),
+		close(nullptr)
 	{ }
+
+	 WebSocketClient(websocket_process_t process,
+					 websocket_close_t close) :
+		process(std::move(process)),
+		close(std::move(close))
+	{ }
+
 };
 
 #endif

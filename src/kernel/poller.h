@@ -35,6 +35,7 @@ struct __poller_message
 
 struct poller_data
 {
+#define PD_OP_TIMER			0
 #define PD_OP_READ			1
 #define PD_OP_WRITE			2
 #define PD_OP_LISTEN		3
@@ -46,7 +47,7 @@ struct poller_data
 #define PD_OP_SSL_SHUTDOWN	7
 #define PD_OP_EVENT			8
 #define PD_OP_NOTIFY		9
-#define PD_OP_TIMER			10
+#define PD_OP_RECV_MESSAGE	10
 	short operation;
 	unsigned short iovcnt;
 	int fd;
@@ -58,6 +59,8 @@ struct poller_data
 		void *(*accept)(const struct sockaddr *, socklen_t, int, void *);
 		void *(*event)(void *);
 		void *(*notify)(void *, void *);
+		poller_message_t *(*recv_message)(const struct sockaddr *, socklen_t,
+										  const void *, size_t, void *);
 	};
 	void *context;
 	union

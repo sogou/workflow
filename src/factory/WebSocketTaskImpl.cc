@@ -128,7 +128,14 @@ SubTask *ComplexWebSocketOutTask::done()
 	channel->condition.signal(NULL);
 	pthread_mutex_unlock(&channel->mutex);
 
-	return WFChannelOutTask<WebSocketFrame>::done();
+	auto&& cb = std::bind(&ComplexChannelOutTask<WebSocketFrame>::switch_callback,
+						  this,
+						  std::placeholders::_1);
+
+	WFTimerTask *timer = WFTaskFactory::create_timer_task(0, 0, std::move(cb));
+	series_of(this)->push_front(timer);
+
+	return series_of(this)->pop();
 }
 
 SubTask *ComplexWebSocketOutTask::upgrade()

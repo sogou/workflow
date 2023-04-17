@@ -357,8 +357,13 @@ public:
 						  std::function<void (WFChannelTask<MSG> *)>&& cb) :
 		WFChannelOutTask<MSG>(channel, scheduler, std::move(cb))
 	{
+		this->state = WFT_STATE_UNDEFINED;
+		this->error = 0;
+		this->user_data = NULL;
 		this->ready = true;
 	}
+
+	void switch_callback(void *t);
 
 protected:
 	virtual ~ComplexChannelOutTask() { }
@@ -446,6 +451,15 @@ void ComplexChannelOutTask<MSG>::dispatch()
 }
 
 template<class MSG>
+void ComplexChannelOutTask<MSG>::switch_callback(void *t)
+{
+	if (this->callback)
+		this->callback(this);
+
+	delete this;
+}
+
+template<class MSG>
 SubTask *ComplexChannelOutTask<MSG>::done()
 {
 	auto *channel = (WFComplexChannel<MSG> *)this->get_request_channel();
@@ -467,7 +481,14 @@ SubTask *ComplexChannelOutTask<MSG>::done()
 	channel->condition.signal(NULL);
 	pthread_mutex_unlock(&channel->mutex);
 
-	return WFChannelOutTask<MSG>::done();
+	auto&& cb = std::bind(&ComplexChannelOutTask<MSG>::switch_callback,
+						  this,
+						  std::placeholders::_1);
+
+	WFTimerTask *timer = WFTaskFactory::create_timer_task(0, 0, std::move(cb));
+	series_of(this)->push_front(timer);
+
+	return series_of(this)->pop();
 }
 
 template<class MSG>

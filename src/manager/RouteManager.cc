@@ -511,9 +511,9 @@ int RouteManager::get(TransportType type,
 
 		struct RouteParams params = {
 			.transport_type			=	type,
-			.addrinfo 				= 	addrinfo,
+			.addrinfo 				=	addrinfo,
 			.key					=	key,
-			.ssl_ctx 				=	ssl_ctx,
+			.ssl_ctx				=	ssl_ctx,
 			.max_connections		=	(unsigned int)ep_params->max_connections,
 			.connect_timeout		=	ep_params->connect_timeout,
 			.response_timeout		=	ep_params->response_timeout,

@@ -28,6 +28,7 @@
 #define KAFKA_CGROUP_UNINIT		0
 #define KAFKA_CGROUP_DOING		1
 #define KAFKA_CGROUP_DONE		2
+#define KAFKA_CGROUP_NONE		3
 
 #define KAFKA_HEARTBEAT_UNINIT	0
 #define KAFKA_HEARTBEAT_DOING	1
@@ -52,7 +53,7 @@ class KafkaMember
 public:
 	KafkaMember() : ref(1)
 	{
-		cgroup_status = KAFKA_CGROUP_UNINIT;
+		cgroup_status = KAFKA_CGROUP_NONE;
 		heartbeat_status = KAFKA_HEARTBEAT_UNINIT;
 		heartbeat_series = NULL;
 		cgroup_outdated = false;
@@ -1587,6 +1588,7 @@ int WFKafkaClient::init(const std::string& broker, const std::string& group)
 {
 	this->init(broker);
 	this->member->cgroup.set_group(group);
+	this->member->cgroup_status = KAFKA_CGROUP_UNINIT;
 	return 0;
 }
 

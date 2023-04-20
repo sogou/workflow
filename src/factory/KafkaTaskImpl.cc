@@ -287,6 +287,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 {
 	KafkaRequest *req = static_cast<KafkaRequest *>(this->get_message_out());
 	KafkaResponse *resp = this->get_resp();
+	KafkaCgroup *cgroup;
 
 	resp->set_api_type(req->get_api_type());
 	resp->set_api_version(req->get_api_version());
@@ -296,7 +297,9 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 	{
 	case Kafka_FindCoordinator:
 	case Kafka_Heartbeat:
-		resp->set_cgroup(__create_cgroup(req->get_cgroup()));
+		cgroup = req->get_cgroup();
+		if (cgroup->get_group())
+			resp->set_cgroup(__create_cgroup(cgroup));
 		break;
 	default:
 		break;

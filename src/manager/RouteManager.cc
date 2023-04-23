@@ -107,6 +107,7 @@ struct RouteParams
 	uint64_t key;
 	SSL_CTX *ssl_ctx;
 	unsigned int max_connections;
+	unsigned int min_connections;
 	int connect_timeout;
 	int response_timeout;
 	int ssl_connect_timeout;
@@ -185,8 +186,9 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 	}
 
 	if (target->init(addr->ai_addr, addr->ai_addrlen, params->ssl_ctx,
-					 params->connect_timeout, params->ssl_connect_timeout,
-					 params->response_timeout, params->max_connections) < 0)
+					 params->max_connections, params->min_connections,
+					 params->connect_timeout, params->response_timeout,
+					 params->ssl_connect_timeout) < 0)
 	{
 		delete target;
 		target = NULL;
@@ -405,11 +407,13 @@ static uint64_t __generate_key(TransportType type,
 {
 	std::string buf((const char *)&type, sizeof (TransportType));
 	unsigned int max_conn = ep_params->max_connections;
+	unsigned int min_conn = ep_params->min_connections;
 
 	if (!other_info.empty())
 		buf += other_info;
 
 	buf.append((const char *)&max_conn, sizeof (unsigned int));
+	buf.append((const char *)&min_conn, sizeof (unsigned int));
 	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
 	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
 	if (type == TT_TCP_SSL)
@@ -515,6 +519,7 @@ int RouteManager::get(TransportType type,
 			.key					=	key,
 			.ssl_ctx 				=	ssl_ctx,
 			.max_connections		=	(unsigned int)ep_params->max_connections,
+			.min_connections		=	(unsigned int)ep_params->min_connections,
 			.connect_timeout		=	ep_params->connect_timeout,
 			.response_timeout		=	ep_params->response_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,

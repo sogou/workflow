@@ -38,6 +38,7 @@ enum TransportType
 struct EndpointParams
 {
 	size_t max_connections;
+	size_t min_connections;
 	int connect_timeout;
 	int response_timeout;
 	int ssl_connect_timeout;
@@ -47,6 +48,7 @@ struct EndpointParams
 static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
 {
 	.max_connections		=	200,
+	.min_connections		=	0,
 	.connect_timeout		=	10 * 1000,
 	.response_timeout		=	10 * 1000,
 	.ssl_connect_timeout	=	10 * 1000,

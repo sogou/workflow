@@ -29,13 +29,15 @@ class CommSchedObject
 {
 public:
 	size_t get_max_load() const { return this->max_load; }
+	size_t get_min_load() const { return this->min_load; }
 	size_t get_cur_load() const { return this->cur_load; }
 
 private:
-	virtual CommTarget *acquire(int wait_timeout) = 0;
+	virtual CommTarget *acquire(int wait_timeout, size_t *cur_load) = 0;
 
 protected:
 	size_t max_load;
+	size_t min_load;
 	size_t cur_load;
 
 public:
@@ -49,17 +51,17 @@ class CommSchedTarget : public CommSchedObject, public CommTarget
 {
 public:
 	int init(const struct sockaddr *addr, socklen_t addrlen,
-			 int connect_timeout, int response_timeout,
-			 size_t max_connections);
+			 size_t max_connections, size_t min_connections,
+			 int connect_timeout, int response_timeout);
 	void deinit();
 
 public:
 	int init(const struct sockaddr *addr, socklen_t addrlen, SSL_CTX *ssl_ctx,
-			 int connect_timeout, int ssl_connect_timeout, int response_timeout,
-			 size_t max_connections)
+			 size_t max_connections, size_t min_connections, int connect_timeout,
+			 int response_timeout, int ssl_connect_timeout)
 	{
-		int ret = this->init(addr, addrlen, connect_timeout, response_timeout,
-							 max_connections);
+		int ret = this->init(addr, addrlen, max_connections, min_connections,
+							 connect_timeout, response_timeout);
 
 		if (ret >= 0)
 			this->set_ssl(ssl_ctx, ssl_connect_timeout);
@@ -68,7 +70,7 @@ public:
 	}
 
 private:
-	virtual CommTarget *acquire(int wait_timeout); /* final */
+	virtual CommTarget *acquire(int wait_timeout, size_t *cur_load); /* final */
 	virtual void release(int keep_alive); /* final */
 
 private:
@@ -89,7 +91,7 @@ public:
 	int remove(CommSchedTarget *target);
 
 private:
-	virtual CommTarget *acquire(int wait_timeout); /* final */
+	virtual CommTarget *acquire(int wait_timeout, size_t *cur_load); /* final */
 
 private:
 	CommSchedTarget **tg_heap;
@@ -123,20 +125,7 @@ public:
 
 	/* wait_timeout in milliseconds, -1 for no timeout. */
 	int request(CommSession *session, CommSchedObject *object,
-				int wait_timeout, CommTarget **target)
-	{
-		int ret = -1;
-
-		*target = object->acquire(wait_timeout);
-		if (*target)
-		{
-			ret = this->comm.request(session, *target);
-			if (ret < 0)
-				(*target)->release(0);
-		}
-
-		return ret;
-	}
+				int wait_timeout, CommTarget **target);
 
 	/* for services. */
 	int reply(CommSession *session)

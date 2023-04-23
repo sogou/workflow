@@ -45,8 +45,8 @@ static struct timespec *__get_abstime(int timeout, struct timespec *ts)
 }
 
 int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
-						  int connect_timeout, int response_timeout,
-						  size_t max_connections)
+						  size_t max_connections, size_t min_connections,
+						  int connect_timeout, int response_timeout)
 {
 	int ret;
 
@@ -66,6 +66,7 @@ int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 			if (ret == 0)
 			{
 				this->max_load = max_connections;
+				this->min_load = min_connections;
 				this->cur_load = 0;
 				this->wait_cnt = 0;
 				this->group = NULL;
@@ -89,7 +90,7 @@ void CommSchedTarget::deinit()
 	this->CommTarget::deinit();
 }
 
-CommTarget *CommSchedTarget::acquire(int wait_timeout)
+CommTarget *CommSchedTarget::acquire(int wait_timeout, size_t *cur_load)
 {
 	pthread_mutex_t *mutex = &this->mutex;
 	int ret;
@@ -129,6 +130,7 @@ CommTarget *CommSchedTarget::acquire(int wait_timeout)
 			this->group->heapify(this->index);
 		}
 
+		*cur_load = this->cur_load;
 		ret = 0;
 	}
 
@@ -398,7 +400,7 @@ int CommSchedGroup::remove(CommSchedTarget *target)
 	return ret;
 }
 
-CommTarget *CommSchedGroup::acquire(int wait_timeout)
+CommTarget *CommSchedGroup::acquire(int wait_timeout, size_t *cur_load)
 {
 	pthread_mutex_t *mutex = &this->mutex;
 	CommSchedTarget *target;
@@ -429,6 +431,7 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout)
 		target->cur_load++;
 		this->cur_load++;
 		this->heapify(0);
+		*cur_load = this->cur_load;
 		ret = 0;
 	}
 
@@ -440,5 +443,32 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout)
 	}
 
 	return target;
+}
+
+int CommScheduler::request(CommSession *session, CommSchedObject *object,
+						   int wait_timeout, CommTarget **target)
+{
+	size_t cur_load;
+	size_t min_load;
+	int ret = -1;
+
+	*target = object->acquire(wait_timeout, &cur_load);
+	if (*target)
+	{
+		cur_load += (*target)->get_idle_cnt();
+		min_load = ((CommSchedTarget *)(*target))->min_load;
+		if (cur_load < min_load)
+			ret = this->comm.request_new(session, *target);
+		else
+		{
+			int fifo = cur_load == min_load;
+			ret = this->comm.request_pool(session, *target, fifo);
+		}
+
+		if (ret < 0)
+			(*target)->release(0);
+	}
+
+	return ret;
 }
 

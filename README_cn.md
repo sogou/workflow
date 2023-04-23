@@ -57,7 +57,7 @@ cd tutorial
 make
 ~~~
 #### 使用SRPC工具（NEW!）
-SRPC工具可以生成完的workflow工程，根据用户命令生成对应的server，client或proxy框架，以及CMake工程文件和JSON格式的配置文件。  
+SRPC工具可以生成完整的workflow工程，根据用户命令生成对应的server，client或proxy框架，以及CMake工程文件和JSON格式的配置文件。  
 并且，工具会下载最小的必要的依赖。例如在用户指定产生RPC项目时，自动下载并配置好protobuf等依赖。  
 SRPC工具的使用方法可以参考：https://github.com/sogou/srpc/blob/master/tools/README_cn.md
 

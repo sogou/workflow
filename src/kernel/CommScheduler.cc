@@ -45,7 +45,7 @@ static struct timespec *__get_abstime(int timeout, struct timespec *ts)
 }
 
 int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
-						  size_t max_connections, size_t min_connections,
+						  size_t max_connections, size_t low_connections,
 						  int connect_timeout, int response_timeout)
 {
 	int ret;
@@ -66,7 +66,7 @@ int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 			if (ret == 0)
 			{
 				this->max_load = max_connections;
-				this->min_load = min_connections;
+				this->low_conn = low_connections;
 				this->cur_load = 0;
 				this->wait_cnt = 0;
 				this->group = NULL;
@@ -431,7 +431,7 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout, size_t *cur_load)
 		target->cur_load++;
 		this->cur_load++;
 		this->heapify(0);
-		*cur_load = this->cur_load;
+		*cur_load = target->cur_load;
 		ret = 0;
 	}
 
@@ -448,22 +448,18 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout, size_t *cur_load)
 int CommScheduler::request(CommSession *session, CommSchedObject *object,
 						   int wait_timeout, CommTarget **target)
 {
-	size_t cur_load;
-	size_t min_load;
+	size_t cur, low;
 	int ret = -1;
 
-	*target = object->acquire(wait_timeout, &cur_load);
+	*target = object->acquire(wait_timeout, &cur);
 	if (*target)
 	{
-		cur_load += (*target)->get_idle_cnt();
-		min_load = ((CommSchedTarget *)(*target))->min_load;
-		if (cur_load < min_load)
+		cur = cur - 1 + (*target)->get_idle_cnt();
+		low = ((CommSchedTarget *)(*target))->low_conn;
+		if (cur < low)
 			ret = this->comm.request_new(session, *target);
 		else
-		{
-			int fifo = cur_load == min_load;
-			ret = this->comm.request_pool(session, *target, fifo);
-		}
+			ret = this->comm.request_pool(session, *target, cur == low);
 
 		if (ret < 0)
 			(*target)->release(0);

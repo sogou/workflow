@@ -27,18 +27,13 @@
 
 class CommSchedObject
 {
-public:
-	size_t get_max_load() const { return this->max_load; }
-	size_t get_min_load() const { return this->min_load; }
-	size_t get_cur_load() const { return this->cur_load; }
-
 private:
 	virtual CommTarget *acquire(int wait_timeout, size_t *cur_load) = 0;
 
 protected:
-	size_t max_load;
-	size_t min_load;
-	size_t cur_load;
+	unsigned int max_load;
+	unsigned int cur_load;
+	unsigned int low_conn;
 
 public:
 	virtual ~CommSchedObject() { }
@@ -51,16 +46,16 @@ class CommSchedTarget : public CommSchedObject, public CommTarget
 {
 public:
 	int init(const struct sockaddr *addr, socklen_t addrlen,
-			 size_t max_connections, size_t min_connections,
+			 size_t max_connections, size_t low_connections,
 			 int connect_timeout, int response_timeout);
 	void deinit();
 
 public:
 	int init(const struct sockaddr *addr, socklen_t addrlen, SSL_CTX *ssl_ctx,
-			 size_t max_connections, size_t min_connections, int connect_timeout,
+			 size_t max_connections, size_t low_connections, int connect_timeout,
 			 int response_timeout, int ssl_connect_timeout)
 	{
-		int ret = this->init(addr, addrlen, max_connections, min_connections,
+		int ret = this->init(addr, addrlen, max_connections, low_connections,
 							 connect_timeout, response_timeout);
 
 		if (ret >= 0)

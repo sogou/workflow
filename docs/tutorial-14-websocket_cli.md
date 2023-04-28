@@ -10,7 +10,7 @@
 
 运行方式：**./websocket_cli \<URL\>**
 
-URL格式：**ws://host:port**
+URL格式：**ws://host:port** 或 **wss://host:port**
 
 - port缺省值为80；
 - 如果是ssl，URL格式为：wss://host:port
@@ -147,7 +147,9 @@ void process(WFWebSocketTask *task)
 
 更多接口细节可以查看[websocket_parser.h ](/src/protocol/websocket_parser.h)
 
-# 关闭client
+# 连接关闭
+
+#### 1. 主动关闭
 
 根据**WebSocket**协议，用户需要发起一个**close**包已告诉对方以示断开连接。
 
@@ -168,6 +170,25 @@ wait_group.wait();
 
 需要注意的是，如果不主动发起close任务，直接删除client实例，那么底层使用的那个网络连接还会存在，直到超时或其他原因断开；
 而``client.deinit()``是个等待内部网络资源完全释放的同步接口，需要手动调用，以保证程序退出前client的所有资源安全释放。
+
+#### 2. 被动关闭
+
+如果连接被意外关闭，对方没有发**WebSocketFrameConnectionClose**，那么我们可以在一个``close()``函数上获得这个事件。
+
+我们可以在构造WebSocketClient时通过第二个函数传递进去，如下：
+
+```
+void close()
+{
+    // connection is closed
+}
+
+WebSocketClient client(process, close);
+```
+
+注意：无论是**主动关闭**还是**被动关闭**，只要构造client时传递了``close()``函数，那么连接关闭时``close()``都会被调用，也就是说，用户主动调用client.deinit()之后也会调用``close()``。
+
+当然，如果连接被动关闭，那么**下一个任务发出时，内部依然会自动重建连接**，无需用户感知。所以``close()``函数只是用于让用户知道被断了，如果服务正常只是连接被断，用户无需做任何干预。
 
 # websocket_cli的参数
 
@@ -226,17 +247,21 @@ struct WFWebSocketParams
 
 只有在第一个任务发出的时候，连接才会真正被建立。因此如果只希望监听server而没有写消息需求的用户依然需要手动发一个**PING**，让内部建立连接。可以通过client的``create_ping_task()``接口创建一个**PING** task，该回调函数里可以通过**state**判断连接是否可用，如果等于**WFT_STATE_SUCCESS**,则表示``process()``里已经随时可以接收server来的消息了。
 
-前面提到，需要发起**CLOSE** task关闭连接，回到该回调函数时则表示连接已关闭。
+如果连接内部被断开，内部会伴随下一个请求自动重连，所以``close()``被调起时并不需要我们做什么。
 
-如果连接被意外关闭，对方没有发**WebSocketFrameConnectionClose**，那么我们可以在一个``close()``函数上获得这个事件。我们可以在构造WebSocketClient时通过第二个函数传递进去，如下：
+client调用``deinit()``之后，可以重新调用``init()``继续使用。一般来说只有程序退出时才需要调用client的``deinit()``。
+
+以下是一个连接在task1发出时才真正建立，而task2被断开后被调用到用的close，而之后继续发task3内部回重建连接，最后client主动deinit()去关闭连接的生命周期图示：
 
 ```
-void connection_close()
-{
-    // connection is closed
-}
-
-WebSocketClient client(process, connection_close);
+[client.init()]------->------------------->---------[client.deinit()]
+                  [task1]-[task2]                    |(主动关)
+                  [conn]---->----[close]             |
+                                 ^                   |
+                                 |        [task3]    V
+                                 |        [conn]-->--[close]
+                                 |
+                             (被对方关)
 ```
 
 #### 3. 时序性保证

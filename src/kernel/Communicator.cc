@@ -642,6 +642,7 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 
 		case CONN_STATE_IDLE:
 			list_del(&entry->list);
+			target->idle_cnt--;
 			break;
 
 		case CONN_STATE_ERROR:
@@ -722,6 +723,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 		{
 		case CONN_STATE_IDLE:
 			list_del(&entry->list);
+			target->idle_cnt--;
 			break;
 
 		case CONN_STATE_ERROR:

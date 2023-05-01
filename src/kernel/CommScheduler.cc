@@ -443,21 +443,3 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout)
 	return target;
 }
 
-int CommScheduler::request(CommSession *session, CommSchedObject *object,
-						   int wait_timeout, CommTarget **target)
-{
-	size_t watermark;
-	int ret = -1;
-
-	*target = object->acquire(wait_timeout);
-	if (*target)
-	{
-		watermark = ((CommSchedTarget *)(*target))->low_conn;
-		ret = this->comm.request_pool(session, *target, watermark);
-		if (ret < 0)
-			(*target)->release(0);
-	}
-
-	return ret;
-}
-

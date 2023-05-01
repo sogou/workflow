@@ -164,8 +164,8 @@ int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 			this->addrlen = addrlen;
 			this->connect_timeout = connect_timeout;
 			this->response_timeout = response_timeout;
+			this->conn_cnt = 0;
 			INIT_LIST_HEAD(&this->idle_list);
-			this->idle_cnt = 0;
 
 			this->ssl_ctx = NULL;
 			this->ssl_connect_timeout = 0;
@@ -614,7 +614,6 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 			__sync_add_and_fetch(&entry->ref, 1);
 			entry->state = CONN_STATE_IDLE;
 			list_add(&entry->list, &target->idle_list);
-			target->idle_cnt++;
 		}
 
 		pthread_mutex_unlock(&target->mutex);
@@ -642,7 +641,6 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 
 		case CONN_STATE_IDLE:
 			list_del(&entry->list);
-			target->idle_cnt--;
 			break;
 
 		case CONN_STATE_ERROR:
@@ -697,10 +695,12 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 			{
 				entry->state = CONN_STATE_IDLE;
 				list_add(&entry->list, &target->idle_list);
-				target->idle_cnt++;
 			}
 			else
+			{
 				entry->state = CONN_STATE_CLOSING;
+				target->conn_cnt--;
+			}
 		}
 
 		pthread_mutex_unlock(&target->mutex);
@@ -723,7 +723,6 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 		{
 		case CONN_STATE_IDLE:
 			list_del(&entry->list);
-			target->idle_cnt--;
 			break;
 
 		case CONN_STATE_ERROR:
@@ -740,6 +739,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 			break;
 		}
 
+		target->conn_cnt--;
 		pthread_mutex_unlock(&target->mutex);
 		pthread_mutex_unlock(mutex);
 		break;
@@ -1059,6 +1059,9 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
+		pthread_mutex_lock(&target->mutex);
+		target->conn_cnt--;
+		pthread_mutex_unlock(&target->mutex);
 		target->release(0);
 		session->handle(state, res->error);
 		this->release_conn(entry);
@@ -1533,7 +1536,7 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 }
 
 int Communicator::request_idle_conn(CommSession *session, CommTarget *target,
-									int fifo)
+									size_t watermark)
 {
 	struct CommConnEntry *entry;
 	struct list_head *pos;
@@ -1542,16 +1545,16 @@ int Communicator::request_idle_conn(CommSession *session, CommTarget *target,
 	while (1)
 	{
 		pthread_mutex_lock(&target->mutex);
-		if (!list_empty(&target->idle_list))
+		if (!list_empty(&target->idle_list) &&
+			target->conn_cnt >= watermark)
 		{
-			if (fifo)
+			if (target->conn_cnt == watermark)
 				pos = target->idle_list.prev;
 			else
 				pos = target->idle_list.next;
 
 			entry = list_entry(pos, struct CommConnEntry, list);
 			list_del(pos);
-			target->idle_cnt--;
 			pthread_mutex_lock(&entry->mutex);
 		}
 		else
@@ -1599,6 +1602,7 @@ int Communicator::request_new_conn(CommSession *session, CommTarget *target)
 	entry = this->launch_conn(session, target);
 	if (entry)
 	{
+		target->conn_cnt++;
 		session->conn = entry->conn;
 		session->seq = entry->seq++;
 		data.operation = PD_OP_CONNECT;
@@ -1609,39 +1613,15 @@ int Communicator::request_new_conn(CommSession *session, CommTarget *target)
 		if (mpoller_add(&data, timeout, this->mpoller) >= 0)
 			return 0;
 
+		target->conn_cnt--;
 		this->release_conn(entry);
 	}
 
 	return -1;
 }
 
-int Communicator::request_new(CommSession *session, CommTarget *target)
-{
-	int errno_bak;
-
-	if (session->passive)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
-	errno_bak = errno;
-	session->target = target;
-	session->out = NULL;
-	session->in = NULL;
-	if (this->request_new_conn(session, target) < 0)
-	{
-		session->conn = NULL;
-		session->seq = 0;
-		return -1;
-	}
-
-	errno = errno_bak;
-	return 0;
-}
-
 int Communicator::request_pool(CommSession *session, CommTarget *target,
-							   int fifo)
+							   size_t watermark)
 {
 	int errno_bak;
 
@@ -1655,7 +1635,7 @@ int Communicator::request_pool(CommSession *session, CommTarget *target,
 	session->target = target;
 	session->out = NULL;
 	session->in = NULL;
-	if (this->request_idle_conn(session, target, fifo) < 0)
+	if (this->request_idle_conn(session, target, watermark) < 0)
 	{
 		if (this->request_new_conn(session, target) < 0)
 		{
@@ -1738,7 +1718,6 @@ int Communicator::reply_idle_conn(CommSession *session, CommTarget *target)
 		pos = target->idle_list.next;
 		entry = list_entry(pos, struct CommConnEntry, list);
 		list_del(pos);
-		target->idle_cnt--;
 
 		session->out = session->message_out();
 		if (session->out)

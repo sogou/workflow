@@ -90,7 +90,7 @@ void CommSchedTarget::deinit()
 	this->CommTarget::deinit();
 }
 
-CommTarget *CommSchedTarget::acquire(int wait_timeout, size_t *cur_load)
+CommTarget *CommSchedTarget::acquire(int wait_timeout)
 {
 	pthread_mutex_t *mutex = &this->mutex;
 	int ret;
@@ -130,7 +130,6 @@ CommTarget *CommSchedTarget::acquire(int wait_timeout, size_t *cur_load)
 			this->group->heapify(this->index);
 		}
 
-		*cur_load = this->cur_load;
 		ret = 0;
 	}
 
@@ -400,7 +399,7 @@ int CommSchedGroup::remove(CommSchedTarget *target)
 	return ret;
 }
 
-CommTarget *CommSchedGroup::acquire(int wait_timeout, size_t *cur_load)
+CommTarget *CommSchedGroup::acquire(int wait_timeout)
 {
 	pthread_mutex_t *mutex = &this->mutex;
 	CommSchedTarget *target;
@@ -431,7 +430,6 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout, size_t *cur_load)
 		target->cur_load++;
 		this->cur_load++;
 		this->heapify(0);
-		*cur_load = target->cur_load;
 		ret = 0;
 	}
 
@@ -448,19 +446,14 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout, size_t *cur_load)
 int CommScheduler::request(CommSession *session, CommSchedObject *object,
 						   int wait_timeout, CommTarget **target)
 {
-	size_t cur, low;
+	size_t watermark;
 	int ret = -1;
 
-	*target = object->acquire(wait_timeout, &cur);
+	*target = object->acquire(wait_timeout);
 	if (*target)
 	{
-		cur = cur - 1 + (*target)->get_idle_cnt();
-		low = ((CommSchedTarget *)(*target))->low_conn;
-		if (cur < low)
-			ret = this->comm.request_new(session, *target);
-		else
-			ret = this->comm.request_pool(session, *target, cur == low);
-
+		watermark = ((CommSchedTarget *)(*target))->low_conn;
+		ret = this->comm.request_pool(session, *target, watermark);
 		if (ret < 0)
 			(*target)->release(0);
 	}

@@ -50,8 +50,6 @@ public:
 		*addrlen = this->addrlen;
 	}
 
-	size_t get_idle_cnt() const { return this->idle_cnt; }
-
 protected:
 	void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
 	{
@@ -86,8 +84,8 @@ private:
 	SSL_CTX *ssl_ctx;
 
 private:
+	size_t conn_cnt;
 	struct list_head idle_list;
-	size_t idle_cnt;
 	pthread_mutex_t mutex;
 
 public:
@@ -271,8 +269,8 @@ public:
 
 	int reply(CommSession *session);
 
-	int request_new(CommSession *session, CommTarget *target);
-	int request_pool(CommSession *session, CommTarget *target, int fifo);
+	int request_pool(CommSession *session, CommTarget *target,
+					 size_t watermark);
 
 	int push(const void *buf, size_t size, CommSession *session);
 
@@ -320,7 +318,8 @@ private:
 
 	int send_message(struct CommConnEntry *entry);
 
-	int request_idle_conn(CommSession *session, CommTarget *target, int fifo);
+	int request_idle_conn(CommSession *session, CommTarget *target,
+						  size_t watermark);
 	int reply_idle_conn(CommSession *session, CommTarget *target);
 
 	int request_new_conn(CommSession *session, CommTarget *target);

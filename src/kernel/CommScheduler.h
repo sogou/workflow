@@ -28,7 +28,7 @@
 class CommSchedObject
 {
 private:
-	virtual CommTarget *acquire(int wait_timeout, size_t *cur_load) = 0;
+	virtual CommTarget *acquire(int wait_timeout) = 0;
 
 protected:
 	unsigned int max_load;
@@ -65,7 +65,7 @@ public:
 	}
 
 private:
-	virtual CommTarget *acquire(int wait_timeout, size_t *cur_load); /* final */
+	virtual CommTarget *acquire(int wait_timeout); /* final */
 	virtual void release(int keep_alive); /* final */
 
 private:
@@ -86,7 +86,7 @@ public:
 	int remove(CommSchedTarget *target);
 
 private:
-	virtual CommTarget *acquire(int wait_timeout, size_t *cur_load); /* final */
+	virtual CommTarget *acquire(int wait_timeout); /* final */
 
 private:
 	CommSchedTarget **tg_heap;

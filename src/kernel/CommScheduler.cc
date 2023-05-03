@@ -16,13 +16,14 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "CommScheduler.h"
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+
+#include "CommScheduler.h"
 
 #define PTHREAD_COND_TIMEDWAIT(cond, mutex, abstime) \
 	((abstime) ? pthread_cond_timedwait(cond, mutex, abstime) : pthread_cond_wait(cond, mutex))

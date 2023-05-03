@@ -16,12 +16,13 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "IOService_thread.h"
+#include <sys/uio.h>
 
 #include <errno.h>
 #include <pthread.h>
-#include <sys/uio.h>
 #include <unistd.h>
+
+#include "IOService_thread.h"
 
 #include "list.h"
 

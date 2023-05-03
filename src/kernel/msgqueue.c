@@ -26,11 +26,11 @@
  * well when the queue is very busy, and the number of consumers is big.
  */
 
-#include "msgqueue.h"
-
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
+
+#include "msgqueue.h"
 
 struct __msgqueue
 {

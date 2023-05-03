@@ -16,15 +16,16 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "IOService_linux.h"
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/uio.h>
 
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
+
+#include "IOService_linux.h"
 
 #include "list.h"
 

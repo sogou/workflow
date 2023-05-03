@@ -16,11 +16,11 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "Executor.h"
-
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
+
+#include "Executor.h"
 
 #include "list.h"
 #include "thrdpool.h"

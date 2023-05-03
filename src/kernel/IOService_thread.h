@@ -19,9 +19,10 @@
 #ifndef _IOSERVICE_THREAD_H_
 #define _IOSERVICE_THREAD_H_
 
+#include <sys/uio.h>
+
 #include <pthread.h>
 #include <stddef.h>
-#include <sys/uio.h>
 #include <unistd.h>
 
 #include "list.h"

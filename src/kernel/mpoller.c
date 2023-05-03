@@ -16,10 +16,10 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "mpoller.h"
-
 #include <stddef.h>
 #include <stdlib.h>
+
+#include "mpoller.h"
 
 #include "poller.h"
 

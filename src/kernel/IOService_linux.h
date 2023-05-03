@@ -19,10 +19,11 @@
 #ifndef _IOSERVICE_LINUX_H_
 #define _IOSERVICE_LINUX_H_
 
-#include <pthread.h>
-#include <stddef.h>
 #include <sys/eventfd.h>
 #include <sys/uio.h>
+
+#include <pthread.h>
+#include <stddef.h>
 
 #include "list.h"
 

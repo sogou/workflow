@@ -30,13 +30,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 
 #include "list.h"
 #include "poller.h"

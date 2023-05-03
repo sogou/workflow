@@ -16,12 +16,12 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "thrdpool.h"
-
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "thrdpool.h"
 
 #include "msgqueue.h"
 

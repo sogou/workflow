@@ -16,9 +16,9 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "CommRequest.h"
-
 #include <errno.h>
+
+#include "CommRequest.h"
 
 #include "CommScheduler.h"
 

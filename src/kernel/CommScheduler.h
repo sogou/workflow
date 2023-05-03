@@ -19,11 +19,12 @@
 #ifndef _COMMSCHEDULER_H_
 #define _COMMSCHEDULER_H_
 
-#include "Communicator.h"
 #include <openssl/ssl.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+#include "Communicator.h"
 
 class CommSchedObject
 {

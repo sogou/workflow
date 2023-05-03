@@ -27,9 +27,6 @@
 #undef LIST_HEAD
 #undef SLIST_HEAD
 #endif
-#include "list.h"
-#include "poller.h"
-#include "rbtree.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -40,6 +37,10 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "list.h"
+#include "poller.h"
+#include "rbtree.h"
 
 #define POLLER_BUFSIZE	  (256 * 1024)
 #define POLLER_EVENTS_MAX 256

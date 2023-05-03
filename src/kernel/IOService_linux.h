@@ -19,11 +19,12 @@
 #ifndef _IOSERVICE_LINUX_H_
 #define _IOSERVICE_LINUX_H_
 
-#include "list.h"
 #include <pthread.h>
 #include <stddef.h>
 #include <sys/eventfd.h>
 #include <sys/uio.h>
+
+#include "list.h"
 
 #define IOS_STATE_SUCCESS 0
 #define IOS_STATE_ERROR	  1

@@ -17,11 +17,13 @@
 */
 
 #include "IOService_thread.h"
-#include "list.h"
+
 #include <errno.h>
 #include <pthread.h>
 #include <sys/uio.h>
 #include <unistd.h>
+
+#include "list.h"
 
 typedef enum io_iocb_cmd
 {

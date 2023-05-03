@@ -19,11 +19,12 @@
 #ifndef _IOSERVICE_THREAD_H_
 #define _IOSERVICE_THREAD_H_
 
-#include "list.h"
 #include <pthread.h>
 #include <stddef.h>
 #include <sys/uio.h>
 #include <unistd.h>
+
+#include "list.h"
 
 #define IOS_STATE_SUCCESS 0
 #define IOS_STATE_ERROR	  1

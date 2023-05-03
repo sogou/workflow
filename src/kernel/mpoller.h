@@ -19,8 +19,9 @@
 #ifndef _MPOLLER_H_
 #define _MPOLLER_H_
 
-#include "poller.h"
 #include <stddef.h>
+
+#include "poller.h"
 
 typedef struct __mpoller mpoller_t;
 

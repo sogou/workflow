@@ -17,7 +17,7 @@
 */
 
 #include "IOService_linux.h"
-#include "list.h"
+
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
@@ -25,6 +25,8 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
+
+#include "list.h"
 
 /* Linux async I/O interface from libaio.h */
 

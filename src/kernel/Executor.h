@@ -19,9 +19,10 @@
 #ifndef _EXECUTOR_H_
 #define _EXECUTOR_H_
 
-#include "list.h"
 #include <pthread.h>
 #include <stddef.h>
+
+#include "list.h"
 
 class ExecQueue
 {

@@ -19,11 +19,12 @@
 #ifndef _COMMREQUEST_H_
 #define _COMMREQUEST_H_
 
+#include <errno.h>
+#include <stddef.h>
+
 #include "CommScheduler.h"
 #include "Communicator.h"
 #include "SubTask.h"
-#include <errno.h>
-#include <stddef.h>
 
 class CommRequest : public SubTask, public CommSession
 {

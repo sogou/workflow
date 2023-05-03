@@ -22,7 +22,6 @@
 #include <openssl/ssl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-
 #include <time.h>
 
 typedef struct __poller poller_t;

@@ -17,11 +17,13 @@
 */
 
 #include "thrdpool.h"
-#include "msgqueue.h"
+
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "msgqueue.h"
 
 struct __thrdpool
 {

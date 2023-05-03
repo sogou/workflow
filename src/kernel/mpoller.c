@@ -17,9 +17,11 @@
 */
 
 #include "mpoller.h"
-#include "poller.h"
+
 #include <stddef.h>
 #include <stdlib.h>
+
+#include "poller.h"
 
 extern poller_t *__poller_create(void **, const struct poller_params *);
 extern void __poller_destroy(poller_t *);

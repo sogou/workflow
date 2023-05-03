@@ -17,8 +17,10 @@
 */
 
 #include "CommRequest.h"
-#include "CommScheduler.h"
+
 #include <errno.h>
+
+#include "CommScheduler.h"
 
 void CommRequest::handle(int state, int error)
 {

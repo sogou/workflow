@@ -16,14 +16,15 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/uio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <pthread.h>
-#include "list.h"
 #include "IOService_thread.h"
+#include "list.h"
+#include <errno.h>
+#include <pthread.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
-typedef enum io_iocb_cmd {
+typedef enum io_iocb_cmd
+{
 	IO_CMD_PREAD = 0,
 	IO_CMD_PWRITE = 1,
 
@@ -53,8 +54,7 @@ void IOSession::prep_pwrite(int fd, void *buf, size_t count, long long offset)
 	this->offset = offset;
 }
 
-void IOSession::prep_preadv(int fd, const struct iovec *iov, int iovcnt,
-							long long offset)
+void IOSession::prep_preadv(int fd, const struct iovec *iov, int iovcnt, long long offset)
 {
 	this->fd = fd;
 	this->op = IO_CMD_PREADV;
@@ -63,8 +63,7 @@ void IOSession::prep_preadv(int fd, const struct iovec *iov, int iovcnt,
 	this->offset = offset;
 }
 
-void IOSession::prep_pwritev(int fd, const struct iovec *iov, int iovcnt,
-							 long long offset)
+void IOSession::prep_pwritev(int fd, const struct iovec *iov, int iovcnt, long long offset)
 {
 	this->fd = fd;
 	this->op = IO_CMD_PWRITEV;
@@ -223,7 +222,7 @@ void *IOService::io_routine(void *arg)
 	session->res = ret;
 	pthread_mutex_lock(&service->mutex);
 	if (service->pipe_fd[1] >= 0)
-		write(service->pipe_fd[1], &session, sizeof (void *));
+		write(service->pipe_fd[1], &session, sizeof(void *));
 
 	pthread_mutex_unlock(&service->mutex);
 	return NULL;
@@ -238,4 +237,3 @@ void *IOService::aio_finish(void *ptr, void *context)
 	pthread_detach(session->tid);
 	return session;
 }
-

@@ -19,16 +19,13 @@
 #ifndef _IOREQUEST_H_
 #define _IOREQUEST_H_
 
-#include "SubTask.h"
 #include "Communicator.h"
+#include "SubTask.h"
 
 class IORequest : public SubTask, public IOSession
 {
 public:
-	IORequest(IOService *service)
-	{
-		this->service = service;
-	}
+	IORequest(IOService *service) { this->service = service; }
 
 public:
 	virtual void dispatch()
@@ -54,4 +51,3 @@ protected:
 };
 
 #endif
-

@@ -19,10 +19,11 @@
 #ifndef _COMMREQUEST_H_
 #define _COMMREQUEST_H_
 
-#include <stddef.h>
-#include "SubTask.h"
-#include "Communicator.h"
 #include "CommScheduler.h"
+#include "Communicator.h"
+#include "SubTask.h"
+#include <errno.h>
+#include <stddef.h>
 
 class CommRequest : public SubTask, public CommSession
 {
@@ -43,7 +44,7 @@ public:
 	virtual void dispatch()
 	{
 		if (this->scheduler->request(this, this->object, this->wait_timeout,
-									 &this->target) < 0)
+					     &this->target) < 0)
 		{
 			this->handle(CS_STATE_ERROR, errno);
 		}
@@ -55,10 +56,10 @@ protected:
 
 protected:
 	CommTarget *target;
-#define TOR_NOT_TIMEOUT			0
-#define TOR_WAIT_TIMEOUT		1
-#define TOR_CONNECT_TIMEOUT		2
-#define TOR_TRANSMIT_TIMEOUT	3
+#define TOR_NOT_TIMEOUT	     0
+#define TOR_WAIT_TIMEOUT     1
+#define TOR_CONNECT_TIMEOUT  2
+#define TOR_TRANSMIT_TIMEOUT 3
 	int timeout_reason;
 
 protected:
@@ -71,4 +72,3 @@ protected:
 };
 
 #endif
-

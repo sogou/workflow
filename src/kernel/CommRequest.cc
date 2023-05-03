@@ -16,9 +16,9 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <errno.h>
-#include "CommScheduler.h"
 #include "CommRequest.h"
+#include "CommScheduler.h"
+#include <errno.h>
 
 void CommRequest::handle(int state, int error)
 {
@@ -35,4 +35,3 @@ void CommRequest::handle(int state, int error)
 
 	this->subtask_done();
 }
-

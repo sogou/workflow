@@ -62,4 +62,3 @@ void ParallelTask::dispatch()
 	else
 		this->subtask_done();
 }
-

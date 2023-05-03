@@ -16,18 +16,17 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include "mpoller.h"
+#include "poller.h"
 #include <stddef.h>
 #include <stdlib.h>
-#include "poller.h"
-#include "mpoller.h"
 
 extern poller_t *__poller_create(void **, const struct poller_params *);
 extern void __poller_destroy(poller_t *);
 
-static int __mpoller_create(const struct poller_params *params,
-							mpoller_t *mpoller)
+static int __mpoller_create(const struct poller_params *params, mpoller_t *mpoller)
 {
-	void **nodes_buf = (void **)calloc(params->max_open_files, sizeof (void *));
+	void **nodes_buf = (void **)calloc(params->max_open_files, sizeof(void *));
 	unsigned int i;
 
 	if (nodes_buf)
@@ -62,7 +61,7 @@ mpoller_t *mpoller_create(const struct poller_params *params, size_t nthreads)
 	if (nthreads == 0)
 		nthreads = 1;
 
-	size = offsetof(mpoller_t, poller) + nthreads * sizeof (void *);
+	size = offsetof(mpoller_t, poller) + nthreads * sizeof(void *);
 	mpoller = (mpoller_t *)malloc(size);
 	if (mpoller)
 	{
@@ -113,4 +112,3 @@ void mpoller_destroy(mpoller_t *mpoller)
 	free(mpoller->nodes_buf);
 	free(mpoller);
 }
-

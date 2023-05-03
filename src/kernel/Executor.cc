@@ -16,12 +16,12 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <errno.h>
-#include <stdlib.h>
-#include <pthread.h>
+#include "Executor.h"
 #include "list.h"
 #include "thrdpool.h"
-#include "Executor.h"
+#include <errno.h>
+#include <pthread.h>
+#include <stdlib.h>
 
 struct ExecSessionEntry
 {
@@ -70,8 +70,7 @@ void Executor::deinit()
 	thrdpool_destroy(Executor::executor_cancel, this->thrdpool);
 }
 
-extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,
-									thrdpool_t *);
+extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *, thrdpool_t *);
 
 void Executor::executor_thread_routine(void *context)
 {
@@ -86,8 +85,8 @@ void Executor::executor_thread_routine(void *context)
 	if (!list_empty(&queue->session_list))
 	{
 		struct thrdpool_task task = {
-			.routine	=	Executor::executor_thread_routine,
-			.context	=	queue
+			.routine = Executor::executor_thread_routine,
+			.context = queue,
 		};
 		__thrdpool_schedule(&task, entry, entry->thrdpool);
 	}
@@ -122,7 +121,7 @@ int Executor::request(ExecSession *session, ExecQueue *queue)
 	struct ExecSessionEntry *entry;
 
 	session->queue = queue;
-	entry = (struct ExecSessionEntry *)malloc(sizeof (struct ExecSessionEntry));
+	entry = (struct ExecSessionEntry *)malloc(sizeof(struct ExecSessionEntry));
 	if (entry)
 	{
 		entry->session = session;
@@ -132,8 +131,8 @@ int Executor::request(ExecSession *session, ExecQueue *queue)
 		if (queue->session_list.next == &entry->list)
 		{
 			struct thrdpool_task task = {
-				.routine	=	Executor::executor_thread_routine,
-				.context	=	queue
+				.routine = Executor::executor_thread_routine,
+				.context = queue,
 			};
 			if (thrdpool_schedule(&task, this->thrdpool) < 0)
 			{
@@ -148,4 +147,3 @@ int Executor::request(ExecSession *session, ExecQueue *queue)
 
 	return -!entry;
 }
-

@@ -19,14 +19,14 @@
 #ifndef _IOSERVICE_LINUX_H_
 #define _IOSERVICE_LINUX_H_
 
-#include <sys/uio.h>
-#include <sys/eventfd.h>
-#include <stddef.h>
-#include <pthread.h>
 #include "list.h"
+#include <pthread.h>
+#include <stddef.h>
+#include <sys/eventfd.h>
+#include <sys/uio.h>
 
-#define IOS_STATE_SUCCESS	0
-#define IOS_STATE_ERROR		1
+#define IOS_STATE_SUCCESS 0
+#define IOS_STATE_ERROR	  1
 
 class IOSession
 {
@@ -38,10 +38,8 @@ protected:
 	/* prepare() has to call one of the the prep_ functions. */
 	void prep_pread(int fd, void *buf, size_t count, long long offset);
 	void prep_pwrite(int fd, void *buf, size_t count, long long offset);
-	void prep_preadv(int fd, const struct iovec *iov, int iovcnt,
-					 long long offset);
-	void prep_pwritev(int fd, const struct iovec *iov, int iovcnt,
-					  long long offset);
+	void prep_preadv(int fd, const struct iovec *iov, int iovcnt, long long offset);
+	void prep_pwritev(int fd, const struct iovec *iov, int iovcnt, long long offset);
 	void prep_fsync(int fd);
 	void prep_fdsync(int fd);
 
@@ -74,10 +72,7 @@ private:
 	virtual void handle_unbound() = 0;
 
 private:
-	virtual int create_event_fd()
-	{
-		return eventfd(0, 0);
-	}
+	virtual int create_event_fd() { return eventfd(0, 0); }
 
 private:
 	struct io_context *io_ctx;
@@ -103,4 +98,3 @@ public:
 };
 
 #endif
-

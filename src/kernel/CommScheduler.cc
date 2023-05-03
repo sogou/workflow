@@ -16,16 +16,15 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <pthread.h>
 #include "CommScheduler.h"
+#include <errno.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #define PTHREAD_COND_TIMEDWAIT(cond, mutex, abstime) \
-	((abstime) ? pthread_cond_timedwait(cond, mutex, abstime) : \
-				 pthread_cond_wait(cond, mutex))
+	((abstime) ? pthread_cond_timedwait(cond, mutex, abstime) : pthread_cond_wait(cond, mutex))
 
 static struct timespec *__get_abstime(int timeout, struct timespec *ts)
 {
@@ -44,9 +43,8 @@ static struct timespec *__get_abstime(int timeout, struct timespec *ts)
 	return ts;
 }
 
-int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
-						  int connect_timeout, int response_timeout,
-						  size_t max_connections)
+int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen, int connect_timeout,
+			  int response_timeout, size_t max_connections)
 {
 	int ret;
 
@@ -56,8 +54,7 @@ int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 		return -1;
 	}
 
-	if (this->CommTarget::init(addr, addrlen, connect_timeout,
-							   response_timeout) >= 0)
+	if (this->CommTarget::init(addr, addrlen, connect_timeout, response_timeout) >= 0)
 	{
 		ret = pthread_mutex_init(&this->mutex, NULL);
 		if (ret == 0)
@@ -170,8 +167,7 @@ void CommSchedTarget::release(int keep_alive)
 	pthread_mutex_unlock(mutex);
 }
 
-int CommSchedGroup::target_cmp(CommSchedTarget *target1,
-							   CommSchedTarget *target2)
+int CommSchedGroup::target_cmp(CommSchedTarget *target1, CommSchedTarget *target2)
 {
 	size_t load1 = target1->cur_load * target2->max_load;
 	size_t load2 = target2->cur_load * target1->max_load;
@@ -269,7 +265,7 @@ int CommSchedGroup::heap_insert(CommSchedTarget *target)
 	if (this->heap_size == this->heap_buf_size)
 	{
 		int new_size = 2 * this->heap_buf_size;
-		void *new_base = realloc(this->tg_heap, new_size * sizeof (void *));
+		void *new_base = realloc(this->tg_heap, new_size * sizeof(void *));
 
 		if (new_base)
 		{
@@ -302,11 +298,11 @@ void CommSchedGroup::heap_remove(int index)
 	}
 }
 
-#define COMMGROUP_INIT_SIZE		4
+#define COMMGROUP_INIT_SIZE 4
 
 int CommSchedGroup::init()
 {
-	size_t size = COMMGROUP_INIT_SIZE * sizeof (void *);
+	size_t size = COMMGROUP_INIT_SIZE * sizeof(void *);
 	int ret;
 
 	this->tg_heap = (CommSchedTarget **)malloc(size);
@@ -441,4 +437,3 @@ CommTarget *CommSchedGroup::acquire(int wait_timeout)
 
 	return target;
 }
-

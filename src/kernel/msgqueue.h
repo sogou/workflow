@@ -46,4 +46,3 @@ void msgqueue_destroy(msgqueue_t *queue);
 #endif
 
 #endif
-

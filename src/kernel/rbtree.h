@@ -1,7 +1,7 @@
 /*
   Red Black Trees
   (C) 1999  Andrea Arcangeli <andrea@suse.de>
-  
+
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
@@ -91,8 +91,8 @@ static inline struct page * rb_insert_page_cache(struct inode * inode,
 -----------------------------------------------------------------------
 */
 
-#ifndef	_LINUX_RBTREE_H
-#define	_LINUX_RBTREE_H
+#ifndef _LINUX_RBTREE_H
+#define _LINUX_RBTREE_H
 
 #pragma pack(1)
 struct rb_node
@@ -101,8 +101,8 @@ struct rb_node
 	struct rb_node *rb_right;
 	struct rb_node *rb_left;
 	char rb_color;
-#define	RB_RED		0
-#define	RB_BLACK	1
+#define RB_RED	 0
+#define RB_BLACK 1
 };
 #pragma pack()
 
@@ -111,9 +111,13 @@ struct rb_root
 	struct rb_node *rb_node;
 };
 
-#define RB_ROOT (struct rb_root){ (struct rb_node *)0, }
-#define	rb_entry(ptr, type, member) \
-	((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
+#define RB_ROOT                      \
+	(struct rb_root)             \
+	{                            \
+		(struct rb_node *)0, \
+	}
+#define rb_entry(ptr, type, member) \
+	((type *)((char *)(ptr) - (unsigned long)(&((type *)0)->member)))
 
 #ifdef __cplusplus
 extern "C"
@@ -130,8 +134,7 @@ extern struct rb_node *rb_first(struct rb_root *);
 extern struct rb_node *rb_last(struct rb_root *);
 
 /* Fast replacement of a single node without remove/rebalance/add/rebalance */
-extern void rb_replace_node(struct rb_node *victim, struct rb_node *newnode, 
-			    struct rb_root *root);
+extern void rb_replace_node(struct rb_node *victim, struct rb_node *newnode, struct rb_root *root);
 
 #ifdef __cplusplus
 }

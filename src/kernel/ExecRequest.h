@@ -19,8 +19,8 @@
 #ifndef _EXECREQUEST_H_
 #define _EXECREQUEST_H_
 
-#include "SubTask.h"
 #include "Executor.h"
+#include "SubTask.h"
 
 class ExecRequest : public SubTask, public ExecSession
 {
@@ -59,4 +59,3 @@ protected:
 };
 
 #endif
-

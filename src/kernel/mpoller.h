@@ -19,8 +19,8 @@
 #ifndef _MPOLLER_H_
 #define _MPOLLER_H_
 
-#include <stddef.h>
 #include "poller.h"
+#include <stddef.h>
 
 typedef struct __mpoller mpoller_t;
 
@@ -45,8 +45,7 @@ struct __mpoller
 	poller_t *poller[1];
 };
 
-static inline int mpoller_add(const struct poller_data *data, int timeout,
-							  mpoller_t *mpoller)
+static inline int mpoller_add(const struct poller_data *data, int timeout, mpoller_t *mpoller)
 {
 	unsigned int index = (unsigned int)data->fd % mpoller->nthreads;
 	return poller_add(data, timeout, mpoller->poller[index]);
@@ -58,8 +57,7 @@ static inline int mpoller_del(int fd, mpoller_t *mpoller)
 	return poller_del(fd, mpoller->poller[index]);
 }
 
-static inline int mpoller_mod(const struct poller_data *data, int timeout,
-							  mpoller_t *mpoller)
+static inline int mpoller_mod(const struct poller_data *data, int timeout, mpoller_t *mpoller)
 {
 	unsigned int index = (unsigned int)data->fd % mpoller->nthreads;
 	return poller_mod(data, timeout, mpoller->poller[index]);
@@ -72,7 +70,7 @@ static inline int mpoller_set_timeout(int fd, int timeout, mpoller_t *mpoller)
 }
 
 static inline int mpoller_add_timer(const struct timespec *value, void *context,
-									mpoller_t *mpoller)
+				    mpoller_t *mpoller)
 {
 	static unsigned int n = 0;
 	unsigned int index = n++ % mpoller->nthreads;
@@ -80,4 +78,3 @@ static inline int mpoller_add_timer(const struct timespec *value, void *context,
 }
 
 #endif
-

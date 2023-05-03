@@ -19,11 +19,11 @@
 #ifndef _COMMSCHEDULER_H_
 #define _COMMSCHEDULER_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <pthread.h>
-#include <openssl/ssl.h>
 #include "Communicator.h"
+#include <openssl/ssl.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 class CommSchedObject
 {
@@ -48,18 +48,17 @@ class CommSchedGroup;
 class CommSchedTarget : public CommSchedObject, public CommTarget
 {
 public:
-	int init(const struct sockaddr *addr, socklen_t addrlen,
-			 int connect_timeout, int response_timeout,
-			 size_t max_connections);
+	int init(const struct sockaddr *addr, socklen_t addrlen, int connect_timeout,
+		 int response_timeout, size_t max_connections);
 	void deinit();
 
 public:
 	int init(const struct sockaddr *addr, socklen_t addrlen, SSL_CTX *ssl_ctx,
-			 int connect_timeout, int ssl_connect_timeout, int response_timeout,
-			 size_t max_connections)
+		 int connect_timeout, int ssl_connect_timeout, int response_timeout,
+		 size_t max_connections)
 	{
 		int ret = this->init(addr, addrlen, connect_timeout, response_timeout,
-							 max_connections);
+				     max_connections);
 
 		if (ret >= 0)
 			this->set_ssl(ssl_ctx, ssl_connect_timeout);
@@ -69,7 +68,7 @@ public:
 
 private:
 	virtual CommTarget *acquire(int wait_timeout); /* final */
-	virtual void release(int keep_alive); /* final */
+	virtual void release(int keep_alive);	       /* final */
 
 private:
 	CommSchedGroup *group;
@@ -116,14 +115,11 @@ public:
 		return this->comm.init(poller_threads, handler_threads);
 	}
 
-	void deinit()
-	{
-		this->comm.deinit();
-	}
+	void deinit() { this->comm.deinit(); }
 
 	/* wait_timeout in milliseconds, -1 for no timeout. */
-	int request(CommSession *session, CommSchedObject *object,
-				int wait_timeout, CommTarget **target)
+	int request(CommSession *session, CommSchedObject *object, int wait_timeout,
+		    CommTarget **target)
 	{
 		int ret = -1;
 
@@ -139,53 +135,29 @@ public:
 	}
 
 	/* for services. */
-	int reply(CommSession *session)
-	{
-		return this->comm.reply(session);
-	}
+	int reply(CommSession *session) { return this->comm.reply(session); }
 
 	int push(const void *buf, size_t size, CommSession *session)
 	{
 		return this->comm.push(buf, size, session);
 	}
 
-	int bind(CommService *service)
-	{
-		return this->comm.bind(service);
-	}
+	int bind(CommService *service) { return this->comm.bind(service); }
 
-	void unbind(CommService *service)
-	{
-		this->comm.unbind(service);
-	}
+	void unbind(CommService *service) { this->comm.unbind(service); }
 
 	/* for sleepers. */
-	int sleep(SleepSession *session)
-	{
-		return this->comm.sleep(session);
-	}
+	int sleep(SleepSession *session) { return this->comm.sleep(session); }
 
 	/* for file aio services. */
-	int io_bind(IOService *service)
-	{
-		return this->comm.io_bind(service);
-	}
+	int io_bind(IOService *service) { return this->comm.io_bind(service); }
 
-	void io_unbind(IOService *service)
-	{
-		this->comm.io_unbind(service);
-	}
+	void io_unbind(IOService *service) { this->comm.io_unbind(service); }
 
 public:
-	int is_handler_thread() const
-	{
-		return this->comm.is_handler_thread();
-	}
+	int is_handler_thread() const { return this->comm.is_handler_thread(); }
 
-	int increase_handler_thread()
-	{
-		return this->comm.increase_handler_thread();
-	}
+	int increase_handler_thread() { return this->comm.increase_handler_thread(); }
 
 private:
 	Communicator comm;
@@ -195,4 +167,3 @@ public:
 };
 
 #endif
-

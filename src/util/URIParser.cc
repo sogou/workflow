@@ -247,7 +247,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 
 	int start_idx[URI_PART_ELEMENTS] = {0};
 	int end_idx[URI_PART_ELEMENTS] = {0};
-	int pre_state = URI_SCHEME;;
+	int pre_state = URI_SCHEME;
 	bool in_ipv6 = false;
 	int i;
 
@@ -400,7 +400,8 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 				return -1;
 			}
 
-			if (i == URI_HOST && str[start_idx[i]] == '[' && !in_ipv6)
+			if (i == URI_HOST && str[start_idx[i]] == '[' &&
+				str[end_idx[i] - 1] == ']')
 			{
 				len -= 2;
 				memcpy(*dst[i], str + start_idx[i] + 1, len);

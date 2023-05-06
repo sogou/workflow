@@ -175,13 +175,13 @@ protected:
 	WFServerParams params;
 
 protected:
+	virtual int create_listen_fd();
 	virtual WFConnection *new_connection(int accept_fd);
 	void delete_connection(WFConnection *conn);
 
 private:
 	int init(const struct sockaddr *bind_addr, socklen_t addrlen,
 			 const char *cert_file, const char *key_file);
-	virtual int create_listen_fd();
 	virtual void handle_unbound();
 
 protected:

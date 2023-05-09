@@ -95,7 +95,7 @@ fetch_timeout | int | 100ms | fetch的超时时间
 fetch_min_bytes | int | 1 byte | 一次fetch通信最小消息的长度
 fetch_max_bytes | int | 50M bytes | 一次fetch通信最大消息的长度
 fetch_msg_max_bytes | int | 1M bytes | 一次fetch通信单个消息的最大长度
-offset_timestamp | long long int | -2 | 消费者组模式下，没有找到历史offset时，初始化的offset，-2表示最久，-1表示最新
+offset_timestamp | long long int | -1 | 消费者组模式下，没有找到历史offset时，初始化的offset，-2表示最久，-1表示最新
 session_timeout | int | 10s | 加入消费者组初始化时的超时时间
 rebalance_timeout | int | 10s | 加入消费者组同步信息阶段的超时时间
 produce_acks | int | -1 | produce任务在返回之前应确保消息成功复制的broker节点数，-1表示所有的复制broker节点

@@ -796,8 +796,8 @@ class WFMySQLServerTask : public WFServerTask<MySQLRequest, MySQLResponse>
 {
 public:
 	WFMySQLServerTask(CommService *service,
-					  std::function<void (WFMySQLTask *)>& process):
-		WFServerTask(service, WFGlobal::get_scheduler(), process)
+					  std::function<void (WFMySQLTask *)>& proc):
+		WFServerTask(service, WFGlobal::get_scheduler(), proc)
 	{}
 
 protected:

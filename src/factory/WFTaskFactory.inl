@@ -35,6 +35,7 @@
 #include "WFTaskError.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
+#include "WFHttpServerTask.h"
 
 class __WFDynamicTask : public WFDynamicTask
 {
@@ -544,10 +545,9 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
 WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
-				std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
+				std::function<void (WFNetworkTask<REQ, RESP> *)>& proc)
 {
-	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(),
-									   process);
+	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(), proc);
 }
 
 /**********Server Factory**********/
@@ -556,9 +556,13 @@ class WFServerTaskFactory
 {
 public:
 	static WFHttpTask *create_http_task(CommService *service,
-					std::function<void (WFHttpTask *)>& process);
+					std::function<void (WFHttpTask *)>& proc)
+	{
+		return new WFHttpServerTask(service, proc);
+	}
+
 	static WFMySQLTask *create_mysql_task(CommService *service,
-					std::function<void (WFMySQLTask *)>& process);
+					std::function<void (WFMySQLTask *)>& proc);
 };
 
 /************Go Task Factory************/

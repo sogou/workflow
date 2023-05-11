@@ -104,6 +104,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 	src/factory/WFResourcePool.h
 	src/factory/WFMessageQueue.h
+	src/factory/WFHttpServerTask.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h
 	src/nameservice/WFServiceGovernance.h

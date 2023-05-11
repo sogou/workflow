@@ -93,6 +93,7 @@ cc_library(
 		'src/protocol/HttpMessage.h',
 		'src/protocol/HttpUtil.h',
 		'src/protocol/http_parser.h',
+		'src/factory/WFHttpServerTask.h',
 		'src/server/WFHttpServer.h',
 	],
 	includes = [

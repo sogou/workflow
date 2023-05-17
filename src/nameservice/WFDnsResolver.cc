@@ -29,7 +29,6 @@
 #include <ctype.h>
 #include <utility>
 #include <string>
-#include "DnsRoutine.h"
 #include "EndpointParams.h"
 #include "RouteManager.h"
 #include "WFGlobal.h"
@@ -43,6 +42,192 @@
 
 #define HOSTS_LINEBUF_INIT_SIZE	128
 #define PORT_STR_MAX			5
+
+class DnsInput
+{
+public:
+	DnsInput() :
+		port_(0),
+		numeric_host_(false)
+	{}
+
+	DnsInput(const std::string& host, unsigned short port,
+			 bool numeric_host) :
+		host_(host),
+		port_(port),
+		numeric_host_(numeric_host)
+	{}
+
+	//move constructor
+	DnsInput(DnsInput&& move) = default;
+	//move operator
+	DnsInput& operator= (DnsInput &&move) = default;
+
+	void reset(const std::string& host, unsigned short port)
+	{
+		host_.assign(host);
+		port_ = port;
+		numeric_host_ = false;
+	}
+
+	void reset(const std::string& host, unsigned short port,
+			   bool numeric_host)
+	{
+		host_.assign(host);
+		port_ = port;
+		numeric_host_ = numeric_host;
+	}
+
+	const std::string& get_host() const { return host_; }
+	unsigned short get_port() const { return port_; }
+	bool is_numeric_host() const { return numeric_host_; }
+
+protected:
+	std::string host_;
+	unsigned short port_;
+	bool numeric_host_;
+
+	friend class DnsRoutine;
+};
+
+class DnsOutput
+{
+public:
+	DnsOutput():
+		error_(0),
+		addrinfo_(NULL)
+	{}
+
+	~DnsOutput()
+	{
+		if (addrinfo_)
+			freeaddrinfo(addrinfo_);
+	}
+
+	//move constructor
+	DnsOutput(DnsOutput&& move);
+	//move operator
+	DnsOutput& operator= (DnsOutput&& move);
+
+	int get_error() const { return error_; }
+	const struct addrinfo *get_addrinfo() const { return addrinfo_; }
+
+	//if DONOT want DnsOutput release addrinfo, use move_addrinfo in callback
+	struct addrinfo *move_addrinfo()
+	{
+		struct addrinfo *p = addrinfo_;
+		addrinfo_ = NULL;
+		return p;
+	}
+
+protected:
+	int error_;
+	struct addrinfo *addrinfo_;
+
+	friend class DnsRoutine;
+};
+
+class DnsRoutine
+{
+public:
+	static void run(const DnsInput *in, DnsOutput *out);
+	static void create(DnsOutput *out, int error, struct addrinfo *ai)
+	{
+		if (out->addrinfo_)
+			freeaddrinfo(out->addrinfo_);
+
+		out->error_ = error;
+		out->addrinfo_ = ai;
+	}
+
+private:
+	static void run_local_path(const std::string& path, DnsOutput *out);
+};
+
+DnsOutput::DnsOutput(DnsOutput&& move)
+{
+	error_ = move.error_;
+	addrinfo_ = move.addrinfo_;
+
+	move.error_ = 0;
+	move.addrinfo_ = NULL;
+}
+
+DnsOutput& DnsOutput::operator= (DnsOutput&& move)
+{
+	if (this != &move)
+	{
+		if (addrinfo_)
+			freeaddrinfo(addrinfo_);
+
+		error_ = move.error_;
+		addrinfo_ = move.addrinfo_;
+
+		move.error_ = 0;
+		move.addrinfo_ = NULL;
+	}
+
+	return *this;
+}
+
+void DnsRoutine::run_local_path(const std::string& path, DnsOutput *out)
+{
+	struct sockaddr_un *sun = NULL;
+
+	if (path.size() + 1 <= sizeof sun->sun_path)
+	{
+		size_t size = sizeof (struct addrinfo) + sizeof (struct sockaddr_un);
+
+		out->addrinfo_ = (struct addrinfo *)calloc(size, 1);
+		if (out->addrinfo_)
+		{
+			sun = (struct sockaddr_un *)(out->addrinfo_ + 1);
+			sun->sun_family = AF_UNIX;
+			memcpy(sun->sun_path, path.c_str(), path.size());
+
+			out->addrinfo_->ai_family = AF_UNIX;
+			out->addrinfo_->ai_socktype = SOCK_STREAM;
+			out->addrinfo_->ai_addr = (struct sockaddr *)sun;
+			size = offsetof(struct sockaddr_un, sun_path) + path.size() + 1;
+			out->addrinfo_->ai_addrlen = size;
+			out->error_ = 0;
+			return;
+		}
+	}
+	else
+		errno = EINVAL;
+
+	out->error_ = EAI_SYSTEM;
+}
+
+void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
+{
+	if (!in->host_.empty() && in->host_[0] == '/')
+	{
+		run_local_path(in->host_, out);
+		return;
+	}
+
+	struct addrinfo hints = {
+#ifdef AI_ADDRCONFIG
+		.ai_flags    = AI_ADDRCONFIG,
+#endif
+		.ai_family   = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM
+	};
+	char port_str[PORT_STR_MAX + 1];
+
+	hints.ai_flags |= AI_NUMERICSERV;
+	if (in->is_numeric_host())
+		hints.ai_flags |= AI_NUMERICHOST;
+
+	snprintf(port_str, PORT_STR_MAX + 1, "%u", in->port_);
+	out->error_ = getaddrinfo(in->host_.c_str(),
+							  port_str,
+							  &hints,
+							  &out->addrinfo_);
+}
+
 
 // Dns Thread task. For internal usage only.
 using ThreadDnsTask = WFThreadTask<DnsInput, DnsOutput>;

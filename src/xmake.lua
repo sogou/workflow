@@ -18,7 +18,7 @@ end)
 
 target("workflow")
     set_kind("$(kind)")
-    add_deps("algorithm", "client", "factory", "kernel", "manager",
+    add_deps("client", "factory", "kernel", "manager",
              "nameservice", "protocol", "server", "util")
 
     on_load(function (package)

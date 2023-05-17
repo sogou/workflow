@@ -58,11 +58,6 @@ public:
 		numeric_host_(numeric_host)
 	{}
 
-	//move constructor
-	DnsInput(DnsInput&& move) = default;
-	//move operator
-	DnsInput& operator= (DnsInput &&move) = default;
-
 	void reset(const std::string& host, unsigned short port)
 	{
 		host_.assign(host);
@@ -104,11 +99,6 @@ public:
 			freeaddrinfo(addrinfo_);
 	}
 
-	//move constructor
-	DnsOutput(DnsOutput&& move);
-	//move operator
-	DnsOutput& operator= (DnsOutput&& move);
-
 	int get_error() const { return error_; }
 	const struct addrinfo *get_addrinfo() const { return addrinfo_; }
 
@@ -143,32 +133,6 @@ public:
 private:
 	static void run_local_path(const std::string& path, DnsOutput *out);
 };
-
-DnsOutput::DnsOutput(DnsOutput&& move)
-{
-	error_ = move.error_;
-	addrinfo_ = move.addrinfo_;
-
-	move.error_ = 0;
-	move.addrinfo_ = NULL;
-}
-
-DnsOutput& DnsOutput::operator= (DnsOutput&& move)
-{
-	if (this != &move)
-	{
-		if (addrinfo_)
-			freeaddrinfo(addrinfo_);
-
-		error_ = move.error_;
-		addrinfo_ = move.addrinfo_;
-
-		move.error_ = 0;
-		move.addrinfo_ = NULL;
-	}
-
-	return *this;
-}
 
 void DnsRoutine::run_local_path(const std::string& path, DnsOutput *out)
 {

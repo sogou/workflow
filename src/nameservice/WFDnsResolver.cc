@@ -40,6 +40,22 @@
 #define HOSTS_LINEBUF_INIT_SIZE	128
 #define PORT_STR_MAX			5
 
+static constexpr struct addrinfo __ai_hints =
+{
+#ifdef AI_ADDRCONFIG
+	/*.ai_flags = */		AI_ADDRCONFIG,
+#else
+	/*.ai_flags = */		0,
+#endif
+	/*.ai_family = */		AF_UNSPEC,
+	/*.ai_socktype = */		SOCK_STREAM,
+	/*.ai_protocol = */		0,
+	/*.ai_addrlen = */		0,
+	/*.ai_addr = */			NULL,
+	/*.ai_canonname = */	NULL,
+	/*.ai_next = */			NULL
+};
+
 class DnsInput
 {
 public:
@@ -133,13 +149,7 @@ void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 	if (!in->host_.empty() && in->host_[0] == '/')
 		return;
 
-	struct addrinfo hints = {
-#ifdef AI_ADDRCONFIG
-		/*.ai_flags    = */AI_ADDRCONFIG,
-#endif
-		/*.ai_family   = */AF_UNSPEC,
-		/*.ai_socktype = */SOCK_STREAM
-	};
+	struct addrinfo hints = __ai_hints;
 	char port_str[PORT_STR_MAX + 1];
 
 	hints.ai_flags |= AI_NUMERICSERV;
@@ -156,22 +166,6 @@ void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 // Dns Thread task. For internal usage only.
 using ThreadDnsTask = WFThreadTask<DnsInput, DnsOutput>;
 using thread_dns_callback_t = std::function<void (ThreadDnsTask *)>;
-
-static constexpr struct addrinfo __ai_hints =
-{
-#ifdef AI_ADDRCONFIG
-	/*.ai_flags = */		AI_ADDRCONFIG,
-#else
-	/*.ai_flags = */		0,
-#endif
-	/*.ai_family = */		AF_UNSPEC,
-	/*.ai_socktype = */		SOCK_STREAM,
-	/*.ai_protocol = */		0,
-	/*.ai_addrlen = */		0,
-	/*.ai_addr = */			NULL,
-	/*.ai_canonname = */	NULL,
-	/*.ai_next = */			NULL
-};
 
 struct DnsContext
 {

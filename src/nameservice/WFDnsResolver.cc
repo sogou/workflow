@@ -26,7 +26,6 @@
 #include <string>
 #include <fstream>
 #include "PlatformSocket.h"
-#include "DnsRoutine.h"
 #include "EndpointParams.h"
 #include "RouteManager.h"
 #include "WFGlobal.h"

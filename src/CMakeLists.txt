@@ -11,7 +11,6 @@ endif ()
 
 add_subdirectory(util)
 add_subdirectory(manager)
-add_subdirectory(algorithm)
 add_subdirectory(protocol)
 add_subdirectory(factory)
 add_subdirectory(nameservice)
@@ -21,7 +20,6 @@ add_subdirectory(client)
 add_dependencies(kernel LINK_HEADERS)
 add_dependencies(util LINK_HEADERS)
 add_dependencies(manager LINK_HEADERS)
-add_dependencies(algorithm LINK_HEADERS)
 add_dependencies(protocol LINK_HEADERS)
 add_dependencies(factory LINK_HEADERS)
 add_dependencies(nameservice LINK_HEADERS)
@@ -33,7 +31,6 @@ add_library(
 	$<TARGET_OBJECTS:kernel>
 	$<TARGET_OBJECTS:util>
 	$<TARGET_OBJECTS:manager>
-	$<TARGET_OBJECTS:algorithm>
 	$<TARGET_OBJECTS:protocol>
 	$<TARGET_OBJECTS:factory>
 	$<TARGET_OBJECTS:nameservice>

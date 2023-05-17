@@ -48,7 +48,6 @@ endif ()
 
 set(INCLUDE_HEADERS
 	src/PlatformSocket.h
-	src/algorithm/DnsRoutine.h
 	src/algorithm/MapReduce.h
 	src/algorithm/MapReduce.inl
 	src/protocol/ProtocolMessage.h

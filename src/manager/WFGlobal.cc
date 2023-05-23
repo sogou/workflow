@@ -376,15 +376,11 @@ inline IOService *__CommManager::get_io_service()
 		fio_mutex_.lock();
 		if (!fio_flag_)
 		{
-			int maxevents = 65536;
+			int maxevents = WFGlobal::get_global_settings()->fio_max_events;
 
 			fio_service_ = new __FileIOService(&scheduler_);
-			while (fio_service_->init(maxevents) < 0)
-			{
-				if (errno != EAGAIN || maxevents == 256)
-					abort();
-				maxevents /= 2;
-			}
+			if (fio_service_->init(maxevents) < 0)
+				abort();
 
 			if (fio_service_->bind() < 0)
 				abort();

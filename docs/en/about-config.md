@@ -17,6 +17,7 @@ struct WFGlobalSettings
     int poller_threads;
     int handler_threads;
     int compute_threads;            ///< auto-set by system CPU number if value<=0
+    int fio_max_events;
     const char *resolv_conf_path;
     const char *hosts_path;
 };
@@ -32,6 +33,7 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
     .poller_threads     =   4,
     .handler_threads    =   20,
     .compute_threads    =   -1,
+	.fio_max_events     =   4096,
     .resolv_conf_path   =   "/etc/resolv.conf",
     .hosts_path         =   "/etc/hosts",
 };
@@ -89,5 +91,6 @@ poller\_threads and handler\_threads are the two parameters for tuning network p
 
 * poller\_threads is mainly used for epoll (kqueue) and message deserialization.
 * handler\_threads is the number of threads for the callback and the process of a network task.
+* fio\_max\_events is the maximum number of concurrent asynchronous file IO events.
 
 All resources required by the framework are applied for when they are used for the first time. For example, if a user task does not involve DNS resolution, the asynchronous DNS resolver or DNS threads will not be created.

@@ -86,6 +86,10 @@ private:
 	}
 
 private:
+	int maxevents;
+	int nevents;
+
+private:
 	void incref();
 	void decref();
 

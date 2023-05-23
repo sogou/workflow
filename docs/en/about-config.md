@@ -85,12 +85,12 @@ Most of the parameters are self-explanatory. Note: the ttl and related parameter
 dns\_threads indicates the total number of threads accessing DNS in parallel, but by default, we use asynchronous DNS resolving and don't create any dns threads (Except windows platform).  
 dns\_server\_params indicates parameters that we access DNS server, including the maximum cocurrent connections, and the DNS server's connecting and response timeout.  
 compute\_threads indicates the number of threads used for computation. The default value is -1, meaning the number of threads is the same as the number of CPU cores in the current node.   
-resolv\_conf\_path indicate the path of dns resolving configuration file. The default value is "/etc/resolv.conf" on unix platforms and NULL on windows. On the windows platform, we still use multi-threaded dns resolving by default.  
+fio\_max\_events indicates the maximum number of concurrent asynchronous file IO events.  
+resolv\_conf\_path indicates the path of dns resolving configuration file. The default value is "/etc/resolv.conf" on unix platforms and NULL on windows. On the windows platform, we still use multi-threaded dns resolving by default.  
 hosts_path indicates the path of the **hosts** file. The default value is "/etc/hosts" on unix platforms. If resolv_conf_path is NULL, this configuration will be ignored.  
 poller\_threads and handler\_threads are the two parameters for tuning network performance:
 
 * poller\_threads is mainly used for epoll (kqueue) and message deserialization.
 * handler\_threads is the number of threads for the callback and the process of a network task.
-* fio\_max\_events is the maximum number of concurrent asynchronous file IO events.
 
 All resources required by the framework are applied for when they are used for the first time. For example, if a user task does not involve DNS resolution, the asynchronous DNS resolver or DNS threads will not be created.

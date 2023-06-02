@@ -17,6 +17,8 @@
 */
 
 #include <assert.h>
+#include <stdlib.h>
+#include <random>
 #include <algorithm>
 #include <vector>
 #include <functional>
@@ -423,6 +425,81 @@ WFSortTask<T> *WFAlgoTaskFactory::create_psort_task(const std::string& name,
 										  WFGlobal::get_compute_executor(),
 										  first, last, std::move(compare), 0,
 										  std::move(callback));
+}
+
+/****************** Shuffle ******************/
+
+template<typename T>
+class __WFShuffleTask : public WFShuffleTask<T>
+{
+protected:
+	virtual void execute()
+	{
+		std::shuffle(this->input.first, this->input.last,
+					 std::mt19937_64(random()));
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
+	}
+
+public:
+	__WFShuffleTask(ExecQueue *queue, Executor *executor,
+					T *first, T *last,
+					shuffle_callback_t<T>&& cb) :
+		WFShuffleTask<T>(queue, executor, std::move(cb))
+	{
+		this->input.first = first;
+		this->input.last = last;
+		this->output.first = NULL;
+		this->output.last = NULL;
+	}
+};
+
+template<typename T, class URBG>
+class __WFShuffleTaskGen : public __WFShuffleTask<T>
+{
+protected:
+	virtual void execute()
+	{
+		std::shuffle(this->input.first, this->input.last,
+					 std::move(this->generator));
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
+	}
+
+protected:
+	URBG generator;
+
+public:
+	__WFShuffleTaskGen(ExecQueue *queue, Executor *executor,
+					   T *first, T *last, URBG&& gen,
+					   shuffle_callback_t<T>&& cb) :
+		__WFShuffleTask<T>(queue, executor, std::move(cb)),
+		generator(std::move(gen))
+	{
+	}
+};
+
+template<typename T, class CB>
+WFShuffleTask<T> *WFAlgoTaskFactory::create_shuffle_task(const std::string& name,
+														 T *first, T *last,
+														 CB callback)
+{
+	return new __WFShuffleTask<T>(WFGlobal::get_exec_queue(name),
+								  WFGlobal::get_compute_executor(),
+								  first, last,
+								  std::move(callback));
+}
+
+template<typename T, class URBG, class CB>
+WFShuffleTask<T> *WFAlgoTaskFactory::create_shuffle_task(const std::string& name,
+														 T *first, T *last,
+														 URBG generator,
+														 CB callback)
+{
+	return new __WFShuffleTaskGen<T, URBG>(WFGlobal::get_exec_queue(name),
+										   WFGlobal::get_compute_executor(),
+										   first, last, std::move(generator),
+										   std::move(callback));
 }
 
 /****************** MapReduce ******************/

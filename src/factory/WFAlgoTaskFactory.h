@@ -59,6 +59,20 @@ struct MergeOutput
 	T *last;
 };
 
+template<typename T>
+struct ShuffleInput
+{
+	T *first;
+	T *last;
+};
+
+template<typename T>
+struct ShuffleOutput
+{
+	T *first;
+	T *last;
+};
+
 template<typename KEY = std::string, typename VAL = std::string>
 using ReduceInput = std::vector<std::pair<KEY, VAL>>;
 
@@ -78,6 +92,12 @@ using WFMergeTask = WFThreadTask<algorithm::MergeInput<T>,
 								 algorithm::MergeOutput<T>>;
 template<typename T>
 using merge_callback_t = std::function<void (WFMergeTask<T> *)>;
+
+template<typename T>
+using WFShuffleTask = WFThreadTask<algorithm::ShuffleInput<T>,
+								   algorithm::ShuffleOutput<T>>;
+template<typename T>
+using shuffle_callback_t = std::function<void (WFShuffleTask<T> *)>;
 
 template<typename KEY = std::string, typename VAL = std::string>
 using WFReduceTask = WFThreadTask<algorithm::ReduceInput<KEY, VAL>,
@@ -99,6 +119,17 @@ public:
 										   CMP compare,
 										   CB callback);
 
+	template<typename T, class CB = sort_callback_t<T>>
+	static WFSortTask<T> *create_psort_task(const std::string& queue_name,
+											T *first, T *last,
+											CB callback);
+
+	template<typename T, class CMP, class CB = sort_callback_t<T>>
+	static WFSortTask<T> *create_psort_task(const std::string& queue_name,
+											T *first, T *last,
+											CMP compare,
+											CB callback);
+
 	template<typename T, class CB = merge_callback_t<T>>
 	static WFMergeTask<T> *create_merge_task(const std::string& queue_name,
 											 T *first1, T *last1,
@@ -114,16 +145,16 @@ public:
 											 CMP compare,
 											 CB callback);
 
-	template<typename T, class CB = sort_callback_t<T>>
-	static WFSortTask<T> *create_psort_task(const std::string& queue_name,
-											T *first, T *last,
-											CB callback);
+	template<typename T, class CB = shuffle_callback_t<T>>
+	static WFShuffleTask<T> *create_shuffle_task(const std::string& queue_name,
+												 T *first, T *last,
+												 CB callback);
 
-	template<typename T, class CMP, class CB = sort_callback_t<T>>
-	static WFSortTask<T> *create_psort_task(const std::string& queue_name,
-											T *first, T *last,
-											CMP compare,
-											CB callback);
+	template<typename T, class URBG, class CB = shuffle_callback_t<T>>
+	static WFShuffleTask<T> *create_shuffle_task(const std::string& queue_name,
+												 T *first, T *last,
+												 URBG generator,
+												 CB callback);
 
 	template<typename KEY = std::string, typename VAL = std::string,
 			 class RED = algorithm::reduce_function_t<KEY, VAL>,

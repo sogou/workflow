@@ -20,6 +20,7 @@
 // for std::min on windows
 #define NOMINMAX
 
+#include <stdlib.h>
 #include <mutex>
 #include <random>
 #include <algorithm>
@@ -31,7 +32,7 @@
 class EndpointGroup
 {
 public:
-	EndpointGroup(int group_id, UPSGroupPolicy *policy) : gen(rd())
+	EndpointGroup(int group_id, UPSGroupPolicy *policy) : gen(std::rand())
 	{
 		this->id = group_id;
 		this->policy = policy;
@@ -47,7 +48,6 @@ public:
 	UPSGroupPolicy *policy;
 	struct rb_node rb;
 	std::mutex mutex;
-	std::random_device rd;
 	std::mt19937 gen;
 	std::vector<EndpointAddress *> mains;
 	std::vector<EndpointAddress *> backups;

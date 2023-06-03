@@ -502,6 +502,81 @@ WFShuffleTask<T> *WFAlgoTaskFactory::create_shuffle_task(const std::string& name
 										   std::move(callback));
 }
 
+/****************** Remove ******************/
+
+template<typename T>
+class __WFRemoveTask : public WFRemoveTask<T>
+{
+protected:
+	virtual void execute()
+	{
+		this->output.last = std::remove(this->input.first, this->input.last,
+										this->input.value);
+		this->output.first = this->input.first;
+	}
+
+public:
+	__WFRemoveTask(ExecQueue *queue, Executor *executor,
+				   T *first, T *last, T&& value,
+				   remove_callback_t<T>&& cb) :
+		WFRemoveTask<T>(queue, executor, std::move(cb))
+	{
+		this->input.first = first;
+		this->input.last = last;
+		this->input.value = std::move(value);
+		this->output.first = NULL;
+		this->output.last = NULL;
+	}
+};
+
+template<typename T, class CB>
+WFRemoveTask<T> *WFAlgoTaskFactory::create_remove_task(const std::string& name,
+													   T *first, T *last,
+													   T value,
+													   CB callback)
+{
+	return new __WFRemoveTask<T>(WFGlobal::get_exec_queue(name),
+								 WFGlobal::get_compute_executor(),
+								 first, last, std::move(value),
+								 std::move(callback));
+}
+
+/****************** Unique ******************/
+
+template<typename T>
+class __WFUniqueTask : public WFUniqueTask<T>
+{
+protected:
+	virtual void execute()
+	{
+		this->output.last = std::unique(this->input.first, this->input.last);
+		this->output.first = this->input.first;
+	}
+
+public:
+	__WFUniqueTask(ExecQueue *queue, Executor *executor,
+				   T *first, T *last,
+				   unique_callback_t<T>&& cb) :
+		WFUniqueTask<T>(queue, executor, std::move(cb))
+	{
+		this->input.first = first;
+		this->input.last = last;
+		this->output.first = NULL;
+		this->output.last = NULL;
+	}
+};
+
+template<typename T, class CB>
+WFUniqueTask<T> *WFAlgoTaskFactory::create_unique_task(const std::string& name,
+													   T *first, T *last,
+													   CB callback)
+{
+	return new __WFUniqueTask<T>(WFGlobal::get_exec_queue(name),
+								 WFGlobal::get_compute_executor(),
+								 first, last,
+								 std::move(callback));
+}
+
 /****************** MapReduce ******************/
 
 template<typename KEY, typename VAL>

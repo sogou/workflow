@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <mutex>
 #include <condition_variable>
-#include "workflow/WFTaskFactory.h"
+#include "workflow/WFAlgoTaskFactory.h"
 
 bool use_parallel_sort = false;
 bool finished = false;

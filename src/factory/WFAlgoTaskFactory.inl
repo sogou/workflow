@@ -577,6 +577,81 @@ WFUniqueTask<T> *WFAlgoTaskFactory::create_unique_task(const std::string& name,
 								 std::move(callback));
 }
 
+/****************** Reverse ******************/
+
+template<typename T>
+class __WFReverseTask : public WFReverseTask<T>
+{
+protected:
+	virtual void execute()
+	{
+		std::reverse(this->input.first, this->input.last);
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
+	}
+
+public:
+	__WFReverseTask(ExecQueue *queue, Executor *executor,
+					T *first, T *last,
+					reverse_callback_t<T>&& cb) :
+		WFReverseTask<T>(queue, executor, std::move(cb))
+	{
+		this->input.first = first;
+		this->input.last = last;
+		this->output.first = NULL;
+		this->output.last = NULL;
+	}
+};
+
+template<typename T, class CB>
+WFReverseTask<T> *WFAlgoTaskFactory::create_reverse_task(const std::string& name,
+														 T *first, T *last,
+														 CB callback)
+{
+	return new __WFReverseTask<T>(WFGlobal::get_exec_queue(name),
+								  WFGlobal::get_compute_executor(),
+								  first, last,
+								  std::move(callback));
+}
+
+/****************** Rotate ******************/
+
+template<typename T>
+class __WFRotateTask : public WFRotateTask<T>
+{
+protected:
+	virtual void execute()
+	{
+		std::rotate(this->input.first, this->input.middle, this->input.last);
+		this->output.first = this->input.first;
+		this->output.last = this->input.last;
+	}
+
+public:
+	__WFRotateTask(ExecQueue *queue, Executor *executor,
+					T *first, T* middle, T *last,
+					rotate_callback_t<T>&& cb) :
+		WFRotateTask<T>(queue, executor, std::move(cb))
+	{
+		this->input.first = first;
+		this->input.middle = middle;
+		this->input.last = last;
+		this->output.first = NULL;
+		this->output.last = NULL;
+	}
+};
+
+template<typename T, class CB>
+WFRotateTask<T> *WFAlgoTaskFactory::create_rotate_task(const std::string& name,
+													   T *first, T *middle, T *last,
+													   CB callback)
+{
+	return new __WFRotateTask<T>(WFGlobal::get_exec_queue(name),
+								 WFGlobal::get_compute_executor(),
+								 first, middle, last,
+								 std::move(callback));
+}
+
 /****************** MapReduce ******************/
 
 template<typename KEY, typename VAL>

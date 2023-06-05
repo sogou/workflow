@@ -102,6 +102,35 @@ struct UniqueOutput
 	T *last;
 };
 
+template<typename T>
+struct ReverseInput
+{
+	T *first;
+	T *last;
+};
+
+template<typename T>
+struct ReverseOutput
+{
+	T *first;
+	T *last;
+};
+
+template<typename T>
+struct RotateInput
+{
+	T *first;
+	T *middle;
+	T *last;
+};
+
+template<typename T>
+struct RotateOutput
+{
+	T *first;
+	T *last;
+};
+
 template<typename KEY = std::string, typename VAL = std::string>
 using ReduceInput = std::vector<std::pair<KEY, VAL>>;
 
@@ -139,6 +168,18 @@ using WFUniqueTask = WFThreadTask<algorithm::UniqueInput<T>,
 								  algorithm::UniqueOutput<T>>;
 template<typename T>
 using unique_callback_t = std::function<void (WFUniqueTask<T> *)>;
+
+template<typename T>
+using WFReverseTask = WFThreadTask<algorithm::ReverseInput<T>,
+								   algorithm::ReverseOutput<T>>;
+template<typename T>
+using reverse_callback_t = std::function<void (WFReverseTask<T> *)>;
+
+template<typename T>
+using WFRotateTask = WFThreadTask<algorithm::RotateInput<T>,
+								  algorithm::RotateOutput<T>>;
+template<typename T>
+using rotate_callback_t = std::function<void (WFRotateTask<T> *)>;
 
 template<typename KEY = std::string, typename VAL = std::string>
 using WFReduceTask = WFThreadTask<algorithm::ReduceInput<KEY, VAL>,
@@ -206,6 +247,16 @@ public:
 	template<typename T, class CB = unique_callback_t<T>>
 	static WFUniqueTask<T> *create_unique_task(const std::string& queue_name,
 											   T *first, T *last,
+											   CB callback);
+
+	template<typename T, class CB = reverse_callback_t<T>>
+	static WFReverseTask<T> *create_reverse_task(const std::string& queue_name,
+												 T *first, T *last,
+												 CB callback);
+
+	template<typename T, class CB = rotate_callback_t<T>>
+	static WFRotateTask<T> *create_rotate_task(const std::string& queue_name,
+											   T *first, T *middle, T *last,
 											   CB callback);
 
 	template<typename KEY = std::string, typename VAL = std::string,

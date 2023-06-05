@@ -18,7 +18,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "workflow/WFTaskFactory.h"
+#include "workflow/WFAlgoTaskFactory.h"
 #include "workflow/WFFacilities.h"
 
 using namespace algorithm;

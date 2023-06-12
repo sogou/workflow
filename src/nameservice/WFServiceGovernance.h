@@ -71,6 +71,8 @@ public:
 
 	PolicyAddrParams();
 	PolicyAddrParams(const struct AddressParams *params);
+
+	virtual ~PolicyAddrParams() = default;
 };
 
 class EndpointAddress

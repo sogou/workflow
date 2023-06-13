@@ -72,8 +72,10 @@ public:
 	unsigned int dns_ttl_min;
 	unsigned int max_fails;
 
+public:
 	PolicyAddrParams();
 	PolicyAddrParams(const struct AddressParams *params);
+	virtual ~PolicyAddrParams() { }
 };
 
 class EndpointAddress

@@ -110,6 +110,7 @@ public:
 		this->member->mutex.unlock();
 
 		this->info_generated = false;
+		this->msg = NULL;
 	}
 
 	virtual ~KafkaClientTask()
@@ -164,6 +165,10 @@ private:
 
 	void kafka_process_toppar_offset(KafkaToppar *task_toppar);
 
+	bool check_cgroup();
+
+	bool check_meta();
+
 	int arrange_toppar(int api_type);
 
 	int arrange_produce();
@@ -173,6 +178,8 @@ private:
 	int arrange_commit();
 
 	int arrange_offset();
+
+	void dispatch_locked();
 
 	inline KafkaBroker *get_broker(int node_id)
 	{
@@ -195,6 +202,7 @@ private:
 	std::set<std::string> topic_set;
 	std::string userinfo;
 	bool info_generated;
+	void *msg;
 
 	friend class WFKafkaClient;
 };
@@ -294,7 +302,7 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 
 		char name[64];
 		snprintf(name, 64, "%p.cgroup", member);
-		WFTaskFactory::count_by_name(name, (unsigned int)-1);
+		WFTaskFactory::signal_by_name(name, NULL);
 	}
 	else
 		kafka_rebalance_proc(member, series);
@@ -440,6 +448,8 @@ void KafkaClientTask::kafka_merge_broker_list(std::vector<std::string> *hosts,
 void KafkaClientTask::kafka_meta_callback(__WFKafkaTask *task)
 {
 	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
+	void *msg = NULL;
+
 	t->member->mutex.lock();
 	t->state = task->get_state();
 	t->error = task->get_error();
@@ -466,18 +476,20 @@ void KafkaClientTask::kafka_meta_callback(__WFKafkaTask *task)
 			(t->member->meta_map)[meta->get_topic()] = META_UNINIT;
 
 		t->finish = true;
+		msg = t;
 	}
 
 	char name[64];
 	snprintf(name, 64, "%p.meta", t->member);
 	t->member->mutex.unlock();
-	WFTaskFactory::count_by_name(name, (unsigned int)-1);
+	WFTaskFactory::signal_by_name(name, msg);
 }
 
 void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 {
 	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
 	SeriesWork *heartbeat_series = NULL;
+	void *msg = NULL;
 
 	t->member->mutex.lock();
 	t->state = task->get_state();
@@ -533,13 +545,14 @@ void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 		t->member->heartbeat_status = KAFKA_HEARTBEAT_UNINIT;
 		t->member->heartbeat_series = NULL;
 		t->finish = true;
+		msg = t;
 	}
 
 	char name[64];
 	snprintf(name, 64, "%p.cgroup", t->member);
 	t->member->mutex.unlock();
 
-	WFTaskFactory::count_by_name(name, (unsigned int)-1);
+	WFTaskFactory::signal_by_name(name, msg);
 
 	if (heartbeat_series)
 		heartbeat_series->start();
@@ -744,25 +757,8 @@ void KafkaClientTask::set_meta_status(enum MetaStatus status)
 		this->member->meta_map[meta->get_topic()] = status;
 }
 
-void KafkaClientTask::dispatch()
+bool KafkaClientTask::check_cgroup()
 {
-	__WFKafkaTask *task;
-	WFCounterTask *counter;
-	ParallelWork *parallel;
-
-	if (this->finish)
-	{
-		this->subtask_done();
-		return;
-	}
-
-	if (!this->query.empty())
-		this->parse_query();
-
-	this->generate_info();
-
-	this->member->mutex.lock();
-
 	if (this->member->cgroup_outdated &&
 		this->member->cgroup_status != KAFKA_CGROUP_DOING)
 	{
@@ -774,18 +770,19 @@ void KafkaClientTask::dispatch()
 
 	if (this->member->cgroup_status == KAFKA_CGROUP_DOING)
 	{
+		WFConditional *cond;
 		char name[64];
 		snprintf(name, 64, "%p.cgroup", this->member);
-		counter = WFTaskFactory::create_counter_task(name, 1, nullptr);
-		series_of(this)->push_front(this);
-		series_of(this)->push_front(counter);
-		this->member->mutex.unlock();
-		this->subtask_done();
-		return;
+		cond = WFTaskFactory::create_conditional(name, this, &this->msg);
+		series_of(this)->push_front(cond);
+		return false;
 	}
-	else if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit) &&
-			 (this->member->cgroup_status == KAFKA_CGROUP_UNINIT))
+
+	if ((this->api_type == Kafka_Fetch || this->api_type == Kafka_OffsetCommit) &&
+		(this->member->cgroup_status == KAFKA_CGROUP_UNINIT))
 	{
+		__WFKafkaTask *task;
+
 		task = __WFKafkaTaskFactory::create_kafka_task(this->url,
 													   this->retry_max,
 													   kafka_cgroup_callback);
@@ -797,17 +794,32 @@ void KafkaClientTask::dispatch()
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(task);
 		this->member->cgroup_status = KAFKA_CGROUP_DOING;
-		this->member->mutex.unlock();
-		this->subtask_done();
-		return;
+		return false;
 	}
 
-	KafkaMetaList *uninit_meta_list;
-	char name[64];
+	return true;
+}
 
-	switch(this->get_meta_status(&uninit_meta_list))
+bool KafkaClientTask::check_meta()
+{
+	KafkaMetaList *uninit_meta_list;
+	int status;
+
+	status = this->get_meta_status(&uninit_meta_list);
+	if (status == META_DOING)
 	{
-	case META_UNINIT:
+		WFConditional *cond;
+		char name[64];
+		snprintf(name, 64, "%p.meta", this->member);
+		cond = WFTaskFactory::create_conditional(name, this, &this->msg);
+		series_of(this)->push_front(cond);
+		return false;
+	}
+
+	if (status == META_UNINIT)
+	{
+		__WFKafkaTask *task;
+
 		task = __WFKafkaTaskFactory::create_kafka_task(this->url,
 													   this->retry_max,
 													   kafka_meta_callback);
@@ -818,42 +830,35 @@ void KafkaClientTask::dispatch()
 		delete uninit_meta_list;
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(task);
-		this->member->mutex.unlock();
-		this->subtask_done();
-		return;
-
-	case META_DOING:
-		snprintf(name, 64, "%p.meta", this->member);
-		counter = WFTaskFactory::create_counter_task(name, 1, nullptr);
-		series_of(this)->push_front(this);
-		series_of(this)->push_front(counter);
-		this->member->mutex.unlock();
-		this->subtask_done();
-		return;
-
-	case META_INITED:
-		break;
+		return false;
 	}
+
+	return true;
+}
+
+void KafkaClientTask::dispatch_locked()
+{
+	__WFKafkaTask *task;
+	ParallelWork *parallel;
+	SeriesWork *series;
+
+	if (this->check_cgroup() == false || this->check_meta() == false)
+		return;
 
 	if (arrange_toppar(this->api_type) < 0)
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_KAFKA_ARRANGE_FAILED;
 		this->finish = true;
-		this->member->mutex.unlock();
-		this->subtask_done();
 		return;
 	}
 
 	if (this->member->cgroup_outdated)
 	{
 		series_of(this)->push_front(this);
-		this->member->mutex.unlock();
-		this->subtask_done();
 		return;
 	}
 
-	SeriesWork *series;
 	switch(this->api_type)
 	{
 	case Kafka_Produce:
@@ -1086,8 +1091,33 @@ void KafkaClientTask::dispatch()
 		this->finish = true;
 		break;
 	}
+}
 
+void KafkaClientTask::dispatch()
+{
+	if (this->finish || this->msg)
+	{
+		if (this->msg)
+		{
+			KafkaClientTask *task = (KafkaClientTask *)this->msg;
+			this->state = task->get_state();
+			this->error = task->get_error();
+			this->kafka_error = get_kafka_error();
+		}
+
+		this->subtask_done();
+		return;
+	}
+
+	if (!this->query.empty())
+		this->parse_query();
+
+	this->generate_info();
+
+	this->member->mutex.lock();
+	this->dispatch_locked();
 	this->member->mutex.unlock();
+
 	this->subtask_done();
 }
 

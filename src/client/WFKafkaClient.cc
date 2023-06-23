@@ -165,6 +165,8 @@ private:
 
 	void kafka_process_toppar_offset(KafkaToppar *task_toppar);
 
+	bool compare_topics(KafkaClientTask *task);
+
 	bool check_cgroup();
 
 	bool check_meta();
@@ -202,6 +204,7 @@ private:
 	std::set<std::string> topic_set;
 	std::string userinfo;
 	bool info_generated;
+	bool wait_cgroup;
 	void *msg;
 
 	friend class WFKafkaClient;
@@ -757,6 +760,29 @@ void KafkaClientTask::set_meta_status(enum MetaStatus status)
 		this->member->meta_map[meta->get_topic()] = status;
 }
 
+bool KafkaClientTask::compare_topics(KafkaClientTask *task)
+{
+	protocol::KafkaMetaList *meta_list1 = &this->meta_list;
+	protocol::KafkaMetaList *meta_list2 = &task->meta_list;
+	KafkaMeta *meta1, *meta2;
+
+	meta_list1->rewind();
+	meta_list2->rewind();
+	while (1)
+	{
+		meta1 = meta_list1->get_next();
+		meta2 = meta_list2->get_next();
+		if (!meta1 && !meta2)
+			return true;
+
+		if (!meta1 || !meta2)
+			return false;
+
+		if (strcmp(meta1->get_topic(), meta2->get_topic()))
+			return false;
+	}
+}
+
 bool KafkaClientTask::check_cgroup()
 {
 	if (this->member->cgroup_outdated &&
@@ -773,6 +799,7 @@ bool KafkaClientTask::check_cgroup()
 		WFConditional *cond;
 		char name[64];
 		snprintf(name, 64, "%p.cgroup", this->member);
+		this->wait_cgroup = true;
 		cond = WFTaskFactory::create_conditional(name, this, &this->msg);
 		series_of(this)->push_front(cond);
 		return false;
@@ -811,6 +838,7 @@ bool KafkaClientTask::check_meta()
 		WFConditional *cond;
 		char name[64];
 		snprintf(name, 64, "%p.meta", this->member);
+		this->wait_cgroup = false;
 		cond = WFTaskFactory::create_conditional(name, this, &this->msg);
 		series_of(this)->push_front(cond);
 		return false;
@@ -1097,16 +1125,23 @@ void KafkaClientTask::dispatch()
 {
 	if (this->finish || this->msg)
 	{
-		if (this->msg)
+		this->subtask_done();
+		return;
+	}
+
+	if (this->msg)
+	{
+		KafkaClientTask *task = (KafkaClientTask *)this->msg;
+		if (this->wait_cgroup || this->compare_topics(task) == true)
 		{
-			KafkaClientTask *task = (KafkaClientTask *)this->msg;
 			this->state = task->get_state();
 			this->error = task->get_error();
 			this->kafka_error = get_kafka_error();
+			this->subtask_done();
+			return;
 		}
 
-		this->subtask_done();
-		return;
+		this->msg = NULL;
 	}
 
 	if (!this->query.empty())

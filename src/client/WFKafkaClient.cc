@@ -1123,7 +1123,7 @@ void KafkaClientTask::dispatch_locked()
 
 void KafkaClientTask::dispatch()
 {
-	if (this->finish || this->msg)
+	if (this->finish)
 	{
 		this->subtask_done();
 		return;

@@ -284,7 +284,13 @@ public:
 	static WFConditional *create_conditional(const std::string& cond_name,
 											 SubTask *task);
 
-	static void signal_by_name(const std::string& cond_name, void *msg);
+	static void signal_by_name(const std::string& cond_name, void *msg)
+	{
+		WFTaskFactory::signal_by_name(cond_name, msg, (size_t)-1);
+	}
+
+	static void signal_by_name(const std::string& cond_name, void *msg,
+							   size_t max);
 
 public:
 	template<class FUNC, class... ARGS>

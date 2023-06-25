@@ -16,11 +16,16 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-
-#include <unistd.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
+#include <utility>
+#include <vector>
 #include <set>
+#include <map>
+#include <atomic>
+#include <mutex>
+#include "WFTaskError.h"
 #include "WFKafkaClient.h"
 
 #define KAFKA_HEARTBEAT_INTERVAL	(3 * 1000 * 1000)

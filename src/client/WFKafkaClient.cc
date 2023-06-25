@@ -14,6 +14,8 @@
   limitations under the License.
 
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <stdint.h>

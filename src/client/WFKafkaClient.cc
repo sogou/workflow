@@ -41,13 +41,6 @@ using namespace protocol;
 using ComplexKafkaTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
 											 struct __ComplexKafkaTaskCtx>;
 
-enum MetaStatus
-{
-	META_UNINIT,
-	META_DOING,
-	META_INITED,
-};
-
 class KafkaMember
 {
 public:
@@ -55,9 +48,10 @@ public:
 	{
 		cgroup_status = KAFKA_CGROUP_NONE;
 		heartbeat_status = KAFKA_HEARTBEAT_UNINIT;
-		heartbeat_series = NULL;
+		meta_doing = false;
 		cgroup_outdated = false;
 		client_deinit = false;
+		heartbeat_series = NULL;
 	}
 
 	void incref()
@@ -76,13 +70,16 @@ public:
 	KafkaMetaList meta_list;
 	KafkaBrokerMap broker_map;
 	KafkaConfig config;
-	std::map<std::string, enum MetaStatus> meta_map;
+	std::map<std::string, bool> meta_status;
 	std::mutex mutex;
-	int cgroup_status;
-	int heartbeat_status;
-	void *heartbeat_series;
+	char cgroup_status;
+	char heartbeat_status;
+	bool meta_doing;
 	bool cgroup_outdated;
 	bool client_deinit;
+	void *heartbeat_series;
+	size_t cgroup_wait_cnt;
+	size_t meta_wait_cnt;
 	std::atomic<int> ref;
 };
 
@@ -190,8 +187,8 @@ private:
 
 	int get_node_id(const KafkaToppar *toppar);
 
-	enum MetaStatus get_meta_status(KafkaMetaList **uninit_meta_list);
-	void set_meta_status(enum MetaStatus status);
+	bool get_meta_status(KafkaMetaList **uninit_meta_list);
+	void set_meta_status(bool status);
 
 	std::string get_userinfo() { return this->userinfo; }
 
@@ -263,6 +260,7 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 {
 	KafkaMember *member = (KafkaMember *)task->user_data;
 	SeriesWork *series = series_of(task);
+	size_t max;
 
 	member->mutex.lock();
 	if (member->client_deinit)
@@ -301,11 +299,12 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 			member->heartbeat_series = series;
 		}
 
-		member->mutex.unlock();
-
+		max = member->cgroup_wait_cnt;
 		char name[64];
 		snprintf(name, 64, "%p.cgroup", member);
-		WFTaskFactory::signal_by_name(name, NULL);
+		member->mutex.unlock();
+
+		WFTaskFactory::signal_by_name(name, NULL, max);
 	}
 	else
 		kafka_rebalance_proc(member, series);
@@ -452,6 +451,7 @@ void KafkaClientTask::kafka_meta_callback(__WFKafkaTask *task)
 {
 	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
 	void *msg = NULL;
+	size_t max;
 
 	t->member->mutex.lock();
 	t->state = task->get_state();
@@ -465,7 +465,7 @@ void KafkaClientTask::kafka_meta_callback(__WFKafkaTask *task)
 		t->meta_list.rewind();
 		KafkaMeta *meta;
 		while ((meta = t->meta_list.get_next()) != NULL)
-			(t->member->meta_map)[meta->get_topic()] = META_INITED;
+			(t->member->meta_status)[meta->get_topic()] = true;
 
 		kafka_merge_broker_list(&t->member->broker_hosts,
 								&t->member->broker_map,
@@ -476,16 +476,19 @@ void KafkaClientTask::kafka_meta_callback(__WFKafkaTask *task)
 		t->meta_list.rewind();
 		KafkaMeta *meta;
 		while ((meta = t->meta_list.get_next()) != NULL)
-			(t->member->meta_map)[meta->get_topic()] = META_UNINIT;
+			(t->member->meta_status)[meta->get_topic()] = false;
 
 		t->finish = true;
 		msg = t;
 	}
 
+	t->member->meta_doing = false;
+	max = t->member->meta_wait_cnt;
 	char name[64];
 	snprintf(name, 64, "%p.meta", t->member);
 	t->member->mutex.unlock();
-	WFTaskFactory::signal_by_name(name, msg);
+
+	WFTaskFactory::signal_by_name(name, msg, max);
 }
 
 void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
@@ -493,6 +496,7 @@ void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 	KafkaClientTask *t = (KafkaClientTask *)task->user_data;
 	SeriesWork *heartbeat_series = NULL;
 	void *msg = NULL;
+	size_t max;
 
 	t->member->mutex.lock();
 	t->state = task->get_state();
@@ -509,7 +513,7 @@ void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 		t->meta_list.rewind();
 		KafkaMeta *meta;
 		while ((meta = t->meta_list.get_next()) != NULL)
-			(t->member->meta_map)[meta->get_topic()] = META_INITED;
+			(t->member->meta_status)[meta->get_topic()] = true;
 
 		kafka_merge_broker_list(&t->member->broker_hosts,
 								&t->member->broker_map,
@@ -551,11 +555,12 @@ void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 		msg = t;
 	}
 
+	max = t->member->cgroup_wait_cnt;
 	char name[64];
 	snprintf(name, 64, "%p.cgroup", t->member);
 	t->member->mutex.unlock();
 
-	WFTaskFactory::signal_by_name(name, msg);
+	WFTaskFactory::signal_by_name(name, msg, max);
 
 	if (heartbeat_series)
 		heartbeat_series->start();
@@ -582,7 +587,7 @@ void KafkaClientTask::kafka_parallel_callback(const ParallelWork *pwork)
 			{
 				flag = true;
 				t->member->mutex.lock();
-				t->set_meta_status(META_UNINIT);
+				t->set_meta_status(false);
 				t->member->mutex.unlock();
 			}
 			state = state_error->first >> 16;
@@ -717,47 +722,39 @@ void KafkaClientTask::parse_query()
 	}
 }
 
-enum MetaStatus KafkaClientTask::get_meta_status(KafkaMetaList **uninit_meta_list)
+bool KafkaClientTask::get_meta_status(KafkaMetaList **uninit_meta_list)
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
-	enum MetaStatus ret = META_INITED;
 	std::set<std::string> unique;
+	bool status = true;
 
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		if (!unique.insert(meta->get_topic()).second)
 			continue;
 
-		switch(this->member->meta_map[meta->get_topic()])
+		if (!this->member->meta_status[meta->get_topic()])
 		{
-		case META_UNINIT:
-			this->member->meta_map[meta->get_topic()] = META_DOING;
-			if (ret != META_UNINIT)
+			if (status)
+			{
 				*uninit_meta_list = new KafkaMetaList;
+				status = false;
+			}
+
 			(*uninit_meta_list)->add_item(*meta);
-			ret = META_UNINIT;
-			break;
-
-		case META_DOING:
-			if (ret == META_INITED)
-				ret = META_DOING;
-			break;
-
-		case META_INITED:
-			break;
 		}
 	}
 
-	return ret;
+	return status;
 }
 
-void KafkaClientTask::set_meta_status(enum MetaStatus status)
+void KafkaClientTask::set_meta_status(bool status)
 {
 	this->member->meta_list.rewind();
 	KafkaMeta *meta;
 	while ((meta = this->member->meta_list.get_next()) != NULL)
-		this->member->meta_map[meta->get_topic()] = status;
+		this->member->meta_status[meta->get_topic()] = false;
 }
 
 bool KafkaClientTask::compare_topics(KafkaClientTask *task)
@@ -802,6 +799,7 @@ bool KafkaClientTask::check_cgroup()
 		this->wait_cgroup = true;
 		cond = WFTaskFactory::create_conditional(name, this, &this->msg);
 		series_of(this)->push_front(cond);
+		this->member->cgroup_wait_cnt++;
 		return false;
 	}
 
@@ -821,6 +819,7 @@ bool KafkaClientTask::check_cgroup()
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(task);
 		this->member->cgroup_status = KAFKA_CGROUP_DOING;
+		this->member->cgroup_wait_cnt = 0;
 		return false;
 	}
 
@@ -830,10 +829,11 @@ bool KafkaClientTask::check_cgroup()
 bool KafkaClientTask::check_meta()
 {
 	KafkaMetaList *uninit_meta_list;
-	int status;
 
-	status = this->get_meta_status(&uninit_meta_list);
-	if (status == META_DOING)
+	if (this->get_meta_status(&uninit_meta_list))
+		return true;
+
+	if (this->member->meta_doing)
 	{
 		WFConditional *cond;
 		char name[64];
@@ -841,10 +841,9 @@ bool KafkaClientTask::check_meta()
 		this->wait_cgroup = false;
 		cond = WFTaskFactory::create_conditional(name, this, &this->msg);
 		series_of(this)->push_front(cond);
-		return false;
+		this->member->meta_wait_cnt++;
 	}
-
-	if (status == META_UNINIT)
+	else
 	{
 		__WFKafkaTask *task;
 
@@ -855,13 +854,14 @@ bool KafkaClientTask::check_meta()
 		task->get_req()->set_config(this->config);
 		task->get_req()->set_api_type(Kafka_Metadata);
 		task->get_req()->set_meta_list(*uninit_meta_list);
-		delete uninit_meta_list;
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(task);
-		return false;
+		this->member->meta_wait_cnt = 0;
+		this->member->meta_doing = true;
 	}
 
-	return true;
+	delete uninit_meta_list;
+	return false;
 }
 
 void KafkaClientTask::dispatch_locked()
@@ -1131,7 +1131,7 @@ void KafkaClientTask::dispatch()
 
 	if (this->msg)
 	{
-		KafkaClientTask *task = (KafkaClientTask *)this->msg;
+		KafkaClientTask *task = static_cast<KafkaClientTask *>(this->msg);
 		if (this->wait_cgroup || this->compare_topics(task) == true)
 		{
 			this->state = task->get_state();
@@ -1175,7 +1175,7 @@ bool KafkaClientTask::add_topic(const std::string& topic)
 
 	if (!flag)
 	{
-		this->member->meta_map[topic] = META_UNINIT;
+		this->member->meta_status[topic] = false;
 
 		KafkaMeta tmp;
 		if (!tmp.set_topic(topic))

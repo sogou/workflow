@@ -770,19 +770,22 @@ bool KafkaClientTask::compare_topics(KafkaClientTask *task)
 	auto first2 = task->topic_set.cbegin(), last2 = task->topic_set.cend();
 	int cmp;
 
+	// check whether task->topic_set is a subset of topic_set
 	while (first1 != last1 && first2 != last2)
 	{
 		cmp = first1->compare(*first2);
 		if (cmp == 0)
-			return true;
-
-		if (cmp < 0)
+		{
+			++first1;
+			++first2;
+		}
+		else if (cmp < 0)
 			++first1;
 		else
-			++first2;
+			return false;
 	}
 
-	return false;
+	return first2 == last2;
 }
 
 bool KafkaClientTask::check_cgroup()

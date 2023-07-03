@@ -571,6 +571,9 @@ public:
 												   std::move(process)),
 		gen(rd())
 	{
+		this->idle_timeout = -1;
+		this->keep_alive_timeo = -1;
+		this->size_limit = (size_t)-1;
 		this->auto_gen_mkey = auto_gen_mkey;
 	}
 

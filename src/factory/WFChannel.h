@@ -59,6 +59,9 @@ public:
 		this->callback = std::move(cb);
 	}
 
+	/* In milliseconds. timeout == -1 for unlimited. */
+	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
+
 protected:
 	virtual SubTask *done()
 	{
@@ -71,7 +74,10 @@ protected:
 		return series->pop();
 	}
 
+	virtual int send_timeout() { return this->send_timeo; }
+
 protected:
+	int send_timeo;
 	MSG msg;
 	std::function<void (WFChannelTask<MSG> *)> callback;
 
@@ -81,6 +87,7 @@ public:
 		TransRequest(channel, scheduler),
 		callback(std::move(cb))
 	{
+		this->send_timeo = -1;
 	}
 
 protected:

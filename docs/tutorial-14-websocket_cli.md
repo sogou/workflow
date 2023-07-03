@@ -137,6 +137,7 @@ void process(WFWebSocketTask *task)
 
 - 可以通过``get_msg()``拿到对应的数据，也就是上述的``WebSocketFrame``；
 - 可以通过msg上的接口``get_opcode()``判断是什么类型的数据包，``process()``可能收到的数据包类型包括：**WebSocketFrameText**、**WebSocketFrameBinary**、**WebSocketFramePong**、**WebSocketFrameConnectionClose**；
+
 #### 2. data
 
 无论是**文本**还是**二进制**，都由``bool get_data(const char **data, size_t *size) const``拿收到的数据。
@@ -190,7 +191,7 @@ WebSocketClient client(process, close);
 
 当然，如果连接被动关闭，那么**下一个任务发出时，内部依然会自动重建连接**，无需用户感知。所以``close()``函数只是用于让用户知道被断了，如果服务正常只是连接被断，用户无需做任何干预。
 
-# websocket_cli的参数
+# WebSocketClient的参数
 
 ``WebSocketClient``的init函数有两个，除了刚才介绍的传入URL函数的接口以外，还可以传入client的参数：
 
@@ -220,8 +221,8 @@ client.init(&params);
 struct WFWebSocketParams
 {
     const char *url;         // 目标URL
-    int idle_timeout;        // client第一次连接上之后可接受的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：不断开
-    int keep_alive_timeout;  // client保持长连接的时间，超过keep_alive_timeout没有数据过来会自动断开。默认：不断开
+    int idle_timeout;        // client第一次连接上之后可接受的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：不断开。单位：毫秒
+    int keep_alive_timeout;  // client保持长连接的时间，超过keep_alive_timeout没有数据过来会自动断开。默认：不断开。单位：毫秒
     int ping_interval;       // client自动发ping的时间间隔，用于做心跳，保持与远端的连接。默认：-1，不自动发ping(功能开发中)
     size_t size_limit;       // 每个数据包的大小限制，超过的话会拿到错误码1009(WSStatusCodeTooLarge)。默认：不限制
     bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：自动生成
@@ -231,6 +232,16 @@ struct WFWebSocketParams
 ```
 
 如果只使用URL调用init()，则会使用默参数。
+
+# WFWebSocketTask的参数
+
+task除了上述常用的``get_msg()``接口以外，可以设置一些参数，比如发送超时send_timeout：
+
+```
+    WFWebSocketTask *task = client.create_websocket_task(process);
+    task->set_send_timeout(5000); // 单位：毫秒
+    task->start();
+```
 
 # 进阶版：注意事项！
 

@@ -30,6 +30,7 @@ struct WFWebSocketParams
 {
 	const char *url;
 	int idle_timeout;
+	int keep_alive_timeout;
 	int ping_interval;
 	size_t size_limit;
 	bool random_masking_key;
@@ -41,6 +42,7 @@ static constexpr struct WFWebSocketParams WEBSOCKET_PARAMS_DEFAULT =
 {
 	.url				=	NULL,
 	.idle_timeout		=	WS_HANDSHAKE_TIMEOUT,
+	.keep_alive_timeout	=	-1,
 	.ping_interval		=	-1,
 	.size_limit			=	(size_t)-1,
 	.random_masking_key	=	true,
@@ -82,6 +84,7 @@ public:
 		close(std::move(close))
 	{ }
 
+	virtual ~WebSocketClient() { }
 };
 
 #endif

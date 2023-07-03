@@ -515,6 +515,7 @@ class ComplexWebSocketChannel : public WFComplexChannel<protocol::WebSocketFrame
 {
 public:
 	void set_idle_timeout(int timeout) { this->idle_timeout = timeout; }
+	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
 	void set_size_limit(size_t size_limit) { this->size_limit = size_limit; }
 
 	void set_sec_protocol(const char *protocol) { this->sec_protocol = protocol; }
@@ -549,9 +550,11 @@ protected:
 	virtual void handle_in(CommMessageIn *in);
 	virtual int first_timeout();
 	virtual WFWebSocketTask *new_session();
+	virtual int keep_alive_timeout() { return this->keep_alive_timeo; }
 
 private:
 	int idle_timeout;
+	int keep_alive_timeo;
 	size_t size_limit;
 	bool auto_gen_mkey; // random Masking-Key
 	std::random_device rd;

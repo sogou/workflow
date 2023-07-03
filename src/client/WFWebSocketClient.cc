@@ -76,7 +76,9 @@ int WebSocketClient::init(const struct WFWebSocketParams *params)
 												this->process);
 	this->channel->set_uri(uri);
 	this->channel->set_idle_timeout(params->idle_timeout);
+	this->channel->set_keep_alive(params->keep_alive_timeout);
 	this->channel->set_size_limit(params->size_limit);
+
 	if (uri.scheme && strcasecmp(uri.scheme, "wss") == 0)
 		this->channel->set_transport_type(TT_TCP_SSL);
 
@@ -87,7 +89,7 @@ int WebSocketClient::init(const struct WFWebSocketParams *params)
 
 	auto&& cb = std::bind(&WebSocketClient::channel_callback, this,
 						  std::placeholders::_1, this->close);
-	this->channel->set_callback(cb);
+	this->channel->set_callback(std::move(cb));
 
 	return 0;
 }

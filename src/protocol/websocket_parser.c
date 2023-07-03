@@ -212,7 +212,7 @@ void websocket_parser_mask_data(websocket_parser_t *parser)
 unsigned char *utf8_check(unsigned char *s, size_t len)
 {
 	unsigned char *end = s + len;
-	while (*s && s != end)
+	while (s != end && *s)
 	{
 		if (*s < 0x80) /* 0xxxxxxx */
 			s++;

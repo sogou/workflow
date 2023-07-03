@@ -173,7 +173,7 @@ wait_group.wait();
 
 #### 2. 被动关闭
 
-如果连接被意外关闭，对方没有发**WebSocketFrameConnectionClose**，那么我们可以在一个``close()``函数上获得这个事件。
+如果连接被意外关闭(比如设置了keep_alive_timeout，连接已经断了我们并不会给对方发**WebSocketFrameConnectionClose**)，或由于其他意外连接被断开，对方没有发**WebSocketFrameConnectionClose**，那么我们可以在一个``close()``函数上获得这个事件。
 
 我们可以在构造WebSocketClient时通过第二个函数传递进去，如下：
 
@@ -220,7 +220,8 @@ client.init(&params);
 struct WFWebSocketParams
 {
     const char *url;         // 目标URL
-    int idle_timeout;        // client保持长连接的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：不断开
+    int idle_timeout;        // client第一次连接上之后可接受的空闲时间，超过idle_timeout没有数据过来会自动断开。默认：不断开
+    int keep_alive_timeout;  // client保持长连接的时间，超过keep_alive_timeout没有数据过来会自动断开。默认：不断开
     int ping_interval;       // client自动发ping的时间间隔，用于做心跳，保持与远端的连接。默认：-1，不自动发ping(功能开发中)
     size_t size_limit;       // 每个数据包的大小限制，超过的话会拿到错误码1009(WSStatusCodeTooLarge)。默认：不限制
     bool random_masking_key; // WebSocket协议中数据包的掩码，框架帮每次自动随机生成一个。默认：自动生成

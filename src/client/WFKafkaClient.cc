@@ -766,25 +766,26 @@ void KafkaClientTask::set_meta_status(bool status)
 
 bool KafkaClientTask::compare_topics(KafkaClientTask *task)
 {
-	protocol::KafkaMetaList *meta_list1 = &this->meta_list;
-	protocol::KafkaMetaList *meta_list2 = &task->meta_list;
-	KafkaMeta *meta1, *meta2;
+	auto first1 = topic_set.cbegin(), last1 = topic_set.cend();
+	auto first2 = task->topic_set.cbegin(), last2 = task->topic_set.cend();
+	int cmp;
 
-	meta_list1->rewind();
-	meta_list2->rewind();
-	while (1)
+	// check whether task->topic_set is a subset of topic_set
+	while (first1 != last1 && first2 != last2)
 	{
-		meta1 = meta_list1->get_next();
-		meta2 = meta_list2->get_next();
-		if (!meta1 && !meta2)
-			return true;
-
-		if (!meta1 || !meta2)
-			return false;
-
-		if (strcmp(meta1->get_topic(), meta2->get_topic()))
+		cmp = first1->compare(*first2);
+		if (cmp == 0)
+		{
+			++first1;
+			++first2;
+		}
+		else if (cmp < 0)
+			++first1;
+		else
 			return false;
 	}
+
+	return first2 == last2;
 }
 
 bool KafkaClientTask::check_cgroup()

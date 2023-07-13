@@ -262,16 +262,27 @@ public:
 	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
 
 public:
-	/* noreply(), push() are for server tasks only. */
+	/* Do not reply this request. */
 	void noreply()
 	{
 		if (this->state == WFT_STATE_TOREPLY)
 			this->state = WFT_STATE_NOREPLY;
 	}
 
+	/* Push reply data synchronously. */
 	virtual int push(const void *buf, size_t size)
 	{
 		return this->scheduler->push(buf, size, this);
+	}
+
+	/* To check if the connection was closed before replying.
+	   Always returns 'true' in callback. */
+	bool closed() const
+	{
+		if (this->state == WFT_STATE_TOREPLY)
+			return !this->get_target()->has_idle_conn();
+		else
+			return this->state != WFT_STATE_UNDEFINED;
 	}
 
 public:

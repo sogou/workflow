@@ -50,6 +50,8 @@ public:
 		*addrlen = this->addrlen;
 	}
 
+	int has_idle_conn() const { return !list_empty(&this->idle_list); }
+
 protected:
 	void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
 	{

@@ -87,10 +87,19 @@ void IOSession::prep_fdsync(int fd)
 
 int IOService::init(int maxevents)
 {
-	int ret = pthread_mutex_init(&this->mutex, NULL);
+	int ret;
 
+	if (maxevents <= 0)
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
+	ret = pthread_mutex_init(&this->mutex, NULL);
 	if (ret == 0)
 	{
+		this->maxevents = maxevents;
+		this->nevents = 0;
 		INIT_LIST_HEAD(&this->session_list);
 		this->pipe_fd[0] = -1;
 		this->pipe_fd[1] = -1;
@@ -150,26 +159,26 @@ int IOService::request(IOSession *session)
 	int ret = -1;
 
 	pthread_mutex_lock(&this->mutex);
-	if (this->pipe_fd[0] >= 0)
+	if (this->pipe_fd[0] < 0)
+		errno = ENOENT;
+	else if (this->nevents >= this->maxevents)
+		errno = EAGAIN;
+	else if (session->prepare() >= 0)
 	{
-		if (session->prepare() >= 0)
+		session->service = this;
+		ret = pthread_create(&tid, NULL, IOService::io_routine, session);
+		if (ret == 0)
 		{
-			session->service = this;
-			ret = pthread_create(&tid, NULL, IOService::io_routine, session);
-			if (ret == 0)
-			{
-				session->tid = tid;
-				list_add_tail(&session->list, &this->session_list);
-			}
-			else
-			{
-				errno = ret;
-				ret = -1;
-			}
+			session->tid = tid;
+			list_add_tail(&session->list, &this->session_list);
+			this->nevents++;
+		}
+		else
+		{
+			errno = ret;
+			ret = -1;
 		}
 	}
-	else
-		errno = ENOENT;
 
 	pthread_mutex_unlock(&this->mutex);
 	if (ret < 0)
@@ -225,6 +234,7 @@ void *IOService::io_routine(void *arg)
 	if (service->pipe_fd[1] >= 0)
 		write(service->pipe_fd[1], &session, sizeof (void *));
 
+	service->nevents--;
 	pthread_mutex_unlock(&service->mutex);
 	return NULL;
 }

@@ -50,6 +50,8 @@ public:
 		*addrlen = this->addrlen;
 	}
 
+	int has_idle_conn() const { return !list_empty(&this->idle_list); }
+
 protected:
 	void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
 	{
@@ -73,7 +75,7 @@ private:
 	virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
-	virtual void release(int keep_alive) { }
+	virtual void release() { }
 
 private:
 	struct sockaddr *addr;

@@ -100,7 +100,7 @@ CommTarget *CommSchedTarget::acquire(int wait_timeout)
 	return this;
 }
 
-void CommSchedTarget::release(int keep_alive)
+void CommSchedTarget::release()
 {
 	std::unique_lock<std::mutex> lock(this->mutex);
 
@@ -121,7 +121,7 @@ void CommSchedTarget::release(int keep_alive)
 		if (this->wait_cnt == 0 && this->group->wait_cnt > 0)
 			this->group->cond.notify_one();
 
-		this->group->heap_adjust(this->index, keep_alive);
+		this->group->heap_adjust(this->index, this->has_idle_conn());
 	}
 
 	lock.unlock();
@@ -149,7 +149,7 @@ void CommSchedGroup::heap_adjust(int index, int swap_on_equal)
 	while (index > 0)
 	{
 		parent = this->tg_heap[(index - 1) / 2];
-		if (CommSchedGroup::target_cmp(target, parent) < !!swap_on_equal)
+		if (CommSchedGroup::target_cmp(target, parent) < swap_on_equal)
 		{
 			this->tg_heap[index] = parent;
 			parent->index = index;

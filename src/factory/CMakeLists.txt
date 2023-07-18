@@ -4,12 +4,15 @@ project(factory)
 set(SRC
 	WFGraphTask.cc
 	DnsTaskImpl.cc
-	WFTaskFactory.cc
 	Workflow.cc
+	WFTaskFactory.cc
+	WFCondTaskFactory.cc
+	WFResourcePool.cc
 	HttpTaskImpl.cc
 	WFResourcePool.cc
 	WFMessageQueue.cc
 	FileTaskImpl.cc
+	WebSocketTaskImpl.cc
 )
 
 if (NOT MYSQL STREQUAL "n")
@@ -33,5 +36,4 @@ if (KAFKA STREQUAL "y")
 		KafkaTaskImpl.cc
 	)
 	add_library("factory_kafka" OBJECT ${SRC})
-	set_property(SOURCE KafkaTaskImpl.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()

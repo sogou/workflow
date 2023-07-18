@@ -41,6 +41,7 @@ set(TUTORIAL_LIST
 	tutorial-08-matrix_multiply
 	tutorial-09-http_file_server
 	tutorial-11-graph_task
+	tutorial-14-websocket_cli
 	tutorial-15-name_service
 	tutorial-17-dns_cli
 	tutorial-20-reducer

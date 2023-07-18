@@ -43,6 +43,7 @@ struct CommConnEntry
 	CommConnection *conn;
 	long long seq;
 	int sockfd;
+	short channel_flag;
 #define CONN_STATE_CONNECTING	0
 #define CONN_STATE_CONNECTED	1
 #define CONN_STATE_RECEIVING	2
@@ -351,6 +352,21 @@ CommSession::~CommSession()
 	((CommServiceTarget *)target)->decref();
 }
 
+class CommMessageOutEmpty : public CommMessageOut
+{
+private:
+	virtual int encode(struct iovec *vectors, int max)
+	{
+		return 0;
+	}
+};
+
+CommMessageOut *CommChannel::message_out()
+{
+	static CommMessageOutEmpty empty;
+	return &empty;
+}
+
 inline int Communicator::first_timeout(CommSession *session)
 {
 	int timeout = session->target->response_timeout;
@@ -430,12 +446,9 @@ void Communicator::shutdown_service(CommService *service)
 # endif
 #endif
 
-int Communicator::send_message_sync(struct iovec vectors[], int cnt,
-									struct CommConnEntry *entry)
+static int __send_vectors(struct iovec vectors[], int cnt,
+						  struct CommConnEntry *entry)
 {
-	CommSession *session = entry->session;
-	CommService *service;
-	int timeout;
 	ssize_t n;
 	int i;
 
@@ -471,6 +484,20 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 		vectors += i;
 		cnt -= i;
 	}
+
+	return 0;
+}
+
+int Communicator::send_message_sync(struct iovec vectors[], int cnt,
+									struct CommConnEntry *entry)
+{
+	CommSession *session = entry->session;
+	CommService *service;
+	int timeout;
+
+	cnt = __send_vectors(vectors, cnt, entry);
+	if (cnt != 0)
+		return cnt;
 
 	service = entry->service;
 	if (service)
@@ -913,6 +940,7 @@ struct CommConnEntry *Communicator::accept_conn(CommServiceTarget *target,
 				entry->ssl = NULL;
 				entry->sockfd = target->sockfd;
 				entry->state = CONN_STATE_CONNECTED;
+				entry->channel_flag = 0;
 				entry->ref = 1;
 				return entry;
 			}
@@ -993,7 +1021,9 @@ void Communicator::handle_connect_result(struct poller_result *res)
 
 		target->release(0);
 		session->handle(state, res->error);
-		this->release_conn(entry);
+		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
+			this->release_conn(entry);
+
 		break;
 	}
 }
@@ -1341,6 +1371,122 @@ int Communicator::partial_written(size_t n, void *context)
 	return 0;
 }
 
+void Communicator::callback(struct poller_result *res, void *context)
+{
+	Communicator *comm = (Communicator *)context;
+	struct CommConnEntry *entry;
+	CommSession *session;
+	int state;
+
+	switch (res->data.operation)
+	{
+	case PD_OP_READ:
+	case PD_OP_WRITE:
+	case PD_OP_CONNECT:
+	case PD_OP_SSL_CONNECT:
+		entry = (struct CommConnEntry *)res->data.context;
+		if (entry->channel_flag)
+			break;
+
+	default:
+		msgqueue_put(res, comm->msgqueue);
+		return;
+	}
+
+	session = entry->session;
+	if (entry->state == CONN_STATE_CONNECTING)
+	{
+		comm->handle_connect_result(res);
+		if (entry->ref == 1)
+			comm->release_conn(entry);
+		else if (entry->state == CONN_STATE_RECEIVING)
+			((CommChannel *)session)->handle_established();
+	}
+	else if (entry->state == CONN_STATE_SUCCESS)
+	{
+		((CommChannel *)session)->handle_in(session->in);
+		session->in = NULL;
+		if (session->timeout == 0)
+			entry->state = CONN_STATE_CLOSING;
+		else
+		{
+			session->timeout = -1;
+			session->begin_time.tv_nsec = -1;
+			entry->state = CONN_STATE_RECEIVING;
+		}
+	}
+	else
+	{
+		if (res->data.operation == PD_OP_WRITE)
+		{
+			close(entry->sockfd);
+			free(entry->write_iov);
+			switch (res->state)
+			{
+			case PR_ST_FINISHED:
+				state = CS_STATE_SUCCESS;
+				break;
+			case PR_ST_ERROR:
+				state = CS_STATE_ERROR;
+				break;
+			case PR_ST_DELETED:
+			case PR_ST_STOPPED:
+				state = CS_STATE_STOPPED;
+				break;
+			}
+
+			free(entry);
+			entry = ((TransSession *)session)->channel->entry;
+			session->handle(state, res->error);
+			session = entry->session;
+		}
+		else
+		{
+			switch (res->state)
+			{
+			case PR_ST_FINISHED:
+				if (session->in)
+				{
+					res->error = ECONNRESET;
+			case PR_ST_ERROR:
+					state = CS_STATE_ERROR;
+				}
+				else
+					state = CS_STATE_SUCCESS;
+
+				break;
+
+			case PR_ST_DELETED:
+				if (entry->state == CONN_STATE_CLOSING)
+					state = CS_STATE_SUCCESS;
+				else
+			case PR_ST_STOPPED:
+					state = CS_STATE_STOPPED;
+
+				break;
+			}
+
+			if (entry->channel_flag == 1)
+			{
+				((CommChannel *)session)->handle_terminated();
+				entry->state = state;
+				entry->error = res->error;
+			}
+			else
+				state = CS_STATE_SHUTDOWN;
+		}
+
+		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
+		{
+			entry->target->release(entry->state == CONN_STATE_IDLE);
+			session->handle(state, res->error);
+			comm->release_conn(entry);
+		}
+	}
+
+	free(res);
+}
+
 void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
 						   int sockfd, void *context)
 {
@@ -1363,12 +1509,6 @@ void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
 
 	close(sockfd);
 	return NULL;
-}
-
-void Communicator::callback(struct poller_result *res, void *context)
-{
-	msgqueue_t *msgqueue = (msgqueue_t *)context;
-	msgqueue_put(res, msgqueue);
 }
 
 int Communicator::create_handler_threads(size_t handler_threads)
@@ -1403,6 +1543,7 @@ int Communicator::create_poller(size_t poller_threads)
 	struct poller_params params = {
 		.max_open_files		=	(size_t)sysconf(_SC_OPEN_MAX),
 		.callback			=	Communicator::callback,
+		.context			=	this
 	};
 
 	if ((ssize_t)params.max_open_files < 0)
@@ -1411,7 +1552,6 @@ int Communicator::create_poller(size_t poller_threads)
 	this->msgqueue = msgqueue_create(4096, sizeof (struct poller_result));
 	if (this->msgqueue)
 	{
-		params.context = this->msgqueue;
 		this->mpoller = mpoller_create(&params, poller_threads);
 		if (this->mpoller)
 		{
@@ -1509,6 +1649,7 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 					entry->ssl = NULL;
 					entry->sockfd = sockfd;
 					entry->state = CONN_STATE_CONNECTING;
+					entry->channel_flag = 0;
 					entry->ref = 1;
 					return entry;
 				}
@@ -1754,6 +1895,111 @@ int Communicator::reply(CommSession *session)
 
 	errno = errno_bak;
 	return 0;
+}
+
+int Communicator::establish(CommChannel *channel, CommTarget *target)
+{
+	struct CommConnEntry *entry;
+	struct poller_data data;
+
+	entry = this->launch_conn(channel, target);
+	if (entry)
+	{
+		entry->channel_flag = 1;
+		entry->ref++;
+
+		channel->target = target;
+		channel->entry = entry;
+		channel->out = NULL;
+		channel->in = NULL;
+		channel->seq = 0;
+
+		data.operation = PD_OP_CONNECT;
+		data.fd = entry->sockfd;
+		data.ssl = NULL;
+		data.context = entry;
+		if (mpoller_add(&data, target->connect_timeout, this->mpoller) >= 0)
+			return 0;
+
+		this->release_conn(entry);
+	}
+
+	return -1;
+}
+
+int Communicator::send(TransSession *session, CommChannel *channel)
+{
+	struct CommConnEntry *entry = channel->entry;
+	struct iovec vectors[ENCODE_IOV_MAX];
+	struct iovec *end;
+	int cnt;
+
+	session->channel = channel;
+	session->target = channel->target;
+	session->seq = 0;
+	session->in = NULL;
+	session->out = session->message_out();
+	if (!session->out)
+		return -1;
+
+	cnt = session->out->encode(vectors, ENCODE_IOV_MAX);
+	if ((unsigned int)cnt > ENCODE_IOV_MAX)
+	{
+		if (cnt > ENCODE_IOV_MAX)
+			errno = EOVERFLOW;
+		return -1;
+	}
+
+	end = vectors + cnt;
+	if (!entry->ssl || cnt == 0)
+	{
+		cnt = __send_vectors(vectors, cnt, entry);
+		if (cnt == 0)
+			return 1;
+		else if (cnt < 0)
+			return -1;
+	}
+
+	entry = (struct CommConnEntry *)malloc(sizeof (struct CommConnEntry));
+	if (entry)
+	{
+		entry->sockfd = dup(channel->entry->sockfd);
+		if (entry->sockfd >= 0)
+		{
+			entry->session = session;
+			entry->ssl = channel->entry->ssl;
+			entry->state = CONN_STATE_KEEPALIVE;
+			entry->channel_flag = 1;
+			if (this->send_message_async(end - cnt, cnt, entry) >= 0)
+			{
+				__sync_add_and_fetch(&channel->entry->ref, 1);
+				return 0;
+			}
+
+			close(entry->sockfd);
+		}
+
+		free(entry);
+	}
+
+	return -1;
+}
+
+void Communicator::shutdown(CommChannel *channel)
+{
+	struct CommConnEntry *entry = channel->entry;
+	int errno_bak = errno;
+
+	entry->channel_flag = 2;
+	mpoller_del(entry->sockfd, this->mpoller);
+	if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
+	{
+		entry->target->release(0);
+		channel->handle(entry->state, entry->error);
+		this->release_conn(entry);
+	}
+
+	errno = errno_bak;
 }
 
 int Communicator::push(const void *buf, size_t size, CommSession *session)

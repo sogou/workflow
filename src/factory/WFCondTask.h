@@ -45,7 +45,7 @@ private:
 
 public:
 	WFCondWaitTask(wait_callback_t&& cb) :
-		WFMailboxTask(&this->msg, 1, std::move(cb))
+		WFMailboxTask(&this->msg, std::move(cb))
 	{ }
 
 	virtual ~WFCondWaitTask() { }

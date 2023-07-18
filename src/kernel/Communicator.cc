@@ -771,7 +771,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 	{
 		if (session)
 		{
-			target->release(entry->state == CONN_STATE_IDLE);
+			target->release();
 			session->handle(state, res->error);
 		}
 
@@ -895,7 +895,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
-		entry->target->release(0);
+		entry->target->release();
 		session->handle(state, res->error);
 		pthread_mutex_lock(&entry->mutex);
 		/* do nothing */
@@ -1019,7 +1019,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
-		target->release(0);
+		target->release();
 		session->handle(state, res->error);
 		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 			this->release_conn(entry);
@@ -1478,7 +1478,7 @@ void Communicator::callback(struct poller_result *res, void *context)
 
 		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 		{
-			entry->target->release(entry->state == CONN_STATE_IDLE);
+			entry->target->release();
 			session->handle(state, res->error);
 			comm->release_conn(entry);
 		}
@@ -1994,7 +1994,7 @@ void Communicator::shutdown(CommChannel *channel)
 	mpoller_del(entry->sockfd, this->mpoller);
 	if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 	{
-		entry->target->release(0);
+		entry->target->release();
 		channel->handle(entry->state, entry->error);
 		this->release_conn(entry);
 	}

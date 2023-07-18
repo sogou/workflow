@@ -13,12 +13,13 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #include <stdint.h>
 #include <string.h>
+#include <utility>
 #include <string>
 #include <openssl/ssl.h>
 #include "SSLWrapper.h"
@@ -35,27 +36,28 @@ private:
 class MySQLHandshakeResponse : public MySQLResponse
 {
 public:
-	void get_challenge(char *arr) const
+	std::string get_server_version() const { return server_version_; }
+	std::string get_auth_plugin_name() const { return auth_plugin_name_; }
+
+	void get_seed(unsigned char seed[20]) const
 	{
-		memcpy(arr, auth_plugin_data_part_1_, 8);
-		memcpy(arr + 8, auth_plugin_data_part_2_, 12);
+		memcpy(seed, auth_plugin_data_, 20);
 	}
 
 	virtual int encode(struct iovec vectors[], int max);
 
 	void server_set(uint8_t protocol_version, const std::string server_version,
-					uint32_t connection_id, const uint8_t *auth1,
+					uint32_t connection_id, const unsigned char seed[20],
 					uint32_t capability_flags, uint8_t character_set,
-					uint16_t status_flags, const uint8_t *auth2)
+					uint16_t status_flags)
 	{
 		protocol_version_ = protocol_version;
 		server_version_ = server_version;
 		connection_id_ = connection_id;
-		memcpy(auth_plugin_data_part_1_, auth1, 8);
+		memcpy(auth_plugin_data_, seed, 20);
 		capability_flags_ = capability_flags;
 		character_set_ = character_set;
 		status_flags_ = status_flags;
-		memcpy(auth_plugin_data_part_2_, auth2, 12);
 	}
 
 	bool host_disallowed() const { return disallowed_; }
@@ -65,14 +67,15 @@ public:
 private:
 	virtual int decode_packet(const unsigned char *buf, size_t buflen);
 
-	uint8_t protocol_version_;
 	std::string server_version_;
+	std::string auth_plugin_name_;
+	unsigned char auth_plugin_data_[20];
 	uint32_t connection_id_;
-	uint8_t auth_plugin_data_part_1_[8];
 	uint32_t capability_flags_;
-	uint8_t character_set_;
 	uint16_t status_flags_;
-	uint8_t auth_plugin_data_part_2_[12];
+	uint8_t character_set_;
+	uint8_t auth_plugin_data_len_;
+	uint8_t protocol_version_;
 	bool disallowed_;
 
 public:
@@ -111,20 +114,25 @@ public:
 class MySQLAuthRequest : public MySQLRequest
 {
 public:
-	void set_auth(const std::string& username,
-				  const std::string& password,
-				  const std::string& db,
+	void set_auth(const std::string username,
+				  const std::string password,
+				  const std::string db,
 				  int character_set)
 	{
-		username_ = username;
-		password_ = password;
-		db_ = db;
+		username_ = std::move(username);
+		password_ = std::move(password);
+		db_ = std::move(db);
 		character_set_ = character_set;
 	}
 
-	void set_challenge(const char *arr)
+	void set_auth_plugin_name(std::string name)
 	{
-		challenge_.assign(arr, 20);
+		auth_plugin_name_ = std::move(name);
+	}
+
+	void set_seed(const unsigned char seed[20])
+	{
+		memcpy(seed_, seed, 20);
 	}
 
 private:
@@ -134,7 +142,8 @@ private:
 	std::string username_;
 	std::string password_;
 	std::string db_;
-	std::string challenge_;
+	std::string auth_plugin_name_;
+	unsigned char seed_[20];
 	int character_set_;
 
 public:
@@ -145,7 +154,172 @@ public:
 	MySQLAuthRequest& operator= (MySQLAuthRequest&& move) = default;
 };
 
-using MySQLAuthResponse = MySQLResponse;
+class MySQLAuthResponse : public MySQLResponse
+{
+public:
+	std::string get_auth_plugin_name() const { return auth_plugin_name_; }
+
+	void get_seed(unsigned char seed[20]) const
+	{
+		memcpy(seed, seed_, 20);
+	}
+
+	bool is_continue() const
+	{
+		return continue_;
+	}
+
+private:
+	virtual int decode_packet(const unsigned char *buf, size_t buflen);
+
+private:
+	std::string auth_plugin_name_;
+	unsigned char seed_[20];
+	bool continue_;
+
+public:
+	MySQLAuthResponse() : continue_(false) { }
+	//move constructor
+	MySQLAuthResponse(MySQLAuthResponse&& move) = default;
+	//move operator
+	MySQLAuthResponse& operator= (MySQLAuthResponse&& move) = default;
+};
+
+class MySQLAuthSwitchRequest : public MySQLRequest
+{
+public:
+	void set_password(std::string password)
+	{
+		password_ = std::move(password);
+	}
+
+	void set_auth_plugin_name(std::string name)
+	{
+		auth_plugin_name_ = std::move(name);
+	}
+
+	void set_seed(const unsigned char seed[20])
+	{
+		memcpy(seed_, seed, 20);
+	}
+
+private:
+	virtual int encode(struct iovec vectors[], int max);
+
+	/* Not implemented. */
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		return -2;
+	}
+
+	std::string password_;
+	std::string auth_plugin_name_;
+	unsigned char seed_[20];
+
+public:
+	MySQLAuthSwitchRequest() { }
+	//move constructor
+	MySQLAuthSwitchRequest(MySQLAuthSwitchRequest&& move) = default;
+	//move operator
+	MySQLAuthSwitchRequest& operator= (MySQLAuthSwitchRequest&& move) = default;
+};
+
+class MySQLPublicKeyRequest : public MySQLRequest
+{
+public:
+	void set_caching_sha2() { byte_ = 0x02; }
+	void set_sha256() { byte_ = 0x01; }
+
+private:
+	virtual int encode(struct iovec vectors[], int max)
+	{
+		buf_.assign(&byte_, 1);
+		return MySQLRequest::encode(vectors, max);
+	}
+
+	/* Not implemented. */
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		return -2;
+	}
+
+	char byte_;
+
+public:
+	MySQLPublicKeyRequest() : byte_(0x01) { }
+	//move constructor
+	MySQLPublicKeyRequest(MySQLPublicKeyRequest&& move) = default;
+	//move operator
+	MySQLPublicKeyRequest& operator= (MySQLPublicKeyRequest&& move) = default;
+};
+
+class MySQLPublicKeyResponse : public MySQLResponse
+{
+public:
+	std::string get_public_key() const
+	{
+		return public_key_;
+	}
+
+	void set_public_key(std::string key)
+	{
+		public_key_ = std::move(key);
+	}
+
+private:
+	virtual int encode(struct iovec vectors[], int max);
+	virtual int decode_packet(const unsigned char *buf, size_t buflen);
+
+	std::string public_key_;
+
+public:
+	MySQLPublicKeyResponse() { }
+	//move constructor
+	MySQLPublicKeyResponse(MySQLPublicKeyResponse&& move) = default;
+	//move operator
+	MySQLPublicKeyResponse& operator= (MySQLPublicKeyResponse&& move) = default;
+};
+
+class MySQLRSAAuthRequest : public MySQLRequest
+{
+public:
+	void set_password(std::string password)
+	{
+		password_ = std::move(password);
+	}
+
+	void set_public_key(std::string key)
+	{
+		public_key_ = std::move(key);
+	}
+
+	void set_seed(const unsigned char seed[20])
+	{
+		memcpy(seed_, seed, 20);
+	}
+
+private:
+	virtual int encode(struct iovec vectors[], int max);
+
+	/* Not implemented. */
+	virtual int decode_packet(const unsigned char *buf, size_t buflen)
+	{
+		return -2;
+	}
+
+	int rsa_encrypt(void *ctx);
+
+	std::string password_;
+	std::string public_key_;
+	unsigned char seed_[20];
+
+public:
+	MySQLRSAAuthRequest() { }
+	//move constructor
+	MySQLRSAAuthRequest(MySQLRSAAuthRequest&& move) = default;
+	//move operator
+	MySQLRSAAuthRequest& operator= (MySQLRSAAuthRequest&& move) = default;
+};
 
 //////////
 

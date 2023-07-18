@@ -114,7 +114,7 @@ CommMessageOut *ComplexHttpTask::message_out()
 			header.value = "close";
 			header.value_len = strlen("close");
 		}
-	
+
 		req->add_header(&header);
 	}
 
@@ -445,25 +445,25 @@ protected:
 private:
 	struct SSLConnection : public WFConnection
 	{
-		SSL *ssl_;
-		SSLHandshaker handshaker_;
-		SSLWrapper wrapper_;
-		SSLConnection(SSL *ssl) : handshaker_(ssl), wrapper_(&wrapper_, ssl)
+		SSL *ssl;
+		SSLHandshaker handshaker;
+		SSLWrapper wrapper;
+		SSLConnection(SSL *ssl) : handshaker(ssl), wrapper(&wrapper, ssl)
 		{
-			ssl_ = ssl;
+			this->ssl = ssl;
 		}
 	};
 
 	SSLHandshaker *get_ssl_handshaker() const
 	{
-		return &((SSLConnection *)this->get_connection())->handshaker_;
+		return &((SSLConnection *)this->get_connection())->handshaker;
 	}
 
 	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
 	{
 		SSLConnection *conn = (SSLConnection *)this->get_connection();
-		conn->wrapper_ = SSLWrapper(msg, conn->ssl_);
-		return &conn->wrapper_;
+		conn->wrapper = SSLWrapper(msg, conn->ssl);
+		return &conn->wrapper;
 	}
 
 	int init_ssl_connection();
@@ -493,7 +493,7 @@ int ComplexHttpProxyTask::init_ssl_connection()
 	auto&& deleter = [] (void *ctx)
 	{
 		SSLConnection *ssl_conn = (SSLConnection *)ctx;
-		SSL_free(ssl_conn->ssl_);
+		SSL_free(ssl_conn->ssl);
 		delete ssl_conn;
 	};
 	conn->set_context(ssl_conn, std::move(deleter));
@@ -550,10 +550,7 @@ CommMessageIn *ComplexHttpProxyTask::message_in()
 		return get_ssl_handshaker();
 
 	auto *msg = (ProtocolMessage *)this->ComplexHttpTask::message_in();
-	if (is_ssl_)
-		return get_ssl_wrapper(msg);
-
-	return msg;
+	return is_ssl_ ? get_ssl_wrapper(msg) : msg;
 }
 
 int ComplexHttpProxyTask::keep_alive_timeout()
@@ -807,48 +804,29 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 
 /**********Server**********/
 
-class WFHttpServerTask : public WFServerTask<HttpRequest, HttpResponse>
+void WFHttpServerTask::handle(int state, int error)
 {
-public:
-	WFHttpServerTask(CommService *service,
-					 std::function<void (WFHttpTask *)>& process):
-		WFServerTask(service, WFGlobal::get_scheduler(), process),
-		req_is_alive_(false),
-		req_has_keep_alive_header_(false)
-	{}
-
-protected:
-	virtual void handle(int state, int error)
+	if (state == WFT_STATE_TOREPLY)
 	{
-		if (state == WFT_STATE_TOREPLY)
+		req_is_alive_ = this->req.is_keep_alive();
+		if (req_is_alive_ && this->req.has_keep_alive_header())
 		{
-			req_is_alive_ = this->req.is_keep_alive();
-			if (req_is_alive_ && this->req.has_keep_alive_header())
-			{
-				HttpHeaderCursor req_cursor(&this->req);
-				struct HttpMessageHeader header;
+			HttpHeaderCursor req_cursor(&this->req);
+			struct HttpMessageHeader header;
 
-				header.name = "Keep-Alive";
-				header.name_len = strlen("Keep-Alive");
-				req_has_keep_alive_header_ = req_cursor.find(&header);
-				if (req_has_keep_alive_header_)
-				{
-					req_keep_alive_.assign((const char *)header.value,
-											header.value_len);
-				}
+			header.name = "Keep-Alive";
+			header.name_len = strlen("Keep-Alive");
+			req_has_keep_alive_header_ = req_cursor.find(&header);
+			if (req_has_keep_alive_header_)
+			{
+				req_keep_alive_.assign((const char *)header.value,
+										header.value_len);
 			}
 		}
-
-		this->WFServerTask::handle(state, error);
 	}
 
-	virtual CommMessageOut *message_out();
-
-private:
-	bool req_is_alive_;
-	bool req_has_keep_alive_header_;
-	std::string req_keep_alive_;
-};
+	this->WFServerTask::handle(state, error);
+}
 
 CommMessageOut *WFHttpServerTask::message_out()
 {
@@ -956,13 +934,5 @@ CommMessageOut *WFHttpServerTask::message_out()
 	}
 
 	return this->WFServerTask::message_out();
-}
-
-/**********Server Factory**********/
-
-WFHttpTask *WFServerTaskFactory::create_http_task(CommService *service,
-							std::function<void (WFHttpTask *)>& process)
-{
-	return new WFHttpServerTask(service, process);
 }
 

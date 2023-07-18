@@ -304,33 +304,6 @@ void WFTaskFactory::count_by_name(const std::string& counter_name, unsigned int 
 	__counter_map.count_n(counter_name, n);
 }
 
-/********MailboxTask*************/
-
-class __WFMailboxTask : public WFMailboxTask
-{
-public:
-	__WFMailboxTask(size_t size, mailbox_callback_t&& cb) :
-		WFMailboxTask(new void *[size], size, std::move(cb))
-	{
-	}
-
-	virtual ~__WFMailboxTask()
-	{
-		delete []this->mailbox;
-	}
-};
-
-WFMailboxTask *WFTaskFactory::create_mailbox_task(size_t size,
-												  mailbox_callback_t callback)
-{
-	return new __WFMailboxTask(size, std::move(callback));
-}
-
-WFMailboxTask *WFTaskFactory::create_mailbox_task(mailbox_callback_t callback)
-{
-	return new WFMailboxTask(std::move(callback));
-}
-
 /****************** Named Conditional ******************/
 
 class __WFConditional;
@@ -378,7 +351,7 @@ public:
 
 	WFConditional *create(const std::string& name, SubTask *task);
 
-	void signal(const std::string& name, void *msg);
+	void signal(const std::string& name, void *msg, size_t max);
 	void signal(struct __ConditionalList *conds,
 				struct __conditional_node *node,
 				void *msg);
@@ -478,7 +451,7 @@ struct __ConditionalList *__ConditionalMap::get_list(const std::string& name)
 	return conds;
 }
 
-void __ConditionalMap::signal(const std::string& name, void *msg)
+void __ConditionalMap::signal(const std::string& name, void *msg, size_t max)
 {
 	struct __ConditionalList *conds;
 	struct rb_node *p;
@@ -509,8 +482,12 @@ void __ConditionalMap::signal(const std::string& name, void *msg)
 
 	list_for_each_safe(pos, tmp, &conds->head)
 	{
+		if (max == 0)
+			return;
+
 		node = list_entry(pos, struct __conditional_node, list);
 		node->cond->WFConditional::signal(msg);
+		max--;
 	}
 
 	delete conds;
@@ -558,9 +535,10 @@ WFConditional *WFTaskFactory::create_conditional(const std::string& cond_name,
 	return __conditional_map.create(cond_name, task);
 }
 
-void WFTaskFactory::signal_by_name(const std::string& cond_name, void *msg)
+void WFTaskFactory::signal_by_name(const std::string& cond_name, void *msg,
+								   size_t max)
 {
-	__conditional_map.signal(cond_name, msg);
+	__conditional_map.signal(cond_name, msg, max);
 }
 
 /**************** Timed Go Task *****************/

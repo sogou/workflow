@@ -185,11 +185,11 @@ bool KafkaMeta::create_partitions(int partition_cnt)
 
 	if (i != partition_cnt)
 	{
-		do
+		while (--i >= 0)
 		{
 			kafka_partition_deinit(partitions[i]);
 			free(partitions[i]);
-		} while (--i >= 0);
+		}
 
 		free(partitions);
 		return false;
@@ -382,6 +382,8 @@ KafkaCgroup::KafkaCgroup(const KafkaCgroup& copy)
 
 	if (copy.coordinator)
 		this->coordinator = new KafkaBroker(copy.coordinator->get_raw_ptr());
+	else
+		this->coordinator = NULL;
 }
 
 KafkaCgroup& KafkaCgroup::operator= (const KafkaCgroup& copy)
@@ -393,6 +395,8 @@ KafkaCgroup& KafkaCgroup::operator= (const KafkaCgroup& copy)
 
 	if (copy.coordinator)
 		this->coordinator = new KafkaBroker(copy.coordinator->get_raw_ptr());
+	else
+		this->coordinator = NULL;
 
 	return *this;
 }
@@ -422,7 +426,7 @@ bool KafkaCgroup::create_members(int member_cnt)
 
 	if (i != member_cnt)
 	{
-		do
+		while (--i >= 0)
 		{
 			KafkaToppar *toppar;
 			struct list_head *pos, *tmp;
@@ -442,7 +446,7 @@ bool KafkaCgroup::create_members(int member_cnt)
 
 			kafka_member_deinit(members[i]);
 			free(members[i]);
-		} while (--i >= 0);
+		}
 
 		free(members);
 		return false;

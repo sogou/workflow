@@ -17,6 +17,7 @@
            Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
+#include <stdlib.h>
 #include <pthread.h>
 #include <algorithm>
 #include <random>
@@ -29,7 +30,7 @@ class EndpointGroup
 public:
 	EndpointGroup(int group_id, UPSGroupPolicy *policy) :
 			mutex(PTHREAD_MUTEX_INITIALIZER),
-			gen(rd())
+			gen(random())
 	{
 		this->id = group_id;
 		this->policy = policy;
@@ -45,7 +46,6 @@ public:
 	UPSGroupPolicy *policy;
 	struct rb_node rb;
 	pthread_mutex_t mutex;
-	std::random_device rd;
 	std::mt19937 gen;
 	std::vector<EndpointAddress *> mains;
 	std::vector<EndpointAddress *> backups;

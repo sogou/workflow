@@ -13,21 +13,22 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
 */
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include <string>
 #include <unordered_map>
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
-#include "MySQLMessage.h"
 #include "StringUtil.h"
+#include "WFGlobal.h"
 #include "mysql_types.h"
 
 using namespace protocol;
@@ -52,36 +53,47 @@ protected:
 	{
 		WFConnection *conn = this->WFComplexClientTask::get_connection();
 
-		if (conn && is_ssl_)
-			return (SSLConnection *)conn->get_context();
+		if (conn)
+		{
+			void *ctx = conn->get_context();
+			if (ctx)
+				conn = (WFConnection *)ctx;
+		}
 
 		return conn;
 	}
 
 private:
-	struct SSLConnection : public WFConnection
+	enum ConnState
 	{
-		SSL *ssl_;
-		SSLWrapper wrapper_;
-		SSLConnection(SSL *ssl) : wrapper_(&wrapper_, ssl)
+		ST_SSL_REQUEST,
+		ST_AUTH_REQUEST,
+		ST_AUTH_SWITCH_REQUEST,
+		ST_CLEAR_PASSWORD_REQUEST,
+		ST_SHA256_PUBLIC_KEY_REQUEST,
+		ST_CSHA2_PUBLIC_KEY_REQUEST,
+		ST_RSA_AUTH_REQUEST,
+		ST_CHARSET_REQUEST,
+		ST_FIRST_USER_REQUEST,
+		ST_USER_REQUEST
+	};
+
+	struct MyConnection : public WFConnection
+	{
+		std::string str;	// shared by auth, auth_swich and rsa_auth requests
+		unsigned char seed[20];
+		enum ConnState state;
+		unsigned char mysql_seqid;
+		SSL *ssl;
+		SSLWrapper wrapper;
+		MyConnection(SSL *ssl) : wrapper(&wrapper, ssl)
 		{
-			ssl_ = ssl;
+			this->ssl = ssl;
 		}
 	};
 
-	SSL *get_ssl() const
-	{
-		return ((SSLConnection *)this->get_connection())->ssl_;
-	}
-
-	SSLWrapper *get_ssl_wrapper(ProtocolMessage *msg) const
-	{
-		SSLConnection *conn = (SSLConnection *)this->get_connection();
-		conn->wrapper_ = SSLWrapper(msg, conn->ssl_);
-		return &conn->wrapper_;
-	}
-
-	int init_ssl_connection();
+	int check_handshake(MySQLHandshakeResponse *resp);
+	int auth_switch(MySQLAuthResponse *resp, MyConnection *conn);
 
 	struct MySSLWrapper : public SSLWrapper
 	{
@@ -90,13 +102,6 @@ private:
 		{ }
 		ProtocolMessage *get_msg() const { return this->msg; }
 		virtual ~MySSLWrapper() { delete this->msg; }
-	};
-
-private:
-	struct handshake_ctx
-	{
-		char challenge[20];
-		unsigned char mysql_seqid;
 	};
 
 private:
@@ -172,208 +177,343 @@ static SSL *__create_ssl(SSL_CTX *ssl_ctx)
 	return NULL;
 }
 
-int ComplexMySQLTask::init_ssl_connection()
-{
-	SSL *ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
-	WFConnection *conn;
-
-	if (!ssl)
-		return -1;
-
-	SSL_set_connect_state(ssl);
-
-	conn = this->WFComplexClientTask::get_connection();
-	SSLConnection *ssl_conn = new SSLConnection(ssl);
-
-	auto&& deleter = [] (void *ctx)
-	{
-		SSLConnection *ssl_conn = (SSLConnection *)ctx;
-		SSL_free(ssl_conn->ssl_);
-		delete ssl_conn;
-	};
-	conn->set_context(ssl_conn, std::move(deleter));
-	return 0;
-}
-
 CommMessageOut *ComplexMySQLTask::message_out()
 {
-	long long seqid = this->get_seq();
+	MySQLAuthSwitchRequest *auth_switch_req;
+	MySQLRSAAuthRequest *rsa_auth_req;
+	MySQLAuthRequest *auth_req;
+	MySQLRequest *req;
 
 	is_user_request_ = false;
-	if (seqid == 0)
+	if (this->get_seq() == 0)
 		return new MySQLHandshakeRequest;
 
-	if (is_ssl_)
+	auto *conn = (MyConnection *)this->get_connection();
+	switch (conn->state)
 	{
-		if (seqid == 1)
-		{
-			auto *req = new MySQLSSLRequest(character_set_, get_ssl());
-			auto *conn = this->get_connection();
-			auto *ctx = (struct handshake_ctx *)conn->get_context();
+	case ST_SSL_REQUEST:
+		req = new MySQLSSLRequest(character_set_, conn->ssl);
+		req->set_seqid(conn->mysql_seqid);
+		return req;
 
-			req->set_seqid(ctx->mysql_seqid++);
-			return req;
-		}
+	case ST_AUTH_REQUEST:
+		req = new MySQLAuthRequest;
+		auth_req = (MySQLAuthRequest *)req;
+		auth_req->set_auth(username_, password_, db_, character_set_);
+		auth_req->set_auth_plugin_name(std::move(conn->str));
+		auth_req->set_seed(conn->seed);
+		break;
 
-		seqid--;
-	}
+	case ST_CLEAR_PASSWORD_REQUEST:
+		conn->str = "mysql_clear_password";
+	case ST_AUTH_SWITCH_REQUEST:
+		req = new MySQLAuthSwitchRequest;
+		auth_switch_req = (MySQLAuthSwitchRequest *)req;
+		auth_switch_req->set_password(password_);
+		auth_switch_req->set_auth_plugin_name(std::move(conn->str));
+		auth_switch_req->set_seed(conn->seed);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+		WFGlobal::get_ssl_client_ctx();
+#endif
+		break;
 
-	if (seqid == 1)
-	{
-		auto *req = new MySQLAuthRequest;
-		auto *conn = this->get_connection();
-		auto *ctx = (struct handshake_ctx *)conn->get_context();
+	case ST_SHA256_PUBLIC_KEY_REQUEST:
+		req = new MySQLPublicKeyRequest;
+		((MySQLPublicKeyRequest *)req)->set_sha256();
+		break;
 
-		req->set_seqid(ctx->mysql_seqid++);
-		req->set_challenge(ctx->challenge);
-		delete ctx;
-		conn->set_context(NULL, nullptr);
-		req->set_auth(username_, password_, db_, character_set_);
-		if (is_ssl_)
-			return new MySSLWrapper(req, get_ssl());
-		else
-			return req;
-	}
-	else if (seqid == 2 && res_charset_.size() != 0)
-	{
-		auto *req = new MySQLRequest;
+	case ST_CSHA2_PUBLIC_KEY_REQUEST:
+		req = new MySQLPublicKeyRequest;
+		((MySQLPublicKeyRequest *)req)->set_caching_sha2();
+		break;
+
+	case ST_RSA_AUTH_REQUEST:
+		req = new MySQLRSAAuthRequest;
+		rsa_auth_req = (MySQLRSAAuthRequest *)req;
+		rsa_auth_req->set_password(password_);
+		rsa_auth_req->set_public_key(std::move(conn->str));
+		rsa_auth_req->set_seed(conn->seed);
+		break;
+
+	case ST_CHARSET_REQUEST:
+		req = new MySQLRequest;
 		req->set_query("SET NAMES " + res_charset_);
-		if (is_ssl_)
-			return new MySSLWrapper(req, get_ssl());
-		else
-			return req;
-	}
+		break;
 
-	is_user_request_ = true;
-	if (this->is_fixed_addr())
-	{
-		auto *target = (RouteManager::RouteTarget *)this->get_target();
-
-		/* If it's a transaction task, generate a ECONNRESET error when
-		 * the target was reconnected. */
-		if (seqid <= 3 && (seqid == 2 || res_charset_.size() != 0))
+	case ST_FIRST_USER_REQUEST:
+		if (this->is_fixed_addr())
 		{
+			auto *target = (RouteManager::RouteTarget *)this->get_target();
+
+			/* If it's a transaction task, generate a ECONNRESET error when
+			 * the target was reconnected. */
 			if (target->state)
 			{
 				errno = ECONNRESET;
 				return NULL;
 			}
-			else
-				target->state = 1;
+
+			target->state = 1;
 		}
+
+	case ST_USER_REQUEST:
+		is_user_request_ = true;
+		req = (MySQLRequest *)this->WFComplexClientTask::message_out();
+		break;
+
+	default:
+		assert(0);
+		return NULL;
 	}
 
-	auto *msg = (ProtocolMessage *)this->WFComplexClientTask::message_out();
-	return is_ssl_ ? get_ssl_wrapper(msg) : msg;
+	if (!is_user_request_ && conn->state != ST_CHARSET_REQUEST)
+		req->set_seqid(conn->mysql_seqid);
+
+	if (!is_ssl_)
+		return req;
+
+	if (is_user_request_)
+	{
+		conn->wrapper = SSLWrapper(req, conn->ssl);
+		return &conn->wrapper;
+	}
+	else
+		return new MySSLWrapper(req, conn->ssl);
 }
 
 CommMessageIn *ComplexMySQLTask::message_in()
 {
-	long long seqid = this->get_seq();
-	ProtocolMessage *resp;
+	MySQLResponse *resp;
 
-	if (seqid == 0)
+	if (this->get_seq() == 0)
 		return new MySQLHandshakeResponse;
 
-	if (is_ssl_)
+	auto *conn = (MyConnection *)this->get_connection();
+	switch (conn->state)
 	{
-		if (seqid == 1)
-			return new SSLHandshaker(get_ssl());
+	case ST_SSL_REQUEST:
+		return new SSLHandshaker(conn->ssl);
 
-		seqid--;
-	}
-
-	if (seqid == 1)
+	case ST_AUTH_REQUEST:
+	case ST_AUTH_SWITCH_REQUEST:
 		resp = new MySQLAuthResponse;
-	else if (seqid == 2 && !is_user_request_)
+		break;
+
+	case ST_CLEAR_PASSWORD_REQUEST:
+	case ST_RSA_AUTH_REQUEST:
 		resp = new MySQLResponse;
-	else
-		resp = (ProtocolMessage *)this->WFComplexClientTask::message_in();
+		break;
+
+	case ST_SHA256_PUBLIC_KEY_REQUEST:
+	case ST_CSHA2_PUBLIC_KEY_REQUEST:
+		resp = new MySQLPublicKeyResponse;
+		break;
+
+	case ST_CHARSET_REQUEST:
+		resp = new MySQLResponse;
+		break;
+
+	case ST_FIRST_USER_REQUEST:
+	case ST_USER_REQUEST:
+		resp = (MySQLResponse *)this->WFComplexClientTask::message_in();
+		break;
+
+	default:
+		assert(0);
+		return NULL;
+	}
 
 	if (!is_ssl_)
 		return resp;
 
 	if (is_user_request_)
-		return get_ssl_wrapper(resp);
+	{
+		conn->wrapper = SSLWrapper(resp, conn->ssl);
+		return &conn->wrapper;
+	}
 	else
-		return new MySSLWrapper(resp, get_ssl());
+		return new MySSLWrapper(resp, conn->ssl);
+}
+
+int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
+{
+	SSL *ssl = NULL;
+
+	if (resp->host_disallowed())
+	{
+		this->resp = std::move(*(MySQLResponse *)resp);
+		state_ = WFT_STATE_TASK_ERROR;
+		error_ = WFT_ERR_MYSQL_HOST_NOT_ALLOWED;
+		return 0;
+	}
+
+	if (is_ssl_)
+	{
+		if (!(resp->get_capability_flags() & 0x800))
+		{
+			this->resp = std::move(*(MySQLResponse *)resp);
+			state_ = WFT_STATE_TASK_ERROR;
+			error_ = WFT_ERR_MYSQL_SSL_NOT_SUPPORTED;
+			return 0;
+		}
+
+		ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
+		if (!ssl)
+		{
+			state_ = WFT_STATE_SYS_ERROR;
+			error_ = errno;
+			return 0;
+		}
+
+		SSL_set_connect_state(ssl);
+	}
+
+	auto *conn = this->get_connection();
+	auto *my_conn = new MyConnection(ssl);
+
+	my_conn->str = resp->get_auth_plugin_name();
+	if (!password_.empty() && my_conn->str == "sha256_password")
+		my_conn->str = "caching_sha2_password";
+
+	resp->get_seed(my_conn->seed);
+	my_conn->state = is_ssl_ ? ST_SSL_REQUEST : ST_AUTH_REQUEST;
+	my_conn->mysql_seqid = resp->get_seqid() + 1;
+	conn->set_context(my_conn, [](void *ctx) {
+		auto *my_conn = (MyConnection *)ctx;
+		if (my_conn->ssl)
+			SSL_free(my_conn->ssl);
+		delete my_conn;
+	});
+
+	return MYSQL_KEEPALIVE_DEFAULT;
+}
+
+int ComplexMySQLTask::auth_switch(MySQLAuthResponse *resp, MyConnection *conn)
+{
+	std::string name = resp->get_auth_plugin_name();
+
+	if (conn->state != ST_AUTH_REQUEST ||
+		(name == "mysql_clear_password" && !is_ssl_))
+	{
+		state_ = WFT_STATE_SYS_ERROR;
+		error_ = EBADMSG;
+		return 0;
+	}
+
+	if (password_.empty())
+	{
+		conn->state = ST_CLEAR_PASSWORD_REQUEST;
+	}
+	else if (name == "sha256_password")
+	{
+		if (is_ssl_)
+			conn->state = ST_CLEAR_PASSWORD_REQUEST;
+		else
+			conn->state = ST_SHA256_PUBLIC_KEY_REQUEST;
+	}
+	else
+	{
+		conn->str = std::move(name);
+		conn->state = ST_AUTH_SWITCH_REQUEST;
+	}
+
+	resp->get_seed(conn->seed);
+	conn->mysql_seqid = resp->get_seqid() + 1;
+	return MYSQL_KEEPALIVE_DEFAULT;
 }
 
 int ComplexMySQLTask::keep_alive_timeout()
 {
-	long long seqid = this->get_seq();
+	auto *msg = (ProtocolMessage *)this->get_message_in();
+	MySQLAuthResponse *auth_resp;
+	MySQLResponse *resp;
 
 	state_ = WFT_STATE_SUCCESS;
 	error_ = 0;
-	if (seqid == 0)
-	{
-		auto *resp = (MySQLHandshakeResponse *)this->get_message_in();
+	if (this->get_seq() == 0)
+		return check_handshake((MySQLHandshakeResponse *)msg);
 
-		if (resp->host_disallowed())
+	auto *conn = (MyConnection *)this->get_connection();
+	if (conn->state == ST_SSL_REQUEST)
+	{
+		conn->state = ST_AUTH_REQUEST;
+		conn->mysql_seqid++;
+		return MYSQL_KEEPALIVE_DEFAULT;
+	}
+
+	if (is_ssl_)
+		resp = (MySQLResponse *)((MySSLWrapper *)msg)->get_msg();
+	else
+		resp = (MySQLResponse *)msg;
+
+	switch (conn->state)
+	{
+	case ST_AUTH_REQUEST:
+	case ST_AUTH_SWITCH_REQUEST:
+	case ST_CLEAR_PASSWORD_REQUEST:
+	case ST_RSA_AUTH_REQUEST:
+		if (resp->is_ok_packet())
 		{
-			this->resp = std::move(*(MySQLResponse *)resp);
+			if (!res_charset_.empty())
+				conn->state = ST_CHARSET_REQUEST;
+			else
+				conn->state = ST_FIRST_USER_REQUEST;
+
+			break;
+		}
+
+		if (resp->is_error_packet() ||
+			conn->state == ST_CLEAR_PASSWORD_REQUEST ||
+			conn->state == ST_RSA_AUTH_REQUEST)
+		{
+			this->resp = std::move(*resp);
 			state_ = WFT_STATE_TASK_ERROR;
-			error_ = WFT_ERR_MYSQL_HOST_NOT_ALLOWED;
+			error_ = WFT_ERR_MYSQL_ACCESS_DENIED;
 			return 0;
 		}
 
-		if (is_ssl_)
+		auth_resp = (MySQLAuthResponse *)resp;
+		if (auth_resp->is_continue())
 		{
-			if (!(resp->get_capability_flags() & 0x800))
-			{
-				this->resp = std::move(*(MySQLResponse *)resp);
-				state_ = WFT_STATE_TASK_ERROR;
-				error_ = WFT_ERR_MYSQL_SSL_NOT_SUPPORTED;
-				return 0;
-			}
-
-			if (init_ssl_connection() < 0)
-			{
-				state_ = WFT_STATE_SYS_ERROR;
-				error_ = errno;
-				return 0;
-			}
-		}
-
-		auto *ctx = new handshake_ctx();
-		auto *conn = this->get_connection();
-
-		ctx->mysql_seqid = resp->get_seqid() + 1;
-		resp->get_challenge(ctx->challenge);
-		conn->set_context(ctx, [](void *ctx) {
-			delete (handshake_ctx *)ctx;
-		});
-	}
-	else if (!is_user_request_)
-	{
-		if (!is_ssl_ || seqid != 1)
-		{
-			auto *msg = (ProtocolMessage *)this->get_message_in();
-			MySQLResponse *resp;
-	
 			if (is_ssl_)
-				resp = (MySQLResponse *)((MySSLWrapper *)msg)->get_msg();
+				conn->state = ST_CLEAR_PASSWORD_REQUEST;
 			else
-				resp = (MySQLResponse *)msg;
+				conn->state = ST_CSHA2_PUBLIC_KEY_REQUEST;
 
-			if (!resp->is_ok_packet())
-			{
-				this->resp = std::move(*resp);
-
-				if (is_ssl_)
-					seqid--;
-
-				state_ = WFT_STATE_TASK_ERROR;
-				if (seqid == 1)
-					error_ = WFT_ERR_MYSQL_ACCESS_DENIED;
-				else
-					error_ = WFT_ERR_MYSQL_INVALID_CHARACTER_SET;
-			}
+			break;
 		}
-	}
-	else
+
+		return auth_switch(auth_resp, conn);
+
+	case ST_SHA256_PUBLIC_KEY_REQUEST:
+	case ST_CSHA2_PUBLIC_KEY_REQUEST:
+		conn->str = ((MySQLPublicKeyResponse *)resp)->get_public_key();
+		conn->state = ST_RSA_AUTH_REQUEST;
+		break;
+
+	case ST_CHARSET_REQUEST:
+		if (!resp->is_ok_packet())
+		{
+			this->resp = std::move(*resp);
+			state_ = WFT_STATE_TASK_ERROR;
+			error_ = WFT_ERR_MYSQL_INVALID_CHARACTER_SET;
+			return 0;
+		}
+
+		conn->state = ST_FIRST_USER_REQUEST;
+		return MYSQL_KEEPALIVE_DEFAULT;
+
+	case ST_FIRST_USER_REQUEST:
+		conn->state = ST_USER_REQUEST;
+	case ST_USER_REQUEST:
 		return this->keep_alive_timeo;
 
+	default:
+		assert(0);
+		return 0;
+	}
+
+	conn->mysql_seqid = resp->get_seqid() + 1;
 	return MYSQL_KEEPALIVE_DEFAULT;
 }
 
@@ -656,8 +796,8 @@ class WFMySQLServerTask : public WFServerTask<MySQLRequest, MySQLResponse>
 {
 public:
 	WFMySQLServerTask(CommService *service,
-					  std::function<void (WFMySQLTask *)>& process):
-		WFServerTask(service, WFGlobal::get_scheduler(), process)
+					  std::function<void (WFMySQLTask *)>& proc):
+		WFServerTask(service, WFGlobal::get_scheduler(), proc)
 	{}
 
 protected:

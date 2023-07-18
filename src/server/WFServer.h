@@ -157,6 +157,9 @@ public:
 	}
 
 protected:
+	/* Override this function to create the initial SSL CTX of the server */
+	virtual SSL_CTX *new_ssl_ctx(const char *cert_file, const char *key_file);
+
 	/* Override this function to implement server that supports TLS SNI.
 	 * "servername" will be NULL if client does not set a host name.
 	 * Returning NULL to indicate that servername is not supported. */
@@ -165,19 +168,20 @@ protected:
 		return this->get_ssl_ctx();
 	}
 
+	/* This can be used by the implementation of 'new_ssl_ctx'. */
+	static int ssl_ctx_callback(SSL *ssl, int *al, void *arg);
+
 protected:
 	WFServerParams params;
 
 protected:
+	virtual int create_listen_fd();
 	virtual WFConnection *new_connection(int accept_fd);
 	void delete_connection(WFConnection *conn);
 
 private:
 	int init(const struct sockaddr *bind_addr, socklen_t addrlen,
 			 const char *cert_file, const char *key_file);
-	int init_ssl_ctx(const char *cert_file, const char *key_file);
-	static int ssl_ctx_callback(SSL *ssl, int *al, void *arg);
-	virtual int create_listen_fd();
 	virtual void handle_unbound();
 
 protected:

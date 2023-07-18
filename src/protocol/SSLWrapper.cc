@@ -18,8 +18,8 @@
 
 #include <errno.h>
 #include <openssl/ssl.h>
-#include <openssl/err.h>
 #include <openssl/bio.h>
+#include <openssl/err.h>
 #include "SSLWrapper.h"
 
 namespace protocol
@@ -42,9 +42,6 @@ int SSLHandshaker::encode(struct iovec vectors[], int max)
 	char *ptr;
 	long len;
 	int ret;
-
-	if (BIO_reset(wbio) <= 0)
-		return -1;
 
 	ret = SSL_do_handshake(this->ssl);
 	if (ret <= 0)
@@ -79,9 +76,6 @@ static int __ssl_handshake(const void *buf, size_t *size, SSL *ssl,
 	BIO *rbio = SSL_get_rbio(ssl);
 	int ret;
 
-	if (BIO_reset(wbio) <= 0)
-		return -1;
-
 	ret = BIO_write(rbio, buf, *size);
 	if (ret <= 0)
 		return -1;
@@ -111,25 +105,22 @@ static int __ssl_handshake(const void *buf, size_t *size, SSL *ssl,
 
 int SSLHandshaker::append(const void *buf, size_t *size)
 {
+	BIO *wbio = SSL_get_wbio(this->ssl);
 	char *ptr;
 	long len;
 	long n;
 	int ret;
 
+	BIO_reset(wbio);
 	ret = __ssl_handshake(buf, size, this->ssl, &ptr, &len);
-	if (ret < 0)
-		return -1;
-
-	if (ret > 0)
-	{
-		if (SSL_set_ex_data(this->ssl, this->ssl_ex_data_index, ptr) <= 0)
-			return -1;
-
-		return 1;
-	}
+	if (ret != 0)
+		return ret;
 
 	if (len > 0)
+	{
 		n = this->feedback(ptr, len);
+		BIO_reset(wbio);
+	}
 	else
 		n = 0;
 
@@ -137,7 +128,7 @@ int SSLHandshaker::append(const void *buf, size_t *size)
 		return ret;
 
 	if (n >= 0)
-		errno = EAGAIN;
+		errno = ENOBUFS;
 
 	return -1;
 }
@@ -149,14 +140,6 @@ int SSLWrapper::encode(struct iovec vectors[], int max)
 	char *ptr;
 	long len;
 	int ret;
-
-	if (SSL_get_ex_data(this->ssl, this->ssl_ex_data_index))
-	{
-		if (SSL_set_ex_data(this->ssl, this->ssl_ex_data_index, NULL) <= 0)
-			return -1;
-	}
-	else if (BIO_reset(wbio) <= 0)
-		return -1;
 
 	ret = this->ProtocolWrapper::encode(vectors, max);
 	if ((unsigned int)ret > (unsigned int)max)
@@ -237,9 +220,11 @@ int SSLWrapper::append_message()
 
 int SSLWrapper::append(const void *buf, size_t *size)
 {
+	BIO *wbio = SSL_get_wbio(this->ssl);
 	BIO *rbio = SSL_get_rbio(this->ssl);
 	int ret;
 
+	BIO_reset(wbio);
 	ret = BIO_write(rbio, buf, *size);
 	if (ret <= 0)
 		return -1;
@@ -253,13 +238,11 @@ int SSLWrapper::feedback(const void *buf, size_t size)
 	BIO *wbio = SSL_get_wbio(this->ssl);
 	char *ptr;
 	long len;
+	long n;
 	int ret;
 
 	if (size == 0)
 		return 0;
-
-	if (BIO_reset(wbio) <= 0)
-		return -1;
 
 	ret = SSL_write(this->ssl, buf, size);
 	if (ret <= 0)
@@ -274,8 +257,9 @@ int SSLWrapper::feedback(const void *buf, size_t size)
 	len = BIO_get_mem_data(wbio, &ptr);
 	if (len >= 0)
 	{
-		ret = this->ProtocolWrapper::feedback(ptr, len);
-		if (ret == len)
+		n = this->ProtocolWrapper::feedback(ptr, len);
+		BIO_reset(wbio);
+		if (n == len)
 			return size;
 
 		if (ret > 0)
@@ -287,15 +271,20 @@ int SSLWrapper::feedback(const void *buf, size_t size)
 
 int ServerSSLWrapper::append(const void *buf, size_t *size)
 {
+	BIO *wbio = SSL_get_wbio(this->ssl);
 	char *ptr;
 	long len;
 	long n;
 
+	BIO_reset(wbio);
 	if (__ssl_handshake(buf, size, this->ssl, &ptr, &len) < 0)
 		return -1;
 
 	if (len > 0)
+	{
 		n = this->ProtocolMessage::feedback(ptr, len);
+		BIO_reset(wbio);
+	}
 	else
 		n = 0;
 
@@ -303,7 +292,7 @@ int ServerSSLWrapper::append(const void *buf, size_t *size)
 		return this->append_message();
 
 	if (n >= 0)
-		errno = EAGAIN;
+		errno = ENOBUFS;
 
 	return -1;
 }

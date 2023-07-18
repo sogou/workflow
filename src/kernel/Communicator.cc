@@ -98,7 +98,7 @@ static int __bind_and_listen(int sockfd, const struct sockaddr *addr,
 			return -1;
 	}
 
-	return listen(sockfd, SOMAXCONN);
+	return listen(sockfd, SOMAXCONN < 4096 ? 4096 : SOMAXCONN);
 }
 
 static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
@@ -952,69 +952,6 @@ struct CommConnEntry *Communicator::accept_conn(CommServiceTarget *target,
 	return NULL;
 }
 
-void Communicator::handle_listen_result(struct poller_result *res)
-{
-	CommService *service = (CommService *)res->data.context;
-	struct CommConnEntry *entry;
-	CommServiceTarget *target;
-	int timeout;
-
-	switch (res->state)
-	{
-	case PR_ST_SUCCESS:
-		target = (CommServiceTarget *)res->data.result;
-		entry = this->accept_conn(target, service);
-		if (entry)
-		{
-			if (service->ssl_ctx)
-			{
-				if (__create_ssl(service->ssl_ctx, entry) >= 0 &&
-					service->init_ssl(entry->ssl) >= 0)
-				{
-					res->data.operation = PD_OP_SSL_ACCEPT;
-					timeout = service->ssl_accept_timeout;
-				}
-			}
-			else
-			{
-				res->data.operation = PD_OP_READ;
-				res->data.create_message = Communicator::create_request;
-				res->data.message = NULL;
-				timeout = target->response_timeout;
-			}
-
-			if (res->data.operation != PD_OP_LISTEN)
-			{
-				res->data.fd = entry->sockfd;
-				res->data.ssl = entry->ssl;
-				res->data.context = entry;
-				if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
-				{
-					if (this->stop_flag)
-						mpoller_del(res->data.fd, this->mpoller);
-					break;
-				}
-			}
-
-			this->release_conn(entry);
-		}
-		else
-			close(target->sockfd);
-
-		target->decref();
-		break;
-
-	case PR_ST_DELETED:
-		this->shutdown_service(service);
-		break;
-
-	case PR_ST_ERROR:
-	case PR_ST_STOPPED:
-		service->handle_stop(res->error);
-		break;
-	}
-}
-
 void Communicator::handle_connect_result(struct poller_result *res)
 {
 	struct CommConnEntry *entry = (struct CommConnEntry *)res->data.context;
@@ -1087,6 +1024,69 @@ void Communicator::handle_connect_result(struct poller_result *res)
 		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 			this->release_conn(entry);
 
+		break;
+	}
+}
+
+void Communicator::handle_listen_result(struct poller_result *res)
+{
+	CommService *service = (CommService *)res->data.context;
+	struct CommConnEntry *entry;
+	CommServiceTarget *target;
+	int timeout;
+
+	switch (res->state)
+	{
+	case PR_ST_SUCCESS:
+		target = (CommServiceTarget *)res->data.result;
+		entry = this->accept_conn(target, service);
+		if (entry)
+		{
+			if (service->ssl_ctx)
+			{
+				if (__create_ssl(service->ssl_ctx, entry) >= 0 &&
+					service->init_ssl(entry->ssl) >= 0)
+				{
+					res->data.operation = PD_OP_SSL_ACCEPT;
+					timeout = service->ssl_accept_timeout;
+				}
+			}
+			else
+			{
+				res->data.operation = PD_OP_READ;
+				res->data.create_message = Communicator::create_request;
+				res->data.message = NULL;
+				timeout = target->response_timeout;
+			}
+
+			if (res->data.operation != PD_OP_LISTEN)
+			{
+				res->data.fd = entry->sockfd;
+				res->data.ssl = entry->ssl;
+				res->data.context = entry;
+				if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
+				{
+					if (this->stop_flag)
+						mpoller_del(res->data.fd, this->mpoller);
+					break;
+				}
+			}
+
+			this->release_conn(entry);
+		}
+		else
+			close(target->sockfd);
+
+		target->decref();
+		break;
+
+	case PR_ST_DELETED:
+		this->shutdown_service(service);
+		break;
+
+	case PR_ST_ERROR:
+	case PR_ST_STOPPED:
+		service->handle_stop(res->error);
 		break;
 	}
 }
@@ -1185,6 +1185,9 @@ void Communicator::handler_thread_routine(void *context)
 
 		switch (res->data.operation)
 		{
+		case PD_OP_TIMER:
+			comm->handle_sleep_result(res);
+			break;
 		case PD_OP_READ:
 			comm->handle_read_result(res);
 			break;
@@ -1204,9 +1207,6 @@ void Communicator::handler_thread_routine(void *context)
 		case PD_OP_EVENT:
 		case PD_OP_NOTIFY:
 			comm->handle_aio_result(res);
-			break;
-		case PD_OP_TIMER:
-			comm->handle_sleep_result(res);
 			break;
 		}
 

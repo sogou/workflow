@@ -29,8 +29,8 @@ WFConnection *WFMySQLServer::new_connection(int accept_fd)
 		struct iovec vec[8];
 		int count;
 
-		resp.server_set(0x0a, "5.5", 1, (const uint8_t *)"12345678",
-						0, 33, 0, (const uint8_t *)"123456789abc");
+		resp.server_set(0x0a, "5.5", 1, (const uint8_t *)"12345678901234567890",
+						0, 33, 0);
 		count = resp.encode(vec, 8);
 		if (count >= 0)
 		{

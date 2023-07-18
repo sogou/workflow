@@ -41,14 +41,15 @@ TEST(http_unittest, WFHttpTask1)
 	std::mutex mutex;
 	std::condition_variable cond;
 	bool done = false;
-	auto *task = WFTaskFactory::create_http_task("http://www.sogou.com", 0, RETRY_MAX, [&mutex, &cond, &done](WFHttpTask *task) {
+	auto *task = WFTaskFactory::create_http_task("http://github.com", 0, RETRY_MAX, [&mutex, &cond, &done](WFHttpTask *task) {
 		auto state = task->get_state();
 
 		//EXPECT_EQ(state, WFT_STATE_SUCCESS);
 		if (state == WFT_STATE_SUCCESS)
 		{
 			auto code = atoi(task->get_resp()->get_status_code());
-			EXPECT_TRUE(code == HttpStatusMovedPermanently ||
+			EXPECT_TRUE(code == HttpStatusOK ||
+						code == HttpStatusMovedPermanently ||
 						code == HttpStatusFound ||
 						code == HttpStatusSeeOther ||
 						code == HttpStatusTemporaryRedirect ||
@@ -74,14 +75,19 @@ TEST(http_unittest, WFHttpTask2)
 	std::mutex mutex;
 	std::condition_variable cond;
 	bool done = false;
-	auto *task = WFTaskFactory::create_http_task("http://www.sogou.com", 1, RETRY_MAX, [&mutex, &cond, &done](WFHttpTask *task) {
+	auto *task = WFTaskFactory::create_http_task("http://github.com", 1, RETRY_MAX, [&mutex, &cond, &done](WFHttpTask *task) {
 		auto state = task->get_state();
 
 		//EXPECT_EQ(state, WFT_STATE_SUCCESS);
 		if (state == WFT_STATE_SUCCESS)
 		{
 			auto code = atoi(task->get_resp()->get_status_code());
-			EXPECT_EQ(code, HttpStatusOK);
+			EXPECT_TRUE(code == HttpStatusOK ||
+						code == HttpStatusMovedPermanently ||
+						code == HttpStatusFound ||
+						code == HttpStatusSeeOther ||
+						code == HttpStatusTemporaryRedirect ||
+						code == HttpStatusPermanentRedirect);
 		}
 
 		mutex.lock();

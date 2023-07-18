@@ -262,10 +262,10 @@ UpstreamManager::upstream_create_vnswrr("nvswrr.random");
 
 AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
 address_params.weight = 3;//权重为3
-UpstreamManager::upstream_add_server("weighted.random", "192.168.2.100:8081", &address_params);//权重3
+UpstreamManager::upstream_add_server("nvswrr.random", "192.168.2.100:8081", &address_params);//权重3
 address_params.weight = 2;//权重为2
-UpstreamManager::upstream_add_server("weighted.random", "192.168.2.100:8082", &address_params);//权重2
-UpstreamManager::upstream_add_server("weighted.random", "abc.sogou.com");//权重1
+UpstreamManager::upstream_add_server("nvswrr.random", "192.168.2.100:8082", &address_params);//权重2
+UpstreamManager::upstream_add_server("nvswrr.random", "abc.sogou.com");//权重1
 
 auto *http_task = WFTaskFactory::create_http_task("http://nvswrr.random:9090", 0, 0, nullptr);
 http_task->start();

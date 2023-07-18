@@ -153,17 +153,3 @@ TEST(redis_unittest, WFRedisTask1)
 	server.stop();
 }
 
-TEST(redis_unittest, WFRedisTask2)
-{
-	std::mutex mutex;
-	std::condition_variable cond;
-	bool done = false;
-
-	test_client("redis://127.0.0.1/6", mutex, cond, done);
-	std::unique_lock<std::mutex> lock(mutex);
-	while (!done)
-		cond.wait(lock);
-
-	lock.unlock();
-}
-

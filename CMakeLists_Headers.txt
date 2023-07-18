@@ -33,7 +33,6 @@ else ()
 endif ()
 
 set(INCLUDE_HEADERS
-	src/algorithm/DnsRoutine.h
 	src/algorithm/MapReduce.h
 	src/algorithm/MapReduce.inl
 	src/protocol/ProtocolMessage.h
@@ -97,6 +96,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 	src/factory/WFResourcePool.h
 	src/factory/WFMessageQueue.h
+	src/factory/WFHttpServerTask.h
 	src/factory/WFChannel.h
 	src/factory/WFChannel.inl
 	src/nameservice/WFNameService.h

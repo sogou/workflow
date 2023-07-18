@@ -39,7 +39,6 @@ cc_library(
 cc_library(
 	name = 'common',
 	srcs = [
-		'src/algorithm/DnsRoutine.cc',
 		'src/client/WFDnsClient.cc',
 		'src/factory/DnsTaskImpl.cc',
 		'src/factory/FileTaskImpl.cc',
@@ -93,6 +92,7 @@ cc_library(
 		'src/protocol/HttpMessage.h',
 		'src/protocol/HttpUtil.h',
 		'src/protocol/http_parser.h',
+		'src/factory/WFHttpServerTask.h',
 		'src/server/WFHttpServer.h',
 	],
 	includes = [
@@ -263,6 +263,7 @@ cc_library(
 	],
 	deps = [
 		':common',
+		':http',
 	],
 	visibility = ["//visibility:public"],
 )

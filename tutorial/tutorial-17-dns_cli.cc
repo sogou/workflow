@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 			qtype = it->second;
 	}
 
-	std::string url = "dns://8.8.8.8/";
+	std::string url = "dns://119.29.29.29";
 	WFDnsTask *task = WFTaskFactory::create_dns_task(url, 0, dns_callback);
 
 	protocol::DnsRequest *req = task->get_req();

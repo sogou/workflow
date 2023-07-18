@@ -61,7 +61,8 @@ CommMessageOut *ComplexDnsTask::message_out()
 	DnsResponse *resp = this->get_resp();
 	TransportType type = this->get_transport_type();
 
-	/* Set these field every time, in case of reconstruct on redirect */
+	if (req->get_id() == 0)
+		req->set_id((this->get_seq() + 1) * 99991 % 65535 + 1);
 	resp->set_request_id(req->get_id());
 	resp->set_request_name(req->get_question_name());
 	req->set_single_packet(type == TT_UDP);

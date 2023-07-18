@@ -164,7 +164,6 @@ class WFTimedWaitTask : public WFCondWaitTask
 {
 public:
 	void set_timer(__WFWaitTimerTask *timer) { this->timer = timer; }
-	virtual void count();
 	virtual void clear_locked();
 
 protected:
@@ -246,22 +245,12 @@ void WFTimedWaitTask::clear_locked()
 	this->timer = NULL;
 }
 
-void WFTimedWaitTask::count()
-{
-	if (--this->value == 0)
-	{
-		if (this->state == WFT_STATE_UNDEFINED)
-			this->state = WFT_STATE_SUCCESS;
-		this->subtask_done();
-	}
-}
-
 void WFTimedWaitTask::dispatch()
 {
 	if (this->timer)
-		timer->dispatch();
+		this->timer->dispatch();
 
-	this->WFMailboxTask::count();
+	this->WFMailboxTask::dispatch();
 }
 
 WFTimedWaitTask::~WFTimedWaitTask()
@@ -286,7 +275,7 @@ SubTask *__WFWaitTimerTask::done()
 	this->mutex->unlock();
 
 	if (waiter)
-		waiter->count();
+		waiter->send(NULL);
 	delete this;
 	return NULL;
 }

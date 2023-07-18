@@ -103,7 +103,7 @@ fetch_timeout | int | 100ms | Maximum timeout for fetch.
 fetch_min_bytes | int | 1 byte | Minimum length of messages in one fetch communication. 
 fetch_max_bytes | int | 50M bytes | Maximum length of messages in one fetch communication. 
 fetch_msg_max_bytes | int | 1M bytes | Maximum length of one single message in a fetch communication. 
-offset_timestamp | long long int | -2 | Initialized offfset in the consumer group mode when there is no offset history. -2 means the oldest offset; -1 means the latest offset. 
+offset_timestamp | long long int | -1 | Initialized offfset in the consumer group mode when there is no offset history. -2 means the oldest offset; -1 means the latest offset. 
 session_timeout | int | 10s | Maximum initialization timeout for joining a consumer group. 
 rebalance_timeout | int | 10s | Maximum timeout for synchronizing a consumer group information after a client joins the consumer group. 
 produce_acks | int | -1 | Number of brokers to ensure the successful replication of a message before the return of a produce task. -1 indicates all replica brokers. 

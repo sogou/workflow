@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
 		struct sockaddr_un sun = { };
 		sun.sun_family = AF_UNIX;
-		strncpy(sun.sun_path, path, sizeof sun.sun_path);
+		strncpy(sun.sun_path, path, sizeof sun.sun_path - 1);
 		WFTutorialTask *task = MyFactory::create_tutorial_task(
 											(struct sockaddr *)&sun, sizeof sun,
 											0,

@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
-[![Build Status](https://img.shields.io/github/workflow/status/sogou/workflow/ci%20build)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/sogou/workflow/ci.yml?branch=master)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
 
 As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method, online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
 
@@ -48,7 +48,7 @@ int main()
 * This project supports `Linux`, `macOS`, `Windows`, `Android` and other operating systems.
   * `Windows` version is currently released as an independent [branch](https://github.com/sogou/workflow/tree/windows), using `iocp` to implement asynchronous networking. All user interfaces are consistent with the `Linux` version.
 * Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors, `loongson` processors.
-* Master branch requires SSL and `OpenSSL 1.1` or above is recommended. Fully compatible with BoringSSL. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch. But still need to link `crypto` for `md5` and `sha1`.
+* Master branch requires SSL and `OpenSSL 1.1` or above is recommended. Fully compatible with BoringSSL. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch.
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
@@ -61,7 +61,10 @@ cd tutorial
 make
 ~~~~
 
-### Get started (Debian Linux, ubuntu 22.04):
+#### With SRPC Tool (NEW!)：
+https://github.com/sogou/srpc/blob/master/tools/README.md
+
+#### With [apt-get](https://launchpad.net/ubuntu/+source/workflow) on Debian Linux, ubuntu:
 Sogou C++ Workflow has been packaged for Debian Linux and ubuntu 22.04.  
 To install the Workflow library for development purposes:
 ~~~~sh
@@ -73,7 +76,19 @@ To install the Workflow library for deployment:
 sudo apt-get install libworkflow1
 ~~~~
 
-### Get stated (xmake)
+#### With [dnf](https://packages.fedoraproject.org/pkgs/workflow) on Fedora Linux:
+Sogou C++ Workflow has been packaged for Fedora Linux.  
+To install the Workflow library for development purposes:
+~~~~sh
+sudo dnf install workflow-devel
+~~~~
+
+To install the Workflow library for deployment:
+~~~~sh
+sudo dnf install workflow
+~~~~
+
+#### With xmake
 
 If you want to use xmake to build workflow, you can see [xmake build document](docs/en/xmake.md)
 
@@ -102,11 +117,12 @@ If you want to use xmake to build workflow, you can see [xmake build document](d
   * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
 * User-defined protocol
   * [A simple user-defined protocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
-* Timing tasks and counting tasks
+* Other important tasks/components
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
   * [About resource pool](docs/en/about-resource-pool.md)
   * [About module](docs/en/about-module.md)
+  * [About DAG](docs/en/tutorial-11-graph_task.md)
 * Service governance
   * [About service governance](docs/en/about-service-governance.md)
   * [More documents about upstream](docs/en/about-upstream.md)

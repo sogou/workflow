@@ -652,14 +652,14 @@ int RedisRequest::append(const void *buf, size_t *size)
 		if (get_command(command) &&
 			strcasecmp(command.c_str(), REDIS_ASK_COMMAND) == 0)
 		{
-			redis_parser_deinit(this->parser_);
-			redis_parser_init(this->parser_);
+			redis_parser_deinit(parser_);
+			redis_parser_init(parser_);
 			set_asking(true);
 
 			ret = this->feedback(REDIS_OK_RESPONSE, strlen(REDIS_OK_RESPONSE));
 			if (ret != strlen(REDIS_OK_RESPONSE))
 			{
-				errno = EAGAIN;
+				errno = ENOBUFS;
 				ret = -1;
 			}
 			else
@@ -676,8 +676,8 @@ int RedisResponse::append(const void *buf, size_t *size)
 
 	if (ret > 0 && is_asking())
 	{
-		redis_parser_deinit(this->parser_);
-		redis_parser_init(this->parser_);
+		redis_parser_deinit(parser_);
+		redis_parser_init(parser_);
 		ret = 0;
 		set_asking(false);
 	}

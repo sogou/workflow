@@ -1,6 +1,6 @@
 target("server")
     set_kind("object")
     add_files("*.cc")
-    if (get_config("mysql") == false) then
+    if not has_config("mysql") then
         remove_files("WFMySQLServer.cc")
     end

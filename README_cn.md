@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
-[![Build Status](https://img.shields.io/github/workflow/status/sogou/workflow/ci%20build)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/sogou/workflow/ci.yml?branch=master)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
 
 搜狗公司C++服务器引擎，编程范式。支撑搜狗几乎所有后端C++在线服务，包括所有搜索服务，云输入法，在线广告等，每日处理数百亿请求。这是一个设计轻盈优雅的企业级程序引擎，可以满足大多数后端与嵌入式开发需求。  
 #### 你可以用来：
@@ -37,7 +37,6 @@ int main()
 * 实现任何计算与通讯关系非常复杂的高性能高并发的后端服务。
 * 构建微服务系统。
   * 项目内置服务治理与负载均衡等功能。
-  * 使用[workflow-k8s](https://github.com/sogou/workflow-k8s)插件，可将服务治理与kubernetes的自动部署融合。
 * Wiki链接 : [PaaS 架构图](https://github.com/sogou/workflow/wiki)
 
 #### 编译和运行环境
@@ -45,7 +44,7 @@ int main()
   *  ``Windows``版以[windows](https://github.com/sogou/workflow/tree/windows)分支发布，使用``iocp``实现异步网络。用户接口与``Linux``版一致。
 * 支持所有CPU平台，包括32或64位``x86``处理器，大端或小端``arm``处理器，国产``loongson``龙芯处理器实测支持。
 * 需要依赖于``OpenSSL``，推荐``OpenSSL 1.1``及以上版本。
-  * 不喜欢SSL的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分支，代码更简洁。但仍需链接``crypto``。
+  * 不喜欢SSL的用户可以使用[nossl](https://github.com/sogou/workflow/tree/nossl)分支，代码更简洁。
 * 项目使用了``C++11``标准，需要用支持``C++11``的编译器编译。但不依赖``boost``或``asio``。
 * 项目无其它依赖。如需使用``kafka``协议，需自行安装``lz4``，``zstd``和``snappy``几个压缩库。
 
@@ -57,6 +56,12 @@ make
 cd tutorial
 make
 ~~~
+#### 使用SRPC工具（NEW!）
+SRPC工具可以生成完整的workflow工程，根据用户命令生成对应的server，client或proxy框架，以及CMake工程文件和JSON格式的配置文件。  
+并且，工具会下载最小的必要的依赖。例如在用户指定产生RPC项目时，自动下载并配置好protobuf等依赖。  
+SRPC工具的使用方法可以参考：https://github.com/sogou/srpc/blob/master/tools/README_cn.md
+
+#### Debian Linux或ubuntu上使用[apt-get](https://launchpad.net/ubuntu/+source/workflow)安装：
 作为是Debian Linux与Ubuntu Linux 22.04版自带软件，可以通过``apt-get``命令直接安装开发包：
 ~~~sh
 sudo apt-get install libworkflow-dev
@@ -65,8 +70,17 @@ sudo apt-get install libworkflow-dev
 ~~~sh
 sudo apt-get install workflow1
 ~~~
-注意Ubuntu Linux只有最新22.04版自带workflow。更推荐用git直接下载最新源代码编译。
-
+注意ubuntu只有最新22.04版或以上自带workflow。更推荐用git直接下载最新源代码编译。
+#### Fedora Linux上使用[dnf](https://packages.fedoraproject.org/pkgs/workflow)安装：
+Workflow也是Fedora Linux的自带软件，可以使用最新的rpm包管理工具``dnf``直接安装开发包：
+~~~~sh
+sudo dnf install workflow-devel
+~~~~
+或部署运行环境：
+~~~~sh
+sudo dnf install workflow
+~~~~
+#### 使用xmake
 如果你想用xmake去构建 workflow, 你可以看 [xmake build document](docs/xmake.md)
 
 # 示例教程

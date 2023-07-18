@@ -34,7 +34,6 @@
 #include "WFTask.h"
 #include "WFGraphTask.h"
 #include "EndpointParams.h"
-#include "WFAlgoTaskFactory.h"
 
 // Network Client/Server tasks
 
@@ -256,11 +255,17 @@ public:
 	static void count_by_name(const std::string& counter_name, unsigned int n);
 
 public:
-	static WFMailboxTask *create_mailbox_task(size_t size,
-											  mailbox_callback_t callback);
+	static WFMailboxTask *create_mailbox_task(void **mailbox,
+											  mailbox_callback_t callback)
+	{
+		return new WFMailboxTask(mailbox, std::move(callback));
+	}
 
-	/* Use 'user_data' as mailbox. Store only one message. */
-	static WFMailboxTask *create_mailbox_task(mailbox_callback_t callback);
+	/* Use 'user_data' as mailbox. */
+	static WFMailboxTask *create_mailbox_task(mailbox_callback_t callback)
+	{
+		return new WFMailboxTask(std::move(callback));
+	}
 
 public:
 	static WFConditional *create_conditional(SubTask *task, void **msgbuf)
@@ -279,7 +284,13 @@ public:
 	static WFConditional *create_conditional(const std::string& cond_name,
 											 SubTask *task);
 
-	static void signal_by_name(const std::string& cond_name, void *msg);
+	static void signal_by_name(const std::string& cond_name, void *msg)
+	{
+		WFTaskFactory::signal_by_name(cond_name, msg, (size_t)-1);
+	}
+
+	static void signal_by_name(const std::string& cond_name, void *msg,
+							   size_t max);
 
 public:
 	template<class FUNC, class... ARGS>

@@ -18,14 +18,32 @@ set(memcheck_command ${CMAKE_MEMORYCHECK_COMMAND} ${CMAKE_MEMORYCHECK_COMMAND_OP
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 
 enable_testing()
+
+set(CXX_STD "c++11")
+
 find_package(GTest REQUIRED)
+if (GTest_VERSION VERSION_GREATER_EQUAL "1.13.0")
+	set(CXX_STD "c++14")
+else ()
+	get_filename_component(GTEST_PATH ${GTEST_LIBRARY} DIRECTORY ABSOLUTE)
+	execute_process(COMMAND grep Version "${GTEST_PATH}/pkgconfig/gtest.pc"
+					RESULT_VARIABLE GTEST_VERSION_RESULT
+					OUTPUT_VARIABLE GTEST_VERSION_OUTPUT)
+	if (${GTEST_VERSION_RESULT} EQUAL "0")
+		string(REPLACE " " ";" GTEST_VERSION_STR ${GTEST_VERSION_OUTPUT})
+		list(GET GTEST_VERSION_STR 1 GTEST_VERSION)
+		if (${GTEST_VERSION} VERSION_GREATER_EQUAL "1.13.0")
+			set(CXX_STD "c++14")
+		endif ()
+	endif ()
+endif ()
 
 if (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /std:c++14")
 else ()
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -fPIC -pipe -std=gnu90")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++11 -fno-exceptions")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=${CXX_STD} -fno-exceptions")
 endif ()
 
 set(TEST_LIST
@@ -56,7 +74,8 @@ foreach(src ${TEST_LIST})
 	add_dependencies(check ${src})
 endforeach()
 
-foreach(src ${TEST_LIST})
-	add_test(${src}-memory-check ${memcheck_command} ./${src})
-endforeach()
-
+if (NOT ${CMAKE_MEMORYCHECK_COMMAND} STREQUAL "CMAKE_MEMORYCHECK_COMMAND-NOTFOUND")
+	foreach(src ${TEST_LIST})
+		add_test(${src}-memory-check ${memcheck_command} ./${src})
+	endforeach()
+endif ()

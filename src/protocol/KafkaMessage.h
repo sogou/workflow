@@ -203,8 +203,6 @@ protected:
 	int correlation_id;
 	int message_version;
 
-	std::map<int, int> api_mver_map;
-
 	void *compress_env;
 	size_t cur_size;
 

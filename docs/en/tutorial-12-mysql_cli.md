@@ -333,6 +333,3 @@ SeriesWork *series = create_series_work(t1, nullptr);
 *series << t2 << t3 << t4 << t5;
 series->start();
 ~~~
-
-# About MySQL 8
-We do not support MySQL 8's new default authentication plugin: caching_sha2_password. If you are using a MySQL 8 server, please change authentication plugin to:  mysql_native_password before using our client. [[How to]](https://www.digitalocean.com/community/questions/how-to-change-caching_sha2_password-to-mysql_native_password-on-a-digitalocean-s-managed-mysql-database). We will update our code to support this new authentication as soon as possible. 

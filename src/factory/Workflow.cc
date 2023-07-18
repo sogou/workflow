@@ -31,7 +31,6 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->queue_size = sizeof this->buf / sizeof *this->buf;
 	this->front = 0;
 	this->back = 0;
-	this->in_parallel = false;
 	this->canceled = false;
 	this->finished = false;
 	assert(!series_of(first));
@@ -39,6 +38,7 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->first = first;
 	this->last = NULL;
 	this->context = NULL;
+	this->in_parallel = NULL;
 }
 
 SeriesWork::~SeriesWork()
@@ -181,7 +181,7 @@ ParallelWork::ParallelWork(SeriesWork *const all_series[], size_t n,
 	for (i = 0; i < n; i++)
 	{
 		assert(!all_series[i]->in_parallel);
-		all_series[i]->in_parallel = true;
+		all_series[i]->in_parallel = this;
 		this->all_series[i] = all_series[i];
 		this->subtasks[i] = all_series[i]->first;
 	}
@@ -211,7 +211,7 @@ void ParallelWork::add_series(SeriesWork *series)
 		this->expand_buf();
 
 	assert(!series->in_parallel);
-	series->in_parallel = true;
+	series->in_parallel = this;
 	this->all_series[this->subtasks_nr] = series;
 	this->subtasks[this->subtasks_nr] = series->first;
 	this->subtasks_nr++;
@@ -239,7 +239,7 @@ ParallelWork::~ParallelWork()
 
 	for (i = 0; i < this->subtasks_nr; i++)
 	{
-		this->all_series[i]->in_parallel = false;
+		this->all_series[i]->in_parallel = NULL;
 		this->all_series[i]->dismiss_recursive();
 	}
 

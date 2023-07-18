@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	}
 
 	sun.sun_family = AF_UNIX;
-	strncpy(sun.sun_path, argv[1], sizeof sun.sun_path);
+	strncpy(sun.sun_path, argv[1], sizeof sun.sun_path - 1);
 
 	signal(SIGINT, sig_handler);
 

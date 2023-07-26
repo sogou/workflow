@@ -16,6 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <errno.h>
 #include <stdint.h>
 #include <string.h>
 #include <arpa/inet.h>

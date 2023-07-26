@@ -54,6 +54,7 @@ set(INCLUDE_HEADERS
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/TLVMessage.h
 	src/protocol/ConsulDataTypes.h
 	src/server/WFServer.h
 	src/server/WFDnsServer.h

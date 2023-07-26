@@ -52,6 +52,7 @@ cc_library(
 		'src/manager/WFGlobal.cc',
 		'src/nameservice/WFDnsResolver.cc',
 		'src/nameservice/WFNameService.cc',
+		'src/protocol/TLVMessage.cc',
 		'src/protocol/DnsMessage.cc',
 		'src/protocol/DnsUtil.cc',
 		'src/protocol/SSLWrapper.cc',

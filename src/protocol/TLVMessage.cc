@@ -33,7 +33,7 @@ int TLVMessage::encode(struct iovec vectors[], int max)
 
 	vectors[0].iov_base = this->head;
 	vectors[0].iov_len = 8;
-	vectors[1].iov_base = (char *)this->value.c_str();
+	vectors[1].iov_base = (char *)this->value.data();
 	vectors[1].iov_len = this->value.size();
 	return 2;
 }

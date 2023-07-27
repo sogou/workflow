@@ -852,7 +852,7 @@ static int append_message_set(KafkaBlock *block,
 	char *crc_buf = (char *)block->get_block() + 8 + 4;
 
 	crc_32 = crc32(crc_32, (Bytef *)(crc_buf + 4), message_size - 4);
-	*(int *)crc_buf = htonl(crc_32);
+	*(uint32_t *)crc_buf = htonl(crc_32);
 
 	if (compress_buf(block, config.get_compress_type(), env) < 0)
 		return -1;
@@ -2284,8 +2284,8 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 			while ((block = this->serialized.get_block_insert_next()) != NULL)
 				crc_32 = crc32c(crc_32, block->get_block(), block->get_len());
 
-			*(int *)crc_ptr = htonl(crc_32);
-			*(int *)recordset_size_ptr = htonl(batch_length + 4 + 8);
+			*(uint32_t *)crc_ptr = htonl(crc_32);
+			*(uint32_t *)recordset_size_ptr = htonl(batch_length + 4 + 8);
 		}
 		else
 		{
@@ -2334,7 +2334,7 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 				while ((block = this->serialized.get_block_insert_next()) != NULL)
 					crc_32 = crc32(crc_32, (Bytef *)block->get_block(), block->get_len());
 
-				*(int *)crc_ptr = htonl(crc_32);
+				*(uint32_t *)crc_ptr = htonl(crc_32);
 
 				KafkaBlock *wrap_block =  new KafkaBlock;
 
@@ -2346,10 +2346,10 @@ int KafkaRequest::encode_produce(struct iovec vectors[], int max)
 				}
 
 				this->serialized.insert_list(wrap_block);
-				*(int *)recordset_size_ptr = htonl(message_size + 8 + 4);
+				*(uint32_t *)recordset_size_ptr = htonl(message_size + 8 + 4);
 			}
 			else
-				*(int *)recordset_size_ptr = htonl(batch_length);
+				*(uint32_t *)recordset_size_ptr = htonl(batch_length);
 		}
 
 		++topic_cnt;
@@ -2424,7 +2424,7 @@ int KafkaRequest::encode_fetch(struct iovec vectors[], int max)
 		++topic_cnt;
 	}
 
-	*(int *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
+	*(uint32_t *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
 
 	//Length of the ForgottenTopics list
 	if (this->api_version >= 7)
@@ -2471,7 +2471,7 @@ int KafkaRequest::encode_metadata(struct iovec vectors[], int max)
 					this->config.get_allow_auto_topic_creation());
 	}
 
-	*(int *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
+	*(uint32_t *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
 	this->cur_size = this->msgbuf.size();
 
 	vectors[0].iov_base = (void *)this->msgbuf.c_str();
@@ -2512,7 +2512,7 @@ static std::string kafka_cgroup_gen_metadata(KafkaMetaList& meta_list)
 		meta_cnt++;
 	}
 
-	*(int *)(metadata.c_str() + meta_pos) = htonl(meta_cnt);
+	*(uint32_t *)(metadata.c_str() + meta_pos) = htonl(meta_cnt);
 
 	//UserData empty
 	append_bytes(metadata, "");
@@ -2551,7 +2551,7 @@ int KafkaRequest::encode_joingroup(struct iovec vectors[], int max)
 					 kafka_cgroup_gen_metadata(this->meta_list));
 	}
 
-	*(int *)(this->msgbuf.c_str() + protocol_pos) = htonl(protocol_cnt);
+	*(uint32_t *)(this->msgbuf.c_str() + protocol_pos) = htonl(protocol_cnt);
 
 	this->cur_size = this->msgbuf.size();
 
@@ -2585,7 +2585,7 @@ std::string KafkaMessage::get_member_assignment(kafka_member_t *member)
 	//userdata
 	append_bytes(assignment, "");
 
-	*(int *)(assignment.c_str() + topic_cnt_pos) = htonl(topic_cnt);
+	*(uint32_t *)(assignment.c_str() + topic_cnt_pos) = htonl(topic_cnt);
 
 	return assignment;
 }
@@ -2658,7 +2658,7 @@ int KafkaRequest::encode_listoffset(struct iovec vectors[], int max)
 		++topic_cnt;
 	}
 
-	*(int *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
+	*(uint32_t *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
 	this->cur_size = this->msgbuf.size();
 
 	vectors[0].iov_base = (void *)this->msgbuf.c_str();
@@ -2685,7 +2685,7 @@ int KafkaRequest::encode_offsetfetch(struct iovec vectors[], int max)
 		++topic_cnt;
 	}
 
-	*(int *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
+	*(uint32_t *)(this->msgbuf.c_str() + topic_cnt_pos) = htonl(topic_cnt);
 
 	this->cur_size = this->msgbuf.size();
 
@@ -2736,7 +2736,7 @@ int KafkaRequest::encode_offsetcommit(struct iovec vectors[], int max)
 		++toppar_cnt;
 	}
 
-	*(int *)(this->msgbuf.c_str() + toppar_cnt_pos) = htonl(toppar_cnt);
+	*(uint32_t *)(this->msgbuf.c_str() + toppar_cnt_pos) = htonl(toppar_cnt);
 
 	this->cur_size = this->msgbuf.size();
 

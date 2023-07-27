@@ -88,8 +88,7 @@ int main()
 				printf("Server Response: %s\n", task->get_resp()->get_value()->c_str());
 			else
 			{
-				const char *str = WFGlobal::get_error_string(task->get_state(),
-															 task->get_error());
+				const char *str = WFGlobal::get_error_string(task->get_state(), task->get_error());
 				fprintf(stderr, "Error: %s\n", str);
 			}
 		});
@@ -112,6 +111,7 @@ int main()
 }
 
 ~~~
+
 # 派生TLVMessage
 上面的echo server实例，我们直接使用了原始的TLVMessage。但建议在具体的应用中，用户可以对消息进行派生。  
 在派生类里，提供更加丰富的接口来设置和提取消息内容，避免直接操作原始Value域，并形成自己的二级协议。  
@@ -138,6 +138,7 @@ using JsonResponse = JsonMessage;
 using JsonServer = WFServer<JsonRequest, JsonResponse>;
 ~~~
 这个例子只是为了说明派生的重要性，实际应用中，派生类可能要远远比这个复杂。  
+
 # TLV包装器
 TLV格式也很方便嵌套，workflow又非常适用于做协议叠加，目前已经内置了[SSLWrapper](/src/protocol/SSLWrapper.h)和(PackageWrapper)[/src/protocol/PackageWrapper.h]两种协议包装器。  
 之后我们可能会加入TLVWrapper，方便实现TLV格式的多级嵌套。协议叠加是高级用法，需要派生网络任务。相关的方法可以参考[MySQL over TLS](/src/factory/MySQLTaskImpl.cc)的实现。

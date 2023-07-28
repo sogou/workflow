@@ -122,13 +122,18 @@ int main()
 class JsonMessage : public TLVMessage
 {
 public:
-    bool set_json_value(const json_value_t *val)
+    void set_json_value(const json_value_t *val)
     {
-        return this->json_to_string(val, &this->value);  // 需要实现一下
+		this->type = JSON_TYPE;
+        this->json_to_string(val, &this->value);  // 需要实现一下
     }
+
     json_value_t *get_json_value() const
     {
-        return json_parser_parse(this->value.c_str());  // json-parser的函数
+		if (this->type == JSON_TYPE)
+            return json_parser_parse(this->value.c_str());  // json-parser的函数
+        else
+            return NULL;
     }
 };
 
@@ -138,7 +143,3 @@ using JsonResponse = JsonMessage;
 using JsonServer = WFServer<JsonRequest, JsonResponse>;
 ~~~
 这个例子只是为了说明派生的重要性，实际应用中，派生类可能要远远比这个复杂。  
-
-# TLV包装器
-TLV格式也很方便嵌套，workflow又非常适用于做协议叠加，目前已经内置了[SSLWrapper](/src/protocol/SSLWrapper.h)和(PackageWrapper)[/src/protocol/PackageWrapper.h]两种协议包装器。  
-之后我们可能会加入TLVWrapper，方便实现TLV格式的多级嵌套。协议叠加是高级用法，需要派生网络任务。相关的方法可以参考[MySQL over TLS](/src/factory/MySQLTaskImpl.cc)的实现。

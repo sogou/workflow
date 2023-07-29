@@ -62,7 +62,7 @@ WFTLVTask *create_tlv_task(const char *host, unsigned short port, tlv_callback_t
 
 int main()
 {
-    WFTLVServer server([](WFTLVTask *task){
+    WFTLVServer server([](WFTLVTask *task) {
         *task->get_resp() = std::move(*task->get_req());
     });
 
@@ -116,13 +116,13 @@ class JsonMessage : public TLVMessage
 public:
     void set_json_value(const json_value_t *val)
     {
-		this->type = JSON_TYPE;
+        this->type = JSON_TYPE;
         this->json_to_string(val, &this->value);  // 需要实现一下
     }
 
     json_value_t *get_json_value() const
     {
-		if (this->type == JSON_TYPE)
+        if (this->type == JSON_TYPE)
             return json_parser_parse(this->value.c_str());  // json-parser的函数
         else
             return NULL;

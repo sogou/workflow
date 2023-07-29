@@ -52,62 +52,54 @@ using WFTLVServer = WFServer<TLVRequest, TLVResponse>;
 using WFTLVTask = WFNetworkTask<TLVRequest, TLVResponse>;
 using tlv_callback_t = std::function<void (WFTLVTask *)>;
 
-WFTLVTask *create_tlv_task(const char *host, unsigned short port,
-						   tlv_callback_t callback)
+WFTLVTask *create_tlv_task(const char *host, unsigned short port, tlv_callback_t callback)
 {
-	auto *task = WFNetworkTaskFactory<TLVRequest, TLVResponse>::create_client_task(
-							TT_TCP, host, port, 0, std::move(callback));
-	task->set_keep_alive(60 * 1000);
-	return task;
+    auto *task = WFNetworkTaskFactory<TLVRequest, TLVResponse>::create_client_task(
+                                       TT_TCP, host, port, 0, std::move(callback));
+    task->set_keep_alive(60 * 1000);
+    return task;
 }
 
 int main()
 {
-	WFTLVServer server([](WFTLVTask *task){
-		*task->get_resp() = std::move(*task->get_req());
-	});
+    WFTLVServer server([](WFTLVTask *task){
+        *task->get_resp() = std::move(*task->get_req());
+    });
 
-	if (server.start(8888) != 0)
-	{
-		perror("server.start");
-		exit(1);
-	}
+    if (server.start(8888) != 0) {
+        perror("server.start");
+        exit(1);
+    }
 
-	auto&& create = [](WFRepeaterTask *)->SubTask *{
-		std::string string;
-		printf("Input string (Ctrl-D to exit): ");
-		std::cin >> string;
-		if (string.empty())
-		{
-			printf("\n");
-			return NULL;
-		}
+    auto&& create = [](WFRepeaterTask *)->SubTask * {
+        std::string string;
+        printf("Input string (Ctrl-D to exit): ");
+        std::cin >> string;
+        if (string.empty())
+            return NULL;
 
-		auto *task = create_tlv_task("127.0.0.1", 8888, [](WFTLVTask *task) {
-			if (task->get_state() == WFT_STATE_SUCCESS)
-				printf("Server Response: %s\n", task->get_resp()->get_value()->c_str());
-			else
-			{
-				const char *str = WFGlobal::get_error_string(task->get_state(), task->get_error());
-				fprintf(stderr, "Error: %s\n", str);
-			}
-		});
+        auto *task = create_tlv_task("127.0.0.1", 8888, [](WFTLVTask *task) {
+            if (task->get_state() == WFT_STATE_SUCCESS)
+                printf("Server Response: %s\n", task->get_resp()->get_value()->c_str());
+            else {
+                const char *str = WFGlobal::get_error_string(task->get_state(), task->get_error());
+                fprintf(stderr, "Error: %s\n", str);
+            }
+        });
 
-		task->get_req()->set_value(std::move(string));
-		return task;
-	};
+        task->get_req()->set_value(std::move(string));
+        return task;
+    };
 
-	WFFacilities::WaitGroup wait_group(1);
+    WFFacilities::WaitGroup wait_group(1);
+    WFRepeaterTask *repeater = WFTaskFactory::create_repeater_task(std::move(create), nullptr);
+    Workflow::start_series_work(repeater, [&wait_group](const SeriesWork *) {
+        wait_group.done();
+    });
 
-	WFRepeaterTask *repeater;
-	repeater = WFTaskFactory::create_repeater_task(std::move(create), nullptr);
-	Workflow::start_series_work(repeater, [&wait_group](const SeriesWork *) {
-		wait_group.done();
-	});
-
-	wait_group.wait();
-	server.stop();
-	return 0;
+    wait_group.wait();
+    server.stop();
+    return 0;
 }
 
 ~~~

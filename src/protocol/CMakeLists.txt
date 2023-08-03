@@ -15,6 +15,7 @@ set(SRC
 	DnsUtil.cc
 	HttpMessage.cc
 	RedisMessage.cc
+	TLVMessage.cc
 	HttpUtil.cc
 	SSLWrapper.cc
 )

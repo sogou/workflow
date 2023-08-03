@@ -68,6 +68,7 @@ set(INCLUDE_HEADERS
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/TLVMessage.h
 	src/protocol/SSLWrapper.h
 	src/server/WFServer.h
 	src/server/WFHttpServer.h

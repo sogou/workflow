@@ -123,9 +123,16 @@ bool WFConsulTask::get_list_service_result(
 	return ret;
 }
 
+void WFConsulTask::set_task_error(int state, int error){
+	this->state = state;
+	this->error = error;
+	this->finish = true;
+	this->subtask_done();
+}
+
 void WFConsulTask::dispatch()
 {
-	WFHttpTask *task;
+	WFHttpTask *task = nullptr;
 
 	if (this->finish)
 	{
@@ -149,24 +156,15 @@ void WFConsulTask::dispatch()
 
 	case CONSUL_API_TYPE_REGISTER:
 		task = create_register_task();
-		if (task)
-			break;
+		break;
 
-		if (1)
-		{
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = errno;
-		}
-		else
-		{
 	default:
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_CONSUL_API_UNKNOWN;
-		}
-
-		this->finish = true;
-		this->subtask_done();
+		set_task_error(WFT_STATE_TASK_ERROR, WFT_ERR_CONSUL_API_UNKNOWN);
 		return;
+	}
+
+	if(!task){
+		set_task_error(WFT_STATE_SYS_ERROR, errno);
 	}
 
 	series_of(this)->push_front(this);

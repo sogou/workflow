@@ -85,6 +85,7 @@ protected:
 
 protected:
 	virtual void dispatch();
+	void set_task_error(int state, int error);
 	virtual SubTask *done();
 
 	WFHttpTask *create_discover_task();

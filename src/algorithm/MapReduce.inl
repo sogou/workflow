@@ -115,7 +115,7 @@ const VAL *__ReduceIterator<VAL, true>::next()
 	__ReduceValue<VAL> *data = this->heap[0];
 
 	if (this->heap_size == 0)
-		return NULL;
+		return nullptr;
 
 	this->heap[0] = this->heap[--this->heap_size];
 	this->heapify(0);
@@ -230,7 +230,7 @@ public:
 	virtual const VAL *next()
 	{
 		if (this->cursor->next == &this->value_list)
-			return NULL;
+			return nullptr;
 
 		this->cursor = this->cursor->next;
 		this->value_cnt--;
@@ -296,7 +296,7 @@ template<typename KEY, typename VAL>
 void Reducer<KEY, VAL>::insert(KEY&& key, VAL&& value)
 {
 	struct rb_node **p = &this->key_tree.rb_node;
-	struct rb_node *parent = NULL;
+	struct rb_node *parent = nullptr;
 	__ReduceKey<KEY, VAL> *entry;
 
 	while (*p)

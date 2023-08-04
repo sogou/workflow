@@ -165,6 +165,7 @@ void WFConsulTask::dispatch()
 
 	if(!task){
 		set_task_error(WFT_STATE_SYS_ERROR, errno);
+		return;
 	}
 
 	series_of(this)->push_front(this);

@@ -144,6 +144,11 @@ public:
 		return this->comm.reply(session);
 	}
 
+	int shutdown(CommSession *session)
+	{
+		return this->comm.shutdown(session);
+	}
+
 	int push(const void *buf, size_t size, CommSession *session)
 	{
 		return this->comm.push(buf, size, session);

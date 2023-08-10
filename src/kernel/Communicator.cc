@@ -1799,6 +1799,35 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 	return ret;
 }
 
+int Communicator::shutdown(CommSession *session)
+{
+	CommTarget *target = session->target;
+	struct CommConnEntry *entry;
+	int ret;
+
+	if (session->passive != 1)
+	{
+		errno = session->passive ? ENOENT : EPERM;
+		return -1;
+	}
+
+	session->passive = 2;
+	pthread_mutex_lock(&target->mutex);
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		ret = mpoller_del(entry->sockfd, entry->mpoller);
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	pthread_mutex_unlock(&target->mutex);
+	return ret;
+}
+
 int Communicator::sleep(SleepSession *session)
 {
 	struct timespec value;

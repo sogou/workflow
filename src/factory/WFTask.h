@@ -279,10 +279,16 @@ public:
 	   Always returns 'true' in callback. */
 	bool closed() const
 	{
-		if (this->state == WFT_STATE_TOREPLY)
+		switch (this->state)
+		{
+		case WFT_STATE_UNDEFINED:
+			return false;
+		case WFT_STATE_TOREPLY:
+		case WFT_STATE_NOREPLY:
 			return !this->get_target()->has_idle_conn();
-		else
-			return this->state != WFT_STATE_UNDEFINED;
+		default:
+			return true;
+		}
 	}
 
 public:

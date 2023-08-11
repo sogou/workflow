@@ -340,8 +340,11 @@ CommSession::~CommSession()
 		{
 			pos = target->idle_list.next;
 			entry = list_entry(pos, struct CommConnEntry, list);
+			list_del(pos);
+
 			errno_bak = errno;
 			mpoller_del(entry->sockfd, entry->mpoller);
+			entry->state = CONN_STATE_CLOSING;
 			errno = errno_bak;
 		}
 
@@ -1816,7 +1819,9 @@ int Communicator::shutdown(CommSession *session)
 	if (!list_empty(&target->idle_list))
 	{
 		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		list_del(&entry->list);
 		ret = mpoller_del(entry->sockfd, entry->mpoller);
+		entry->state = CONN_STATE_CLOSING;
 	}
 	else
 	{

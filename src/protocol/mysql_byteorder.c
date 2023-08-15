@@ -77,12 +77,8 @@ int decode_string(const unsigned char **str, unsigned long long *len,
 	if (decode_length_safe(&length, pos, end) <= 0)
 		return 0;
 
-	if (length == 0 || length == (~0ULL))
-	{
-		*len = 0;
-		*str = NULL;
-		return 1;
-	}
+	if (length == (~0ULL))
+		length = 0;
 
 	if (*pos + length > end)
 		return 0;
@@ -92,3 +88,4 @@ int decode_string(const unsigned char **str, unsigned long long *len,
 	*pos = *pos + length;
 	return 1;
 }
+

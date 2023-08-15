@@ -18,8 +18,8 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <arpa/inet.h>
 #include <string>
+#include "PlatformSocket.h"
 #include "TLVMessage.h"
 
 namespace protocol

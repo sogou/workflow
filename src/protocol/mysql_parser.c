@@ -204,11 +204,17 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 
 	if (server_status & MYSQL_SERVER_SESSION_STATE_CHANGED)
 	{
+		const unsigned char *tmp_str;
+		unsigned long long tmp_len;
+	
 		if (decode_string(&str, &info_len, &p, buf_end) == 0)
 			return -2;
+
+		if (decode_string(&tmp_str, &tmp_len, &p, buf_end) == 0)
+			return -2;
 	} else {
-		info_len = 0;
 		str = p;
+		info_len = 0;
 	}
 
 	result_set = (struct __mysql_result_set *)malloc(sizeof(struct __mysql_result_set));

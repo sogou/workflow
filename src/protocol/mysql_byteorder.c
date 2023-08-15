@@ -23,6 +23,9 @@ int decode_length_safe(unsigned long long *res, const unsigned char **pos,
 {
 	const unsigned char *p = *pos;
 
+	if (p >= end)
+		return 0;
+
 	switch (*p)
 	{
 	default:

@@ -24,7 +24,6 @@
 #define DNS_LABELS_MAX			63
 #define DNS_NAMES_MAX			256
 #define DNS_MSGBASE_INIT_SIZE	514 // 512 + 2(leading length)
-#define DNS_HEADER_SIZE			sizeof (struct dns_header)
 #define MAX(x, y) ((x) <= (y) ? (y) : (x))
 
 struct __dns_record_entry
@@ -706,7 +705,7 @@ void dns_parser_init(dns_parser_t *parser)
 	parser->bufsize = 0;
 	parser->complete = 0;
 	parser->single_packet = 0;
-	memset(&parser->header, 0, DNS_HEADER_SIZE);
+	memset(&parser->header, 0, sizeof (struct dns_header));
 	memset(&parser->question, 0, sizeof (struct dns_question));
 	INIT_LIST_HEAD(&parser->answer_list);
 	INIT_LIST_HEAD(&parser->authority_list);
@@ -769,16 +768,16 @@ int dns_parser_parse_all(dns_parser_t *parser)
 	parser->cur = (const char *)parser->msgbase;
 	h = &parser->header;
 
-	if (parser->msgsize < DNS_HEADER_SIZE)
+	if (parser->msgsize < sizeof (struct dns_header))
 		return -2;
 
-	memcpy(h, parser->msgbase, DNS_HEADER_SIZE);
+	memcpy(h, parser->msgbase, sizeof (struct dns_header));
 	h->id = ntohs(h->id);
 	h->qdcount = ntohs(h->qdcount);
 	h->ancount = ntohs(h->ancount);
 	h->nscount = ntohs(h->nscount);
 	h->arcount = ntohs(h->arcount);
-	parser->cur += DNS_HEADER_SIZE;
+	parser->cur += sizeof (struct dns_header);
 
 	ret = __dns_parser_parse_question(parser);
 	if (ret < 0)

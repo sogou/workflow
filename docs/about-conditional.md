@@ -65,16 +65,16 @@ public:
 这就相当于实现了观察者模式。  
 
 # 示例
-还是上面的延迟计算示例，我们增加到两个计算任务并用观察者模式来实现。用”slot1”作为条件任务名。
+还是上面的延迟计算示例，我们增加到两个计算任务并用观察者模式来实现。用"slot1"作为条件任务名。
 ~~~cpp
 int main()
 {
-    WFGoTask *task1 = WFTaskFactory::create_go_task("test”, [](){ printf(“test1 done\n"); });
-    WFGoTask *task2 = WFTaskFactory::create_go_task("test”, [](){ printf(“test2 done\n"); });
-    WFConditional *cond1 = WFTaskFactory::create_conditional(“slot1”, task1);
-    WFConditional *cond2 = WFTaskFactory::create_conditional(“slot1”, task2);
+    WFGoTask *task1 = WFTaskFactory::create_go_task("test", [](){ printf("test1 done\n"); });
+    WFGoTask *task2 = WFTaskFactory::create_go_task("test", [](){ printf("test2 done\n"); });
+    WFConditional *cond1 = WFTaskFactory::create_conditional("slot1", task1);
+    WFConditional *cond2 = WFTaskFactory::create_conditional("slot1", task2);
     WFTimerTask *timer = WFTaskFactory::create_timer_task(1, 0, [](void *){
-        WFTaskFactory::signal_by_name(“slot1”, NULL);
+        WFTaskFactory::signal_by_name("slot1", NULL);
     });
     timer->start();
     cond1->start();
@@ -93,9 +93,9 @@ Workflow里的任何任务，如果创建之后不想运行，都可以通过dis
 int main()
 {
     WFEmptyTask *task = WFTaskFactory::create_empty_task();
-    WFConditional *cond = WFTaskFactory::create_conditional(“slot1”, task);
+    WFConditional *cond = WFTaskFactory::create_conditional("slot1", task);
     WFTimerTask *timer = WFTaskFactory::create_timer_task(0, 0, [](void *) {
-        WFTaskFactory::signal_by_name(“slot1”);
+        WFTaskFactory::signal_by_name("slot1");
     });
     timer->start();
     cond->dismiss();  // 取消任务

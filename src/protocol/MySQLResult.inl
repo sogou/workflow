@@ -306,7 +306,7 @@ bool MySQLResultCursor::fetch_row(T& row_map)
 			p++;
 			data_type = MYSQL_TYPE_NULL;
 		}
-		else if (decode_string(&data, &len, &p, end) == false)
+		else if (decode_string(&data, &len, &p, end) == 0)
 		{
 			this->status = MYSQL_STATUS_ERROR;
 			return false;

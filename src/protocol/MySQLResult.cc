@@ -16,8 +16,10 @@
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <vector>
 #include "mysql_types.h"
 #include "mysql_byteorder.h"
+#include "MySQLMessage.h"
 #include "MySQLResult.h"
 
 namespace protocol
@@ -196,7 +198,7 @@ bool MySQLResultCursor::fetch_row(std::vector<MySQLCell>& row_arr)
 			len = 0;
 			p++;
 			data_type = MYSQL_TYPE_NULL;
-		} else if (decode_string(&data, &len, &p, end) == false) {
+		} else if (decode_string(&data, &len, &p, end) == 0) {
 			this->status = MYSQL_STATUS_ERROR;
 			return false;
 		}
@@ -241,7 +243,7 @@ bool MySQLResultCursor::fetch_row_nocopy(const void **data, size_t *len, int *da
 			cell_len = 0;
 			p++;
 		}
-		else if (decode_string(&cell_data, &cell_len, &p, end) == false)
+		else if (decode_string(&cell_data, &cell_len, &p, end) == 0)
 		{
 			this->status = MYSQL_STATUS_ERROR;
 			return false;
@@ -287,7 +289,7 @@ bool MySQLResultCursor::fetch_all(std::vector<std::vector<MySQLCell>>& rows)
 				p++;
 				data_type = MYSQL_TYPE_NULL;
 			}
-			else if (decode_string(&data, &len, &p, end) == false)
+			else if (decode_string(&data, &len, &p, end) == 0)
 			{
 				this->status = MYSQL_STATUS_ERROR;
 				return false;

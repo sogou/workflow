@@ -38,9 +38,15 @@ void process(WFWebSocketTask *task)
 		task->get_msg()->get_data(&data, &size);
 		fprintf(stderr, "get text message: [%.*s]\n", (int)size, data);
 	}
+	else if (task->get_msg()->get_opcode() == WebSocketFrameConnectionClose)
+	{
+		task->get_msg()->get_data(&data, &size);
+		fprintf(stderr, "close message: [%.*s] status code: %u\n",
+				(int)size, data, task->get_msg()->get_status_code());
+	}
 	else
 	{
-		fprintf(stderr, "process opcode=%d\n", task->get_msg()->get_opcode());
+		fprintf(stderr, "process opcode: %d\n", task->get_msg()->get_opcode());
 	}
 }
 
@@ -73,12 +79,14 @@ int main(int argc, char *argv[])
 			wg.done();
 			return;
 		}
+
 		auto *ping_task = client.create_ping_task(nullptr);
 		auto *timer_task = WFTaskFactory::create_timer_task(3000000 /* 3s */, nullptr);
 		auto *close_task = client.create_close_task([&wg] (WFWebSocketTask *task) {
 			wg.done();
 		});
 
+		close_task->get_msg()->set_close_message(WSStatusCodeNormal, "close after 3 seconds");
 		series_of(task)->push_back(ping_task);
 		series_of(task)->push_back(timer_task);
 		series_of(task)->push_back(close_task);

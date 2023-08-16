@@ -171,10 +171,13 @@ int websocket_parser_parse(websocket_parser_t *parser)
 
 	p = (unsigned char *)parser->payload_data;
 
-	if (parser->opcode == WebSocketFrameConnectionClose)
+	if (parser->opcode == WebSocketFrameConnectionClose &&
+		parser->payload_length >= 2)
 	{
 		parser->status_code = ntohs(*((uint16_t*)p));
 		p = malloc(parser->payload_length - 2);
+		if (!p)
+			return -1;
 		memcpy(p, (unsigned char *)parser->payload_data + 2,
 			   parser->payload_length - 2);
 		free(parser->payload_data);

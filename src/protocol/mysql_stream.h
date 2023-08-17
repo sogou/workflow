@@ -40,11 +40,16 @@ extern "C"
 #endif
 
 void mysql_stream_init(mysql_stream_t *stream);
-int mysql_stream_write(const void *buf, size_t n, mysql_stream_t *stream);
 
 #ifdef __cplusplus
 }
 #endif
+
+static inline int mysql_stream_write(const void *buf, size_t *n,
+									 mysql_stream_t *stream)
+{
+	return stream->write(buf, n, stream);
+}
 
 static inline int mysql_stream_get_seq(mysql_stream_t *stream)
 {

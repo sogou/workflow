@@ -118,7 +118,6 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 		uint16_t tmp = htons(this->parser->payload_length);
 		memcpy(p, &tmp, sizeof(tmp));
 		p += 2;
-
 	}
 	else
 	{
@@ -189,101 +188,143 @@ bool WebSocketFrame::set_binary_data(const char *data, size_t size)
 
 bool WebSocketFrame::set_binary_data(const char *data, size_t size, bool fin)
 {
-	bool ret = true;
+	// -1/0/text/bin. Cannot set into close/ping/pong.
+	if (this->parser->opcode > WebSocketFrameBinary)
+		return false;
+
+	void *payload_data = this->parser->payload_data;
+
+	if (!payload_data)
+		payload_data = malloc(size);
+	else if (this->parser->payload_length < size)
+		payload_data = realloc(payload_data, size);
+
+	if (!payload_data)
+		return false;
+
+	this->parser->payload_data = payload_data;
+	memcpy(this->parser->payload_data, data, size);
+	this->parser->payload_length = size;
 
 	this->parser->opcode = WebSocketFrameBinary;
 	this->parser->fin = fin;
 
-	if (this->parser->payload_length && this->parser->payload_data)
-	{
-		ret = false;
-		free(this->parser->payload_data);
-	}
-
-	this->parser->payload_data = (char *)malloc(size);
-	memcpy(this->parser->payload_data, data, size);
-	this->parser->payload_length = size;
-
-	return ret;
+	return true;
 }
 
 bool WebSocketFrame::set_text_data(const char *data)
 {
-	return set_text_data(data, strlen(data), true);
+	return this->set_text_data(data, strlen(data), true);
 }
 
 bool WebSocketFrame::set_text_data(const char *data, size_t size, bool fin)
 {
-	bool ret = true;
+	if (this->parser->opcode > WebSocketFrameBinary)
+		return false;
+
+	void *payload_data = this->parser->payload_data;
+
+	if (!payload_data)
+		payload_data = malloc(size);
+	else if (this->parser->payload_length < size)
+		payload_data = realloc(payload_data, size);
+
+	if (!payload_data)
+		return false;
+
+	this->parser->payload_data = payload_data;
+	memcpy(this->parser->payload_data, data, size);
+	this->parser->payload_length = size;
 
 	this->parser->opcode = WebSocketFrameText;
 	this->parser->fin = fin;
 
-	if (this->parser->payload_length && this->parser->payload_data)
-	{
-		ret = false;
-		free(this->parser->payload_data);
-	}
+	return true;
+}
 
-	this->parser->payload_data = (char *)malloc(size);
-	memcpy(this->parser->payload_data, data, size);
-	this->parser->payload_length = size;
+bool WebSocketFrame::set_close_message(uint16_t status_code, const char *data)
+{
+	return this->set_close_message(status_code, data, strlen(data));
+}
 
-	return ret;
+bool WebSocketFrame::set_close_message(uint16_t status_code,
+									   const char *data, size_t size)
+{
+	if (this->parser->opcode != WebSocketFrameConnectionClose)
+		return false;
+
+	size_t payload_length = size + sizeof(uint16_t);
+	void *payload_data = this->parser->payload_data;
+
+	if (!payload_data)
+		payload_data = malloc(payload_length);
+	else if (this->parser->payload_length < payload_length)
+		payload_data = realloc(payload_data, payload_length);
+
+	if (!payload_data)
+		return false;
+
+	this->parser->payload_data = payload_data;
+	this->parser->payload_length = payload_length;
+//	this->parser->status_code = status_code;
+
+	uint16_t tmp = htons(status_code);
+	memcpy(this->parser->payload_data, &tmp, sizeof(uint16_t));
+	memcpy((char *)this->parser->payload_data + sizeof(uint16_t), data, size);
+
+	return true;
 }
 
 bool WebSocketFrame::set_data(const websocket_parser_t *parser)
 {
-	bool ret = true;
-	unsigned char *p;
-
-	if  (this->parser->payload_length && this->parser->payload_data)
-	{
-		ret = false;
-		free(this->parser->payload_data);
-	}
-
-//	this->parser->status_code = parser->status_code;
-	this->parser->payload_length = parser->payload_length;
+	void *payload_data = this->parser->payload_data;
+	size_t payload_length = parser->payload_length;
 
 	if (this->parser->opcode == WebSocketFrameConnectionClose &&
 		parser->status_code != WSStatusCodeUndefined)
 	{
-		this->parser->payload_length += 2;
+		payload_length += sizeof(uint16_t);
 	}
 
-	this->parser->payload_data = malloc(this->parser->payload_length);
-	p = (unsigned char *)this->parser->payload_data;
+	if (!payload_data)
+		payload_data = malloc(payload_length);
+	else if (this->parser->payload_length < payload_length)
+		payload_data = realloc(payload_data, payload_length);
+
+	if (!payload_data)
+		return false;
+
+	this->parser->payload_data = payload_data;
+	this->parser->payload_length = payload_length;
+	this->parser->status_code = parser->status_code;
 
 	if (this->parser->opcode == WebSocketFrameConnectionClose &&
 		parser->status_code != WSStatusCodeUndefined)
 	{
 		uint16_t tmp = htons(parser->status_code);
-		memcpy(p, &tmp, sizeof(tmp));
-		p += 2;
+		memcpy(this->parser->payload_data, &tmp, sizeof(uint16_t));
+		payload_data = (char *)payload_data + sizeof(uint16_t);
 	}
 
-	memcpy(p, parser->payload_data, parser->payload_length);
+	memcpy(payload_data, parser->payload_data, parser->payload_length);
 
-	return ret;
+	return true;
 }
 
-bool WebSocketFrame::get_data(const char **data, size_t *size) const
+void WebSocketFrame::get_data(const char **data, size_t *size) const
 {
-	if (this->parser->status_code == WSStatusCodeUnsupportedData ||
-		this->parser->status_code == WSStatusCodeProtocolError)
-	{
-		return false;
-	}
-
 	*data = (char *)this->parser->payload_data;
 	*size = this->parser->payload_length;
-	return true;
 }
 
 bool WebSocketFrame::finished() const
 {
 	return this->parser->fin;
+}
+
+uint16_t WebSocketFrame::get_status_code() const
+{
+	return this->parser->status_code;
 }
 
 } // end namespace protocol

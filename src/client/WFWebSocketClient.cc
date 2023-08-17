@@ -153,6 +153,7 @@ WFWebSocketTask *WebSocketClient::create_close_task(websocket_callback_t cb)
 	protocol::WebSocketFrame *msg = close_task->get_msg();
 	msg->set_opcode(WebSocketFrameConnectionClose);
 	msg->set_masking_key(this->channel->gen_masking_key());
+	msg->set_close_message(WSStatusCodeNormal, "");
 
 	return close_task;
 }

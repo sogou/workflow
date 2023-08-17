@@ -44,7 +44,12 @@ public:
 	bool set_binary_data(const char *data, size_t size);
 	bool set_binary_data(const char *data, size_t size, bool fin);
 
-	bool get_data(const char **data, size_t *size) const;
+	bool set_close_message(uint16_t code, const char *data);
+	bool set_close_message(uint16_t code, const char *data, size_t size);
+
+	void get_data(const char **data, size_t *size) const;
+
+	uint16_t get_status_code() const;
 
 	bool finished() const;
 

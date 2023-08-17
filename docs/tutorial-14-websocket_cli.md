@@ -93,9 +93,9 @@ public:
 - **文本**，通过``set_text_data()``这类接口设置；
 - **二进制**，通过``set_binary_data()``这类接口设置；
 
-注意这些均为**非拷贝接口**，消息在发出之前需要用户来保证data在内存的生命周期；
+注意这些均为**拷贝接口**，消息会在task里拷贝一份；
 
-这两类接口都有一个带``bool fin``参数的接口，表示本消息是否finish。因为**WebSocket**协议的数据包允许分段传输，如果你要发送一个完整的消息想分多次发送，则可以使用带``bool fin``的接口，并且把``fin``值设置为``false``。
+这两类接口都有一个带``bool fin``参数的接口，表示本消息是否finish。因为**WebSocket**协议的数据包允许分段传输，如果你要发送一个完整的消息想分多次发送，则可以使用带``bool fin``的接口，并且把``fin``值设置为``false``，默认值是``true``。
 
 #### 4. callback
 
@@ -168,6 +168,12 @@ wait_group.wait();
 ```
 
 这里发起了一个close任务，由于close是异步的，因此在``task->start()``之后当前线程会退出，我们在当前线程结合一个了``wait_group``进行不占线程的阻塞，并在close任务的回调函数里唤醒，然后当前线程就可以安全调用``client.deinit()``、删除client实例以及退出了。
+
+开发者可以对close任务设置status_code和close_reason，以表示主动关闭的原因。默认status_code为`WSStatusCodeNormal`，如需设置，接口参考：
+
+```cpp
+bool WebSocketFrame::set_close_message(uint16_t status_code, const char *data, size_t size);
+```
 
 需要注意的是，如果不主动发起close任务，直接删除client实例，那么底层使用的那个网络连接还会存在，直到超时或其他原因断开；
 而``client.deinit()``是个等待内部网络资源完全释放的同步接口，需要手动调用，以保证程序退出前client的所有资源安全释放。

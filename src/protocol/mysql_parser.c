@@ -206,11 +206,20 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	{
 		const unsigned char *tmp_str;
 		unsigned long long tmp_len;
-	
+
 		if (decode_string(&str, &info_len, &p, buf_end) == 0)
 			return -2;
 
 		if (decode_string(&tmp_str, &tmp_len, &p, buf_end) == 0)
+			return -2;
+
+	} else if (p != buf_end &&
+			   *p != MYSQL_PACKET_HEADER_OK &&
+			   *p != MYSQL_PACKET_HEADER_NULL &&
+			   *p != MYSQL_PACKET_HEADER_EOF &&
+			   *p != MYSQL_PACKET_HEADER_ERROR)
+	{
+		if (decode_string(&str, &info_len, &p, buf_end) == 0)
 			return -2;
 	} else {
 		str = p;

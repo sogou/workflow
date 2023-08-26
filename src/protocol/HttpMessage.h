@@ -115,12 +115,17 @@ public:
 		return this->append_output_body_nocopy(buf, strlen(buf));
 	}
 
-	void clear_output_body();
-
 	size_t get_output_body_size() const
 	{
 		return this->output_body_size;
 	}
+
+	size_t get_output_body_blocks(const void *buf[], size_t size[],
+								  size_t max) const;
+
+	bool get_output_body_merged(void *buf, size_t *size) const;
+
+	void clear_output_body();
 
 	/* std::string interfaces */
 public:
@@ -164,6 +169,13 @@ public:
 	bool append_output_body_nocopy(const std::string& buf)
 	{
 		return this->append_output_body_nocopy(buf.c_str(), buf.size());
+	}
+
+	bool get_output_body_merged(std::string& body) const
+	{
+		size_t size = this->output_body_size;
+		body.resize(size);
+		return this->get_output_body_merged((void *)body.data(), &size);
 	}
 
 	/* for http task implementations. */

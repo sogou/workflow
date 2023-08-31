@@ -82,6 +82,7 @@ size_t HttpMessage::get_output_body_blocks(const void *buf[], size_t size[],
 		block = list_entry(pos, struct HttpMessageBlock, list);
 		buf[n] = block->ptr;
 		size[n] = block->size;
+		n++;
 	}
 
 	return n;

@@ -285,7 +285,7 @@ public:
 			return false;
 		case WFT_STATE_TOREPLY:
 		case WFT_STATE_NOREPLY:
-			return !this->get_target()->has_idle_conn();
+			return !this->target->has_idle_conn();
 		default:
 			return true;
 		}

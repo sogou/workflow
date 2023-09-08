@@ -745,9 +745,9 @@ bool ComplexMySQLTask::finish_once()
 	{
 		if (this->state != WFT_STATE_SUCCESS || this->keep_alive_timeo == 0)
 		{
-			auto *target = (RouteManager::RouteTarget *)this->get_target();
+			CommTarget *target = this->get_target();
 			if (target)
-				target->state = 0;
+				((RouteManager::RouteTarget *)target)->state = 0;
 		}
 	}
 

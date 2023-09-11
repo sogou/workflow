@@ -20,6 +20,7 @@
 #ifndef _WFFACILITIES_H_
 #define _WFFACILITIES_H_
 
+#include <assert.h>
 #include "WFFuture.h"
 #include "WFTaskFactory.h"
 
@@ -74,6 +75,49 @@ public:
 		std::atomic<int> nleft;
 		WFCounterTask *task;
 		WFFuture<void> future;
+	};
+
+public:
+	class ReplyGuard
+	{
+	public:
+		ReplyGuard(SubTask *task)
+		{
+			SeriesWork *series = series_of(task);
+			assert(series);
+			assert(task == series->get_last_task());
+			this->cond = new Conditional(task, this);
+			series->set_last_task(this->cond);
+		}
+
+		~ReplyGuard()
+		{
+			if (this->cond)
+				this->cond->signal(NULL);
+		}
+
+	protected:
+		class Conditional : public WFConditional
+		{
+		public:
+			Conditional(SubTask *task, ReplyGuard *guard) :
+				WFConditional(task)
+			{
+				this->guard = guard;
+			}
+
+			/* Make it compatible with series->cancel(). */
+			virtual ~Conditional()
+			{
+				if (this->task)
+				{
+					this->task = NULL;
+					this->guard->cond = NULL;
+				}
+			}
+
+			ReplyGuard *guard;
+		} *cond;
 	};
 
 private:

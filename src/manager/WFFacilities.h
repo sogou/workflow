@@ -15,6 +15,7 @@
 
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
            Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #ifndef _WFFACILITIES_H_
@@ -97,6 +98,7 @@ public:
 			this->cond->signal(NULL);
 		}
 
+	private:
 		WFConditional *cond;
 	};
 

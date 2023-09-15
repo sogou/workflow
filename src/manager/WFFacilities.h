@@ -81,43 +81,21 @@ public:
 	class ReplyGuard
 	{
 	public:
-		ReplyGuard(SubTask *task)
+		ReplyGuard(SubTask *server_task)
 		{
-			SeriesWork *series = series_of(task);
+			SeriesWork *series = series_of(server_task);
 			assert(series);
-			assert(task == series->get_last_task());
-			this->cond = new Conditional(task, this);
+			assert(server_task == series->get_last_task());
+			this->cond = WFTaskFactory::create_conditional(server_task);
 			series->set_last_task(this->cond);
 		}
 
 		~ReplyGuard()
 		{
-			if (this->cond)
-				this->cond->signal(NULL);
+			this->cond->signal(NULL);
 		}
 
-	protected:
-		class Conditional : public WFConditional
-		{
-		public:
-			Conditional(SubTask *task, ReplyGuard *guard) :
-				WFConditional(task)
-			{
-				this->guard = guard;
-			}
-
-			/* Make it compatible with series->cancel(). */
-			virtual ~Conditional()
-			{
-				if (this->task)
-				{
-					this->task = NULL;
-					this->guard->cond = NULL;
-				}
-			}
-
-			ReplyGuard *guard;
-		} *cond;
+		WFConditional *cond;
 	};
 
 private:

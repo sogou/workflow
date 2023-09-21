@@ -29,6 +29,7 @@
 #include <mutex>
 #include "WFTaskError.h"
 #include "WFKafkaClient.h"
+#include "StringUtil.h"
 
 #define KAFKA_HEARTBEAT_INTERVAL	(3 * 1000 * 1000)
 
@@ -675,14 +676,15 @@ void KafkaClientTask::generate_info()
 	{
 		this->userinfo = this->config.get_sasl_username();
 		this->userinfo += ":";
-		this->userinfo += this->config.get_sasl_password();
+		this->userinfo +=
+			StringUtil::url_encode_component(this->config.get_sasl_password());
 		this->userinfo += ":";
 		this->userinfo += this->config.get_sasl_mech();
 		this->userinfo += ":";
 		this->userinfo += std::to_string((intptr_t)this->member);
 		this->userinfo += "@";
 		this->url = "kafka://" + this->userinfo +
-		  this->url.substr(this->url.find("kafka://") + 8);
+			this->url.substr(this->url.find("kafka://") + 8);
 	}
 	else
 	{

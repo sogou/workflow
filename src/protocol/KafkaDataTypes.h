@@ -1016,14 +1016,12 @@ public:
 		return this->ptr->port;
 	}
 
-	std::string get_uri() const
+	std::string get_host_port() const
 	{
-		std::string uri = "kafka://";
-
-		uri += this->ptr->host;
-		uri += ":";
-		uri += std::to_string(this->ptr->port);
-		return uri;
+		std::string host_port(this->ptr->host);
+		host_port += ":";
+		host_port += std::to_string(this->ptr->port);
+		return host_port;
 	}
 
 	int get_error()
@@ -1103,12 +1101,12 @@ public:
 
 	bool operator< (const KafkaBroker& broker) const
 	{
-		return this->get_uri() < broker.get_uri();
+		return this->get_host_port() < broker.get_host_port();
 	}
 
 	bool operator> (const KafkaBroker& broker) const
 	{
-		return this->get_uri() > broker.get_uri();
+		return this->get_host_port() > broker.get_host_port();
 	}
 
 	kafka_broker_t *get_raw_ptr() const { return this->ptr; }

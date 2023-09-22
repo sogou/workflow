@@ -28,8 +28,10 @@ Bazel：执行bazel build kafka 编译支持kafka协议的类库；执行bazel b
 
 其中broker_url可以有多个url组成，多个url之间以,分割
 
-- 形式如：kafka://host:port,kafka://host1:port...
-- port默认为9092;
+- 形式如：kafka://host:port,kafka://host1:port... 或：**kafkas**://host:port,**kafkas**://host1:port代表使用SSL通信。
+- port的默认值在普通TCP连接下是9092，SSL下为9093。
+- "kafka://"前缀可以缺省。这时候使用默认使用TCL通信。
+- 多个url，必须都采用TCP或都采用SSL。否则init函数返回-1，错误码为EINVAL。
 - 如果用户在这一层有upstream选取需求，可以参考[upstream文档](../docs/about-upstream.md)。
 
 Kafka broker_url示例：
@@ -39,6 +41,12 @@ kafka://127.0.0.1/
 kafka://kafka.host:9090/
 
 kafka://10.160.23.23:9000,10.123.23.23,kafka://kafka.sogou
+
+kafkas://broker1.kafka.sogou,kafkas://broker2.kafka.sogou
+
+错误的url示例（第一个broker为SSL，第二个broker非SSL）：
+
+kafkas://broker1.kafka.sogou,broker2.kafka.sogou
 
 # 实现原理和特性
 

@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <assert.h>
@@ -310,19 +311,17 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 
 bool __ComplexKafkaTask::init_success()
 {
-	TransportType type = TT_TCP;
-	if (uri_.scheme)
+	TransportType type;
+
+	if (uri_.scheme && strcasecmp(uri_.scheme, "kafka") == 0)
+		type = TT_TCP;
+	else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
+		type = TT_TCP_SSL;
+	else
 	{
-		if (strcasecmp(uri_.scheme, "kafka") == 0)
-			type = TT_TCP;
-		//else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
-		//	type = TT_TCP_SSL;
-		else
-		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_URI_SCHEME_INVALID;
-			return false;
-		}
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_URI_SCHEME_INVALID;
+		return false;
 	}
 
 	std::string username, password, sasl, client;
@@ -367,7 +366,6 @@ bool __ComplexKafkaTask::init_success()
 	}
 
 	this->WFComplexClientTask::set_transport_type(type);
-
 	return true;
 }
 
@@ -426,12 +424,13 @@ bool __ComplexKafkaTask::check_redirect()
 			socklen_t addrlen_coord;
 
 			coordinator->get_broker_addr(&addr_coord, &addrlen_coord);
-			set_redirect(TT_TCP, addr_coord, addrlen_coord,
+			set_redirect(this->get_transport_type(), addr_coord, addrlen_coord,
 						 this->WFComplexClientTask::info_);
 		}
 		else
 		{
-			std::string url = "kafka://";
+			std::string url(uri_.scheme);
+			url += "://";
 			url += user_info_ + "@";
 			url += coordinator->get_host();
 			url += ":" + std::to_string(coordinator->get_port());
@@ -445,7 +444,8 @@ bool __ComplexKafkaTask::check_redirect()
 	}
 	else
 	{
-		this->init(TT_TCP, paddr, addrlen, this->WFComplexClientTask::info_);
+		this->init(this->get_transport_type(), paddr, addrlen,
+				   this->WFComplexClientTask::info_);
 		return false;
 	}
 }
@@ -809,7 +809,8 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 	return task;
 }
 
-__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *addr,
+__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(TransportType type,
+													   const struct sockaddr *addr,
 													   socklen_t addrlen,
 													   const std::string& info,
 													   int retry_max,
@@ -817,12 +818,13 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const struct sockaddr *ad
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
-	task->init(TT_TCP, addr, addrlen, info);
+	task->init(type, addr, addrlen, info);
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;
 }
 
-__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
+__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(TransportType type,
+													   const char *host,
 													   unsigned short port,
 													   const std::string& info,
 													   int retry_max,
@@ -830,10 +832,10 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
-	std::string url = "kafka://";
+	std::string url = (type == TT_TCP_SSL ? "kafkas://" : "kafka://");
 
 	if (!info.empty())
-		url += info;
+		url += info + "@";
 
 	url += host;
 	url += ":" + std::to_string(port);

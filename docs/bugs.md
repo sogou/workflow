@@ -1,7 +1,7 @@
 # 已知BUG列表
 
-### OpenSSL 1.1.1下，出现网络任务状态为WFT_STATE_SYS_ERROR，错误为0。
-这是OpenSSL 1.1.1的bug，在SSL_get_error()为SSL_ERROR_SYSCALL时，errno被置为0。由于框架会把SSL_ERROR_SYSCALL转为系统错误，这会导致我们得到一个错误码0的系统错误：
+### OpenSSL 1.1.1及以下，出现网络任务状态为WFT_STATE_SYS_ERROR，错误为0。
+这是OpenSSL 1.1.1及以下的bug，在SSL_get_error()为SSL_ERROR_SYSCALL时，errno被置为0。由于框架会把SSL_ERROR_SYSCALL转为系统错误，这会导致我们得到一个错误码0的系统错误：
 ~~~cpp
 void callback(WFHttpTask *task)
 {

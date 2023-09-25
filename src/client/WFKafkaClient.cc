@@ -291,13 +291,10 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 		{
 			__WFKafkaTask *kafka_task;
 			KafkaBroker *coordinator = member->cgroup.get_coordinator();
-
-			const struct sockaddr *addr;
-			socklen_t socklen;
-			coordinator->get_broker_addr(&addr, &socklen);
-
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-																 addr, socklen, "", 0,
+																 coordinator->get_host(),
+																 coordinator->get_port(),
+																 "", 0,
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = member;
 			kafka_task->get_req()->set_api_type(Kafka_Heartbeat);
@@ -323,14 +320,11 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 void KafkaClientTask::kafka_rebalance_proc(KafkaMember *member, SeriesWork *series)
 {
 	KafkaBroker *coordinator = member->cgroup.get_coordinator();
-
-	const struct sockaddr *addr;
-	socklen_t socklen;
-	coordinator->get_broker_addr(&addr, &socklen);
-
 	__WFKafkaTask *task;
 	task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-												   addr, socklen, "", 0,
+												   coordinator->get_host(),
+												   coordinator->get_port(),
+												   "", 0,
 												   kafka_rebalance_callback);
 	task->user_data = member;
 	task->get_req()->set_config(member->config);
@@ -397,13 +391,10 @@ void KafkaClientTask::kafka_timer_callback(WFTimerTask *task)
 
 	__WFKafkaTask *kafka_task;
 	KafkaBroker *coordinator = member->cgroup.get_coordinator();
-
-	const struct sockaddr *addr;
-	socklen_t socklen;
-	coordinator->get_broker_addr(&addr, &socklen);
-
 	kafka_task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-														 addr, socklen, "", 0,
+														 coordinator->get_host(),
+														 coordinator->get_port(),
+														 "", 0,
 														 kafka_heartbeat_callback);
 
 	kafka_task->user_data = member;
@@ -539,13 +530,10 @@ void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 		{
 			__WFKafkaTask *kafka_task;
 			KafkaBroker *coordinator = t->member->cgroup.get_coordinator();
-
-			const struct sockaddr *addr;
-			socklen_t socklen;
-			coordinator->get_broker_addr(&addr, &socklen);
-
 			kafka_task = __WFKafkaTaskFactory::create_kafka_task(t->member->transport_type,
-																 addr, socklen, "", 0,
+																 coordinator->get_host(),
+																 coordinator->get_port(),
+																 "", 0,
 																 kafka_heartbeat_callback);
 			kafka_task->user_data = t->member;
 			t->member->incref();
@@ -896,6 +884,7 @@ bool KafkaClientTask::check_meta()
 int KafkaClientTask::dispatch_locked()
 {
 	KafkaMember *member = this->member;
+	KafkaBroker *coordinator;
 	__WFKafkaTask *task;
 	ParallelWork *parallel;
 	SeriesWork *series;
@@ -939,28 +928,12 @@ int KafkaClientTask::dispatch_locked()
 			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
-			if (broker->is_to_addr())
-			{
-				const struct sockaddr *addr;
-				socklen_t socklen;
-				broker->get_broker_addr(&addr, &socklen);
-
-				task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-															   addr, socklen,
-															   this->get_userinfo(),
-															   this->retry_max,
-															   nullptr);
-			}
-			else
-			{
-				task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-															   broker->get_host(),
-															   broker->get_port(),
-															   this->get_userinfo(),
-															   this->retry_max,
-															   nullptr);
-			}
-
+			task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
+														   broker->get_host(),
+														   broker->get_port(),
+														   this->get_userinfo(),
+														   this->retry_max,
+														   nullptr);
 			task->get_req()->set_config(this->config);
 			task->get_req()->set_toppar_list(v.second);
 			task->get_req()->set_broker(*broker);
@@ -992,27 +965,12 @@ int KafkaClientTask::dispatch_locked()
 			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
-			if (broker->is_to_addr())
-			{
-				const struct sockaddr *addr;
-				socklen_t socklen;
-				broker->get_broker_addr(&addr, &socklen);
-
-				task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-															   addr, socklen,
-															   this->get_userinfo(),
-															   this->retry_max,
-															   nullptr);
-			}
-			else
-			{
-				task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-															   broker->get_host(),
-															   broker->get_port(),
-															   this->get_userinfo(),
-															   this->retry_max,
-															   nullptr);
-			}
+			task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
+														   broker->get_host(),
+														   broker->get_port(),
+														   this->get_userinfo(),
+														   this->retry_max,
+														   nullptr);
 
 			task->get_req()->set_config(this->config);
 			task->get_req()->set_toppar_list(v.second);
@@ -1041,30 +999,24 @@ int KafkaClientTask::dispatch_locked()
 			this->finish = true;
 			break;
 		}
-		else
-		{
-			this->result.create(1);
-			KafkaBroker *coordinator = member->cgroup.get_coordinator();
 
-			const struct sockaddr *addr;
-			socklen_t socklen;
-			coordinator->get_broker_addr(&addr, &socklen);
-
-			task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-														   addr, socklen,
-														   this->get_userinfo(),
-														   this->retry_max,
-														   kafka_offsetcommit_callback);
-			task->user_data = this;
-			task->get_req()->set_config(this->config);
-			task->get_req()->set_cgroup(member->cgroup);
-			task->get_req()->set_broker(*coordinator);
-			task->get_req()->set_toppar_list(this->toppar_list);
-			task->get_req()->set_api_type(this->api_type);
-			series_of(this)->push_front(this);
-			series_of(this)->push_front(task);
-			break;
-		}
+		this->result.create(1);
+		coordinator = member->cgroup.get_coordinator();
+		task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
+													   coordinator->get_host(),
+													   coordinator->get_port(),
+													   this->get_userinfo(),
+													   this->retry_max,
+													   kafka_offsetcommit_callback);
+		task->user_data = this;
+		task->get_req()->set_config(this->config);
+		task->get_req()->set_cgroup(member->cgroup);
+		task->get_req()->set_broker(*coordinator);
+		task->get_req()->set_toppar_list(this->toppar_list);
+		task->get_req()->set_api_type(this->api_type);
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(task);
+		break;
 
 	case Kafka_LeaveGroup:
 		if (!member->cgroup.get_group())
@@ -1074,29 +1026,23 @@ int KafkaClientTask::dispatch_locked()
 			this->finish = true;
 			break;
 		}
-		else
-		{
-			KafkaBroker *coordinator = member->cgroup.get_coordinator();
 
-			const struct sockaddr *addr;
-			socklen_t socklen;
-			coordinator->get_broker_addr(&addr, &socklen);
+		coordinator = member->cgroup.get_coordinator();
+		if (!coordinator->get_host())
+			break;
 
-			if (coordinator->is_to_addr())
-			{
-				task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-															   addr, socklen,
-															   this->get_userinfo(), 0,
-															   kafka_leavegroup_callback);
-				task->user_data = this;
-				task->get_req()->set_config(this->config);
-				task->get_req()->set_api_type(Kafka_LeaveGroup);
-				task->get_req()->set_broker(*coordinator);
-				task->get_req()->set_cgroup(member->cgroup);
-				series_of(this)->push_front(this);
-				series_of(this)->push_front(task);
-			}
-		}
+		task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
+													   coordinator->get_host(),
+													   coordinator->get_port(),
+													   this->get_userinfo(), 0,
+													   kafka_leavegroup_callback);
+		task->user_data = this;
+		task->get_req()->set_config(this->config);
+		task->get_req()->set_api_type(Kafka_LeaveGroup);
+		task->get_req()->set_broker(*coordinator);
+		task->get_req()->set_cgroup(member->cgroup);
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(task);
 		break;
 
 	case Kafka_ListOffsets:
@@ -1116,28 +1062,12 @@ int KafkaClientTask::dispatch_locked()
 			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
-			if (broker->is_to_addr())
-			{
-				const struct sockaddr *addr;
-				socklen_t socklen;
-				broker->get_broker_addr(&addr, &socklen);
-
-				task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-															   addr, socklen,
-															   this->get_userinfo(),
-															   this->retry_max,
-															   nullptr);
-			}
-			else
-			{
-				task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-															   broker->get_host(),
-															   broker->get_port(),
-															   this->get_userinfo(),
-															   this->retry_max,
-															   nullptr);
-			}
-
+			task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
+														   broker->get_host(),
+														   broker->get_port(),
+														   this->get_userinfo(),
+														   this->retry_max,
+														   nullptr);
 			task->get_req()->set_config(this->config);
 			task->get_req()->set_toppar_list(v.second);
 			task->get_req()->set_broker(*broker);
@@ -1709,14 +1639,12 @@ int WFKafkaClient::init(const std::string& broker)
 
 int WFKafkaClient::init(const std::string& broker, const std::string& group)
 {
-	if (this->init(broker) == 0)
-	{
-		this->member->cgroup.set_group(group);
-		this->member->cgroup_status = KAFKA_CGROUP_UNINIT;
-		return 0;
-	}
-	else
+	if (this->init(broker) < 0)
 		return -1;
+
+	this->member->cgroup.set_group(group);
+	this->member->cgroup_status = KAFKA_CGROUP_UNINIT;
+	return 0;
 }
 
 int WFKafkaClient::deinit()

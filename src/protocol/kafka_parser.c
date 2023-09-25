@@ -397,9 +397,6 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->port = 0;
 	broker->host = NULL;
 	broker->rack = NULL;
-	broker->to_addr = 0;
-	memset(&broker->addr, 0, sizeof(broker->addr));
-	broker->addrlen = 0;
 	broker->error = 0;
 	broker->status = KAFKA_BROKER_UNINIT;
 }

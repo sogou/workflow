@@ -118,7 +118,6 @@ private:
 	virtual int keep_alive_timeout();
 	virtual int first_timeout();
 	bool has_next();
-	bool check_redirect();
 	bool process_produce();
 	bool process_fetch();
 	bool process_metadata();
@@ -407,49 +406,6 @@ int __ComplexKafkaTask::first_timeout()
 	return ret + KAFKA_ROUNDTRIP_TIMEOUT;
 }
 
-bool __ComplexKafkaTask::check_redirect()
-{
-	struct sockaddr_storage addr;
-	socklen_t addrlen = sizeof addr;
-	const struct sockaddr *paddr = (const struct sockaddr *)&addr;
-	KafkaBroker *coordinator = this->get_req()->get_cgroup()->get_coordinator();
-
-	//always success
-	this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
-	if (!coordinator->is_equal(paddr, addrlen))
-	{
-		if (coordinator->is_to_addr())
-		{
-			const struct sockaddr *addr_coord;
-			socklen_t addrlen_coord;
-
-			coordinator->get_broker_addr(&addr_coord, &addrlen_coord);
-			set_redirect(this->get_transport_type(), addr_coord, addrlen_coord,
-						 this->WFComplexClientTask::info_);
-		}
-		else
-		{
-			std::string url(uri_.scheme);
-			url += "://";
-			url += user_info_ + "@";
-			url += coordinator->get_host();
-			url += ":" + std::to_string(coordinator->get_port());
-
-			ParsedURI uri;
-			URIParser::parse(url, uri);
-			set_redirect(std::move(uri));
-		}
-
-		return true;
-	}
-	else
-	{
-		this->init(this->get_transport_type(), paddr, addrlen,
-				   this->WFComplexClientTask::info_);
-		return false;
-	}
-}
-
 bool __ComplexKafkaTask::process_find_coordinator()
 {
 	KafkaCgroup *cgroup = this->get_resp()->get_cgroup();
@@ -463,8 +419,18 @@ bool __ComplexKafkaTask::process_find_coordinator()
 	else
 	{
 		this->get_req()->set_cgroup(*cgroup);
-		is_redirect_ = check_redirect();
+		KafkaBroker *coordinator = cgroup->get_coordinator();
+		std::string url(uri_.scheme);
+		url += "://";
+		url += user_info_ + "@";
+		url += coordinator->get_host();
+		url += ":" + std::to_string(coordinator->get_port());
+
+		ParsedURI uri;
+		URIParser::parse(url, uri);
+		set_redirect(std::move(uri));
 		this->get_req()->set_api_type(Kafka_JoinGroup);
+		is_redirect_ = true;
 		return true;
 	}
 }
@@ -472,16 +438,6 @@ bool __ComplexKafkaTask::process_find_coordinator()
 bool __ComplexKafkaTask::process_join_group()
 {
 	KafkaResponse *msg = this->get_resp();
-	if (!msg->get_cgroup()->get_coordinator()->is_to_addr())
-	{
-		struct sockaddr_storage addr;
-		socklen_t addrlen = sizeof addr;
-		const struct sockaddr *paddr = (const struct sockaddr *)&addr;
-		this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
-		msg->get_cgroup()->get_coordinator()->set_broker_addr(paddr, addrlen);
-		msg->get_cgroup()->get_coordinator()->set_to_addr(1);
-	}
-
 	switch(msg->get_cgroup()->get_error())
 	{
 	case KAFKA_MEMBER_ID_REQUIRED:
@@ -681,18 +637,6 @@ bool __ComplexKafkaTask::process_sasl_authenticate()
 
 bool __ComplexKafkaTask::has_next()
 {
-	struct sockaddr_storage addr;
-	socklen_t addrlen = sizeof addr;
-	//always success
-	this->get_peer_addr((struct sockaddr *)&addr, &addrlen);
-
-	const struct sockaddr *paddr = (const struct sockaddr *)&addr;
-	if (!this->get_resp()->get_broker()->is_to_addr())
-	{
-		this->get_resp()->get_broker()->set_broker_addr(paddr, addrlen);
-		this->get_resp()->get_broker()->set_to_addr(1);
-	}
-
 	switch (this->get_resp()->get_api_type())
 	{
 	case Kafka_Produce:
@@ -805,20 +749,6 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
 	task->init(uri);
-	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
-	return task;
-}
-
-__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(TransportType type,
-													   const struct sockaddr *addr,
-													   socklen_t addrlen,
-													   const std::string& info,
-													   int retry_max,
-													   __kafka_callback_t callback)
-{
-	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
-
-	task->init(type, addr, addrlen, info);
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;
 }

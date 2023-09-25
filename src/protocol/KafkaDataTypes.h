@@ -1115,54 +1115,6 @@ public:
 
 	struct rb_node *get_rb() { return &this->rb; }
 
-	bool is_equal(const struct sockaddr *addr, socklen_t socklen) const
-	{
-		if (this->ptr->addrlen == socklen && socklen)
-			return memcmp(addr, &this->ptr->addr, this->ptr->addrlen) == 0;
-
-		return false;
-	}
-
-	bool is_equal(const char *host, int port) const
-	{
-		if (port == this->ptr->port)
-			return strcmp(host, this->ptr->host) == 0;
-		return false;
-	}
-
-	bool is_equal(int node_id) const
-	{
-		return this->ptr->node_id == node_id;
-	}
-
-	bool is_equal(const KafkaBroker& broker) const
-	{
-		return is_equal(broker.ptr->host, broker.ptr->port);
-	}
-
-	void get_broker_addr(const struct sockaddr **addr, socklen_t *socklen) const
-	{
-		if (this->ptr->addrlen)
-		{
-			*addr = (const struct sockaddr *)&this->ptr->addr;
-			*socklen = this->ptr->addrlen;
-		}
-		else
-		{
-			*addr = NULL;
-			*socklen = 0;
-		}
-	}
-
-	void set_broker_addr(const struct sockaddr *addr, socklen_t socklen)
-	{
-		memcpy(&this->ptr->addr, addr, socklen);
-		this->ptr->addrlen = socklen;
-	}
-
-	bool is_to_addr() const { return this->ptr->to_addr == 1; }
-	void set_to_addr(int to_addr) { this->ptr->to_addr = to_addr; }
-
 	int get_node_id() const { return this->ptr->node_id; }
 
 	int get_id () const { return this->ptr->node_id; }
@@ -1390,14 +1342,6 @@ public:
 	bool is_leader() const
 	{
 		return strcmp(this->ptr->leader_id, this->ptr->member_id) == 0;
-	}
-
-	bool is_equal_coordinator(const struct sockaddr *addr, socklen_t addrlen) const
-	{
-		if (addrlen == this->ptr->coordinator.addrlen)
-			return memcmp(addr, &this->ptr->coordinator.addr, addrlen) == 0;
-		else
-			return false;
 	}
 
 	struct list_head *get_group_protocol()

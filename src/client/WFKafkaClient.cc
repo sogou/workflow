@@ -46,8 +46,7 @@
 
 using namespace protocol;
 
-using ComplexKafkaTask = WFComplexClientTask<KafkaRequest, KafkaResponse,
-											 struct __ComplexKafkaTaskCtx>;
+using ComplexKafkaTask = WFComplexClientTask<KafkaRequest, KafkaResponse, int>;
 
 class KafkaMember
 {
@@ -256,7 +255,7 @@ void KafkaClientTask::kafka_offsetcommit_callback(__WFKafkaTask *task)
 	t->finish = true;
 	t->state = task->get_state();
 	t->error = task->get_error();
-	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
+	t->kafka_error = *static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx();
 }
 
 void KafkaClientTask::kafka_leavegroup_callback(__WFKafkaTask *task)
@@ -265,7 +264,7 @@ void KafkaClientTask::kafka_leavegroup_callback(__WFKafkaTask *task)
 	t->finish = true;
 	t->state = task->get_state();
 	t->error = task->get_error();
-	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
+	t->kafka_error = *static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx();
 }
 
 void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
@@ -459,7 +458,7 @@ void KafkaClientTask::kafka_meta_callback(__WFKafkaTask *task)
 	t->member->mutex.lock();
 	t->state = task->get_state();
 	t->error = task->get_error();
-	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
+	t->kafka_error = *static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx();
 	if (t->state == WFT_STATE_SUCCESS)
 	{
 		kafka_merge_meta_list(&t->member->meta_list,
@@ -505,7 +504,7 @@ void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 	t->member->mutex.lock();
 	t->state = task->get_state();
 	t->error = task->get_error();
-	t->kafka_error = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
+	t->kafka_error = *static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx();
 
 	if (t->state == WFT_STATE_SUCCESS)
 	{
@@ -640,17 +639,9 @@ void KafkaClientTask::kafka_move_task_callback(__WFKafkaTask *task)
 	int16_t state = task->get_state();
 	int16_t error = task->get_error();
 
-	/* This function is called before WFClientTask::done. Need to transfer
-	   the state and error. */
-	if (state == WFT_STATE_SYS_ERROR && error < 0)
-	{
-		state = WFT_STATE_SSL_ERROR;
-		error = -error;
-	}
-
 	/* 'state' is always positive. */
 	state_error->first = (state << 16) | error;
-	state_error->second = static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx()->kafka_error;
+	state_error->second = *static_cast<ComplexKafkaTask *>(task)->get_mutable_ctx();
 	series_of(task)->set_context(state_error);
 
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
@@ -933,14 +924,12 @@ int KafkaClientTask::dispatch_locked()
 														   broker->get_port(),
 														   this->get_userinfo(),
 														   this->retry_max,
-														   nullptr);
+														   std::move(cb));
 			task->get_req()->set_config(this->config);
 			task->get_req()->set_toppar_list(v.second);
 			task->get_req()->set_broker(*broker);
 			task->get_req()->set_api_type(Kafka_Produce);
 			task->user_data = (void *)parallel->size();
-			ComplexKafkaTask *ctask = static_cast<ComplexKafkaTask *>(task);
-			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}
@@ -970,15 +959,13 @@ int KafkaClientTask::dispatch_locked()
 														   broker->get_port(),
 														   this->get_userinfo(),
 														   this->retry_max,
-														   nullptr);
+														   std::move(cb));
 
 			task->get_req()->set_config(this->config);
 			task->get_req()->set_toppar_list(v.second);
 			task->get_req()->set_broker(*broker);
 			task->get_req()->set_api_type(Kafka_Fetch);
 			task->user_data = (void *)parallel->size();
-			ComplexKafkaTask *ctask = static_cast<ComplexKafkaTask *>(task);
-			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}
@@ -1067,14 +1054,12 @@ int KafkaClientTask::dispatch_locked()
 														   broker->get_port(),
 														   this->get_userinfo(),
 														   this->retry_max,
-														   nullptr);
+														   std::move(cb));
 			task->get_req()->set_config(this->config);
 			task->get_req()->set_toppar_list(v.second);
 			task->get_req()->set_broker(*broker);
 			task->get_req()->set_api_type(Kafka_ListOffsets);
 			task->user_data = (void *)parallel->size();
-			ComplexKafkaTask *ctask = static_cast<ComplexKafkaTask *>(task);
-			ctask->get_mutable_ctx()->cb = cb;
 			series = Workflow::create_series_work(task, nullptr);
 			parallel->add_series(series);
 		}

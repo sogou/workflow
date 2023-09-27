@@ -46,8 +46,7 @@ static KafkaCgroup __create_cgroup(const KafkaCgroup *c)
 
 /**********Client**********/
 
-class __ComplexKafkaTask : public WFComplexClientTask<KafkaRequest, KafkaResponse,
-													  struct __ComplexKafkaTaskCtx>
+class __ComplexKafkaTask : public WFComplexClientTask<KafkaRequest, KafkaResponse, int>
 {
 public:
 	__ComplexKafkaTask(int retry_max, __kafka_callback_t&& callback) :
@@ -55,7 +54,7 @@ public:
 	{
 		is_user_request_ = true;
 		is_redirect_ = false;
-		ctx_.kafka_error = 0;
+		ctx_ = 0;
 	}
 
 protected:
@@ -409,8 +408,8 @@ int __ComplexKafkaTask::first_timeout()
 bool __ComplexKafkaTask::process_find_coordinator()
 {
 	KafkaCgroup *cgroup = this->get_resp()->get_cgroup();
-	ctx_.kafka_error = cgroup->get_error();
-	if (ctx_.kafka_error)
+	ctx_ = cgroup->get_error();
+	if (ctx_)
 	{
 		this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 		this->state = WFT_STATE_TASK_ERROR;
@@ -454,7 +453,7 @@ bool __ComplexKafkaTask::process_join_group()
 		break;
 
 	default:
-		ctx_.kafka_error = msg->get_cgroup()->get_error();
+		ctx_ = msg->get_cgroup()->get_error();
 		this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 		this->state = WFT_STATE_TASK_ERROR;
 		return false;
@@ -465,8 +464,8 @@ bool __ComplexKafkaTask::process_join_group()
 
 bool __ComplexKafkaTask::process_sync_group()
 {
-	ctx_.kafka_error = this->get_resp()->get_cgroup()->get_error();
-	if (ctx_.kafka_error)
+	ctx_ = this->get_resp()->get_cgroup()->get_error();
+	if (ctx_)
 	{
 		this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 		this->state = WFT_STATE_TASK_ERROR;
@@ -494,7 +493,7 @@ bool __ComplexKafkaTask::process_metadata()
 		case 0:
 			break;
 		default:
-			ctx_.kafka_error = meta->get_error();
+			ctx_ = meta->get_error();
 			this->error = WFT_ERR_KAFKA_META_FAILED;
 			this->state = WFT_STATE_TASK_ERROR;
 			return false;
@@ -554,7 +553,7 @@ bool __ComplexKafkaTask::process_fetch()
 		case KAFKA_OFFSET_OUT_OF_RANGE:
 			break;
 		default:
-			ctx_.kafka_error = toppar->get_error();
+			ctx_ = toppar->get_error();
 			this->error = WFT_ERR_KAFKA_FETCH_FAILED;
 			this->state = WFT_STATE_TASK_ERROR;
 			return false;
@@ -614,8 +613,8 @@ bool __ComplexKafkaTask::process_produce()
 
 bool __ComplexKafkaTask::process_sasl_handshake()
 {
-	ctx_.kafka_error = this->get_resp()->get_broker()->get_error();
-	if (ctx_.kafka_error)
+	ctx_ = this->get_resp()->get_broker()->get_error();
+	if (ctx_)
 	{
 		this->error = WFT_ERR_KAFKA_SASL_DISALLOWED;
 		this->state = WFT_STATE_TASK_ERROR;
@@ -626,8 +625,8 @@ bool __ComplexKafkaTask::process_sasl_handshake()
 
 bool __ComplexKafkaTask::process_sasl_authenticate()
 {
-	ctx_.kafka_error = this->get_resp()->get_broker()->get_error();
-	if (ctx_.kafka_error)
+	ctx_ = this->get_resp()->get_broker()->get_error();
+	if (ctx_)
 	{
 		this->error = WFT_ERR_KAFKA_SASL_DISALLOWED;
 		this->state = WFT_STATE_TASK_ERROR;
@@ -662,8 +661,8 @@ bool __ComplexKafkaTask::has_next()
 	case Kafka_LeaveGroup:
 	case Kafka_DescribeGroups:
 	case Kafka_Heartbeat:
-		ctx_.kafka_error = this->get_resp()->get_cgroup()->get_error();
-		if (ctx_.kafka_error)
+		ctx_ = this->get_resp()->get_cgroup()->get_error();
+		if (ctx_)
 		{
 			this->error = WFT_ERR_KAFKA_CGROUP_FAILED;
 			this->state = WFT_STATE_TASK_ERROR;
@@ -716,13 +715,9 @@ bool __ComplexKafkaTask::finish_once()
 	}
 	else
 	{
-		this->disable_retry();
 		this->get_resp()->set_api_type(this->get_req()->get_api_type());
 		this->get_resp()->set_api_version(this->get_req()->get_api_version());
 	}
-
-	if (ctx_.cb)
-		ctx_.cb(this);
 
 	return true;
 }

@@ -40,13 +40,13 @@ void WFFacilities::go(const std::string& queue_name, FUNC&& func, ARGS&&... args
 }
 
 template<class REQ, class RESP>
-WFFacilities::WFNetworkResult<RESP> WFFacilities::request(TransportType type, const std::string& url, REQ&& req, int retry_max)
+WFFacilities::WFNetworkResult<RESP> WFFacilities::request(enum TransportType type, const std::string& url, REQ&& req, int retry_max)
 {
 	return async_request<REQ, RESP>(type, url, std::forward<REQ>(req), retry_max).get();
 }
 
 template<class REQ, class RESP>
-WFFuture<WFFacilities::WFNetworkResult<RESP>> WFFacilities::async_request(TransportType type, const std::string& url, REQ&& req, int retry_max)
+WFFuture<WFFacilities::WFNetworkResult<RESP>> WFFacilities::async_request(enum TransportType type, const std::string& url, REQ&& req, int retry_max)
 {
 	ParsedURI uri;
 	auto *pr = new WFPromise<WFNetworkResult<RESP>>();

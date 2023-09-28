@@ -73,7 +73,7 @@ public:
 			delete this;
 	}
 
-	TransportType transport_type;
+	enum TransportType transport_type;
 	std::string scheme;
 	std::vector<std::string> broker_hosts;
 	KafkaCgroup cgroup;

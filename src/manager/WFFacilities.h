@@ -46,10 +46,10 @@ public:
 	};
 
 	template<class REQ, class RESP>
-	static WFNetworkResult<RESP> request(TransportType type, const std::string& url, REQ&& req, int retry_max);
+	static WFNetworkResult<RESP> request(enum TransportType type, const std::string& url, REQ&& req, int retry_max);
 
 	template<class REQ, class RESP>
-	static WFFuture<WFNetworkResult<RESP>> async_request(TransportType type, const std::string& url, REQ&& req, int retry_max);
+	static WFFuture<WFNetworkResult<RESP>> async_request(enum TransportType type, const std::string& url, REQ&& req, int retry_max);
 
 public:// async fileIO
 	static WFFuture<ssize_t> async_pread(int fd, void *buf, size_t count, off_t offset);

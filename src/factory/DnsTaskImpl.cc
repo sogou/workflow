@@ -59,7 +59,7 @@ CommMessageOut *ComplexDnsTask::message_out()
 {
 	DnsRequest *req = this->get_req();
 	DnsResponse *resp = this->get_resp();
-	TransportType type = this->get_transport_type();
+	enum TransportType type = this->get_transport_type();
 
 	if (req->get_id() == 0)
 		req->set_id((this->get_seq() + 1) * 99991 % 65535 + 1);
@@ -84,7 +84,7 @@ bool ComplexDnsTask::init_success()
 
 	if (!this->route_result_.request_object)
 	{
-		TransportType type = this->get_transport_type();
+		enum TransportType type = this->get_transport_type();
 		struct addrinfo *addr;
 		int ret;
 
@@ -137,7 +137,7 @@ bool ComplexDnsTask::finish_once()
 bool ComplexDnsTask::need_redirect()
 {
 	DnsResponse *client_resp = this->get_resp();
-	TransportType type = this->get_transport_type();
+	enum TransportType type = this->get_transport_type();
 
 	if (type == TT_UDP && client_resp->get_tc() == 1)
 	{

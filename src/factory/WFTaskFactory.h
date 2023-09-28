@@ -361,23 +361,23 @@ private:
 	using T = WFNetworkTask<REQ, RESP>;
 
 public:
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const std::string& host,
 								 unsigned short port,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const std::string& url,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const ParsedURI& uri,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const struct sockaddr *addr,
 								 socklen_t addrlen,
 								 int retry_max,

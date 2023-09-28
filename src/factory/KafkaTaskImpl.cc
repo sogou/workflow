@@ -310,7 +310,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 
 bool __ComplexKafkaTask::init_success()
 {
-	TransportType type;
+	enum TransportType type;
 
 	if (uri_.scheme && strcasecmp(uri_.scheme, "kafka") == 0)
 		type = TT_TCP;
@@ -753,7 +753,7 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 	return task;
 }
 
-__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(TransportType type,
+__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(enum TransportType type,
 													   const char *host,
 													   unsigned short port,
 													   const std::string& info,

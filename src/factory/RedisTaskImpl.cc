@@ -137,7 +137,7 @@ int ComplexRedisTask::keep_alive_timeout()
 
 bool ComplexRedisTask::init_success()
 {
-	TransportType type;
+	enum TransportType type;
 
 	if (uri_.scheme && strcasecmp(uri_.scheme, "redis") == 0)
 		type = TT_TCP;

@@ -104,17 +104,17 @@ public:
 		init_with_uri();
 	}
 
-	void init(TransportType type,
+	void init(enum TransportType type,
 			  const struct sockaddr *addr,
 			  socklen_t addrlen,
 			  const std::string& info);
 
-	void set_transport_type(TransportType type)
+	void set_transport_type(enum TransportType type)
 	{
 		type_ = type;
 	}
 
-	TransportType get_transport_type() const { return type_; }
+	enum TransportType get_transport_type() const { return type_; }
 
 	virtual const ParsedURI *get_current_uri() const { return &uri_; }
 
@@ -124,7 +124,7 @@ public:
 		init(uri);
 	}
 
-	void set_redirect(TransportType type, const struct sockaddr *addr,
+	void set_redirect(enum TransportType type, const struct sockaddr *addr,
 					  socklen_t addrlen, const std::string& info)
 	{
 		redirect_ = true;
@@ -165,7 +165,7 @@ protected:
 	}
 
 protected:
-	TransportType type_;
+	enum TransportType type_;
 	ParsedURI uri_;
 	std::string info_;
 	bool fixed_addr_;
@@ -207,7 +207,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::clear_prev_state()
 }
 
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
+void WFComplexClientTask<REQ, RESP, CTX>::init(enum TransportType type,
 											   const struct sockaddr *addr,
 											   socklen_t addrlen,
 											   const std::string& info)
@@ -478,7 +478,7 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
+WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 													const std::string& host,
 													unsigned short port,
 													int retry_max,
@@ -501,7 +501,7 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
+WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 													const std::string& url,
 													int retry_max,
 													std::function<void (WFNetworkTask<REQ, RESP> *)> callback)
@@ -517,7 +517,7 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
+WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 													const ParsedURI& uri,
 													int retry_max,
 													std::function<void (WFNetworkTask<REQ, RESP> *)> callback)
@@ -531,7 +531,7 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
 
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
-WFNetworkTaskFactory<REQ, RESP>::create_client_task(TransportType type,
+WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 													const struct sockaddr *addr,
 													socklen_t addrlen,
 													int retry_max,

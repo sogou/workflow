@@ -102,7 +102,7 @@ public:
 
 struct RouteParams
 {
-	TransportType transport_type;
+	enum TransportType transport_type;
 	const struct addrinfo *addrinfo;
 	uint64_t key;
 	SSL_CTX *ssl_ctx;
@@ -397,13 +397,13 @@ static uint64_t __fnv_hash(const unsigned char *data, size_t size)
 	return hash;
 }
 
-static uint64_t __generate_key(TransportType type,
+static uint64_t __generate_key(enum TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
 							   const struct EndpointParams *ep_params,
 							   const std::string& hostname)
 {
-	std::string buf((const char *)&type, sizeof (TransportType));
+	std::string buf((const char *)&type, sizeof (enum TransportType));
 	unsigned int max_conn = ep_params->max_connections;
 
 	if (!other_info.empty())
@@ -463,7 +463,7 @@ RouteManager::~RouteManager()
 	}
 }
 
-int RouteManager::get(TransportType type,
+int RouteManager::get(enum TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
 					  const struct EndpointParams *ep_params,

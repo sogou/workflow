@@ -59,7 +59,7 @@ public:
 	};
 
 public:
-	int get(TransportType type,
+	int get(enum TransportType type,
 			const struct addrinfo *addrinfo,
 			const std::string& other_info,
 			const struct EndpointParams *ep_params,

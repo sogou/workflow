@@ -40,7 +40,7 @@ public:
 											int retry_max,
 											__kafka_callback_t callback);
 
-	static __WFKafkaTask *create_kafka_task(TransportType type,
+	static __WFKafkaTask *create_kafka_task(enum TransportType type,
 											const char *host,
 											unsigned short port,
 											const std::string& info,

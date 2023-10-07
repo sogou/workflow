@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #include <sys/types.h>
@@ -50,6 +50,14 @@ public:
 	}
 };
 
+WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
+											  timer_callback_t callback)
+{
+	return new __WFTimerTask(WFGlobal::get_scheduler(), seconds, nanoseconds,
+							 std::move(callback));
+}
+
+/* Deprecated. */
 WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 											  timer_callback_t callback)
 {
@@ -59,31 +67,18 @@ WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 							 std::move(callback));
 }
 
-WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
-											  timer_callback_t callback)
-{
-	return new __WFTimerTask(WFGlobal::get_scheduler(), seconds, nanoseconds,
-							 std::move(callback));
-}
+/****************** Named Tasks ******************/
 
-class __WFCounterTask;
-
-struct __counter_node
+template<typename T>
+struct __NamedObjectList
 {
-	struct list_head list;
-	unsigned int target_value;
-	__WFCounterTask *task;
-};
-
-struct __CounterList
-{
-	__CounterList(const std::string& str):
+	__NamedObjectList(const std::string& str):
 		name(str)
 	{
 		INIT_LIST_HEAD(&this->head);
 	}
 
-	void push_back(struct __counter_node *node)
+	void push_back(T *node)
 	{
 		list_add_tail(&node->list, &this->head);
 	}
@@ -93,7 +88,7 @@ struct __CounterList
 		return list_empty(&this->head);
 	}
 
-	void del(struct __counter_node *node)
+	void del(T *node)
 	{
 		list_del(&node->list);
 	}
@@ -103,34 +98,49 @@ struct __CounterList
 	std::string name;
 };
 
-static class __CounterMap
+/****************** Named Counter ******************/
+
+class __WFNamedCounterTask;
+
+struct __counter_node
 {
+	struct list_head list;
+	unsigned int target_value;
+	__WFNamedCounterTask *task;
+};
+
+static class __NamedCounterMap
+{
+public:
+	using CounterList = struct __NamedObjectList<struct __counter_node>;
+
 public:
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
 						  std::function<void (WFCounterTask *)>&& cb);
 
 	void count_n(const std::string& name, unsigned int n);
-	void count(struct __CounterList *counters, struct __counter_node *node);
-	void remove(struct __CounterList *counters, struct __counter_node *node);
+	void count(CounterList *counters, struct __counter_node *node);
+	void remove(CounterList *counters, struct __counter_node *node);
 
 private:
-	void count_n_locked(struct __CounterList *counters, unsigned int n,
+	void count_n_locked(CounterList *counters, unsigned int n,
 						struct list_head *task_list);
-	struct rb_root counters_map_;
+	struct rb_root root_;
 	std::mutex mutex_;
 
 public:
-	__CounterMap()
+	__NamedCounterMap()
 	{
-		counters_map_.rb_node = NULL;
+		root_.rb_node = NULL;
 	}
 } __counter_map;
 
-class __WFCounterTask : public WFCounterTask
+class __WFNamedCounterTask : public WFCounterTask
 {
 public:
-	__WFCounterTask(unsigned int target_value, struct __CounterList *counters,
-					std::function<void (WFCounterTask *)>&& cb) :
+	__WFNamedCounterTask(unsigned int target_value,
+					 __NamedCounterMap::CounterList *counters,
+					 std::function<void (WFCounterTask *)>&& cb) :
 		WFCounterTask(1, std::move(cb)),
 		counters_(counters)
 	{
@@ -139,7 +149,7 @@ public:
 		counters_->push_back(&node_);
 	}
 
-	virtual ~__WFCounterTask()
+	virtual ~__WFNamedCounterTask()
 	{
 		if (this->value != 0)
 			__counter_map.remove(counters_, &node_);
@@ -152,27 +162,25 @@ public:
 
 private:
 	struct __counter_node node_;
-	struct __CounterList *counters_;
-	friend class __CounterMap;
+	__NamedCounterMap::CounterList *counters_;
 };
 
-WFCounterTask *__CounterMap::create(const std::string& name,
-									unsigned int target_value,
-									std::function<void (WFCounterTask *)>&& cb)
+WFCounterTask *__NamedCounterMap::create(const std::string& name,
+								unsigned int target_value,
+								std::function<void (WFCounterTask *)>&& cb)
 {
 	if (target_value == 0)
 		return new WFCounterTask(0, std::move(cb));
 
-	struct rb_node **p = &counters_map_.rb_node;
+	struct rb_node **p = &root_.rb_node;
 	struct rb_node *parent = NULL;
-	struct __CounterList *counters;
+	CounterList *counters;
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	while (*p)
 	{
 		parent = *p;
-		counters = rb_entry(*p, struct __CounterList, rb);
-
+		counters = rb_entry(*p, CounterList, rb);
 		if (name < counters->name)
 			p = &(*p)->rb_left;
 		else if (name > counters->name)
@@ -183,20 +191,20 @@ WFCounterTask *__CounterMap::create(const std::string& name,
 
 	if (*p == NULL)
 	{
-		counters = new struct __CounterList(name);
+		counters = new CounterList(name);
 		rb_link_node(&counters->rb, parent, p);
-		rb_insert_color(&counters->rb, &counters_map_);
+		rb_insert_color(&counters->rb, &root_);
 	}
 
-	return new __WFCounterTask(target_value, counters, std::move(cb));
+	return new __WFNamedCounterTask(target_value, counters, std::move(cb));
 }
 
-void __CounterMap::count_n_locked(struct __CounterList *counters,
-								  unsigned int n, struct list_head *task_list)
+void __NamedCounterMap::count_n_locked(CounterList *counters, unsigned int n,
+									   struct list_head *task_list)
 {
+	struct __counter_node *node;
 	struct list_head *pos;
 	struct list_head *tmp;
-	struct __counter_node *node;
 
 	list_for_each_safe(pos, tmp, &counters->head)
 	{
@@ -211,7 +219,7 @@ void __CounterMap::count_n_locked(struct __CounterList *counters,
 			list_move_tail(pos, task_list);
 			if (counters->empty())
 			{
-				rb_erase(&counters->rb, &counters_map_);
+				rb_erase(&counters->rb, &root_);
 				delete counters;
 				return;
 			}
@@ -224,18 +232,18 @@ void __CounterMap::count_n_locked(struct __CounterList *counters,
 	}
 }
 
-void __CounterMap::count_n(const std::string& name, unsigned int n)
+void __NamedCounterMap::count_n(const std::string& name, unsigned int n)
 {
 	LIST_HEAD(task_list);
-	struct __CounterList *counters;
+	CounterList *counters;
 	struct __counter_node *node;
 	struct rb_node *p;
 
 	mutex_.lock();
-	p = counters_map_.rb_node;
+	p = root_.rb_node;
 	while (p)
 	{
-		counters = rb_entry(p, struct __CounterList, rb);
+		counters = rb_entry(p, CounterList, rb);
 		if (name < counters->name)
 			p = p->rb_left;
 		else if (name > counters->name)
@@ -256,10 +264,9 @@ void __CounterMap::count_n(const std::string& name, unsigned int n)
 	}
 }
 
-void __CounterMap::count(struct __CounterList *counters,
-						 struct __counter_node *node)
+void __NamedCounterMap::count(CounterList *counters, struct __counter_node *node)
 {
-	__WFCounterTask *task = NULL;
+	__WFNamedCounterTask *task = NULL;
 
 	mutex_.lock();
 	if (--node->target_value == 0)
@@ -268,7 +275,7 @@ void __CounterMap::count(struct __CounterList *counters,
 		counters->del(node);
 		if (counters->empty())
 		{
-			rb_erase(&counters->rb, &counters_map_);
+			rb_erase(&counters->rb, &root_);
 			delete counters;
 		}
 	}
@@ -278,14 +285,13 @@ void __CounterMap::count(struct __CounterList *counters,
 		task->WFCounterTask::count();
 }
 
-void __CounterMap::remove(struct __CounterList *counters,
-						  struct __counter_node *node)
+void __NamedCounterMap::remove(CounterList *counters, struct __counter_node *node)
 {
 	mutex_.lock();
 	counters->del(node);
 	if (counters->empty())
 	{
-		rb_erase(&counters->rb, &counters_map_);
+		rb_erase(&counters->rb, &root_);
 		delete counters;
 	}
 
@@ -306,45 +312,19 @@ void WFTaskFactory::count_by_name(const std::string& counter_name, unsigned int 
 
 /****************** Named Conditional ******************/
 
-class __WFConditional;
+class __WFNamedCondtional;
 
 struct __conditional_node
 {
 	struct list_head list;
-	__WFConditional *cond;
+	__WFNamedCondtional *cond;
 };
 
-struct __ConditionalList
+static class __NamedConditionalMap
 {
-	__ConditionalList(const std::string& str):
-		name(str)
-	{
-		INIT_LIST_HEAD(&this->head);
-	}
+public:
+	using ConditionalList = struct __NamedObjectList<struct __conditional_node>;
 
-	void push_back(struct __conditional_node *node)
-	{
-		list_add_tail(&node->list, &this->head);
-	}
-
-	bool empty() const
-	{
-		return list_empty(&this->head);
-	}
-
-	void del(struct __conditional_node *node)
-	{
-		list_del(&node->list);
-	}
-
-	struct rb_node rb;
-	struct list_head head;
-	std::string name;
-	friend class __ConditionalMap;
-};
-
-static class __ConditionalMap
-{
 public:
 	WFConditional *create(const std::string& name,
 						  SubTask *task, void **msgbuf);
@@ -352,29 +332,29 @@ public:
 	WFConditional *create(const std::string& name, SubTask *task);
 
 	void signal(const std::string& name, void *msg, size_t max);
-	void signal(struct __ConditionalList *conds,
+	void signal(ConditionalList *conds,
 				struct __conditional_node *node,
 				void *msg);
-	void remove(struct __ConditionalList *conds,
+	void remove(ConditionalList *conds,
 				struct __conditional_node *node);
 
 private:
-	struct __ConditionalList *get_list(const std::string& name);
-	struct rb_root conds_map_;
+	ConditionalList *get_list(const std::string& name);
+	struct rb_root root_;
 	std::mutex mutex_;
 
 public:
-	__ConditionalMap()
+	__NamedConditionalMap()
 	{
-		conds_map_.rb_node = NULL;
+		root_.rb_node = NULL;
 	}
 } __conditional_map;
 
-class __WFConditional : public WFConditional
+class __WFNamedCondtional : public WFConditional
 {
 public:
-	__WFConditional(SubTask *task, void **msgbuf,
-					struct __ConditionalList *conds) :
+	__WFNamedCondtional(SubTask *task, void **msgbuf,
+						__NamedConditionalMap::ConditionalList *conds) :
 		WFConditional(task, msgbuf),
 		conds_(conds)
 	{
@@ -382,7 +362,8 @@ public:
 		conds_->push_back(&node_);
 	}
 
-	__WFConditional(SubTask *task, struct __ConditionalList *conds) :
+	__WFNamedCondtional(SubTask *task,
+						__NamedConditionalMap::ConditionalList *conds) :
 		WFConditional(task),
 		conds_(conds)
 	{
@@ -390,7 +371,7 @@ public:
 		conds_->push_back(&node_);
 	}
 
-	virtual ~__WFConditional()
+	virtual ~__WFNamedCondtional()
 	{
 		if (!this->flag)
 			__conditional_map.remove(conds_, &node_);
@@ -403,36 +384,36 @@ public:
 
 private:
 	struct __conditional_node node_;
-	struct __ConditionalList *conds_;
-	friend class __ConditionalMap;
+	__NamedConditionalMap::ConditionalList *conds_;
 };
 
-WFConditional *__ConditionalMap::create(const std::string& name,
-										SubTask *task, void **msgbuf)
+WFConditional *__NamedConditionalMap::create(const std::string& name,
+											 SubTask *task, void **msgbuf)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
-	struct __ConditionalList *conds = get_list(name);
-	return new __WFConditional(task, msgbuf, conds);
+	ConditionalList *conds = get_list(name);
+	return new __WFNamedCondtional(task, msgbuf, conds);
 }
 
-WFConditional *__ConditionalMap::create(const std::string& name,
-										SubTask *task)
+WFConditional *__NamedConditionalMap::create(const std::string& name,
+											 SubTask *task)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
-	struct __ConditionalList *conds = get_list(name);
-	return new __WFConditional(task, conds);
+	ConditionalList *conds = get_list(name);
+	return new __WFNamedCondtional(task, conds);
 }
 
-struct __ConditionalList *__ConditionalMap::get_list(const std::string& name)
+__NamedConditionalMap::ConditionalList *
+__NamedConditionalMap::get_list(const std::string& name)
 {
-	struct rb_node **p = &conds_map_.rb_node;
+	struct rb_node **p = &root_.rb_node;
 	struct rb_node *parent = NULL;
-	struct __ConditionalList *conds;
+	ConditionalList *conds;
 
 	while (*p)
 	{
 		parent = *p;
-		conds = rb_entry(*p, struct __ConditionalList, rb);
+		conds = rb_entry(*p, ConditionalList, rb);
 		if (name < conds->name)
 			p = &(*p)->rb_left;
 		else if (name > conds->name)
@@ -443,31 +424,31 @@ struct __ConditionalList *__ConditionalMap::get_list(const std::string& name)
 
 	if (*p == NULL)
 	{
-		conds = new struct __ConditionalList(name);
+		conds = new ConditionalList(name);
 		rb_link_node(&conds->rb, parent, p);
-		rb_insert_color(&conds->rb, &conds_map_);
+		rb_insert_color(&conds->rb, &root_);
 	}
 
 	return conds;
 }
 
-void __ConditionalMap::signal(const std::string& name, void *msg, size_t max)
+void __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max)
 {
-	struct __ConditionalList *conds;
+	ConditionalList *conds;
 	struct rb_node *p;
 
 	mutex_.lock();
-	p = conds_map_.rb_node;
+	p = root_.rb_node;
 	while (p)
 	{
-		conds = rb_entry(p, struct __ConditionalList, rb);
+		conds = rb_entry(p, ConditionalList, rb);
 		if (name < conds->name)
 			p = p->rb_left;
 		else if (name > conds->name)
 			p = p->rb_right;
 		else
 		{
-			rb_erase(&conds->rb, &conds_map_);
+			rb_erase(&conds->rb, &root_);
 			break;
 		}
 	}
@@ -493,15 +474,15 @@ void __ConditionalMap::signal(const std::string& name, void *msg, size_t max)
 	delete conds;
 }
 
-void __ConditionalMap::signal(struct __ConditionalList *conds,
-							  struct __conditional_node *node,
-							  void *msg)
+void __NamedConditionalMap::signal(ConditionalList *conds,
+								   struct __conditional_node *node,
+								   void *msg)
 {
 	mutex_.lock();
 	conds->del(node);
 	if (conds->empty())
 	{
-		rb_erase(&conds->rb, &conds_map_);
+		rb_erase(&conds->rb, &root_);
 		delete conds;
 	}
 
@@ -509,14 +490,14 @@ void __ConditionalMap::signal(struct __ConditionalList *conds,
 	node->cond->WFConditional::signal(msg);
 }
 
-void __ConditionalMap::remove(struct __ConditionalList *conds,
-							  struct __conditional_node *node)
+void __NamedConditionalMap::remove(ConditionalList *conds,
+								   struct __conditional_node *node)
 {
 	mutex_.lock();
 	conds->del(node);
 	if (conds->empty())
 	{
-		rb_erase(&conds->rb, &conds_map_);
+		rb_erase(&conds->rb, &root_);
 		delete conds;
 	}
 

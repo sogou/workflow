@@ -141,12 +141,12 @@ public:
 	__WFNamedCounterTask(unsigned int target_value,
 					 __NamedCounterMap::CounterList *counters,
 					 std::function<void (WFCounterTask *)>&& cb) :
-		WFCounterTask(1, std::move(cb)),
-		counters_(counters)
+		WFCounterTask(1, std::move(cb))
 	{
 		node_.target_value = target_value;
 		node_.task = this;
-		counters_->push_back(&node_);
+		counters->push_back(&node_);
+		counters_ = counters;
 	}
 
 	virtual ~__WFNamedCounterTask()
@@ -264,7 +264,8 @@ void __NamedCounterMap::count_n(const std::string& name, unsigned int n)
 	}
 }
 
-void __NamedCounterMap::count(CounterList *counters, struct __counter_node *node)
+void __NamedCounterMap::count(CounterList *counters,
+							  struct __counter_node *node)
 {
 	__WFNamedCounterTask *task = NULL;
 
@@ -285,7 +286,8 @@ void __NamedCounterMap::count(CounterList *counters, struct __counter_node *node
 		task->WFCounterTask::count();
 }
 
-void __NamedCounterMap::remove(CounterList *counters, struct __counter_node *node)
+void __NamedCounterMap::remove(CounterList *counters,
+							   struct __counter_node *node)
 {
 	mutex_.lock();
 	counters->del(node);
@@ -326,20 +328,17 @@ public:
 	using ConditionalList = struct __NamedObjectList<struct __conditional_node>;
 
 public:
-	WFConditional *create(const std::string& name,
-						  SubTask *task, void **msgbuf);
-
+	WFConditional *create(const std::string& name, SubTask *task,
+						  void **msgbuf);
 	WFConditional *create(const std::string& name, SubTask *task);
 
 	void signal(const std::string& name, void *msg, size_t max);
-	void signal(ConditionalList *conds,
-				struct __conditional_node *node,
+	void signal(ConditionalList *conds, struct __conditional_node *node,
 				void *msg);
-	void remove(ConditionalList *conds,
-				struct __conditional_node *node);
+	void remove(ConditionalList *conds, struct __conditional_node *node);
 
 private:
-	ConditionalList *get_list(const std::string& name);
+	ConditionalList *get_list(const std::string& name, bool insert);
 	struct rb_root root_;
 	std::mutex mutex_;
 
@@ -355,20 +354,20 @@ class __WFNamedCondtional : public WFConditional
 public:
 	__WFNamedCondtional(SubTask *task, void **msgbuf,
 						__NamedConditionalMap::ConditionalList *conds) :
-		WFConditional(task, msgbuf),
-		conds_(conds)
+		WFConditional(task, msgbuf)
 	{
 		node_.cond = this;
-		conds_->push_back(&node_);
+		conds->push_back(&node_);
+		conds_ = conds;
 	}
 
 	__WFNamedCondtional(SubTask *task,
 						__NamedConditionalMap::ConditionalList *conds) :
-		WFConditional(task),
-		conds_(conds)
+		WFConditional(task)
 	{
 		node_.cond = this;
-		conds_->push_back(&node_);
+		conds->push_back(&node_);
+		conds_ = conds;
 	}
 
 	virtual ~__WFNamedCondtional()
@@ -391,7 +390,7 @@ WFConditional *__NamedConditionalMap::create(const std::string& name,
 											 SubTask *task, void **msgbuf)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
-	ConditionalList *conds = get_list(name);
+	ConditionalList *conds = get_list(name, true);
 	return new __WFNamedCondtional(task, msgbuf, conds);
 }
 
@@ -399,12 +398,12 @@ WFConditional *__NamedConditionalMap::create(const std::string& name,
 											 SubTask *task)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
-	ConditionalList *conds = get_list(name);
+	ConditionalList *conds = get_list(name, true);
 	return new __WFNamedCondtional(task, conds);
 }
 
 __NamedConditionalMap::ConditionalList *
-__NamedConditionalMap::get_list(const std::string& name)
+__NamedConditionalMap::get_list(const std::string& name, bool insert)
 {
 	struct rb_node **p = &root_.rb_node;
 	struct rb_node *parent = NULL;
@@ -419,59 +418,65 @@ __NamedConditionalMap::get_list(const std::string& name)
 		else if (name > conds->name)
 			p = &(*p)->rb_right;
 		else
-			break;
+			return conds;
 	}
 
-	if (*p == NULL)
+	if (insert)
 	{
 		conds = new ConditionalList(name);
 		rb_link_node(&conds->rb, parent, p);
 		rb_insert_color(&conds->rb, &root_);
+		return conds;
 	}
 
-	return conds;
+	return NULL;
 }
 
 void __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max)
 {
+	LIST_HEAD(cond_list);
+	struct __conditional_node *node;
 	ConditionalList *conds;
-	struct rb_node *p;
+	struct list_head *pos;
+	struct list_head *tmp;
 
 	mutex_.lock();
-	p = root_.rb_node;
-	while (p)
+	conds = get_list(name, false);
+	if (!conds)
 	{
-		conds = rb_entry(p, ConditionalList, rb);
-		if (name < conds->name)
-			p = p->rb_left;
-		else if (name > conds->name)
-			p = p->rb_right;
-		else
+		mutex_.unlock();
+		return;
+	}
+
+	if (max == (size_t)-1)
+		list_splice(&conds->head, &cond_list);
+	else
+	{
+		list_for_each_safe(pos, tmp, &conds->head)
 		{
-			rb_erase(&conds->rb, &root_);
-			break;
+			if (max == 0)
+			{
+				conds = NULL;
+				break;
+			}
+
+			list_move_tail(pos, &cond_list);
+			max--;
 		}
 	}
 
-	mutex_.unlock();
-	if (!p)
-		return;
-
-	struct list_head *pos;
-	struct list_head *tmp;
-	struct __conditional_node *node;
-
-	list_for_each_safe(pos, tmp, &conds->head)
+	if (conds)
 	{
-		if (max == 0)
-			return;
-
-		node = list_entry(pos, struct __conditional_node, list);
-		node->cond->WFConditional::signal(msg);
-		max--;
+		rb_erase(&conds->rb, &root_);
+		delete conds;
 	}
 
-	delete conds;
+	mutex_.unlock();
+	list_for_each_safe(pos, tmp, &cond_list)
+	{
+		node = list_entry(pos, struct __conditional_node, list);
+		node->cond->WFConditional::signal(msg);
+	}
 }
 
 void __NamedConditionalMap::signal(ConditionalList *conds,

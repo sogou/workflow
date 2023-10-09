@@ -192,10 +192,11 @@ public:
 #endif
 
 public:
-	static WFTimerTask *create_timer_task(unsigned int microseconds,
+	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
 										  timer_callback_t callback);
 
-	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
+	/* Deprecated. */
+	static WFTimerTask *create_timer_task(unsigned int microseconds,
 										  timer_callback_t callback);
 
 	/* Counter is like semaphore. The callback of counter is called when

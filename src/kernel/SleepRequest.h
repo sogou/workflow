@@ -40,6 +40,12 @@ public:
 	}
 
 protected:
+	int cancel()
+	{
+		return this->scheduler->unsleep(this);
+	}
+
+protected:
 	int state;
 	int error;
 

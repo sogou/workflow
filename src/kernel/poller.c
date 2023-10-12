@@ -972,9 +972,17 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 	{
 		node = list_entry(timeo_list.next, struct __poller_node, list);
 		list_del(&node->list);
+		if (node->data.fd >= 0)
+		{
+			node->error = ETIMEDOUT;
+			node->state = PR_ST_ERROR;
+		}
+		else
+		{
+			node->error = 0;
+			node->state = PR_ST_FINISHED;
+		}
 
-		node->error = ETIMEDOUT;
-		node->state = PR_ST_ERROR;
 		free(node->res);
 		poller->cb((struct poller_result *)node, poller->ctx);
 	}

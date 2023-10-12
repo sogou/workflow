@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <time.h>
+#include <utility>
 #include <string>
 #include <mutex>
 #include "list.h"
@@ -152,7 +153,7 @@ public:
 	WFTimerTask *create(const std::string& name,
 						time_t seconds, long nanoseconds,
 						CommScheduler *scheduler,
-						std::function<void (WFTimerTask *)>&& cb);
+						timer_callback_t&& cb);
 
 public:
 	void cancel(const std::string& name, size_t max);
@@ -176,20 +177,23 @@ public:
 	__WFNamedTimerTask(time_t seconds, long nanoseconds,
 					   __NamedTimerMap::TimerList *timers,
 					   CommScheduler *scheduler,
-					   std::function<void (WFTimerTask *)>&& cb) :
+					   timer_callback_t&& cb) :
 		__WFTimerTask(seconds, nanoseconds, scheduler, std::move(cb))
 	{
-		node_.task = NULL;
+		dispatched_ = false;
+		node_.task = this;
 		timers->push_back(&node_);
 		timers_ = timers;
 	}
 
 	virtual ~__WFNamedTimerTask()
 	{
-		if (!node_.task)
+		if (!dispatched_)
 		{
 			__timer_map.mutex_.lock();
-			timers_->del(&this->node_, &__timer_map.root_);
+			if (node_.task)
+				timers_->del(&node_, &__timer_map.root_);
+
 			__timer_map.mutex_.unlock();
 		}
 	}
@@ -199,6 +203,7 @@ protected:
 	virtual void handle(int state, int error);
 
 private:
+	bool dispatched_;
 	struct __timer_node node_;
 	__NamedTimerMap::TimerList *timers_;
 	friend class __NamedTimerMap;
@@ -211,9 +216,17 @@ void __WFNamedTimerTask::dispatch()
 	__timer_map.mutex_.lock();
 	ret = this->scheduler->sleep(this);
 	if (ret < 0)
-		timers_->del(&this->node_, &__timer_map.root_);
+	{
+		if (node_.task)
+			timers_->del(&node_, &__timer_map.root_);
+	}
+	else
+	{
+		if (!node_.task)
+			this->cancel();
+	}
 
-	node_.task = this;
+	dispatched_ = true;
 	__timer_map.mutex_.unlock();
 	if (ret < 0)
 		this->__WFTimerTask::handle(SS_STATE_ERROR, errno);
@@ -222,10 +235,8 @@ void __WFNamedTimerTask::dispatch()
 void __WFNamedTimerTask::handle(int state, int error)
 {
 	__timer_map.mutex_.lock();
-	if (this->node_.task)
-		timers_->del(&this->node_, &__timer_map.root_);
-	else
-		this->node_.task = this;
+	if (node_.task)
+		timers_->del(&node_, &__timer_map.root_);
 
 	__timer_map.mutex_.unlock();
 	this->state = state;
@@ -236,7 +247,7 @@ void __WFNamedTimerTask::handle(int state, int error)
 WFTimerTask *__NamedTimerMap::create(const std::string& name,
 									 time_t seconds, long nanoseconds,
 									 CommScheduler *scheduler,
-									 std::function<void (WFTimerTask *)>&& cb)
+									 timer_callback_t&& cb)
 {
 	TimerList *timers;
 	std::lock_guard<std::mutex> lock(mutex_);
@@ -247,7 +258,6 @@ WFTimerTask *__NamedTimerMap::create(const std::string& name,
 
 void __NamedTimerMap::cancel(const std::string& name, size_t max)
 {
-	struct list_head *pos, *tmp;
 	struct __timer_node *node;
 	TimerList *timers;
 
@@ -255,26 +265,22 @@ void __NamedTimerMap::cancel(const std::string& name, size_t max)
 	timers = __get_object_list<TimerList>(name, &root_, false);
 	if (timers)
 	{
-		list_for_each_safe(pos, tmp, &timers->head)
+		do
 		{
 			if (max == 0)
 				return;
 
-			node = list_entry(pos, struct __timer_node, list);
-			if (node->task)
-			{
-				list_del(pos);
+			node = list_entry(timers->head.next, struct __timer_node, list);
+			list_del(&node->list);
+			if (node->task->dispatched_)
 				node->task->cancel();
-				node->task = NULL;
-				max--;
-			}
-		}
 
-		if (timers->empty())
-		{
-			rb_erase(&timers->rb, &root_);
-			delete timers;
-		}
+			node->task = NULL;
+			max--;
+		} while (!timers->empty());
+
+		rb_erase(&timers->rb, &root_);
+		delete timers;
 	}
 }
 
@@ -310,7 +316,7 @@ public:
 
 public:
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
-						  std::function<void (WFCounterTask *)>&& cb);
+						  counter_callback_t&& cb);
 
 	void count_n(const std::string& name, unsigned int n);
 	void count(CounterList *counters, struct __counter_node *node);
@@ -340,7 +346,7 @@ class __WFNamedCounterTask : public WFCounterTask
 public:
 	__WFNamedCounterTask(unsigned int target_value,
 					 __NamedCounterMap::CounterList *counters,
-					 std::function<void (WFCounterTask *)>&& cb) :
+					 counter_callback_t&& cb) :
 		WFCounterTask(1, std::move(cb))
 	{
 		node_.target_value = target_value;
@@ -367,7 +373,7 @@ private:
 
 WFCounterTask *__NamedCounterMap::create(const std::string& name,
 								unsigned int target_value,
-								std::function<void (WFCounterTask *)>&& cb)
+								counter_callback_t&& cb)
 {
 	CounterList *counters;
 

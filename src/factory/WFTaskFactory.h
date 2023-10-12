@@ -313,7 +313,8 @@ public:
 									FUNC&& func, ARGS&&... args);
 
 	/* Create 'Go' task with running time limit in seconds plus nanoseconds.
-	 * If time exceeded, state WFT_STATE_ABORTED will be got in callback. */
+	 * If time exceeded, state WFT_STATE_SYS_ERROR and error ETIMEDOUT
+	 * will be got in callback. */
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
 										 const std::string& queue_name,

@@ -17,6 +17,7 @@
 */
 
 #include <sys/types.h>
+#include <errno.h>
 #include <time.h>
 #include <string>
 #include <mutex>
@@ -665,8 +666,8 @@ void __WFTimedGoTask::timer_callback(WFTimerTask *timer)
 
 	if (--task->ref == 3)
 	{
-		task->state = WFT_STATE_ABORTED;
-		task->error = 0;
+		task->state = WFT_STATE_SYS_ERROR;
+		task->error = ETIMEDOUT;
 		task->subtask_done();
 	}
 

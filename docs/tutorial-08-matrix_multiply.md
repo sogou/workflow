@@ -164,7 +164,7 @@ public:
 };
 ~~~
 参数seconds和nanoseconds构成了运行时限。在这里，nanoseconds的取值范围在\[0,1000000000)。  
-当任务无法在运行时限内结束，会直接回到callback，并且任务的状态为WFT_STATE_ABORTED。  
+当任务无法在运行时限内结束，会直接回到callback，并且任务的状态为WFT_STATE_SYS_ERROR且错误码为ETIMEDOUT。  
 还是用matrix_multiply的例子，我们可以这样写：
 ~~~cpp
 void callback(MMTask *task)     // MMtask = WFThreadTask<MMInput, MMOutput>
@@ -172,12 +172,12 @@ void callback(MMTask *task)     // MMtask = WFThreadTask<MMInput, MMOutput>
     MMInput *input = task->get_input();
     MMOutput *output = task->get_output();
 
-    if (task->get_state() == WFT_STATE_ABORTED)
+    if (task->get_state() == WFT_STATE_SYS_ERROR && task->get_error() == ETIMEDOUT)
     {
         printf("Run out of time.\n");
         return;
     }
-	
+
     assert(task->get_state() == WFT_STATE_SUCCESS)
 
     if (output->error)
@@ -210,13 +210,13 @@ int main()
     ...
 }
 ~~~
-上面的示例，限制了任务运行时间不超过1毫秒，否则，以WFT_STATE_ABORTD的状态返回。  
+上面的示例，限制了任务运行时间不超过1毫秒，否则，以WFT_STATE_SYS_ERROR的状态返回。  
 再次提醒，我们并不会中断用户的实际运行函数。当任务超时并callback，计算函数还会一直运行直到结束。  
 如果用户希望函数不再继续执行，需要在代码中自行加入检查点来实现这样的功能。可以在INPUT里加入flag，例如：
 ~~~cpp
 void callback(MMTask *task)     // MMtask = WFThreadTask<MMInput, MMOutput>
 {
-    if (task->get_state() == WFT_STATE_ABORTED)
+    if (task->get_state() == WFT_STATE_SYS_ERROR && task->get_error() == ETIMEDOUT)
     {
         task->get_input()->flag = true;
         printf("Run out of time.\n");

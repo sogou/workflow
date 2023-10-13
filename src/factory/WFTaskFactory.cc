@@ -14,11 +14,12 @@
   limitations under the License.
 
   Authors: Xie Han (xiehan@sogou-inc.com)
-           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #include <sys/types.h>
+#include <errno.h>
 #include <time.h>
+#include <utility>
 #include <string>
 #include <mutex>
 #include "list.h"
@@ -41,7 +42,7 @@ protected:
 	long nanoseconds;
 
 public:
-	__WFTimerTask(CommScheduler *scheduler, time_t seconds, long nanoseconds,
+	__WFTimerTask(time_t seconds, long nanoseconds, CommScheduler *scheduler,
 				  timer_callback_t&& cb) :
 		WFTimerTask(scheduler, std::move(cb))
 	{
@@ -53,7 +54,7 @@ public:
 WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
 											  timer_callback_t callback)
 {
-	return new __WFTimerTask(WFGlobal::get_scheduler(), seconds, nanoseconds,
+	return new __WFTimerTask(seconds, nanoseconds, WFGlobal::get_scheduler(),
 							 std::move(callback));
 }
 
@@ -61,10 +62,9 @@ WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
 WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
 											  timer_callback_t callback)
 {
-	return new __WFTimerTask(WFGlobal::get_scheduler(),
-							 (time_t)(microseconds / 1000000),
-							 (long)(microseconds % 1000000 * 1000),
-							 std::move(callback));
+	return WFTaskFactory::create_timer_task(microseconds / 1000000,
+											microseconds % 1000000 * 1000,
+											std::move(callback));
 }
 
 /****************** Named Tasks ******************/
@@ -88,9 +88,14 @@ struct __NamedObjectList
 		return list_empty(&this->head);
 	}
 
-	void del(T *node)
+	void del(T *node, rb_root *root)
 	{
 		list_del(&node->list);
+		if (this->empty())
+		{
+			rb_erase(&this->rb, root);
+			delete this;
+		}
 	}
 
 	struct rb_node rb;
@@ -129,6 +134,170 @@ static T *__get_object_list(const std::string& name, struct rb_root *root,
 	return NULL;
 }
 
+/****************** Named Timer ******************/
+
+class __WFNamedTimerTask;
+
+struct __timer_node
+{
+	struct list_head list;
+	__WFNamedTimerTask *task;
+};
+
+static class __NamedTimerMap
+{
+public:
+	using TimerList = struct __NamedObjectList<struct __timer_node>;
+
+public:
+	WFTimerTask *create(const std::string& name,
+						time_t seconds, long nanoseconds,
+						CommScheduler *scheduler,
+						timer_callback_t&& cb);
+
+public:
+	void cancel(const std::string& name, size_t max);
+
+private:
+	struct rb_root root_;
+	std::mutex mutex_;
+
+public:
+	__NamedTimerMap()
+	{
+		root_.rb_node = NULL;
+	}
+
+	friend class __WFNamedTimerTask;
+} __timer_map;
+
+class __WFNamedTimerTask : public __WFTimerTask
+{
+public:
+	__WFNamedTimerTask(time_t seconds, long nanoseconds,
+					   __NamedTimerMap::TimerList *timers,
+					   CommScheduler *scheduler,
+					   timer_callback_t&& cb) :
+		__WFTimerTask(seconds, nanoseconds, scheduler, std::move(cb))
+	{
+		dispatched_ = false;
+		node_.task = this;
+		timers->push_back(&node_);
+		timers_ = timers;
+	}
+
+	virtual ~__WFNamedTimerTask()
+	{
+		if (!dispatched_)
+		{
+			__timer_map.mutex_.lock();
+			if (node_.task)
+				timers_->del(&node_, &__timer_map.root_);
+
+			__timer_map.mutex_.unlock();
+		}
+	}
+
+protected:
+	virtual void dispatch();
+	virtual void handle(int state, int error);
+
+private:
+	bool dispatched_;
+	struct __timer_node node_;
+	__NamedTimerMap::TimerList *timers_;
+	friend class __NamedTimerMap;
+};
+
+void __WFNamedTimerTask::dispatch()
+{
+	int ret;
+
+	__timer_map.mutex_.lock();
+	ret = this->scheduler->sleep(this);
+	if (ret < 0)
+	{
+		if (node_.task)
+			timers_->del(&node_, &__timer_map.root_);
+	}
+	else
+	{
+		if (!node_.task)
+			this->cancel();
+	}
+
+	dispatched_ = true;
+	__timer_map.mutex_.unlock();
+	if (ret < 0)
+		this->__WFTimerTask::handle(SS_STATE_ERROR, errno);
+}
+
+void __WFNamedTimerTask::handle(int state, int error)
+{
+	__timer_map.mutex_.lock();
+	if (node_.task)
+		timers_->del(&node_, &__timer_map.root_);
+
+	__timer_map.mutex_.unlock();
+	this->state = state;
+	this->error = error;
+	this->subtask_done();
+}
+
+WFTimerTask *__NamedTimerMap::create(const std::string& name,
+									 time_t seconds, long nanoseconds,
+									 CommScheduler *scheduler,
+									 timer_callback_t&& cb)
+{
+	TimerList *timers;
+	std::lock_guard<std::mutex> lock(mutex_);
+	timers = __get_object_list<TimerList>(name, &root_, true);
+	return new __WFNamedTimerTask(seconds, nanoseconds, timers,
+								  scheduler, std::move(cb));
+}
+
+void __NamedTimerMap::cancel(const std::string& name, size_t max)
+{
+	struct __timer_node *node;
+	TimerList *timers;
+
+	std::lock_guard<std::mutex> lock(mutex_);
+	timers = __get_object_list<TimerList>(name, &root_, false);
+	if (timers)
+	{
+		do
+		{
+			if (max == 0)
+				return;
+
+			node = list_entry(timers->head.next, struct __timer_node, list);
+			list_del(&node->list);
+			if (node->task->dispatched_)
+				node->task->cancel();
+
+			node->task = NULL;
+			max--;
+		} while (!timers->empty());
+
+		rb_erase(&timers->rb, &root_);
+		delete timers;
+	}
+}
+
+WFTimerTask *WFTaskFactory::create_timer_task(const std::string& timer_name,
+											  time_t seconds, long nanoseconds,
+											  timer_callback_t callback)
+{
+	return __timer_map.create(timer_name, seconds, nanoseconds,
+							  WFGlobal::get_scheduler(),
+							  std::move(callback));
+}
+
+void WFTaskFactory::cancel_by_name(const std::string& timer_name, size_t max)
+{
+	__timer_map.cancel(timer_name, max);
+}
+
 /****************** Named Counter ******************/
 
 class __WFNamedCounterTask;
@@ -147,11 +316,17 @@ public:
 
 public:
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
-						  std::function<void (WFCounterTask *)>&& cb);
+						  counter_callback_t&& cb);
 
 	void count_n(const std::string& name, unsigned int n);
 	void count(CounterList *counters, struct __counter_node *node);
-	void remove(CounterList *counters, struct __counter_node *node);
+
+	void remove(CounterList *counters, struct __counter_node *node)
+	{
+		mutex_.lock();
+		counters->del(node, &root_);
+		mutex_.unlock();
+	}
 
 private:
 	void count_n_locked(CounterList *counters, unsigned int n,
@@ -171,7 +346,7 @@ class __WFNamedCounterTask : public WFCounterTask
 public:
 	__WFNamedCounterTask(unsigned int target_value,
 					 __NamedCounterMap::CounterList *counters,
-					 std::function<void (WFCounterTask *)>&& cb) :
+					 counter_callback_t&& cb) :
 		WFCounterTask(1, std::move(cb))
 	{
 		node_.target_value = target_value;
@@ -198,7 +373,7 @@ private:
 
 WFCounterTask *__NamedCounterMap::create(const std::string& name,
 								unsigned int target_value,
-								std::function<void (WFCounterTask *)>&& cb)
+								counter_callback_t&& cb)
 {
 	CounterList *counters;
 
@@ -214,33 +389,28 @@ void __NamedCounterMap::count_n_locked(CounterList *counters, unsigned int n,
 									   struct list_head *task_list)
 {
 	struct __counter_node *node;
-	struct list_head *pos;
-	struct list_head *tmp;
 
-	list_for_each_safe(pos, tmp, &counters->head)
+	do
 	{
 		if (n == 0)
 			return;
 
-		node = list_entry(pos, struct __counter_node, list);
+		node = list_entry(counters->head.next, struct __counter_node, list);
 		if (n >= node->target_value)
 		{
 			n -= node->target_value;
 			node->target_value = 0;
-			list_move_tail(pos, task_list);
-			if (counters->empty())
-			{
-				rb_erase(&counters->rb, &root_);
-				delete counters;
-				return;
-			}
+			list_move_tail(&node->list, task_list);
 		}
 		else
 		{
 			node->target_value -= n;
 			n = 0;
 		}
-	}
+	} while (!counters->empty());
+
+	rb_erase(&counters->rb, &root_);
+	delete counters;
 }
 
 void __NamedCounterMap::count_n(const std::string& name, unsigned int n)
@@ -272,31 +442,12 @@ void __NamedCounterMap::count(CounterList *counters,
 	if (--node->target_value == 0)
 	{
 		task = node->task;
-		counters->del(node);
-		if (counters->empty())
-		{
-			rb_erase(&counters->rb, &root_);
-			delete counters;
-		}
+		counters->del(node, &root_);
 	}
 
 	mutex_.unlock();
 	if (task)
 		task->WFCounterTask::count();
-}
-
-void __NamedCounterMap::remove(CounterList *counters,
-							   struct __counter_node *node)
-{
-	mutex_.lock();
-	counters->del(node);
-	if (counters->empty())
-	{
-		rb_erase(&counters->rb, &root_);
-		delete counters;
-	}
-
-	mutex_.unlock();
 }
 
 WFCounterTask *WFTaskFactory::create_counter_task(const std::string& counter_name,
@@ -334,7 +485,13 @@ public:
 	void signal(const std::string& name, void *msg, size_t max);
 	void signal(ConditionalList *conds, struct __conditional_node *node,
 				void *msg);
-	void remove(ConditionalList *conds, struct __conditional_node *node);
+
+	void remove(ConditionalList *conds, struct __conditional_node *node)
+	{
+		mutex_.lock();
+		conds->del(node, &root_);
+		mutex_.unlock();
+	}
 
 private:
 	void signal_max_locked(ConditionalList *conds, void *msg, size_t max,
@@ -408,20 +565,18 @@ void __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
 											  void *msg, size_t max,
 											  struct list_head *cond_list)
 {
-	struct list_head *pos, *tmp;
-
 	if (max == (size_t)-1)
 		list_splice(&conds->head, cond_list);
 	else
 	{
-		list_for_each_safe(pos, tmp, &conds->head)
+		do
 		{
 			if (max == 0)
 				return;
 
-			list_move_tail(pos, cond_list);
+			list_move_tail(conds->head.next, cond_list);
 			max--;
-		}
+		} while (!conds->empty());
 	}
 
 	rb_erase(&conds->rb, &root_);
@@ -453,29 +608,9 @@ void __NamedConditionalMap::signal(ConditionalList *conds,
 								   void *msg)
 {
 	mutex_.lock();
-	conds->del(node);
-	if (conds->empty())
-	{
-		rb_erase(&conds->rb, &root_);
-		delete conds;
-	}
-
+	conds->del(node, &root_);
 	mutex_.unlock();
 	node->cond->WFConditional::signal(msg);
-}
-
-void __NamedConditionalMap::remove(ConditionalList *conds,
-								   struct __conditional_node *node)
-{
-	mutex_.lock();
-	conds->del(node);
-	if (conds->empty())
-	{
-		rb_erase(&conds->rb, &root_);
-		delete conds;
-	}
-
-	mutex_.unlock();
 }
 
 WFConditional *WFTaskFactory::create_conditional(const std::string& cond_name,
@@ -537,8 +672,8 @@ void __WFTimedGoTask::timer_callback(WFTimerTask *timer)
 
 	if (--task->ref == 3)
 	{
-		task->state = WFT_STATE_ABORTED;
-		task->error = 0;
+		task->state = WFT_STATE_SYS_ERROR;
+		task->error = ETIMEDOUT;
 		task->subtask_done();
 	}
 

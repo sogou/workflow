@@ -1098,12 +1098,22 @@ void Communicator::handle_sleep_result(struct poller_result *res)
 	SleepSession *session = (SleepSession *)res->data.context;
 	int state;
 
-	if (res->state == PR_ST_STOPPED)
-		state = SS_STATE_DISRUPTED;
-	else
+	switch (res->state)
+	{
+	case PR_ST_FINISHED:
 		state = SS_STATE_COMPLETE;
+		break;
+	case PR_ST_DELETED:
+		res->error = ECANCELED;
+	case PR_ST_ERROR:
+		state = SS_STATE_ERROR;
+		break;
+	case PR_ST_STOPPED:
+		state = SS_STATE_DISRUPTED;
+		break;
+	}
 
-	session->handle(state, 0);
+	session->handle(state, res->error);
 }
 
 void Communicator::handle_aio_result(struct poller_result *res)
@@ -1836,14 +1846,26 @@ int Communicator::shutdown(CommSession *session)
 int Communicator::sleep(SleepSession *session)
 {
 	struct timespec value;
+	void *timer;
+	int index;
 
 	if (session->duration(&value) >= 0)
 	{
-		if (mpoller_add_timer(&value, session, this->mpoller) >= 0)
+		timer = mpoller_add_timer(&value, session, &index, this->mpoller);
+		if (timer)
+		{
+			session->timer = timer;
+			session->index = index;
 			return 0;
+		}
 	}
 
 	return -1;
+}
+
+int Communicator::unsleep(SleepSession *session)
+{
+	return mpoller_del_timer(session->timer, session->index, this->mpoller);
 }
 
 int Communicator::is_handler_thread() const

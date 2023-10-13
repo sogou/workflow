@@ -170,6 +170,12 @@ public:
 		return this->comm.sleep(session);
 	}
 
+	/* Call 'unsleep' only before 'handle()' returns. */
+	int unsleep(SleepSession *session)
+	{
+		return this->comm.unsleep(session);
+	}
+
 	/* for file aio services. */
 	int io_bind(IOService *service)
 	{

@@ -226,7 +226,8 @@ public:
 protected:
 	virtual ~WFServerTask()
 	{
-		((Series *)series_of(this))->task = NULL;
+		if (this->target)
+			((Series *)series_of(this))->task = NULL;
 	}
 };
 

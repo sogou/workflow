@@ -1527,8 +1527,8 @@ int poller_set_timeout(int fd, int timeout, poller_t *poller)
 	return -!node;
 }
 
-void *poller_add_timer(const struct timespec *value, void *context,
-					   poller_t *poller)
+int poller_add_timer(const struct timespec *value, void *context, void **timer,
+					 poller_t *poller)
 {
 	struct __poller_node *node;
 
@@ -1552,12 +1552,14 @@ void *poller_add_timer(const struct timespec *value, void *context,
 			node->timeout.tv_sec++;
 		}
 
+		*timer = node;
 		pthread_mutex_lock(&poller->mutex);
 		__poller_insert_node(node, poller);
 		pthread_mutex_unlock(&poller->mutex);
+		return 0;
 	}
 
-	return node;
+	return -1;
 }
 
 int poller_del_timer(void *timer, poller_t *poller)
@@ -1578,7 +1580,7 @@ int poller_del_timer(void *timer, poller_t *poller)
 		node->error = 0;
 		node->state = PR_ST_DELETED;
 		stopped = poller->stopped;
-		if (!poller->stopped)
+		if (!stopped)
 			write(poller->pipe_wr, &node, sizeof (void *));
 	}
 	else

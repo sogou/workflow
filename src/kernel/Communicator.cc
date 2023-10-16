@@ -1846,18 +1846,12 @@ int Communicator::shutdown(CommSession *session)
 int Communicator::sleep(SleepSession *session)
 {
 	struct timespec value;
-	void *timer;
-	int index;
 
 	if (session->duration(&value) >= 0)
 	{
-		timer = mpoller_add_timer(&value, session, &index, this->mpoller);
-		if (timer)
-		{
-			session->timer = timer;
-			session->index = index;
+		if (mpoller_add_timer(&value, session, &session->timer, &session->index,
+							  this->mpoller) >= 0)
 			return 0;
-		}
 	}
 
 	return -1;

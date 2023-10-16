@@ -22,6 +22,7 @@
 #include <utility>
 #include <string>
 #include <mutex>
+#include <atomic>
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
@@ -178,9 +179,9 @@ public:
 					   __NamedTimerMap::TimerList *timers,
 					   CommScheduler *scheduler,
 					   timer_callback_t&& cb) :
-		__WFTimerTask(seconds, nanoseconds, scheduler, std::move(cb))
+		__WFTimerTask(seconds, nanoseconds, scheduler, std::move(cb)),
+		flag_(false)
 	{
-		dispatched_ = false;
 		node_.task = this;
 		timers->push_back(&node_);
 		timers_ = timers;
@@ -188,13 +189,11 @@ public:
 
 	virtual ~__WFNamedTimerTask()
 	{
-		if (!dispatched_)
+		if (node_.task)
 		{
-			__timer_map.mutex_.lock();
+			std::lock_guard<std::mutex> lock(__timer_map.mutex_);
 			if (node_.task)
 				timers_->del(&node_, &__timer_map.root_);
-
-			__timer_map.mutex_.unlock();
 		}
 	}
 
@@ -203,9 +202,10 @@ protected:
 	virtual void handle(int state, int error);
 
 private:
-	bool dispatched_;
 	struct __timer_node node_;
 	__NamedTimerMap::TimerList *timers_;
+	std::atomic<bool> flag_;
+	std::mutex mutex_;
 	friend class __NamedTimerMap;
 };
 
@@ -213,35 +213,31 @@ void __WFNamedTimerTask::dispatch()
 {
 	int ret;
 
-	__timer_map.mutex_.lock();
+	mutex_.lock();
 	ret = this->scheduler->sleep(this);
-	if (ret < 0)
-	{
-		if (node_.task)
-			timers_->del(&node_, &__timer_map.root_);
-	}
-	else
-	{
-		if (!node_.task)
-			this->cancel();
-	}
+	if (ret >= 0 && flag_.exchange(true))
+		this->cancel();
 
-	dispatched_ = true;
-	__timer_map.mutex_.unlock();
+	mutex_.unlock();
 	if (ret < 0)
-		this->__WFTimerTask::handle(SS_STATE_ERROR, errno);
+		this->handle(SS_STATE_ERROR, errno);
 }
 
 void __WFNamedTimerTask::handle(int state, int error)
 {
-	__timer_map.mutex_.lock();
 	if (node_.task)
-		timers_->del(&node_, &__timer_map.root_);
+	{
+		std::lock_guard<std::mutex> lock(__timer_map.mutex_);
+		if (node_.task)
+		{
+			timers_->del(&node_, &__timer_map.root_);
+			node_.task = NULL;
+		}
+	}
 
-	__timer_map.mutex_.unlock();
-	this->state = state;
-	this->error = error;
-	this->subtask_done();
+	mutex_.lock();
+	mutex_.unlock();
+	this->__WFTimerTask::handle(state, error);
 }
 
 WFTimerTask *__NamedTimerMap::create(const std::string& name,
@@ -272,7 +268,7 @@ void __NamedTimerMap::cancel(const std::string& name, size_t max)
 
 			node = list_entry(timers->head.next, struct __timer_node, list);
 			list_del(&node->list);
-			if (node->task->dispatched_)
+			if (node->task->flag_.exchange(true))
 				node->task->cancel();
 
 			node->task = NULL;
@@ -372,8 +368,8 @@ private:
 };
 
 WFCounterTask *__NamedCounterMap::create(const std::string& name,
-								unsigned int target_value,
-								counter_callback_t&& cb)
+										 unsigned int target_value,
+										 counter_callback_t&& cb)
 {
 	CounterList *counters;
 

@@ -820,8 +820,17 @@ void __WFTimedThreadTask<INPUT, OUTPUT>::timer_callback(WFTimerTask *timer)
 
 	if (--task->ref == 3)
 	{
-		task->state = WFT_STATE_SYS_ERROR;
-		task->error = ETIMEDOUT;
+		if (timer->get_state() == WFT_STATE_SUCCESS)
+		{
+			task->state = WFT_STATE_SYS_ERROR;
+			task->error = ETIMEDOUT;
+		}
+		else
+		{
+			task->state = timer->get_state();
+			task->error = timer->get_error();
+		}
+
 		task->subtask_done();
 	}
 

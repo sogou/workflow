@@ -238,10 +238,7 @@ public:
 	static WFTimerTask *create_timer_task(unsigned int microseconds,
 										  timer_callback_t callback);
 
-	/* Counter is like semaphore. The callback of counter is called when
-	 * 'count' operations reach target_value & after the task is started.
-	 * It's perfectly legal to call 'count' before the task is started. */
-
+public:
 	/* Create an unnamed counter. Call counter->count() directly.
 	 * NOTE: never call count() exceeding target_value. */
 	static WFCounterTask *create_counter_task(unsigned int target_value,
@@ -281,6 +278,23 @@ public:
 	{
 		return new WFMailboxTask(std::move(callback));
 	}
+
+	static WFMailboxTask *create_mailbox_task(const std::string& mailbox_name,
+											  void **mailbox,
+											  mailbox_callback_t callback);
+
+	static WFMailboxTask *create_mailbox_task(const std::string& mailbox_name,
+											  mailbox_callback_t callback);
+
+	/* The 'msg' will be sent to the all mailbox tasks under the name, and
+	 * would be lost if no task matched. */
+	static void send_by_name(const std::string& mailbox_name, void *msg)
+	{
+		WFTaskFactory::send_by_name(mailbox_name, msg, (size_t)-1);
+	}
+
+	static void send_by_name(const std::string& mailbox_name, void *msg,
+							 size_t max);
 
 public:
 	static WFConditional *create_conditional(SubTask *task, void **msgbuf)

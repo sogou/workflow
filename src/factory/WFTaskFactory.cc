@@ -176,13 +176,16 @@ class __WFNamedTimerTask : public __WFTimerTask
 {
 public:
 	__WFNamedTimerTask(time_t seconds, long nanoseconds,
-					   __NamedTimerMap::TimerList *timers,
 					   CommScheduler *scheduler,
 					   timer_callback_t&& cb) :
 		__WFTimerTask(seconds, nanoseconds, scheduler, std::move(cb)),
 		flag_(false)
 	{
 		node_.task = this;
+	}
+
+	void push_to(__NamedTimerMap::TimerList *timers)
+	{
 		timers->push_back(&node_);
 		timers_ = timers;
 	}
@@ -245,11 +248,12 @@ WFTimerTask *__NamedTimerMap::create(const std::string& name,
 									 CommScheduler *scheduler,
 									 timer_callback_t&& cb)
 {
-	TimerList *timers;
-	std::lock_guard<std::mutex> lock(mutex_);
-	timers = __get_object_list<TimerList>(name, &root_, true);
-	return new __WFNamedTimerTask(seconds, nanoseconds, timers,
-								  scheduler, std::move(cb));
+	auto *task = new __WFNamedTimerTask(seconds, nanoseconds, scheduler,
+										std::move(cb));
+	mutex_.lock();
+	task->push_to(__get_object_list<TimerList>(name, &root_, true));
+	mutex_.unlock();
+	return task;
 }
 
 void __NamedTimerMap::cancel(const std::string& name, size_t max)
@@ -340,26 +344,28 @@ public:
 class __WFNamedCounterTask : public WFCounterTask
 {
 public:
-	__WFNamedCounterTask(unsigned int target_value,
-					 __NamedCounterMap::CounterList *counters,
-					 counter_callback_t&& cb) :
+	__WFNamedCounterTask(unsigned int target_value, counter_callback_t&& cb) :
 		WFCounterTask(1, std::move(cb))
 	{
 		node_.target_value = target_value;
 		node_.task = this;
+	}
+
+	void push_to(__NamedCounterMap::CounterList *counters)
+	{
 		counters->push_back(&node_);
 		counters_ = counters;
+	}
+
+	virtual void count()
+	{
+		__counter_map.count(counters_, &node_);
 	}
 
 	virtual ~__WFNamedCounterTask()
 	{
 		if (this->value != 0)
 			__counter_map.remove(counters_, &node_);
-	}
-
-	virtual void count()
-	{
-		__counter_map.count(counters_, &node_);
 	}
 
 private:
@@ -371,14 +377,14 @@ WFCounterTask *__NamedCounterMap::create(const std::string& name,
 										 unsigned int target_value,
 										 counter_callback_t&& cb)
 {
-	CounterList *counters;
-
 	if (target_value == 0)
 		return new WFCounterTask(0, std::move(cb));
 
-	std::lock_guard<std::mutex> lock(mutex_);
-	counters = __get_object_list<CounterList>(name, &root_, true);
-	return new __WFNamedCounterTask(target_value, counters, std::move(cb));
+	auto *task = new __WFNamedCounterTask(target_value, std::move(cb));
+	mutex_.lock();
+	task->push_to(__get_object_list<CounterList>(name, &root_, true));
+	mutex_.unlock();
+	return task;
 }
 
 void __NamedCounterMap::count_n_locked(CounterList *counters, unsigned int n,
@@ -505,33 +511,33 @@ public:
 class __WFNamedCondtional : public WFConditional
 {
 public:
-	__WFNamedCondtional(SubTask *task, void **msgbuf,
-						__NamedConditionalMap::ConditionalList *conds) :
+	__WFNamedCondtional(SubTask *task, void **msgbuf) :
 		WFConditional(task, msgbuf)
 	{
 		node_.cond = this;
+	}
+
+	__WFNamedCondtional(SubTask *task) :
+		WFConditional(task)
+	{
+		node_.cond = this;
+	}
+
+	void push_to(__NamedConditionalMap::ConditionalList *conds)
+	{
 		conds->push_back(&node_);
 		conds_ = conds;
 	}
 
-	__WFNamedCondtional(SubTask *task,
-						__NamedConditionalMap::ConditionalList *conds) :
-		WFConditional(task)
+	virtual void signal(void *msg)
 	{
-		node_.cond = this;
-		conds->push_back(&node_);
-		conds_ = conds;
+		__conditional_map.signal(conds_, &node_, msg);
 	}
 
 	virtual ~__WFNamedCondtional()
 	{
 		if (!this->flag)
 			__conditional_map.remove(conds_, &node_);
-	}
-
-	virtual void signal(void *msg)
-	{
-		__conditional_map.signal(conds_, &node_, msg);
 	}
 
 private:
@@ -542,19 +548,21 @@ private:
 WFConditional *__NamedConditionalMap::create(const std::string& name,
 											 SubTask *task, void **msgbuf)
 {
-	ConditionalList *conds;
-	std::lock_guard<std::mutex> lock(mutex_);
-	conds = __get_object_list<ConditionalList>(name, &root_, true);
-	return new __WFNamedCondtional(task, msgbuf, conds);
+	auto *cond = new __WFNamedCondtional(task, msgbuf);
+	mutex_.lock();
+	cond->push_to(__get_object_list<ConditionalList>(name, &root_, true));
+	mutex_.unlock();
+	return cond;
 }
 
 WFConditional *__NamedConditionalMap::create(const std::string& name,
 											 SubTask *task)
 {
-	ConditionalList *conds;
-	std::lock_guard<std::mutex> lock(mutex_);
-	conds = __get_object_list<ConditionalList>(name, &root_, true);
-	return new __WFNamedCondtional(task, conds);
+	auto *cond = new __WFNamedCondtional(task);
+	mutex_.lock();
+	cond->push_to(__get_object_list<ConditionalList>(name, &root_, true));
+	mutex_.unlock();
+	return cond;
 }
 
 void __NamedConditionalMap::signal_max_locked(ConditionalList *conds,

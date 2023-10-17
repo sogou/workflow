@@ -453,12 +453,10 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 		}
 	}
 
-	/*
-	 * When target is NULL, it's very likely that we are in the caller's
-	 * thread or DNS thread (dns failed). Running a timer will switch callback
-	 * function to a handler thread, and this can prevent stack overflow.
-	 */
-	if (!this->target)
+	/* When the target or the connection is NULL, it's very likely that we are
+	 * in the caller's thread. Running a timer will switch callback function to
+	 * a handler thread, and this can prevent stack overflow. */
+	if (!this->target || !this->CommSession::get_connection())
 	{
 		auto&& cb = std::bind(&WFComplexClientTask::switch_callback,
 							  this,

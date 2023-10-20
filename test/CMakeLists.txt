@@ -62,9 +62,9 @@ set(TEST_LIST
 )
 
 if (APPLE)
-	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+	set(WORKFLOW_LIB workflow pthread)
 else ()
-	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto ${LIBRT})
+	set(WORKFLOW_LIB workflow pthread ${LIBRT})
 endif ()
 
 foreach(src ${TEST_LIST})

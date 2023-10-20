@@ -13,7 +13,6 @@ cc_library(
 	visibility = ["//visibility:public"],
 	linkopts = [
 		'-lpthread',
-		'-lssl',
 		'-lcrypto',
 	],
 )
@@ -55,7 +54,6 @@ cc_library(
 		'src/protocol/TLVMessage.cc',
 		'src/protocol/DnsMessage.cc',
 		'src/protocol/DnsUtil.cc',
-		'src/protocol/SSLWrapper.cc',
 		'src/protocol/PackageWrapper.cc',
 		'src/protocol/dns_parser.c',
 		'src/server/WFServer.cc',

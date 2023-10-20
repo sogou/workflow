@@ -59,13 +59,13 @@ int main()
 	});
 
 	/* Http task1 */
-	http_task1 = WFTaskFactory::create_http_task("https://www.sogou.com/",
+	http_task1 = WFTaskFactory::create_http_task("http://www.techweb.com.cn/",
 												 REDIRECT_MAX, RETRY_MAX,
 												 http_callback);
 	http_task1->user_data = &size1;
 
 	/* Http task2 */
-	http_task2 = WFTaskFactory::create_http_task("https://www.baidu.com/",
+	http_task2 = WFTaskFactory::create_http_task("http://www.wenming.cn/",
 												 REDIRECT_MAX, RETRY_MAX,
 												 http_callback);
 	http_task2->user_data = &size2;

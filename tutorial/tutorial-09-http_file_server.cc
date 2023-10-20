@@ -98,9 +98,9 @@ void sig_handler(int signo)
 
 int main(int argc, char *argv[])
 {
-	if (argc != 2 && argc != 3 && argc != 5)
+	if (argc != 2 && argc != 3)
 	{
-		fprintf(stderr, "%s <port> [root path] [cert file] [key file]\n",
+		fprintf(stderr, "%s <port> [root path]\n",
 				argv[0]);
 		exit(1);
 	}
@@ -111,28 +111,15 @@ int main(int argc, char *argv[])
 	const char *root = (argc >= 3 ? argv[2] : ".");
 	auto&& proc = std::bind(process, std::placeholders::_1, root);
 	WFHttpServer server(proc);
-	std::string scheme;
-	int ret;
 
-	if (argc == 5)
-	{
-		ret = server.start(port, argv[3], argv[4]);	/* https server */
-		scheme = "https://";
-	}
-	else
-	{
-		ret = server.start(port);
-		scheme = "http://";
-	}
-
-	if (ret < 0)
+	if (server.start(port) < 0)
 	{
 		perror("start server");
 		exit(1);
 	}
 
 	/* Test the server. */
-	auto&& create = [&scheme, port](WFRepeaterTask *)->SubTask *{
+	auto&& create = [port](WFRepeaterTask *)->SubTask *{
 		char buf[1024];
 		*buf = '\0';
 		printf("Input file name: (Ctrl-D to exit): ");
@@ -143,7 +130,7 @@ int main(int argc, char *argv[])
 			return NULL;
 		}
 
-		std::string url = scheme + "127.0.0.1:" + std::to_string(port) + "/" + buf;
+		std::string url = "http://127.0.0.1:" + std::to_string(port) + "/" + buf;
 		WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, 0,
 									[](WFHttpTask *task) {
 			auto *resp = task->get_resp();

@@ -23,7 +23,7 @@ set_warnings("all")
 set_exceptions("no-cxx")
 
 add_requires("openssl")
-add_packages("openssl")
+add_packages("openssl", {links = "crypto"})
 add_syslinks("pthread")
 
 if has_config("kafka") then

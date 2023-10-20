@@ -21,8 +21,6 @@
 #include <string.h>
 #include <utility>
 #include <string>
-#include <openssl/ssl.h>
-#include "SSLWrapper.h"
 
 namespace protocol
 {
@@ -84,31 +82,6 @@ public:
 	MySQLHandshakeResponse(MySQLHandshakeResponse&& move) = default;
 	//move operator
 	MySQLHandshakeResponse& operator= (MySQLHandshakeResponse&& move) = default;
-};
-
-class MySQLSSLRequest : public MySQLRequest
-{
-private:
-	virtual int encode(struct iovec vectors[], int max);
-
-	/* Do not support server side with SSL currently. */
-	virtual int decode_packet(const unsigned char *buf, size_t buflen)
-	{
-		return -2;
-	}
-
-private:
-	int character_set_;
-	SSLHandshaker ssl_handshaker_;
-
-public:
-	MySQLSSLRequest(int character_set, SSL *ssl) : ssl_handshaker_(ssl)
-	{
-		character_set_ = character_set;
-	}
-
-	MySQLSSLRequest(MySQLSSLRequest&& move) = default;
-	MySQLSSLRequest& operator= (MySQLSSLRequest&& move) = default;
 };
 
 class MySQLAuthRequest : public MySQLRequest

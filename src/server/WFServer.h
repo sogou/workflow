@@ -27,7 +27,6 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include <openssl/ssl.h>
 #include "WFTaskFactory.h"
 
 struct WFServerParams
@@ -37,7 +36,6 @@ struct WFServerParams
 	int receive_timeout;	/* timeout of receiving the whole message */
 	int keep_alive_timeout;
 	size_t request_size_limit;
-	int ssl_accept_timeout;	/* if not ssl, this will be ignored */
 };
 
 static constexpr struct WFServerParams SERVER_PARAMS_DEFAULT =
@@ -47,7 +45,6 @@ static constexpr struct WFServerParams SERVER_PARAMS_DEFAULT =
 	.receive_timeout		=	-1,
 	.keep_alive_timeout		=	60 * 1000,
 	.request_size_limit		=	(size_t)-1,
-	.ssl_accept_timeout		=	10 * 1000,
 };
 
 class WFServerBase : protected CommService
@@ -67,66 +64,29 @@ public:
 	/* Start on port with IPv4. */
 	int start(unsigned short port)
 	{
-		return start(AF_INET, NULL, port, NULL, NULL);
+		return start(AF_INET, NULL, port);
 	}
 
 	/* Start with family. AF_INET or AF_INET6. */
 	int start(int family, unsigned short port)
 	{
-		return start(family, NULL, port, NULL, NULL);
+		return start(family, NULL, port);
 	}
 
 	/* Start with hostname and port. */
 	int start(const char *host, unsigned short port)
 	{
-		return start(AF_INET, host, port, NULL, NULL);
+		return start(AF_INET, host, port);
 	}
 
 	/* Start with family, hostname and port. */
-	int start(int family, const char *host, unsigned short port)
-	{
-		return start(family, host, port, NULL, NULL);
-	}
+	int start(int family, const char *host, unsigned short port);
 
-	/* Start with binding address. */
-	int start(const struct sockaddr *bind_addr, socklen_t addrlen)
-	{
-		return start(bind_addr, addrlen, NULL, NULL);
-	}
-
-	/* To start an SSL server. */
-
-	int start(unsigned short port, const char *cert_file, const char *key_file)
-	{
-		return start(AF_INET, NULL, port, cert_file, key_file);
-	}
-
-	int start(int family, unsigned short port,
-			  const char *cert_file, const char *key_file)
-	{
-		return start(family, NULL, port, cert_file, key_file);
-	}
-
-	int start(const char *host, unsigned short port,
-			  const char *cert_file, const char *key_file)
-	{
-		return start(AF_INET, host, port, cert_file, key_file);
-	}
-
-	int start(int family, const char *host, unsigned short port,
-			  const char *cert_file, const char *key_file);
-
-	/* This is the only necessary start function. */
-	int start(const struct sockaddr *bind_addr, socklen_t addrlen,
-			  const char *cert_file, const char *key_file);
+	/* Start with binding address. The only necessary start function. */
+	int start(const struct sockaddr *bind_addr, socklen_t addrlen);
 
 	/* To start with a specified fd. For graceful restart or SCTP server. */
-	int serve(int listen_fd)
-	{
-		return serve(listen_fd, NULL, NULL);
-	}
-
-	int serve(int listen_fd, const char *cert_file, const char *key_file);
+	int serve(int listen_fd);
 
 	/* stop() is a blocking operation. */
 	void stop()
@@ -157,21 +117,6 @@ public:
 	}
 
 protected:
-	/* Override this function to create the initial SSL CTX of the server */
-	virtual SSL_CTX *new_ssl_ctx(const char *cert_file, const char *key_file);
-
-	/* Override this function to implement server that supports TLS SNI.
-	 * "servername" will be NULL if client does not set a host name.
-	 * Returning NULL to indicate that servername is not supported. */
-	virtual SSL_CTX *get_server_ssl_ctx(const char *servername)
-	{
-		return this->get_ssl_ctx();
-	}
-
-	/* This can be used by the implementation of 'new_ssl_ctx'. */
-	static int ssl_ctx_callback(SSL *ssl, int *al, void *arg);
-
-protected:
 	WFServerParams params;
 
 protected:
@@ -180,8 +125,7 @@ protected:
 	void delete_connection(WFConnection *conn);
 
 private:
-	int init(const struct sockaddr *bind_addr, socklen_t addrlen,
-			 const char *cert_file, const char *key_file);
+	int init(const struct sockaddr *bind_addr, socklen_t addrlen);
 	virtual void handle_unbound();
 
 protected:

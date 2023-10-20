@@ -24,7 +24,6 @@
 #include <C++11_REQUIRED>
 #endif
 
-#include <openssl/ssl.h>
 #include <string>
 #include "CommScheduler.h"
 #include "DnsCache.h"
@@ -128,8 +127,6 @@ public:
 public:
 	static bool is_scheduler_created();
 	static class CommScheduler *get_scheduler();
-	static SSL_CTX *get_ssl_client_ctx();
-	static SSL_CTX *new_ssl_server_ctx();
 	static class ExecQueue *get_exec_queue(const std::string& queue_name);
 	static class Executor *get_compute_executor();
 	static class IOService *get_io_service();

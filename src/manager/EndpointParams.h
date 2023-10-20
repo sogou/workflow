@@ -31,8 +31,6 @@ enum TransportType
 	TT_TCP,
 	TT_UDP,
 	TT_SCTP,
-	TT_TCP_SSL,
-	TT_SCTP_SSL,
 };
 
 struct EndpointParams
@@ -40,17 +38,13 @@ struct EndpointParams
 	size_t max_connections;
 	int connect_timeout;
 	int response_timeout;
-	int ssl_connect_timeout;
-	bool use_tls_sni;
 };
 
 static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
 {
-	.max_connections		=	200,
-	.connect_timeout		=	10 * 1000,
-	.response_timeout		=	10 * 1000,
-	.ssl_connect_timeout	=	10 * 1000,
-	.use_tls_sni			=	false,
+	.max_connections		= 200,
+	.connect_timeout		= 10 * 1000,
+	.response_timeout		= 10 * 1000,
 };
 
 #endif

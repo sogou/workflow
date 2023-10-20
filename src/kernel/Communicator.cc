@@ -28,8 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <openssl/ssl.h>
-#include <openssl/bio.h>
 #include "list.h"
 #include "msgqueue.h"
 #include "thrdpool.h"
@@ -55,7 +53,6 @@ struct CommConnEntry
 	int error;
 	int ref;
 	struct iovec *write_iov;
-	SSL *ssl;
 	CommSession *session;
 	CommTarget *target;
 	CommService *service;
@@ -100,55 +97,6 @@ static int __bind_and_listen(int sockfd, const struct sockaddr *addr,
 	return listen(sockfd, SOMAXCONN < 4096 ? 4096 : SOMAXCONN);
 }
 
-static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
-{
-	BIO *bio = BIO_new_socket(entry->sockfd, BIO_NOCLOSE);
-
-	if (bio)
-	{
-		entry->ssl = SSL_new(ssl_ctx);
-		if (entry->ssl)
-		{
-			SSL_set_bio(entry->ssl, bio, bio);
-			return 0;
-		}
-
-		BIO_free(bio);
-	}
-
-	return -1;
-}
-
-#define SSL_WRITE_BUFSIZE	8192
-
-static int __ssl_writev(SSL *ssl, const struct iovec vectors[], int cnt)
-{
-	char buf[SSL_WRITE_BUFSIZE];
-	size_t nleft = SSL_WRITE_BUFSIZE;
-	char *p = buf;
-	size_t n;
-	int i;
-
-	if (vectors[0].iov_len >= SSL_WRITE_BUFSIZE || cnt == 1)
-		return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
-
-	for (i = 0; i < cnt; i++)
-	{
-		if (vectors[i].iov_len <= nleft)
-			n = vectors[i].iov_len;
-		else
-			n = nleft;
-
-		memcpy(p, vectors[i].iov_base, n);
-		p += n;
-		nleft -= n;
-		if (nleft == 0)
-			break;
-	}
-
-	return SSL_write(ssl, buf, p - buf);
-}
-
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 					 int connect_timeout, int response_timeout)
 {
@@ -165,9 +113,6 @@ int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 			this->connect_timeout = connect_timeout;
 			this->response_timeout = response_timeout;
 			INIT_LIST_HEAD(&this->idle_list);
-
-			this->ssl_ctx = NULL;
-			this->ssl_connect_timeout = 0;
 			return 0;
 		}
 
@@ -187,25 +132,7 @@ void CommTarget::deinit()
 int CommMessageIn::feedback(const void *buf, size_t size)
 {
 	struct CommConnEntry *entry = this->entry;
-	int ret;
-
-	if (!entry->ssl)
-		return write(entry->sockfd, buf, size);
-
-	if (size == 0)
-		return 0;
-
-	ret = SSL_write(entry->ssl, buf, size);
-	if (ret <= 0)
-	{
-		ret = SSL_get_error(entry->ssl, ret);
-		if (ret != SSL_ERROR_SYSCALL)
-			errno = -ret;
-
-		ret = -1;
-	}
-
-	return ret;
+	return write(entry->sockfd, buf, size);
 }
 
 void CommMessageIn::renew()
@@ -231,9 +158,6 @@ int CommService::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 			this->listen_timeout = listen_timeout;
 			this->response_timeout = response_timeout;
 			INIT_LIST_HEAD(&this->alive_list);
-
-			this->ssl_ctx = NULL;
-			this->ssl_accept_timeout = 0;
 			return 0;
 		}
 
@@ -410,9 +334,6 @@ void Communicator::release_conn(struct CommConnEntry *entry)
 	if (!entry->service)
 		pthread_mutex_destroy(&entry->mutex);
 
-	if (entry->ssl)
-		SSL_free(entry->ssl);
-
 	close(entry->sockfd);
 	free(entry);
 }
@@ -444,20 +365,9 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 
 	while (cnt > 0)
 	{
-		if (!entry->ssl)
-		{
-			n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
-			if (n < 0)
-				return errno == EAGAIN ? cnt : -1;
-		}
-		else if (vectors->iov_len > 0)
-		{
-			n = __ssl_writev(entry->ssl, vectors, cnt);
-			if (n <= 0)
-				return cnt;
-		}
-		else
-			n = 0;
+		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
+		if (n < 0)
+			return errno == EAGAIN ? cnt : -1;
 
 		for (i = 0; i < cnt; i++)
 		{
@@ -542,7 +452,6 @@ int Communicator::send_message_async(struct iovec vectors[], int cnt,
 
 	data.operation = PD_OP_WRITE;
 	data.fd = entry->sockfd;
-	data.ssl = entry->ssl;
 	data.partial_written = Communicator::partial_written;
 	data.context = entry;
 	data.write_iov = entry->write_iov;
@@ -913,7 +822,6 @@ struct CommConnEntry *Communicator::accept_conn(CommServiceTarget *target,
 				entry->mpoller = this->mpoller;
 				entry->service = service;
 				entry->target = target;
-				entry->ssl = NULL;
 				entry->sockfd = target->sockfd;
 				entry->state = CONN_STATE_CONNECTED;
 				entry->ref = 1;
@@ -939,20 +847,8 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	switch (res->state)
 	{
 	case PR_ST_FINISHED:
-		if (target->ssl_ctx && !entry->ssl)
-		{
-			if (__create_ssl(target->ssl_ctx, entry) >= 0 &&
-				target->init_ssl(entry->ssl) >= 0)
-			{
-				ret = 0;
-				res->data.operation = PD_OP_SSL_CONNECT;
-				res->data.ssl = entry->ssl;
-				timeout = target->ssl_connect_timeout;
-			}
-			else
-				ret = -1;
-		}
-		else if ((session->out = session->message_out()) != NULL)
+		session->out = session->message_out();
+		if (session->out)
 		{
 			ret = this->send_message(entry);
 			if (ret == 0)
@@ -968,21 +864,16 @@ void Communicator::handle_connect_result(struct poller_result *res)
 					session->timeout = -1;
 					session->begin_time.tv_nsec = -1;
 				}
+
+				if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
+				{
+					if (this->stop_flag)
+						mpoller_del(res->data.fd, this->mpoller);
+					break;
+				}
 			}
 			else if (ret > 0)
 				break;
-		}
-		else
-			ret = -1;
-
-		if (ret >= 0)
-		{
-			if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
-			{
-				if (this->stop_flag)
-					mpoller_del(res->data.fd, this->mpoller);
-				break;
-			}
 		}
 
 		res->error = errno;
@@ -1015,34 +906,17 @@ void Communicator::handle_listen_result(struct poller_result *res)
 		entry = this->accept_conn(target, service);
 		if (entry)
 		{
-			if (service->ssl_ctx)
+			res->data.operation = PD_OP_READ;
+			res->data.fd = entry->sockfd;
+			res->data.create_message = Communicator::create_request;
+			res->data.context = entry;
+			res->data.message = NULL;
+			timeout = target->response_timeout;
+			if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
 			{
-				if (__create_ssl(service->ssl_ctx, entry) >= 0 &&
-					service->init_ssl(entry->ssl) >= 0)
-				{
-					res->data.operation = PD_OP_SSL_ACCEPT;
-					timeout = service->ssl_accept_timeout;
-				}
-			}
-			else
-			{
-				res->data.operation = PD_OP_READ;
-				res->data.create_message = Communicator::create_request;
-				res->data.message = NULL;
-				timeout = target->response_timeout;
-			}
-
-			if (res->data.operation != PD_OP_LISTEN)
-			{
-				res->data.fd = entry->sockfd;
-				res->data.ssl = entry->ssl;
-				res->data.context = entry;
-				if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
-				{
-					if (this->stop_flag)
-						mpoller_del(res->data.fd, this->mpoller);
-					break;
-				}
+				if (this->stop_flag)
+					mpoller_del(res->data.fd, this->mpoller);
+				break;
 			}
 
 			this->release_conn(entry);
@@ -1060,35 +934,6 @@ void Communicator::handle_listen_result(struct poller_result *res)
 	case PR_ST_ERROR:
 	case PR_ST_STOPPED:
 		service->handle_stop(res->error);
-		break;
-	}
-}
-
-void Communicator::handle_ssl_accept_result(struct poller_result *res)
-{
-	struct CommConnEntry *entry = (struct CommConnEntry *)res->data.context;
-	CommTarget *target = entry->target;
-	int timeout;
-
-	switch (res->state)
-	{
-	case PR_ST_FINISHED:
-		res->data.operation = PD_OP_READ;
-		res->data.create_message = Communicator::create_request;
-		res->data.message = NULL;
-		timeout = target->response_timeout;
-		if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
-		{
-			if (this->stop_flag)
-				mpoller_del(res->data.fd, this->mpoller);
-			break;
-		}
-
-	case PR_ST_DELETED:
-	case PR_ST_ERROR:
-	case PR_ST_STOPPED:
-		this->release_conn(entry);
-		((CommServiceTarget *)target)->decref();
 		break;
 	}
 }
@@ -1178,14 +1023,10 @@ void Communicator::handler_thread_routine(void *context)
 			comm->handle_write_result(res);
 			break;
 		case PD_OP_CONNECT:
-		case PD_OP_SSL_CONNECT:
 			comm->handle_connect_result(res);
 			break;
 		case PD_OP_LISTEN:
 			comm->handle_listen_result(res);
-			break;
-		case PD_OP_SSL_ACCEPT:
-			comm->handle_ssl_accept_result(res);
 			break;
 		case PD_OP_EVENT:
 		case PD_OP_NOTIFY:
@@ -1519,7 +1360,6 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 					entry->service = NULL;
 					entry->target = target;
 					entry->session = session;
-					entry->ssl = NULL;
 					entry->sockfd = sockfd;
 					entry->state = CONN_STATE_CONNECTING;
 					entry->ref = 1;
@@ -1605,7 +1445,6 @@ int Communicator::request_new_conn(CommSession *session, CommTarget *target)
 		session->seq = entry->seq++;
 		data.operation = PD_OP_CONNECT;
 		data.fd = entry->sockfd;
-		data.ssl = NULL;
 		data.context = entry;
 		timeout = session->target->connect_timeout;
 		if (mpoller_add(&data, timeout, this->mpoller) >= 0)
@@ -1785,22 +1624,7 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 	if (!list_empty(&target->idle_list))
 	{
 		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
-		if (!entry->ssl)
-			ret = write(entry->sockfd, buf, size);
-		else if (size == 0)
-			ret = 0;
-		else
-		{
-			ret = SSL_write(entry->ssl, buf, size);
-			if (ret <= 0)
-			{
-				ret = SSL_get_error(entry->ssl, ret);
-				if (ret != SSL_ERROR_SYSCALL)
-					errno = -ret;
-
-				ret = -1;
-			}
-		}
+		ret = write(entry->sockfd, buf, size);
 	}
 	else
 	{

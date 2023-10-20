@@ -27,8 +27,8 @@
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFFacilities.h"
 
-#define REDIRECT_MAX    5
-#define RETRY_MAX       2
+#define REDIRECT_MAX    0
+#define RETRY_MAX       0
 
 void wget_callback(WFHttpTask *task)
 {
@@ -44,9 +44,6 @@ void wget_callback(WFHttpTask *task)
 		break;
 	case WFT_STATE_DNS_ERROR:
 		fprintf(stderr, "DNS error: %s\n", gai_strerror(error));
-		break;
-	case WFT_STATE_SSL_ERROR:
-		fprintf(stderr, "SSL error: %d\n", error);
 		break;
 	case WFT_STATE_TASK_ERROR:
 		fprintf(stderr, "Task error: %d\n", error);
@@ -117,11 +114,8 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sig_handler);
 
 	std::string url = argv[1];
-	if (strncasecmp(argv[1], "http://", 7) != 0 &&
-		strncasecmp(argv[1], "https://", 8) != 0)
-	{
+	if (strncasecmp(argv[1], "http://", 7) != 0)
 		url = "http://" + url;
-	}
 
 	task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
 										   wget_callback);

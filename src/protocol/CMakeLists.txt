@@ -3,7 +3,6 @@ project(protocol)
 
 set(SRC
 	PackageWrapper.cc
-	SSLWrapper.cc
 	dns_parser.c
 	DnsMessage.cc
 	DnsUtil.cc

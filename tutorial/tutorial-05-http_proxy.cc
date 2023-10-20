@@ -82,8 +82,6 @@ void http_callback(WFHttpTask *task)
 			err_string = strerror(error);
 		else if (state == WFT_STATE_DNS_ERROR)
 			err_string = gai_strerror(error);
-		else if (state == WFT_STATE_SSL_ERROR)
-			err_string = "SSL error";
 		else /* if (state == WFT_STATE_TASK_ERROR) */
 			err_string = "URL error (Cannot be a HTTPS proxy)";
 

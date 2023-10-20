@@ -309,13 +309,7 @@ CommMessageIn *__ComplexKafkaTask::message_in()
 
 bool __ComplexKafkaTask::init_success()
 {
-	enum TransportType type;
-
-	if (uri_.scheme && strcasecmp(uri_.scheme, "kafka") == 0)
-		type = TT_TCP;
-	else if (uri_.scheme && strcasecmp(uri_.scheme, "kafkas") == 0)
-		type = TT_TCP_SSL;
-	else
+	if (!uri_.scheme || strcasecmp(uri_.scheme, "kafka") != 0)
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
@@ -363,7 +357,7 @@ bool __ComplexKafkaTask::init_success()
 		delete []info;
 	}
 
-	this->WFComplexClientTask::set_transport_type(type);
+	this->WFComplexClientTask::set_transport_type(TT_TCP);
 	return true;
 }
 
@@ -748,8 +742,7 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 	return task;
 }
 
-__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(enum TransportType type,
-													   const char *host,
+__WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
 													   unsigned short port,
 													   const std::string& info,
 													   int retry_max,
@@ -757,7 +750,7 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(enum TransportType type,
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
-	std::string url = (type == TT_TCP_SSL ? "kafkas://" : "kafka://");
+	std::string url = "kafka://";
 
 	if (!info.empty())
 		url += info + "@";

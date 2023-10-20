@@ -42,7 +42,6 @@ enum
 	WFT_STATE_TOREPLY = CS_STATE_TOREPLY,		/* for server task only */
 	WFT_STATE_NOREPLY = CS_STATE_TOREPLY + 1,	/* for server task only */
 	WFT_STATE_SYS_ERROR = CS_STATE_ERROR,
-	WFT_STATE_SSL_ERROR = 65,
 	WFT_STATE_DNS_ERROR = 66,					/* for client task only */
 	WFT_STATE_TASK_ERROR = 67,
 	WFT_STATE_ABORTED = CS_STATE_STOPPED
@@ -235,8 +234,7 @@ public:
 
 	/* Call when error is ETIMEDOUT, return values:
 	 * TOR_NOT_TIMEOUT, TOR_WAIT_TIMEOUT, TOR_CONNECT_TIMEOUT,
-	 * TOR_TRANSMIT_TIMEOUT (send or receive).
-	 * SSL connect timeout also returns TOR_CONNECT_TIMEOUT. */
+	 * TOR_TRANSMIT_TIMEOUT (send or receive). */
 	int get_timeout_reason() const { return this->timeout_reason; }
 
 	/* Call only in callback or server's process. */

@@ -190,11 +190,8 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sig_handler);
 
 	url = argv[1];
-	if (strncmp(argv[1], "kafka://", 8) != 0 &&
-		strncmp(argv[1], "kafkas://", 9) != 0)
-	{
+	if (strncmp(argv[1], "kafka://", 8) != 0)
 		url = "kafka://" + url;
-	}
 
 	char buf[512 * 1024];
 	WFKafkaTask *task;

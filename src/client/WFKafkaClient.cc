@@ -53,7 +53,6 @@ class KafkaMember
 public:
 	KafkaMember() : scheme("kafka://"), ref(1)
 	{
-		this->transport_type = TT_TCP;
 		this->cgroup_status = KAFKA_CGROUP_NONE;
 		this->heartbeat_status = KAFKA_HEARTBEAT_UNINIT;
 		this->meta_doing = false;
@@ -73,7 +72,6 @@ public:
 			delete this;
 	}
 
-	enum TransportType transport_type;
 	std::string scheme;
 	std::vector<std::string> broker_hosts;
 	KafkaCgroup cgroup;
@@ -290,8 +288,7 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 		{
 			__WFKafkaTask *kafka_task;
 			KafkaBroker *coordinator = member->cgroup.get_coordinator();
-			kafka_task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-																 coordinator->get_host(),
+			kafka_task = __WFKafkaTaskFactory::create_kafka_task(coordinator->get_host(),
 																 coordinator->get_port(),
 																 "", 0,
 																 kafka_heartbeat_callback);
@@ -320,8 +317,7 @@ void KafkaClientTask::kafka_rebalance_proc(KafkaMember *member, SeriesWork *seri
 {
 	KafkaBroker *coordinator = member->cgroup.get_coordinator();
 	__WFKafkaTask *task;
-	task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-												   coordinator->get_host(),
+	task = __WFKafkaTaskFactory::create_kafka_task(coordinator->get_host(),
 												   coordinator->get_port(),
 												   "", 0,
 												   kafka_rebalance_callback);
@@ -390,8 +386,7 @@ void KafkaClientTask::kafka_timer_callback(WFTimerTask *task)
 
 	__WFKafkaTask *kafka_task;
 	KafkaBroker *coordinator = member->cgroup.get_coordinator();
-	kafka_task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-														 coordinator->get_host(),
+	kafka_task = __WFKafkaTaskFactory::create_kafka_task(coordinator->get_host(),
 														 coordinator->get_port(),
 														 "", 0,
 														 kafka_heartbeat_callback);
@@ -529,8 +524,7 @@ void KafkaClientTask::kafka_cgroup_callback(__WFKafkaTask *task)
 		{
 			__WFKafkaTask *kafka_task;
 			KafkaBroker *coordinator = t->member->cgroup.get_coordinator();
-			kafka_task = __WFKafkaTaskFactory::create_kafka_task(t->member->transport_type,
-																 coordinator->get_host(),
+			kafka_task = __WFKafkaTaskFactory::create_kafka_task(coordinator->get_host(),
 																 coordinator->get_port(),
 																 "", 0,
 																 kafka_heartbeat_callback);
@@ -919,8 +913,7 @@ int KafkaClientTask::dispatch_locked()
 			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
-			task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-														   broker->get_host(),
+			task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 														   broker->get_port(),
 														   this->get_userinfo(),
 														   this->retry_max,
@@ -954,8 +947,7 @@ int KafkaClientTask::dispatch_locked()
 			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
-			task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-														   broker->get_host(),
+			task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 														   broker->get_port(),
 														   this->get_userinfo(),
 														   this->retry_max,
@@ -989,8 +981,7 @@ int KafkaClientTask::dispatch_locked()
 
 		this->result.create(1);
 		coordinator = member->cgroup.get_coordinator();
-		task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-													   coordinator->get_host(),
+		task = __WFKafkaTaskFactory::create_kafka_task(coordinator->get_host(),
 													   coordinator->get_port(),
 													   this->get_userinfo(),
 													   this->retry_max,
@@ -1018,8 +1009,7 @@ int KafkaClientTask::dispatch_locked()
 		if (!coordinator->get_host())
 			break;
 
-		task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-													   coordinator->get_host(),
+		task = __WFKafkaTaskFactory::create_kafka_task(coordinator->get_host(),
 													   coordinator->get_port(),
 													   this->get_userinfo(), 0,
 													   kafka_leavegroup_callback);
@@ -1049,8 +1039,7 @@ int KafkaClientTask::dispatch_locked()
 			auto cb = std::bind(&KafkaClientTask::kafka_move_task_callback, this,
 								std::placeholders::_1);
 			KafkaBroker *broker = get_broker(v.first);
-			task = __WFKafkaTaskFactory::create_kafka_task(member->transport_type,
-														   broker->get_host(),
+			task = __WFKafkaTaskFactory::create_kafka_task(broker->get_host(),
 														   broker->get_port(),
 														   this->get_userinfo(),
 														   this->retry_max,
@@ -1578,31 +1567,13 @@ int WFKafkaClient::init(const std::string& broker)
 	std::vector<std::string> broker_hosts;
 	std::string::size_type ppos = 0;
 	std::string::size_type pos;
-	bool use_ssl;
 
-	use_ssl = (strncasecmp(broker.c_str(), "kafkas://", 9) == 0);
 	while (1)
 	{
 		pos = broker.find(',', ppos);
 		std::string host = broker.substr(ppos, pos - ppos);
-		if (use_ssl)
-		{
-			if (strncasecmp(host.c_str(), "kafkas://", 9) != 0)
-			{
-				errno = EINVAL;
-				return -1;
-			}
-		}
-		else if (strncasecmp(host.c_str(), "kafka://", 8) != 0)
-		{
-			if (strncasecmp(host.c_str(), "kafkas://", 9) == 0)
-			{
-				errno = EINVAL;
-				return -1;
-			}
-
+		if (strncasecmp(host.c_str(), "kafka://", 8) != 0)
 			host = "kafka://" + host;
-		}
 
 		broker_hosts.emplace_back(host);
 		if (pos == std::string::npos)
@@ -1613,12 +1584,6 @@ int WFKafkaClient::init(const std::string& broker)
 
 	this->member = new KafkaMember;
 	this->member->broker_hosts = std::move(broker_hosts);
-	if (use_ssl)
-	{
-		this->member->transport_type = TT_TCP_SSL;
-		this->member->scheme = "kafkas://";
-	}
-
 	return 0;
 }
 

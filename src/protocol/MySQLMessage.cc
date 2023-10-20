@@ -26,7 +26,6 @@
 #include <openssl/pem.h>
 #include <openssl/evp.h>
 #include <utility>
-#include "SSLWrapper.h"
 #include "mysql_byteorder.h"
 #include "mysql_types.h"
 #include "MySQLResult.h"
@@ -190,7 +189,6 @@ std::string MySQLRequest::get_query() const
 	return std::string(buf_.c_str() + 1);
 }
 
-#define MYSQL_CAPFLAG_CLIENT_SSL				0x00000800
 #define MYSQL_CAPFLAG_CLIENT_PROTOCOL_41		0x00000200
 #define MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION	0x00008000
 #define MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB	0x00000008
@@ -329,45 +327,6 @@ static std::string __caching_sha2_password_encrypt(const std::string& password,
 		buf1[i] ^= buf2[i];
 
 	return std::string((const char *)buf1, 32);
-}
-
-int MySQLSSLRequest::encode(struct iovec vectors[], int max)
-{
-	unsigned char header[32] = {0};
-	unsigned char *pos = header;
-	int ret;
-
-	int4store(pos, MYSQL_CAPFLAG_CLIENT_SSL |
-				   MYSQL_CAPFLAG_CLIENT_PROTOCOL_41 |
-				   MYSQL_CAPFLAG_CLIENT_SECURE_CONNECTION |
-				   MYSQL_CAPFLAG_CLIENT_CONNECT_WITH_DB |
-				   MYSQL_CAPFLAG_CLIENT_MULTI_RESULTS|
-				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
-				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
-				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS |
-				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH);
-	pos += 4;
-	int4store(pos, 0);
-	pos += 4;
-	*pos = (uint8_t)character_set_;
-
-	buf_.clear();
-	buf_.append((char *)header, 32);
-	ret = MySQLMessage::encode(vectors, max);
-	if (ret >= 0)
-	{
-		max -= ret;
-		if (max >= 8) /* Indeed SSL handshaker needs only 1 vector. */
-		{
-			max = ssl_handshaker_.encode(vectors + ret, max);
-			if (max >= 0)
-				return max + ret;
-		}
-		else
-			errno = EOVERFLOW;
-	}
-
-	return -1;
 }
 
 int MySQLAuthRequest::encode(struct iovec vectors[], int max)

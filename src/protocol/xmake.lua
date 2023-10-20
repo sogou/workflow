@@ -1,7 +1,6 @@
 target("basic_protocol")
     set_kind("object")
     add_files("PackageWrapper.cc",
-              "SSLWrapper.cc",
               "dns_parser.c",
               "DnsMessage.cc",
               "DnsUtil.cc",

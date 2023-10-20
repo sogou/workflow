@@ -35,8 +35,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 #include "list.h"
 #include "rbtree.h"
 #include "poller.h"
@@ -374,43 +372,6 @@ static int __poller_append_message(const void *buf, size_t *n,
 	return ret;
 }
 
-static int __poller_handle_ssl_error(struct __poller_node *node, int ret,
-									 poller_t *poller)
-{
-	int error = SSL_get_error(node->data.ssl, ret);
-	int event;
-
-	switch (error)
-	{
-	case SSL_ERROR_WANT_READ:
-		event = EPOLLIN | EPOLLET;
-		break;
-	case SSL_ERROR_WANT_WRITE:
-		event = EPOLLOUT | EPOLLET;
-		break;
-	default:
-		errno = -error;
-	case SSL_ERROR_SYSCALL:
-		return -1;
-	}
-
-	if (event == node->event)
-		return 0;
-
-	pthread_mutex_lock(&poller->mutex);
-	if (!node->removed)
-	{
-		ret = __poller_mod_fd(node->data.fd, node->event, event, node, poller);
-		if (ret >= 0)
-			node->event = event;
-	}
-	else
-		ret = 0;
-
-	pthread_mutex_unlock(&poller->mutex);
-	return ret;
-}
-
 static void __poller_handle_read(struct __poller_node *node,
 								 poller_t *poller)
 {
@@ -421,24 +382,9 @@ static void __poller_handle_read(struct __poller_node *node,
 	while (1)
 	{
 		p = poller->buf;
-		if (!node->data.ssl)
-		{
-			nleft = read(node->data.fd, p, POLLER_BUFSIZE);
-			if (nleft < 0)
-			{
-				if (errno == EAGAIN)
-					return;
-			}
-		}
-		else
-		{
-			nleft = SSL_read(node->data.ssl, p, POLLER_BUFSIZE);
-			if (nleft < 0)
-			{
-				if (__poller_handle_ssl_error(node, nleft, poller) >= 0)
-					return;
-			}
-		}
+		nleft = read(node->data.fd, p, POLLER_BUFSIZE);
+		if (nleft < 0 && errno == EAGAIN)
+			return;
 
 		if (nleft <= 0)
 			break;
@@ -496,30 +442,16 @@ static void __poller_handle_write(struct __poller_node *node,
 
 	while (node->data.iovcnt > 0)
 	{
-		if (!node->data.ssl)
-		{
-			iovcnt = node->data.iovcnt;
-			if (iovcnt > IOV_MAX)
-				iovcnt = IOV_MAX;
+		iovcnt = node->data.iovcnt;
+		if (iovcnt > IOV_MAX)
+			iovcnt = IOV_MAX;
 
-			nleft = writev(node->data.fd, iov, iovcnt);
-			if (nleft < 0)
-			{
-				ret = errno == EAGAIN ? 0 : -1;
-				break;
-			}
-		}
-		else if (iov->iov_len > 0)
+		nleft = writev(node->data.fd, iov, iovcnt);
+		if (nleft < 0)
 		{
-			nleft = SSL_write(node->data.ssl, iov->iov_base, iov->iov_len);
-			if (nleft <= 0)
-			{
-				ret = __poller_handle_ssl_error(node, nleft, poller);
-				break;
-			}
+			ret = errno == EAGAIN ? 0 : -1;
+			break;
 		}
-		else
-			nleft = 0;
 
 		count += nleft;
 		do
@@ -637,90 +569,6 @@ static void __poller_handle_connect(struct __poller_node *node,
 	else
 	{
 		node->error = error;
-		node->state = PR_ST_ERROR;
-	}
-
-	poller->cb((struct poller_result *)node, poller->ctx);
-}
-
-static void __poller_handle_ssl_accept(struct __poller_node *node,
-									   poller_t *poller)
-{
-	int ret = SSL_accept(node->data.ssl);
-
-	if (ret <= 0)
-	{
-		if (__poller_handle_ssl_error(node, ret, poller) >= 0)
-			return;
-	}
-
-	if (__poller_remove_node(node, poller))
-		return;
-
-	if (ret > 0)
-	{
-		node->error = 0;
-		node->state = PR_ST_FINISHED;
-	}
-	else
-	{
-		node->error = errno;
-		node->state = PR_ST_ERROR;
-	}
-
-	poller->cb((struct poller_result *)node, poller->ctx);
-}
-
-static void __poller_handle_ssl_connect(struct __poller_node *node,
-										poller_t *poller)
-{
-	int ret = SSL_connect(node->data.ssl);
-
-	if (ret <= 0)
-	{
-		if (__poller_handle_ssl_error(node, ret, poller) >= 0)
-			return;
-	}
-
-	if (__poller_remove_node(node, poller))
-		return;
-
-	if (ret > 0)
-	{
-		node->error = 0;
-		node->state = PR_ST_FINISHED;
-	}
-	else
-	{
-		node->error = errno;
-		node->state = PR_ST_ERROR;
-	}
-
-	poller->cb((struct poller_result *)node, poller->ctx);
-}
-
-static void __poller_handle_ssl_shutdown(struct __poller_node *node,
-										 poller_t *poller)
-{
-	int ret = SSL_shutdown(node->data.ssl);
-
-	if (ret <= 0)
-	{
-		if (__poller_handle_ssl_error(node, ret, poller) >= 0)
-			return;
-	}
-
-	if (__poller_remove_node(node, poller))
-		return;
-
-	if (ret > 0)
-	{
-		node->error = 0;
-		node->state = PR_ST_FINISHED;
-	}
-	else
-	{
-		node->error = errno;
 		node->state = PR_ST_ERROR;
 	}
 
@@ -1051,15 +899,6 @@ static void *__poller_thread_routine(void *arg)
 				case PD_OP_CONNECT:
 					__poller_handle_connect(node, poller);
 					break;
-				case PD_OP_SSL_ACCEPT:
-					__poller_handle_ssl_accept(node, poller);
-					break;
-				case PD_OP_SSL_CONNECT:
-					__poller_handle_ssl_connect(node, poller);
-					break;
-				case PD_OP_SSL_SHUTDOWN:
-					__poller_handle_ssl_shutdown(node, poller);
-					break;
 				case PD_OP_EVENT:
 					__poller_handle_event(node, poller);
 					break;
@@ -1084,13 +923,6 @@ static void *__poller_thread_routine(void *arg)
 		__poller_handle_timeout(&time_node, poller);
 	}
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-# ifdef CRYPTO_LOCK_ECDH
-	ERR_remove_thread_state(NULL);
-# else
-	ERR_remove_state(0);
-# endif
-#endif
 	return NULL;
 }
 
@@ -1286,15 +1118,6 @@ static int __poller_data_get_event(int *event, const struct poller_data *data)
 		*event = EPOLLIN;
 		return 1;
 	case PD_OP_CONNECT:
-		*event = EPOLLOUT | EPOLLET;
-		return 0;
-	case PD_OP_SSL_ACCEPT:
-		*event = EPOLLIN | EPOLLET;
-		return 0;
-	case PD_OP_SSL_CONNECT:
-		*event = EPOLLOUT | EPOLLET;
-		return 0;
-	case PD_OP_SSL_SHUTDOWN:
 		*event = EPOLLOUT | EPOLLET;
 		return 0;
 	case PD_OP_EVENT:

@@ -244,11 +244,8 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sighandler);
 
 	std::string url = argv[1];
-	if (strncasecmp(argv[1], "mysql://", 8) != 0 &&
-		strncasecmp(argv[1], "mysqls://", 9) != 0)
-	{
+	if (strncasecmp(argv[1], "mysql://", 8) != 0)
 		url = "mysql://" + url;
-	}
 
 	const char *query = "show databases";
 	stop_flag = false;

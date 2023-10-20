@@ -23,8 +23,6 @@
 #include <assert.h>
 #include <string>
 #include <unordered_map>
-#include <openssl/ssl.h>
-#include <openssl/bio.h>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"
@@ -66,7 +64,6 @@ protected:
 private:
 	enum ConnState
 	{
-		ST_SSL_REQUEST,
 		ST_AUTH_REQUEST,
 		ST_AUTH_SWITCH_REQUEST,
 		ST_CLEAR_PASSWORD_REQUEST,
@@ -84,25 +81,10 @@ private:
 		unsigned char seed[20];
 		enum ConnState state;
 		unsigned char mysql_seqid;
-		SSL *ssl;
-		SSLWrapper wrapper;
-		MyConnection(SSL *ssl) : wrapper(&wrapper, ssl)
-		{
-			this->ssl = ssl;
-		}
 	};
 
 	int check_handshake(MySQLHandshakeResponse *resp);
 	int auth_switch(MySQLAuthResponse *resp, MyConnection *conn);
-
-	struct MySSLWrapper : public SSLWrapper
-	{
-		MySSLWrapper(ProtocolMessage *msg, SSL *ssl) :
-			SSLWrapper(msg, ssl)
-		{ }
-		ProtocolMessage *get_msg() const { return this->msg; }
-		virtual ~MySSLWrapper() { delete this->msg; }
-	};
 
 private:
 	std::string username_;
@@ -112,7 +94,6 @@ private:
 	short character_set_;
 	short state_;
 	int error_;
-	bool is_ssl_;
 	bool is_user_request_;
 
 public:
@@ -149,34 +130,6 @@ bool ComplexMySQLTask::check_request()
 	return false;
 }
 
-static SSL *__create_ssl(SSL_CTX *ssl_ctx)
-{
-	BIO *wbio;
-	BIO *rbio;
-	SSL *ssl;
-
-	rbio = BIO_new(BIO_s_mem());
-	if (rbio)
-	{
-		wbio = BIO_new(BIO_s_mem());
-		if (wbio)
-		{
-			ssl = SSL_new(ssl_ctx);
-			if (ssl)
-			{
-				SSL_set_bio(ssl, rbio, wbio);
-				return ssl;
-			}
-
-			BIO_free(wbio);
-		}
-
-		BIO_free(rbio);
-	}
-
-	return NULL;
-}
-
 CommMessageOut *ComplexMySQLTask::message_out()
 {
 	MySQLAuthSwitchRequest *auth_switch_req;
@@ -191,11 +144,6 @@ CommMessageOut *ComplexMySQLTask::message_out()
 	auto *conn = (MyConnection *)this->get_connection();
 	switch (conn->state)
 	{
-	case ST_SSL_REQUEST:
-		req = new MySQLSSLRequest(character_set_, conn->ssl);
-		req->set_seqid(conn->mysql_seqid);
-		return req;
-
 	case ST_AUTH_REQUEST:
 		req = new MySQLAuthRequest;
 		auth_req = (MySQLAuthRequest *)req;
@@ -212,9 +160,6 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		auth_switch_req->set_password(password_);
 		auth_switch_req->set_auth_plugin_name(std::move(conn->str));
 		auth_switch_req->set_seed(conn->seed);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-		WFGlobal::get_ssl_client_ctx();
-#endif
 		break;
 
 	case ST_SHA256_PUBLIC_KEY_REQUEST:
@@ -270,16 +215,7 @@ CommMessageOut *ComplexMySQLTask::message_out()
 	if (!is_user_request_ && conn->state != ST_CHARSET_REQUEST)
 		req->set_seqid(conn->mysql_seqid);
 
-	if (!is_ssl_)
-		return req;
-
-	if (is_user_request_)
-	{
-		conn->wrapper = SSLWrapper(req, conn->ssl);
-		return &conn->wrapper;
-	}
-	else
-		return new MySSLWrapper(req, conn->ssl);
+	return req;
 }
 
 CommMessageIn *ComplexMySQLTask::message_in()
@@ -292,9 +228,6 @@ CommMessageIn *ComplexMySQLTask::message_in()
 	auto *conn = (MyConnection *)this->get_connection();
 	switch (conn->state)
 	{
-	case ST_SSL_REQUEST:
-		return new SSLHandshaker(conn->ssl);
-
 	case ST_AUTH_REQUEST:
 	case ST_AUTH_SWITCH_REQUEST:
 		resp = new MySQLAuthResponse;
@@ -324,22 +257,11 @@ CommMessageIn *ComplexMySQLTask::message_in()
 		return NULL;
 	}
 
-	if (!is_ssl_)
-		return resp;
-
-	if (is_user_request_)
-	{
-		conn->wrapper = SSLWrapper(resp, conn->ssl);
-		return &conn->wrapper;
-	}
-	else
-		return new MySSLWrapper(resp, conn->ssl);
+	return resp;
 }
 
 int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 {
-	SSL *ssl = NULL;
-
 	if (resp->host_disallowed())
 	{
 		this->resp = std::move(*(MySQLResponse *)resp);
@@ -348,41 +270,18 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 		return 0;
 	}
 
-	if (is_ssl_)
-	{
-		if (!(resp->get_capability_flags() & 0x800))
-		{
-			this->resp = std::move(*(MySQLResponse *)resp);
-			state_ = WFT_STATE_TASK_ERROR;
-			error_ = WFT_ERR_MYSQL_SSL_NOT_SUPPORTED;
-			return 0;
-		}
-
-		ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
-		if (!ssl)
-		{
-			state_ = WFT_STATE_SYS_ERROR;
-			error_ = errno;
-			return 0;
-		}
-
-		SSL_set_connect_state(ssl);
-	}
-
 	auto *conn = this->get_connection();
-	auto *my_conn = new MyConnection(ssl);
+	auto *my_conn = new MyConnection;
 
 	my_conn->str = resp->get_auth_plugin_name();
 	if (!password_.empty() && my_conn->str == "sha256_password")
 		my_conn->str = "caching_sha2_password";
 
 	resp->get_seed(my_conn->seed);
-	my_conn->state = is_ssl_ ? ST_SSL_REQUEST : ST_AUTH_REQUEST;
+	my_conn->state = ST_AUTH_REQUEST;
 	my_conn->mysql_seqid = resp->get_seqid() + 1;
 	conn->set_context(my_conn, [](void *ctx) {
 		auto *my_conn = (MyConnection *)ctx;
-		if (my_conn->ssl)
-			SSL_free(my_conn->ssl);
 		delete my_conn;
 	});
 
@@ -393,8 +292,7 @@ int ComplexMySQLTask::auth_switch(MySQLAuthResponse *resp, MyConnection *conn)
 {
 	std::string name = resp->get_auth_plugin_name();
 
-	if (conn->state != ST_AUTH_REQUEST ||
-		(name == "mysql_clear_password" && !is_ssl_))
+	if (conn->state != ST_AUTH_REQUEST || name == "mysql_clear_password")
 	{
 		state_ = WFT_STATE_SYS_ERROR;
 		error_ = EBADMSG;
@@ -407,10 +305,7 @@ int ComplexMySQLTask::auth_switch(MySQLAuthResponse *resp, MyConnection *conn)
 	}
 	else if (name == "sha256_password")
 	{
-		if (is_ssl_)
-			conn->state = ST_CLEAR_PASSWORD_REQUEST;
-		else
-			conn->state = ST_SHA256_PUBLIC_KEY_REQUEST;
+		conn->state = ST_SHA256_PUBLIC_KEY_REQUEST;
 	}
 	else
 	{
@@ -435,18 +330,7 @@ int ComplexMySQLTask::keep_alive_timeout()
 		return check_handshake((MySQLHandshakeResponse *)msg);
 
 	auto *conn = (MyConnection *)this->get_connection();
-	if (conn->state == ST_SSL_REQUEST)
-	{
-		conn->state = ST_AUTH_REQUEST;
-		conn->mysql_seqid++;
-		return MYSQL_KEEPALIVE_DEFAULT;
-	}
-
-	if (is_ssl_)
-		resp = (MySQLResponse *)((MySSLWrapper *)msg)->get_msg();
-	else
-		resp = (MySQLResponse *)msg;
-
+	resp = (MySQLResponse *)msg;
 	switch (conn->state)
 	{
 	case ST_AUTH_REQUEST:
@@ -476,11 +360,7 @@ int ComplexMySQLTask::keep_alive_timeout()
 		auth_resp = (MySQLAuthResponse *)resp;
 		if (auth_resp->is_continue())
 		{
-			if (is_ssl_)
-				conn->state = ST_CLEAR_PASSWORD_REQUEST;
-			else
-				conn->state = ST_CSHA2_PUBLIC_KEY_REQUEST;
-
+			conn->state = ST_CSHA2_PUBLIC_KEY_REQUEST;
 			break;
 		}
 
@@ -622,11 +502,7 @@ static int __mysql_get_character_set(const std::string& charset)
 
 bool ComplexMySQLTask::init_success()
 {
-	if (uri_.scheme && strcasecmp(uri_.scheme, "mysql") == 0)
-		is_ssl_ = false;
-	else if (uri_.scheme && strcasecmp(uri_.scheme, "mysqls") == 0)
-		is_ssl_ = true;
-	else
+	if (!uri_.scheme || strcasecmp(uri_.scheme, "mysql") != 0)
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
@@ -704,10 +580,10 @@ bool ComplexMySQLTask::init_success()
 					  res_charset_.size() + 50;
 	char *info = new char[info_len];
 
-	snprintf(info, info_len, "%s|user:%s|pass:%s|db:%s|"
+	snprintf(info, info_len, "mysql|user:%s|pass:%s|db:%s|"
 							 "charset:%d|rcharset:%s",
-			 is_ssl_ ? "mysqls" : "mysql", username_.c_str(), password_.c_str(),
-			 db_.c_str(), character_set_, res_charset_.c_str());
+			 username_.c_str(), password_.c_str(), db_.c_str(),
+			 character_set_, res_charset_.c_str());
 	this->WFComplexClientTask::set_transport_type(TT_TCP);
 
 	if (!transaction.empty())

@@ -270,30 +270,124 @@ static int __parse_json_string(const char *cursor, const char **end,
 	return 0;
 }
 
+static double __evaluate_json_number(const char *integer,
+									 const char *fraction,
+									 int exp)
+{
+	long long mant = 0;
+	int figures = 0;
+	double num;
+	int sign;
+
+	sign = (*integer == '-');
+	if (sign)
+		integer++;
+
+	if (*integer != '0')
+	{
+		figures++;
+		mant = *integer - '0';
+		while (isdigit(*++integer))
+		{
+			if (figures < 18)
+			{
+				figures++;
+				mant *= 10;
+				mant += *integer - '0';
+			}
+			else
+				exp++;
+		}
+	}
+	else
+	{
+		while (*fraction == '0')
+		{
+			exp--;
+			fraction++;
+		}
+	}
+
+	while (isdigit(*fraction) && figures < 18)
+	{
+		figures++;
+		mant *= 10;
+		mant += *fraction - '0';
+
+		exp--;
+		fraction++;
+	}
+
+	num = mant;
+	if (exp != 0 && figures != 0)
+	{
+		if (exp > 0)
+			num *= pow(10, exp);
+		else
+			num /= pow(10, -exp);
+	}
+
+	return sign ? -num : num;
+}
+
 static int __parse_json_number(const char *cursor, const char **end,
 							   double *num)
 {
-	const char *p = cursor;
+	const char *integer = cursor;
+	const char *fraction = "";
+	int exp = 0;
+	int sign;
 
-	if (*p == '-')
-		p++;
+	if (*cursor == '-')
+		cursor++;
 
-	if (!isdigit(*p))
+	if (!isdigit(*cursor))
 		return -2;
 
-	if (*p == '0' && (isdigit(p[1]) || p[1] == 'X' || p[1] == 'x'))
+	if (*cursor == '0' && isdigit(cursor[1]))
 		return -2;
 
-	while (isdigit(*++p))
+	while (isdigit(*++cursor))
 		;
 
-	if (*p == '.' && !isdigit(*(p + 1)))
+	if (*cursor == '.')
+	{
+		fraction = ++cursor;
+		if (!isdigit(*cursor))
+			return -2;
+
+		while (isdigit(*++cursor))
+			;
+	}
+
+	if (*cursor == 'E' || *cursor == 'e')
+	{
+		sign = (*++cursor == '-');
+		if (sign || *cursor == '+')
+			cursor++;
+
+		if (!isdigit(*cursor))
+			return -2;
+
+		exp = *cursor - '0';
+		while (isdigit(*++cursor))
+		{
+			if (exp < 2000000)
+			{
+				exp *= 10;
+				exp += *cursor - '0';
+			}
+		}
+
+		if (sign)
+			exp = -exp;
+	}
+
+	if (cursor - integer > 1000000)
 		return -2;
 
-	*num = strtod(cursor, (char **)end);
-	if (*end == cursor)
-		return -2;
-
+	*num = __evaluate_json_number(integer, fraction, exp);
+	*end = cursor;
 	return 0;
 }
 

@@ -323,8 +323,13 @@ static double __evaluate_json_number(const char *integer,
 	{
 		if (exp > 0)
 			num *= pow(10, exp);
-		else
+		else if (exp >= -308)
 			num /= pow(10, -exp);
+		else
+		{
+			num /= pow(10, -exp - 308);
+			num /= 1.0e308;
+		}
 	}
 
 	return sign ? -num : num;

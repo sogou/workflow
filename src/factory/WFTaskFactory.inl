@@ -881,38 +881,3 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(time_t seconds, long nano
 												  std::move(callback));
 }
 
-template<class INPUT, class OUTPUT>
-class __WFThreadTask__ : public __WFThreadTask<INPUT, OUTPUT>
-{
-private:
-	virtual SubTask *done() { return NULL; }
-
-public:
-	using __WFThreadTask<INPUT, OUTPUT>::__WFThreadTask;
-};
-
-template<class INPUT, class OUTPUT>
-WFMultiThreadTask<INPUT, OUTPUT> *
-WFThreadTaskFactory<INPUT, OUTPUT>::create_multi_thread_task(const std::string& queue_name,
-						std::function<void (INPUT *, OUTPUT *)> routine, size_t nthreads,
-						std::function<void (WFMultiThreadTask<INPUT, OUTPUT> *)> callback)
-{
-	WFThreadTask<INPUT, OUTPUT> **tasks = new WFThreadTask<INPUT, OUTPUT> *[nthreads];
-	char buf[32];
-	size_t i;
-
-	for (i = 0; i < nthreads; i++)
-	{
-		sprintf(buf, "-%zu@MTT", i);
-		tasks[i] = new __WFThreadTask__<INPUT, OUTPUT>
-							(WFGlobal::get_exec_queue(queue_name + buf),
-							 WFGlobal::get_compute_executor(),
-							 std::function<void (INPUT *, OUTPUT *)>(routine),
-							 nullptr);
-	}
-
-	auto *mt = new WFMultiThreadTask<INPUT, OUTPUT>(tasks, nthreads, std::move(callback));
-	delete []tasks;
-	return mt;
-}
-

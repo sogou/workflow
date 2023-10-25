@@ -446,16 +446,6 @@ public:
 								 ExecQueue *queue, Executor *executor,
 								 std::function<void (INPUT *, OUTPUT *)> routine,
 								 std::function<void (T *)> callback);
-
-private:
-	using MT = WFMultiThreadTask<INPUT, OUTPUT>;
-
-public:
-	static MT *create_multi_thread_task(const std::string& queue_name,
-										std::function<void (INPUT *, OUTPUT *)> routine,
-										size_t nthreads,
-										std::function<void (MT *)> callback);
-
 };
 
 #include "WFTaskFactory.inl"

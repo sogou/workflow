@@ -270,7 +270,7 @@ static int __parse_json_string(const char *cursor, const char **end,
 	return 0;
 }
 
-static double __power_of_10[309] = {
+static const double __power_of_10[309] = {
 	1.0e0,   1.0e1,   1.0e2,   1.0e3,   1.0e4,
 	1.0e5,   1.0e6,   1.0e7,   1.0e8,   1.0e9,
 	1.0e10,  1.0e11,  1.0e12,  1.0e13,  1.0e14,
@@ -396,7 +396,7 @@ static double __evaluate_json_number(const char *integer,
 		else if (exp > -324 - figures)
 		{
 			num /= __power_of_10[-exp - 308];
-			num /= 1.0e308;
+			num /= __power_of_10[308];
 		}
 		else
 			num = 0.0;

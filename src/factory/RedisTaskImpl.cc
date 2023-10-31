@@ -84,29 +84,31 @@ CommMessageOut *ComplexRedisTask::message_out()
 
 	if (seqid <= 1)
 	{
-		if (seqid == 0 && (!username_.empty() || !password_.empty()))
+		if (seqid == 0 && (!password_.empty() || !username_.empty()))
 		{
-			succ_ = false;
-			is_user_request_ = false;
 			auto *auth_req = new RedisRequest;
 
 			if (!username_.empty())
 				auth_req->set_request("AUTH", {username_, password_});
 			else
 				auth_req->set_request("AUTH", {password_});
+
+			succ_ = false;
+			is_user_request_ = false;
 			return auth_req;
 		}
 
 		if (db_num_ > 0 &&
 			(seqid == 0 || !password_.empty() || !username_.empty()))
 		{
-			succ_ = false;
-			is_user_request_ = false;
 			auto *select_req = new RedisRequest;
 			char buf[32];
 
 			sprintf(buf, "%d", db_num_);
 			select_req->set_request("SELECT", {buf});
+
+			succ_ = false;
+			is_user_request_ = false;
 			return select_req;
 		}
 	}
@@ -179,7 +181,7 @@ bool ComplexRedisTask::init_success()
 	if (uri_.path && uri_.path[0] == '/' && uri_.path[1])
 		db_num_ = atoi(uri_.path + 1);
 
-	size_t info_len = username_.size() + password_.size() + 32 + 16;
+	size_t info_len = username_.size() + password_.size() + 32 + 32;
 	char *info = new char[info_len];
 
 	sprintf(info, "redis|user:%s|pass:%s|db:%d", username_.c_str(),

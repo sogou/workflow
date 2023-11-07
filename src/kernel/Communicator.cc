@@ -340,8 +340,11 @@ CommSession::~CommSession()
 		{
 			pos = target->idle_list.next;
 			entry = list_entry(pos, struct CommConnEntry, list);
+			list_del(pos);
+
 			errno_bak = errno;
 			mpoller_del(entry->sockfd, entry->mpoller);
+			entry->state = CONN_STATE_CLOSING;
 			errno = errno_bak;
 		}
 
@@ -1095,12 +1098,22 @@ void Communicator::handle_sleep_result(struct poller_result *res)
 	SleepSession *session = (SleepSession *)res->data.context;
 	int state;
 
-	if (res->state == PR_ST_STOPPED)
-		state = SS_STATE_DISRUPTED;
-	else
+	switch (res->state)
+	{
+	case PR_ST_FINISHED:
 		state = SS_STATE_COMPLETE;
+		break;
+	case PR_ST_DELETED:
+		res->error = ECANCELED;
+	case PR_ST_ERROR:
+		state = SS_STATE_ERROR;
+		break;
+	case PR_ST_STOPPED:
+		state = SS_STATE_DISRUPTED;
+		break;
+	}
 
-	session->handle(state, 0);
+	session->handle(state, res->error);
 }
 
 void Communicator::handle_aio_result(struct poller_result *res)
@@ -1799,17 +1812,54 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 	return ret;
 }
 
+int Communicator::shutdown(CommSession *session)
+{
+	CommTarget *target = session->target;
+	struct CommConnEntry *entry;
+	int ret;
+
+	if (session->passive != 1)
+	{
+		errno = session->passive ? ENOENT : EPERM;
+		return -1;
+	}
+
+	session->passive = 2;
+	pthread_mutex_lock(&target->mutex);
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		list_del(&entry->list);
+		ret = mpoller_del(entry->sockfd, entry->mpoller);
+		entry->state = CONN_STATE_CLOSING;
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	pthread_mutex_unlock(&target->mutex);
+	return ret;
+}
+
 int Communicator::sleep(SleepSession *session)
 {
 	struct timespec value;
 
 	if (session->duration(&value) >= 0)
 	{
-		if (mpoller_add_timer(&value, session, this->mpoller) >= 0)
+		if (mpoller_add_timer(&value, session, &session->timer, &session->index,
+							  this->mpoller) >= 0)
 			return 0;
 	}
 
 	return -1;
+}
+
+int Communicator::unsleep(SleepSession *session)
+{
+	return mpoller_del_timer(session->timer, session->index, this->mpoller);
 }
 
 int Communicator::is_handler_thread() const

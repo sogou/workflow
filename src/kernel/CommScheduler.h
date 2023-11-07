@@ -144,6 +144,11 @@ public:
 		return this->comm.reply(session);
 	}
 
+	int shutdown(CommSession *session)
+	{
+		return this->comm.shutdown(session);
+	}
+
 	int push(const void *buf, size_t size, CommSession *session)
 	{
 		return this->comm.push(buf, size, session);
@@ -163,6 +168,12 @@ public:
 	int sleep(SleepSession *session)
 	{
 		return this->comm.sleep(session);
+	}
+
+	/* Call 'unsleep' only before 'handle()' returns. */
+	int unsleep(SleepSession *session)
+	{
+		return this->comm.unsleep(session);
 	}
 
 	/* for file aio services. */

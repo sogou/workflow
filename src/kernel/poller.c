@@ -124,6 +124,11 @@ static inline int __poller_create_timerfd()
 	return timerfd_create(CLOCK_MONOTONIC, 0);
 }
 
+static inline int __poller_close_timerfd(int fd)
+{
+	return close(fd);
+}
+
 static inline int __poller_add_timerfd(int fd, poller_t *poller)
 {
 	struct epoll_event ev = {
@@ -192,7 +197,12 @@ static inline int __poller_mod_fd(int fd, int old_event,
 
 static inline int __poller_create_timerfd()
 {
-	return dup(0);
+	return 0;
+}
+
+static inline int __poller_close_timerfd(int fd)
+{
+	return 0;
 }
 
 static inline int __poller_add_timerfd(int fd, poller_t *poller)
@@ -950,7 +960,7 @@ static int __poller_create_timer(poller_t *poller)
 			return 0;
 		}
 
-		close(timerfd);
+		__poller_close_timerfd(timerfd);
 	}
 
 	return -1;
@@ -1018,7 +1028,7 @@ poller_t *poller_create(const struct poller_params *params)
 void __poller_destroy(poller_t *poller)
 {
 	pthread_mutex_destroy(&poller->mutex);
-	close(poller->timerfd);
+	__poller_close_timerfd(poller->timerfd);
 	close(poller->pfd);
 	free(poller);
 }

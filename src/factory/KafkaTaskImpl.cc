@@ -695,10 +695,8 @@ bool __ComplexKafkaTask::finish_once()
 	{
 		this->get_req()->clear_buf();
 		is_redirect_ = false;
-		return true;
 	}
-
-	if (this->state == WFT_STATE_SUCCESS)
+	else if (this->state == WFT_STATE_SUCCESS)
 	{
 		if (!is_user_request_)
 		{
@@ -719,6 +717,7 @@ bool __ComplexKafkaTask::finish_once()
 		this->get_resp()->set_api_version(this->get_req()->get_api_version());
 	}
 
+	is_user_request_ = true;
 	return true;
 }
 

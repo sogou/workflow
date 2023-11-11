@@ -903,10 +903,17 @@ const char *WFGlobal::get_error_string(int state, int error)
 		return __get_ssl_error_string(error);
 
 	case WFT_STATE_DNS_ERROR:
+#ifdef _WIN32
+		return gai_strerrorA(error);
+#else
 		return gai_strerror(error);
+#endif
 
 	case WFT_STATE_TASK_ERROR:
 		return __get_task_error_string(error);
+
+	case WFT_STATE_ABORTED:
+		return "Aborted";
 
 	case WFT_STATE_UNDEFINED:
 		return "Undefined";

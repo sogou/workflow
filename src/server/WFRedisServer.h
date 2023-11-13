@@ -37,8 +37,8 @@ static constexpr struct WFServerParams REDIS_SERVER_PARAMS_DEFAULT =
 	.ssl_accept_timeout		=	5000,
 };
 
-template<>
-inline WFRedisServer::WFServer(redis_process_t proc) :
+template<> inline
+WFRedisServer::WFServer(redis_process_t proc) :
 	WFServerBase(&REDIS_SERVER_PARAMS_DEFAULT),
 	process(std::move(proc))
 {

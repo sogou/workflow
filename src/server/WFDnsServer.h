@@ -37,8 +37,8 @@ static constexpr struct WFServerParams DNS_SERVER_PARAMS_DEFAULT =
 	.ssl_accept_timeout		=	5000,
 };
 
-template<>
-inline WFDnsServer::WFServer(dns_process_t proc) :
+template<> inline
+WFDnsServer::WFServer(dns_process_t proc) :
 	WFServerBase(&DNS_SERVER_PARAMS_DEFAULT),
 	process(std::move(proc))
 {

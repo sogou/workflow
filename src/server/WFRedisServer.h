@@ -36,8 +36,8 @@ static constexpr struct WFServerParams REDIS_SERVER_PARAMS_DEFAULT =
 	.request_size_limit		=	(size_t)-1,
 };
 
-template<>
-inline WFRedisServer::WFServer(redis_process_t proc) :
+template<> inline
+WFRedisServer::WFServer(redis_process_t proc) :
 	WFServerBase(&REDIS_SERVER_PARAMS_DEFAULT),
 	process(std::move(proc))
 {

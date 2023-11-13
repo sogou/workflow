@@ -36,8 +36,8 @@ static constexpr struct WFServerParams DNS_SERVER_PARAMS_DEFAULT =
 	.request_size_limit		=	(size_t)-1,
 };
 
-template<>
-inline WFDnsServer::WFServer(dns_process_t proc) :
+template<> inline
+WFDnsServer::WFServer(dns_process_t proc) :
 	WFServerBase(&DNS_SERVER_PARAMS_DEFAULT),
 	process(std::move(proc))
 {

@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <time.h>
+#include <string.h>
 #include <utility>
 #include <string>
 #include <mutex>
@@ -111,14 +112,16 @@ static T *__get_object_list(const std::string& name, struct rb_root *root,
 	struct rb_node **p = &root->rb_node;
 	struct rb_node *parent = NULL;
 	T *objs;
+	int n;
 
 	while (*p)
 	{
 		parent = *p;
 		objs = rb_entry(*p, T, rb);
-		if (name < objs->name)
+		n = strcmp(name.c_str(), objs->name.c_str());
+		if (n < 0)
 			p = &(*p)->rb_left;
-		else if (name > objs->name)
+		else if (n > 0)
 			p = &(*p)->rb_right;
 		else
 			return objs;

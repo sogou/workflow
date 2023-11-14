@@ -78,12 +78,24 @@ void Executor::executor_thread_routine(void *context)
 	ExecQueue *queue = (ExecQueue *)context;
 	struct ExecSessionEntry *entry;
 	ExecSession *session;
+	int empty;
 
-	pthread_mutex_lock(&queue->mutex);
 	entry = list_entry(queue->session_list.next, struct ExecSessionEntry, list);
-	list_del(&entry->list);
+	if (entry->list.next == &queue->session_list)
+	{
+		pthread_mutex_lock(&queue->mutex);
+		list_del(&entry->list);
+		empty = list_empty(&queue->session_list);
+		pthread_mutex_unlock(&queue->mutex);
+	}
+	else
+	{
+		list_del(&entry->list);
+		empty = 0;
+	}
+
 	session = entry->session;
-	if (!list_empty(&queue->session_list))
+	if (!empty)
 	{
 		struct thrdpool_task task = {
 			.routine	=	Executor::executor_thread_routine,
@@ -94,7 +106,6 @@ void Executor::executor_thread_routine(void *context)
 	else
 		free(entry);
 
-	pthread_mutex_unlock(&queue->mutex);
 	session->execute();
 	session->handle(ES_STATE_FINISHED, 0);
 }

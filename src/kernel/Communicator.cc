@@ -1421,7 +1421,7 @@ int Communicator::create_poller(size_t poller_threads)
 	if ((ssize_t)params.max_open_files < 0)
 		return -1;
 
-	this->msgqueue = msgqueue_create(4096, sizeof (struct poller_result));
+	this->msgqueue = msgqueue_create(16 * 1024, sizeof (struct poller_result));
 	if (this->msgqueue)
 	{
 		params.context = this->msgqueue;

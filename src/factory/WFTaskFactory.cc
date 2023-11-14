@@ -19,7 +19,6 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <time.h>
-#include <string.h>
 #include <utility>
 #include <string>
 #include <mutex>
@@ -118,7 +117,7 @@ static T *__get_object_list(const std::string& name, struct rb_root *root,
 	{
 		parent = *p;
 		objs = rb_entry(*p, T, rb);
-		n = strcmp(name.c_str(), objs->name.c_str());
+		n = name.compare(objs->name);
 		if (n < 0)
 			p = &(*p)->rb_left;
 		else if (n > 0)

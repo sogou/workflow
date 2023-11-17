@@ -17,6 +17,7 @@
 */
 
 #include <string>
+#include <atomic>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "DnsMessage.h"
@@ -31,6 +32,7 @@ class ComplexDnsTask : public WFComplexClientTask<DnsRequest, DnsResponse,
 							  std::function<void (WFDnsTask *)>>
 {
 	static struct addrinfo hints;
+	static std::atomic<size_t> seq;
 
 public:
 	ComplexDnsTask(int retry_max, dns_callback_t&& cb):
@@ -55,6 +57,8 @@ struct addrinfo ComplexDnsTask::hints =
 	.ai_socktype  = SOCK_STREAM
 };
 
+std::atomic<size_t> ComplexDnsTask::seq(0);
+
 CommMessageOut *ComplexDnsTask::message_out()
 {
 	DnsRequest *req = this->get_req();
@@ -62,7 +66,7 @@ CommMessageOut *ComplexDnsTask::message_out()
 	enum TransportType type = this->get_transport_type();
 
 	if (req->get_id() == 0)
-		req->set_id((this->get_seq() + 1) * 99991 % 65535 + 1);
+		req->set_id(++ComplexDnsTask::seq * 99991 % 65535 + 1);
 	resp->set_request_id(req->get_id());
 	resp->set_request_name(req->get_question_name());
 	req->set_single_packet(type == TT_UDP);

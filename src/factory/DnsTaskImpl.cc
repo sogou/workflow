@@ -93,8 +93,8 @@ bool ComplexDnsTask::init_success()
 		ret = getaddrinfo(uri_.host, uri_.port, &hints, &addr);
 		if (ret != 0)
 		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_URI_PARSE_FAILED;
+			this->state = WFT_STATE_DNS_ERROR;
+			this->error = ret;
 			return false;
 		}
 

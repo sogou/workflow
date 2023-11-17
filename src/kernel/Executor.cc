@@ -77,24 +77,14 @@ void Executor::executor_thread_routine(void *context)
 {
 	ExecQueue *queue = (ExecQueue *)context;
 	struct ExecSessionEntry *entry;
-	struct list_head *next;
 	ExecSession *session;
 	int empty;
 
 	entry = list_entry(queue->session_list.next, struct ExecSessionEntry, list);
-	next = entry->list.next;
-	if (next == &queue->session_list || next->prev != &entry->list)
-	{
-		pthread_mutex_lock(&queue->mutex);
-		list_del(&entry->list);
-		empty = list_empty(&queue->session_list);
-		pthread_mutex_unlock(&queue->mutex);
-	}
-	else
-	{
-		__list_del(&queue->session_list, next);
-		empty = 0;
-	}
+	pthread_mutex_lock(&queue->mutex);
+	list_del(&entry->list);
+	empty = list_empty(&queue->session_list);
+	pthread_mutex_unlock(&queue->mutex);
 
 	session = entry->session;
 	if (!empty)
@@ -140,7 +130,6 @@ int Executor::request(ExecSession *session, ExecQueue *queue)
 	{
 		entry->session = session;
 		entry->thrdpool = this->thrdpool;
-		entry->list.prev = NULL;
 		pthread_mutex_lock(&queue->mutex);
 		list_add_tail(&entry->list, &queue->session_list);
 		if (queue->session_list.next == &entry->list)

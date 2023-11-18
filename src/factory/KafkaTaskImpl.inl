@@ -16,7 +16,6 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-#include <set>
 #include "WFTaskFactory.h"
 #include "KafkaMessage.h"
 
@@ -47,3 +46,4 @@ public:
 											int retry_max,
 											__kafka_callback_t callback);
 };
+

@@ -373,9 +373,6 @@ inline ExecQueue *__ExecManager::get_exec_queue(const std::string& queue_name)
 	return queue;
 }
 
-#define MAX(x, y)	((x) >= (y) ? (x) : (y))
-#define HOSTS_LINEBUF_INIT_SIZE	128
-
 static void __split_merge_str(const char *p, bool is_nameserver,
 							  std::string& result)
 {

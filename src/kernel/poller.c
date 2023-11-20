@@ -1090,19 +1090,21 @@ static void *__poller_thread_routine(void *arg)
 
 static int __poller_open_pipe(poller_t *poller)
 {
-	int pipefd[2];
+	int sv[2];
 
-	if (pipe(pipefd) >= 0)
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, sv) >= 0)
 	{
-		if (__poller_add_fd(pipefd[0], EPOLLIN, (void *)1, poller) >= 0)
+		if (__poller_add_fd(sv[0], EPOLLIN, (void *)1, poller) >= 0)
 		{
-			poller->pipe_rd = pipefd[0];
-			poller->pipe_wr = pipefd[1];
+			shutdown(sv[0], SHUT_WR);
+			shutdown(sv[1], SHUT_RD);
+			poller->pipe_rd = sv[0];
+			poller->pipe_wr = sv[1];
 			return 0;
 		}
 
-		close(pipefd[0]);
-		close(pipefd[1]);
+		close(sv[0]);
+		close(sv[1]);
 	}
 
 	return -1;

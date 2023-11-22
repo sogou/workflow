@@ -32,8 +32,6 @@ else ()
 endif ()
 
 set(INCLUDE_HEADERS
-	src/algorithm/MapReduce.h
-	src/algorithm/MapReduce.inl
 	src/protocol/ProtocolMessage.h
 	src/protocol/http_parser.h
 	src/protocol/HttpMessage.h

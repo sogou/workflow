@@ -43,7 +43,6 @@ set(TUTORIAL_LIST
 	tutorial-11-graph_task
 	tutorial-15-name_service
 	tutorial-17-dns_cli
-	tutorial-20-reducer
 )
 
 if (APPLE)

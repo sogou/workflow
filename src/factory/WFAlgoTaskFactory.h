@@ -23,7 +23,6 @@
 #include <string>
 #include <vector>
 #include "WFTask.h"
-#include "MapReduce.h"
 
 namespace algorithm
 {
@@ -181,12 +180,6 @@ using WFRotateTask = WFThreadTask<algorithm::RotateInput<T>,
 template<typename T>
 using rotate_callback_t = std::function<void (WFRotateTask<T> *)>;
 
-template<typename KEY = std::string, typename VAL = std::string>
-using WFReduceTask = WFThreadTask<algorithm::ReduceInput<KEY, VAL>,
-								  algorithm::ReduceOutput<KEY, VAL>>;
-template<typename KEY = std::string, typename VAL = std::string>
-using reduce_callback_t = std::function<void (WFReduceTask<KEY, VAL> *)>;
-
 class WFAlgoTaskFactory
 {
 public:
@@ -258,23 +251,6 @@ public:
 	static WFRotateTask<T> *create_rotate_task(const std::string& queue_name,
 											   T *first, T *middle, T *last,
 											   CB callback);
-
-	template<typename KEY = std::string, typename VAL = std::string,
-			 class RED = algorithm::reduce_function_t<KEY, VAL>,
-			 class CB = reduce_callback_t<KEY, VAL>>
-	static WFReduceTask<KEY, VAL> *
-	create_reduce_task(const std::string& queue_name,
-					   RED reduce,
-					   CB callback);
-
-	template<typename KEY = std::string, typename VAL = std::string,
-			 class RED = algorithm::reduce_function_t<KEY, VAL>,
-			 class CB = reduce_callback_t<KEY, VAL>>
-	static WFReduceTask<KEY, VAL> *
-	create_reduce_task(const std::string& queue_name,
-					   algorithm::ReduceInput<KEY, VAL> input,
-					   RED reduce,
-					   CB callback);
 };
 
 #include "WFAlgoTaskFactory.inl"

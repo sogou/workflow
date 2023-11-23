@@ -41,7 +41,7 @@ private:
 ~~~
 ### 序列化函数encode
   * encode函数在消息被发送之前调用，每条消息只调用一次。
-  * encode函数里，用户需要将消息序列化到一个vector数组，数组元素个数不超过max。目前max的值为8192。
+  * encode函数里，用户需要将消息序列化到一个vector数组，数组元素个数不超过max。目前max的值为2048。
   * 结构体struct iovec定义在请参考系统调用readv和writev。
   * encode函数正确情况下的返回值在0到max之间，表示消息使用了多少个vector。
     * 如果是UDP协议，请注意总长度不超过64k，并且使用不超过1024个vector（Linux一次writev只能1024个vector）。

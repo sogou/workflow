@@ -168,6 +168,7 @@ public:
 	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
 	void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
 	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
+	void set_watch_timeout(int timeout) { this->watch_timeo = timeout; }
 
 public:
 	/* Do not reply this request. */
@@ -187,10 +188,16 @@ public:
 	   Always returns 'true' in callback. */
 	bool closed() const
 	{
-		if (this->state == WFT_STATE_TOREPLY)
-			return !this->get_target()->has_idle_conn();
-		else
-			return this->state != WFT_STATE_UNDEFINED;
+		switch (this->state)
+		{
+		case WFT_STATE_UNDEFINED:
+			return false;
+		case WFT_STATE_TOREPLY:
+		case WFT_STATE_NOREPLY:
+			return !this->target->has_idle_conn();
+		default:
+			return true;
+		}
 	}
 
 public:
@@ -203,11 +210,13 @@ protected:
 	virtual int send_timeout() { return this->send_timeo; }
 	virtual int receive_timeout() { return this->receive_timeo; }
 	virtual int keep_alive_timeout() { return this->keep_alive_timeo; }
+	virtual int first_timeout() { return this->watch_timeo; }
 
 protected:
 	int send_timeo;
 	int receive_timeo;
 	int keep_alive_timeo;
+	int watch_timeo;
 	REQ req;
 	RESP resp;
 	std::function<void (WFNetworkTask<REQ, RESP> *)> callback;
@@ -221,6 +230,7 @@ protected:
 		this->send_timeo = -1;
 		this->receive_timeo = -1;
 		this->keep_alive_timeo = 0;
+		this->watch_timeo = 0;
 		this->target = NULL;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
 		this->user_data = NULL;

@@ -110,6 +110,7 @@ public:
     void set_send_timeout(int timeout) { this->send_timeo = timeout; }
     void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
     void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
+    void set_watch_timeout(int timeout) {  this->watch_timeo = timeout; }
 ...
 }
 ~~~
@@ -122,6 +123,8 @@ In the above code, **set\_send\_timeout()** sets the timeout for sending a compl
 **set\_keep\_alive()** interface sets the timeout for keeping a connection. Generally, the framework can handle the connection maintenance well, and you do not need to call it.   
 When an HTTP protocol is used, if a client or a server wants to use short connection, you can add an HTTP header to support it. Please do not modify it with this interface if you have other options.   
 If a Redis client wants to close the connection after a request, you need to use this interface. Obviously, **set\_keep\_alive()** is invalid in the callback (the connection has been reused).
+
+**set\_watch\_timeout()** is specific for client task only. It indicate the maximum time of waiting the first response package. This may prevent the client task from being timed out by the limit of **response\_timeout** and **receive\_timeout**. The framework will caculate **receive\_timeoout** after receiving the first package if **watch\_timeout** is set.
 
 ### Timeout for synchronous task waiting 
 

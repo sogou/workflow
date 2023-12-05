@@ -808,6 +808,165 @@ void WFTaskFactory::signal_by_name(const std::string& name, void *msg,
 	__conditional_map.signal(name, msg, max);
 }
 
+/****************** Named Guard ******************/
+
+class __WFNamedGuard;
+
+struct __guard_node
+{
+	struct list_head list;
+	__WFNamedGuard *guard;
+};
+
+static class __NamedGuardMap
+{
+public:
+	struct GuardList : public __NamedObjectList<struct __guard_node>
+	{
+		GuardList(const std::string& name) : __NamedObjectList(name)
+		{
+			acquired = false;
+			ref = 0;
+		}
+
+		bool acquired;
+		size_t ref;
+		std::mutex mutex;
+	};
+
+public:
+	WFConditional *create(const std::string& name, SubTask *task);
+	void release(const std::string& name);
+
+	void unref(GuardList *guards);
+
+private:
+	struct rb_root root_;
+	std::mutex mutex_;
+
+public:
+	__NamedGuardMap()
+	{
+		root_.rb_node = NULL;
+	}
+} __guard_map;
+
+class __WFNamedGuard : public WFConditional
+{
+public:
+	__WFNamedGuard(SubTask *task) : WFConditional(task)
+	{
+		node_.guard = this;
+	}
+
+	virtual ~__WFNamedGuard()
+	{
+		if (!this->flag)
+			__guard_map.unref(guards_);
+	}
+
+protected:
+	virtual void dispatch();
+	virtual void signal(void *msg) { }
+
+private:
+	struct __guard_node node_;
+	__NamedGuardMap::GuardList *guards_;
+	friend __NamedGuardMap;
+};
+
+void __WFNamedGuard::dispatch()
+{
+	guards_->mutex.lock();
+	if (guards_->acquired)
+		guards_->push_back(&node_);
+	else
+	{
+		guards_->acquired = true;
+		this->WFConditional::signal(NULL);
+	}
+
+	guards_->mutex.unlock();
+	this->WFConditional::dispatch();
+}
+
+WFConditional *__NamedGuardMap::create(const std::string& name,
+									   SubTask *task)
+{
+	auto *guard = new __WFNamedGuard(task);
+	mutex_.lock();
+	guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
+	guard->guards_->ref++;
+	mutex_.unlock();
+	return guard;
+}
+
+void __NamedGuardMap::release(const std::string& name)
+{
+	struct __guard_node *node = NULL;
+	bool empty = false;
+	GuardList *guards;
+
+	mutex_.lock();
+	guards = __get_object_list<GuardList>(name, &root_, false);
+	if (guards)
+	{
+		guards->mutex.lock();
+		guards->ref--;
+		if (!guards->empty())
+		{
+			node = list_entry(guards->head.next, struct __guard_node, list);
+			list_del(&node->list);
+		}
+		else
+		{
+			guards->acquired = false;
+			if (guards->ref == 0)
+			{
+				rb_erase(&guards->rb, &root_);
+				empty = true;
+			}
+		}
+
+		guards->mutex.unlock();
+	}
+
+	mutex_.unlock();
+	if (empty)
+		delete guards;
+	else if (node)
+		node->guard->WFConditional::signal(NULL);
+}
+
+void __NamedGuardMap::unref(GuardList *guards)
+{
+	bool empty = false;
+
+	mutex_.lock();
+	guards->mutex.lock();
+	if (--guards->ref == 0)
+	{
+		rb_erase(&guards->rb, &root_);
+		empty = true;
+	}
+
+	guards->mutex.unlock();
+	mutex_.unlock();
+	if (empty)
+		delete guards;
+}
+
+WFConditional *WFTaskFactory::create_guard(const std::string& name,
+										   SubTask *task)
+{
+	return __guard_map.create(name, task);
+}
+
+void WFTaskFactory::release_guard(const std::string& name)
+{
+	__guard_map.release(name);
+}
+
 /**************** Timed Go Task *****************/
 
 void __WFTimedGoTask::dispatch()

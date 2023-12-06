@@ -826,11 +826,11 @@ public:
 		GuardList(const std::string& name) : __NamedObjectList(name)
 		{
 			acquired = false;
-			ref = 0;
+			refcnt = 0;
 		}
 
 		bool acquired;
-		size_t ref;
+		size_t refcnt;
 		std::mutex mutex;
 	};
 
@@ -838,7 +838,17 @@ public:
 	WFConditional *create(const std::string& name, SubTask *task);
 	void release(const std::string& name);
 
-	void unref(GuardList *guards);
+	void unref(GuardList *guards)
+	{
+		mutex_.lock();
+		if (--guards->refcnt == 0)
+			rb_erase(&guards->rb, &root_);
+		else
+			guards = NULL;
+
+		mutex_.unlock();
+		delete guards;
+	}
 
 private:
 	struct rb_root root_;
@@ -896,7 +906,7 @@ WFConditional *__NamedGuardMap::create(const std::string& name,
 	auto *guard = new __WFNamedGuard(task);
 	mutex_.lock();
 	guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
-	guard->guards_->ref++;
+	guard->guards_->refcnt++;
 	mutex_.unlock();
 	return guard;
 }
@@ -904,56 +914,35 @@ WFConditional *__NamedGuardMap::create(const std::string& name,
 void __NamedGuardMap::release(const std::string& name)
 {
 	struct __guard_node *node = NULL;
-	bool empty = false;
 	GuardList *guards;
 
 	mutex_.lock();
 	guards = __get_object_list<GuardList>(name, &root_, false);
 	if (guards)
 	{
-		guards->mutex.lock();
-		guards->ref--;
-		if (!guards->empty())
-		{
-			node = list_entry(guards->head.next, struct __guard_node, list);
-			list_del(&node->list);
-		}
+		if (--guards->refcnt == 0)
+			rb_erase(&guards->rb, &root_);
 		else
 		{
-			guards->acquired = false;
-			if (guards->ref == 0)
+			guards->mutex.lock();
+			if (!guards->empty())
 			{
-				rb_erase(&guards->rb, &root_);
-				empty = true;
+				node = list_entry(guards->head.next, struct __guard_node, list);
+				list_del(&node->list);
 			}
-		}
+			else
+				guards->acquired = false;
 
-		guards->mutex.unlock();
+			guards->mutex.unlock();
+			guards = NULL;
+		}
 	}
 
 	mutex_.unlock();
-	if (empty)
+	if (guards)
 		delete guards;
 	else if (node)
 		node->guard->WFConditional::signal(NULL);
-}
-
-void __NamedGuardMap::unref(GuardList *guards)
-{
-	bool empty = false;
-
-	mutex_.lock();
-	guards->mutex.lock();
-	if (--guards->ref == 0)
-	{
-		rb_erase(&guards->rb, &root_);
-		empty = true;
-	}
-
-	guards->mutex.unlock();
-	mutex_.unlock();
-	if (empty)
-		delete guards;
 }
 
 WFConditional *WFTaskFactory::create_guard(const std::string& name,

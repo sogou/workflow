@@ -283,6 +283,14 @@ public:
 							   size_t max);
 
 public:
+	static WFConditional *create_guard(const std::string& resource_name,
+									   SubTask *task);
+
+	/* The 'guard' is acquired after started, so call 'release_guard' after
+	   and only after the task is finished, typically in its callback. */
+	static void release_guard(const std::string& resource_name);
+
+public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,
 									FUNC&& func, ARGS&&... args);

@@ -39,7 +39,7 @@ enum TransportType
 struct EndpointParams
 {
 	int address_family;
-	unsigned int max_connections;
+	int max_connections;
 	int connect_timeout;
 	int response_timeout;
 	int ssl_connect_timeout;

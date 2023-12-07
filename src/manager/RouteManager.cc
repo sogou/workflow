@@ -106,7 +106,7 @@ struct RouteParams
 	const struct addrinfo *addrinfo;
 	uint64_t key;
 	SSL_CTX *ssl_ctx;
-	unsigned int max_connections;
+	int max_connections;
 	int connect_timeout;
 	int response_timeout;
 	int ssl_connect_timeout;
@@ -410,7 +410,7 @@ static uint64_t __generate_key(enum TransportType type,
 
 	int params[] = {
 		ep_params->address_family,
-		(int)ep_params->max_connections,
+		ep_params->max_connections,
 		ep_params->connect_timeout,
 		ep_params->response_timeout
 	};

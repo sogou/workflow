@@ -404,14 +404,18 @@ static uint64_t __generate_key(enum TransportType type,
 							   const std::string& hostname)
 {
 	std::string buf((const char *)&type, sizeof (enum TransportType));
-	unsigned int max_conn = ep_params->max_connections;
 
 	if (!other_info.empty())
 		buf += other_info;
 
-	buf.append((const char *)&max_conn, sizeof (unsigned int));
-	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
-	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
+	int params[] = {
+		ep_params->address_family,
+		(int)ep_params->max_connections,
+		ep_params->connect_timeout,
+		ep_params->response_timeout
+	};
+
+	buf.append((const char *)params, sizeof params);
 	if (type == TT_TCP_SSL)
 	{
 		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
@@ -514,7 +518,7 @@ int RouteManager::get(enum TransportType type,
 			.addrinfo 				=	addrinfo,
 			.key					=	key,
 			.ssl_ctx				=	ssl_ctx,
-			.max_connections		=	(unsigned int)ep_params->max_connections,
+			.max_connections		=	ep_params->max_connections,
 			.connect_timeout		=	ep_params->connect_timeout,
 			.response_timeout		=	ep_params->response_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,

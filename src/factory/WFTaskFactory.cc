@@ -152,7 +152,7 @@ struct __timer_node
 static class __NamedTimerMap
 {
 public:
-	using TimerList = struct __NamedObjectList<struct __timer_node>;
+	using TimerList = __NamedObjectList<struct __timer_node>;
 
 public:
 	WFTimerTask *create(const std::string& name,
@@ -336,7 +336,7 @@ struct __counter_node
 static class __NamedCounterMap
 {
 public:
-	using CounterList = struct __NamedObjectList<struct __counter_node>;
+	using CounterList = __NamedObjectList<struct __counter_node>;
 
 public:
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
@@ -514,7 +514,7 @@ struct __mailbox_node
 static class __NamedMailboxMap
 {
 public:
-	using MailboxList = struct __NamedObjectList<struct __mailbox_node>;
+	using MailboxList = __NamedObjectList<struct __mailbox_node>;
 
 public:
 	WFMailboxTask *create(const std::string& name, void **mailbox,
@@ -698,7 +698,7 @@ struct __conditional_node
 static class __NamedConditionalMap
 {
 public:
-	using ConditionalList = struct __NamedObjectList<struct __conditional_node>;
+	using ConditionalList = __NamedObjectList<struct __conditional_node>;
 
 public:
 	WFConditional *create(const std::string& name, SubTask *task,

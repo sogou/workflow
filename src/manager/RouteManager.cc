@@ -83,7 +83,7 @@ struct RouteParams
 	enum TransportType transport_type;
 	const struct addrinfo *addrinfo;
 	uint64_t key;
-	unsigned int max_connections;
+	int max_connections;
 	int connect_timeout;
 	int response_timeout;
 	const std::string& hostname;
@@ -373,14 +373,18 @@ static uint64_t __generate_key(enum TransportType type,
 							   const std::string& hostname)
 {
 	std::string buf((const char *)&type, sizeof (enum TransportType));
-	unsigned int max_conn = ep_params->max_connections;
 
 	if (!other_info.empty())
 		buf += other_info;
 
-	buf.append((const char *)&max_conn, sizeof (unsigned int));
-	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
-	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
+	int params[] = {
+		ep_params->address_family,
+		ep_params->max_connections,
+		ep_params->connect_timeout,
+		ep_params->response_timeout
+	};
+
+	buf.append((const char *)params, sizeof params);
 
 	if (addrinfo->ai_next)
 	{
@@ -462,7 +466,7 @@ int RouteManager::get(enum TransportType type,
 			.transport_type			=	type,
 			.addrinfo 				=	addrinfo,
 			.key					=	key,
-			.max_connections		=	(unsigned int)ep_params->max_connections,
+			.max_connections		=	ep_params->max_connections,
 			.connect_timeout		=	ep_params->connect_timeout,
 			.response_timeout		=	ep_params->response_timeout,
 			.hostname				=	hostname,

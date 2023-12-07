@@ -59,14 +59,16 @@ class DnsInput
 public:
 	DnsInput() :
 		port_(0),
-		numeric_host_(false)
+		numeric_host_(false),
+		family_(AF_UNSPEC)
 	{}
 
 	DnsInput(const std::string& host, unsigned short port,
-			 bool numeric_host) :
+			 bool numeric_host, int family) :
 		host_(host),
 		port_(port),
-		numeric_host_(numeric_host)
+		numeric_host_(numeric_host),
+		family_(family)
 	{}
 
 	void reset(const std::string& host, unsigned short port)
@@ -74,14 +76,16 @@ public:
 		host_.assign(host);
 		port_ = port;
 		numeric_host_ = false;
+		family_ = AF_UNSPEC;
 	}
 
 	void reset(const std::string& host, unsigned short port,
-			   bool numeric_host)
+			   bool numeric_host, int family)
 	{
 		host_.assign(host);
 		port_ = port;
 		numeric_host_ = numeric_host;
+		family_ = family;
 	}
 
 	const std::string& get_host() const { return host_; }
@@ -92,6 +96,7 @@ protected:
 	std::string host_;
 	unsigned short port_;
 	bool numeric_host_;
+	int family_;
 
 	friend class DnsRoutine;
 };
@@ -187,6 +192,7 @@ void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 	char port_str[PORT_STR_MAX + 1];
 
 	hints.ai_flags |= AI_NUMERICSERV;
+	hints.ai_family = in->family_;
 	if (in->is_numeric_host())
 		hints.ai_flags |= AI_NUMERICHOST;
 
@@ -337,6 +343,7 @@ static void __add_passive_flags(struct addrinfo *ai)
 
 static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 											   unsigned short port,
+											   int family,
 											   thread_dns_callback_t callback)
 {
 	auto *task = WFThreadTaskFactory<DnsInput, DnsOutput>::
@@ -345,7 +352,7 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 										   DnsRoutine::run,
 										   std::move(callback));
 
-	task->get_input()->reset(host, port);
+	task->get_input()->reset(host, port, false, family);
 	return task;
 }
 
@@ -409,7 +416,8 @@ void WFResolverTask::dispatch()
 
 		if (ret == 1)
 		{
-			DnsInput dns_in(hostname, port_, true); // 'true' means numeric host
+			// 'true' means numeric host
+			DnsInput dns_in(hostname, port_, true, AF_UNSPEC);
 			DnsOutput dns_out;
 
 			DnsRoutine::run(&dns_in, &dns_out);
@@ -424,7 +432,11 @@ void WFResolverTask::dispatch()
 	if (hosts)
 	{
 		struct addrinfo *ai;
-		int ret = __readaddrinfo(hosts, host_, port_, &__ai_hints, &ai);
+		struct addrinfo hints = __ai_hints;
+		int ret;
+
+		hints.ai_family = ep_params_.address_family;
+		ret = __readaddrinfo(hosts, host_, port_, &hints, &ai);
 
 		if (ret == 0)
 		{
@@ -440,8 +452,12 @@ void WFResolverTask::dispatch()
 	WFDnsClient *client = WFGlobal::get_dns_client();
 	if (client)
 	{
-		static int family = __default_family();
+		static int default_family = __default_family();
 		WFResourcePool *respool = WFGlobal::get_dns_respool();
+
+		int family = ep_params_.address_family;
+		if (family == AF_UNSPEC)
+			family = default_family;
 
 		if (family == AF_INET || family == AF_INET6)
 		{
@@ -492,11 +508,13 @@ void WFResolverTask::dispatch()
 	}
 	else
 	{
+		ThreadDnsTask *dns_task;
 		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
 							  this,
 							  std::placeholders::_1);
-		ThreadDnsTask *dns_task = __create_thread_dns_task(hostname, port_,
-														   std::move(cb));
+		dns_task = __create_thread_dns_task(hostname, port_,
+											ep_params_.address_family,
+											std::move(cb));
 		series_of(this)->push_front(dns_task);
 	}
 

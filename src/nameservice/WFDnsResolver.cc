@@ -43,17 +43,6 @@
 #define HOSTS_LINEBUF_INIT_SIZE	128
 #define PORT_STR_MAX			5
 
-static constexpr struct addrinfo __ai_hints =
-{
-#ifdef AI_ADDRCONFIG
-	.ai_flags = AI_ADDRCONFIG,
-#else
-	.ai_flags = 0,
-#endif
-	.ai_family = AF_UNSPEC,
-	.ai_socktype = SOCK_STREAM
-};
-
 class DnsInput
 {
 public:
@@ -188,21 +177,20 @@ void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 		return;
 	}
 
-	struct addrinfo hints = __ai_hints;
+	struct addrinfo hints = {
+		.ai_flags		=	AI_ADDRCONFIG | AI_NUMERICSERV,
+		.ai_family		=	in->family_,
+		.ai_socktype	=	SOCK_STREAM,
+	};
 	char port_str[PORT_STR_MAX + 1];
 
-	hints.ai_flags |= AI_NUMERICSERV;
-	hints.ai_family = in->family_;
 	if (in->is_numeric_host())
 		hints.ai_flags |= AI_NUMERICHOST;
 
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", in->port_);
-	out->error_ = getaddrinfo(in->host_.c_str(),
-							  port_str,
-							  &hints,
-							  &out->addrinfo_);
+	out->error_ = getaddrinfo(in->host_.c_str(), port_str,
+							  &hints, &out->addrinfo_);
 }
-
 
 // Dns Thread task. For internal usage only.
 using ThreadDnsTask = WFThreadTask<DnsInput, DnsOutput>;
@@ -219,13 +207,18 @@ struct DnsContext
 
 static int __default_family()
 {
+	struct addrinfo hints = {
+		.ai_flags		=	AI_ADDRCONFIG,
+		.ai_family		=	AF_UNSPEC,
+		.ai_socktype	=	SOCK_STREAM,
+	};
 	struct addrinfo *res;
 	struct addrinfo *cur;
 	int family = AF_UNSPEC;
 	bool v4 = false;
 	bool v6 = false;
 
-	if (getaddrinfo(NULL, "1", &__ai_hints, &res) == 0)
+	if (getaddrinfo(NULL, "1", &hints, &res) == 0)
 	{
 		for (cur = res; cur; cur = cur->ai_next)
 		{
@@ -296,7 +289,6 @@ static int __readaddrinfo(const char *path,
 	size_t bufsize = 0;
 	char *line = NULL;
 	int count = 0;
-	struct addrinfo h;
 	int errno_bak;
 	FILE *fp;
 	int ret;
@@ -305,14 +297,12 @@ static int __readaddrinfo(const char *path,
 	if (!fp)
 		return EAI_SYSTEM;
 
-	h = *hints;
-	h.ai_flags |= AI_NUMERICSERV | AI_NUMERICHOST,
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", port);
 
 	errno_bak = errno;
 	while ((ret = getline(&line, &bufsize, fp)) > 0)
 	{
-		if (__readaddrinfo_line(line, name, port_str, &h, res) == 0)
+		if (__readaddrinfo_line(line, name, port_str, hints, res) == 0)
 		{
 			count++;
 			res = &(*res)->ai_next;
@@ -431,13 +421,15 @@ void WFResolverTask::dispatch()
 	const char *hosts = WFGlobal::get_global_settings()->hosts_path;
 	if (hosts)
 	{
+		struct addrinfo hints = {
+			.ai_flags		=	AI_ADDRCONFIG | AI_NUMERICSERV | AI_NUMERICHOST,
+			.ai_family		=	ep_params_.address_family,
+			.ai_socktype	=	SOCK_STREAM,
+		};
 		struct addrinfo *ai;
-		struct addrinfo hints = __ai_hints;
 		int ret;
 
-		hints.ai_family = ep_params_.address_family;
 		ret = __readaddrinfo(hosts, host_, port_, &hints, &ai);
-
 		if (ret == 0)
 		{
 			DnsOutput out;

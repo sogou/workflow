@@ -328,13 +328,15 @@ static double __evaluate_json_number(const char *integer,
 
 	if (*integer != '0')
 	{
-		figures++;
 		mant = *integer - '0';
-		while (isdigit(*++integer) && figures < 18)
+		integer++;
+		figures++;
+		while (isdigit(*integer) && figures < 18)
 		{
-			figures++;
 			mant *= 10;
 			mant += *integer - '0';
+			integer++;
+			figures++;
 		}
 
 		while (isdigit(*integer))
@@ -354,12 +356,11 @@ static double __evaluate_json_number(const char *integer,
 
 	while (isdigit(*fraction) && figures < 18)
 	{
-		figures++;
 		mant *= 10;
 		mant += *fraction - '0';
-
 		exp--;
 		fraction++;
+		figures++;
 	}
 
 	num = mant;
@@ -400,22 +401,26 @@ static int __parse_json_number(const char *cursor, const char **end,
 	if (*cursor == '0' && isdigit(cursor[1]))
 		return -2;
 
-	while (isdigit(*++cursor))
-		;
+	cursor++;
+	while (isdigit(*cursor))
+		cursor++;
 
 	if (*cursor == '.')
 	{
-		fraction = ++cursor;
+		cursor++;
+		fraction = cursor;
 		if (!isdigit(*cursor))
 			return -2;
 
-		while (isdigit(*++cursor))
-			;
+		cursor++;
+		while (isdigit(*cursor))
+			cursor++;
 	}
 
 	if (*cursor == 'E' || *cursor == 'e')
 	{
-		sign = (*++cursor == '-');
+		cursor++;
+		sign = (*cursor == '-');
 		if (sign || *cursor == '+')
 			cursor++;
 
@@ -423,14 +428,16 @@ static int __parse_json_number(const char *cursor, const char **end,
 			return -2;
 
 		exp = *cursor - '0';
-		while (isdigit(*++cursor))
+		cursor++;
+		while (isdigit(*cursor) && exp < 2000000)
 		{
-			if (exp < 2000000)
-			{
-				exp *= 10;
-				exp += *cursor - '0';
-			}
+			exp *= 10;
+			exp += *cursor - '0';
+			cursor++;
 		}
+
+		while (isdigit(*cursor))
+			cursor++;
 
 		if (sign)
 			exp = -exp;
@@ -863,7 +870,6 @@ static int __set_json_value(int type, va_list ap, json_value_t *val)
 json_value_t *json_value_parse(const char *doc)
 {
 	json_value_t *val;
-	int ret;
 
 	val = (json_value_t *)malloc(sizeof (json_value_t));
 	if (!val)
@@ -872,26 +878,19 @@ json_value_t *json_value_parse(const char *doc)
 	while (isspace(*doc))
 		doc++;
 
-	ret = __parse_json_value(doc, &doc, 0, val);
-	if (ret >= 0)
+	if (__parse_json_value(doc, &doc, 0, val) >= 0)
 	{
 		while (isspace(*doc))
 			doc++;
 
-		if (*doc)
-		{
-			__destroy_json_value(val);
-			ret = -2;
-		}
+		if (*doc == '\0')
+			return val;
+
+		__destroy_json_value(val);
 	}
 
-	if (ret < 0)
-	{
-		free(val);
-		return NULL;
-	}
-
-	return val;
+	free(val);
+	return NULL;
 }
 
 json_value_t *json_value_create(int type, ...)

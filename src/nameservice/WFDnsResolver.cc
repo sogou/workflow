@@ -346,13 +346,35 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 	return task;
 }
 
-static std::string __get_guard_name(const char *host, unsigned short port,
-									int address_family)
+static std::string __get_cache_host(const std::string& hostname,
+									int family)
+{
+	std::string cache_host = hostname;
+
+	switch (family)
+	{
+	case AF_UNSPEC:
+		cache_host.push_back('*');
+		break;
+	case AF_INET:
+		cache_host.push_back('4');
+		break;
+	case AF_INET6:
+		cache_host.push_back('6');
+		break;
+	default:
+		cache_host.push_back('?');
+	}
+
+	return cache_host;
+}
+
+static std::string __get_guard_name(const std::string& cache_host,
+									unsigned short port)
 {
 	std::string guard_name("dns:");
-	guard_name.append(host ? host : "").append(":");
-	guard_name.append(std::to_string(port)).append(":");
-	guard_name.append(std::to_string(address_family));
+	guard_name.append(cache_host).append(":");
+	guard_name.append(std::to_string(port));
 	return guard_name;
 }
 
@@ -365,12 +387,14 @@ void WFResolverTask::dispatch()
 	DnsCache *dns_cache = WFGlobal::get_dns_cache();
 	const DnsCache::DnsHandle *addr_handle;
 	std::string hostname = host_;
+	std::string cache_host = __get_cache_host(hostname,
+											  ep_params_.address_family);
 	bool dns_delayed;
 
 	if (ns_params_.retry_times == 0)
-		addr_handle = dns_cache->get_ttl(hostname, port_, dns_delayed);
+		addr_handle = dns_cache->get_ttl(cache_host, port_, &dns_delayed);
 	else
-		addr_handle = dns_cache->get_confident(hostname, port_, dns_delayed);
+		addr_handle = dns_cache->get_confident(cache_host, port_, &dns_delayed);
 
 	if (addr_handle)
 	{
@@ -454,10 +478,9 @@ void WFResolverTask::dispatch()
 
 	if (!in_guard_ && !dns_delayed)
 	{
-		std::string guard_name = __get_guard_name(host_, port_,
-												  ep_params_.address_family);
+		std::string guard_name = __get_guard_name(cache_host, port_);
 		WFTimerTask *timer = WFTaskFactory::create_timer_task(0, 0, nullptr);
-		auto *guard = WFTaskFactory::create_guard(guard_name, timer);
+		WFConditional *guard = WFTaskFactory::create_guard(guard_name, timer);
 
 		series_of(this)->push_front(this);
 		series_of(this)->push_front(guard);
@@ -580,8 +603,10 @@ void WFResolverTask::dns_callback_internal(void *thrd_dns_output,
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
 		const DnsCache::DnsHandle *addr_handle;
 		std::string hostname = host_;
+		std::string cache_host = __get_cache_host(hostname,
+												  ep_params_.address_family);
 
-		addr_handle = dns_cache->put(hostname, port_, addrinfo,
+		addr_handle = dns_cache->put(cache_host, port_, addrinfo,
 									 (unsigned int)ttl_default,
 									 (unsigned int)ttl_min);
 		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
@@ -704,8 +729,9 @@ void WFResolverTask::task_callback()
 {
 	if (in_guard_)
 	{
-		std::string guard_name = __get_guard_name(host_, port_,
+		std::string cache_host = __get_cache_host(host_,
 												  ep_params_.address_family);
+		std::string guard_name = __get_guard_name(cache_host, port_);
 		WFTaskFactory::release_guard(guard_name);
 	}
 

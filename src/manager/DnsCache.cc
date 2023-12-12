@@ -27,13 +27,15 @@
 #define	TTL_INC				5
 
 const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
-											   int type, bool& delayed)
+											   int type, bool *delayed)
 {
 	int64_t cur_time = GET_CURRENT_SECOND;
+
+	if (delayed)
+		*delayed = false;
+
 	std::lock_guard<std::mutex> lock(mutex_);
 	const DnsHandle *handle = cache_pool_.get(host_port);
-
-	delayed = false;
 
 	if (handle)
 	{
@@ -48,7 +50,8 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 					h->value.expire_time += TTL_INC;
 					h->value.expire_delayed = true;
 
-					delayed = cur_time <= h->value.expire_time;
+					if (delayed)
+						*delayed = (cur_time <= h->value.expire_time);
 				}
 
 				cache_pool_.release(handle);
@@ -66,7 +69,8 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 					h->value.confident_time += CONFIDENT_INC;
 					h->value.confident_delayed = true;
 
-					delayed = cur_time <= h->value.confident_time;
+					if (delayed)
+						*delayed = (cur_time <= h->value.confident_time);
 				}
 
 				cache_pool_.release(handle);

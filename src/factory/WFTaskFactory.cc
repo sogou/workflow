@@ -897,7 +897,7 @@ public:
 
 public:
 	WFConditional *create(const std::string& name, SubTask *task);
-	void release(const std::string& name);
+	struct __guard_node *release(const std::string& name);
 
 	void unref(GuardList *guards)
 	{
@@ -936,6 +936,10 @@ public:
 			__guard_map.unref(guards_);
 	}
 
+	SubTask *get_task() const { return this->task; }
+
+	void set_task(SubTask *task) { this->task = task; }
+
 protected:
 	virtual void dispatch();
 	virtual void signal(void *msg) { }
@@ -972,7 +976,7 @@ WFConditional *__NamedGuardMap::create(const std::string& name,
 	return guard;
 }
 
-void __NamedGuardMap::release(const std::string& name)
+struct __guard_node *__NamedGuardMap::release(const std::string& name)
 {
 	struct __guard_node *node = NULL;
 	GuardList *guards;
@@ -1002,8 +1006,8 @@ void __NamedGuardMap::release(const std::string& name)
 	mutex_.unlock();
 	if (guards)
 		delete guards;
-	else if (node)
-		node->guard->WFConditional::signal(NULL);
+
+	return node;
 }
 
 WFConditional *WFTaskFactory::create_guard(const std::string& name,
@@ -1014,7 +1018,26 @@ WFConditional *WFTaskFactory::create_guard(const std::string& name,
 
 void WFTaskFactory::release_guard(const std::string& name)
 {
-	__guard_map.release(name);
+	struct __guard_node *node = __guard_map.release(name);
+
+	if (node)
+		node->guard->WFConditional::signal(NULL);
+}
+
+void WFTaskFactory::release_guard_safe(const std::string& name)
+{
+	struct __guard_node *node = __guard_map.release(name);
+	WFTimerTask *timer;
+
+	if (node)
+	{
+		timer = WFTaskFactory::create_timer_task(0, 0, [](WFTimerTask *timer) {
+			series_of(timer)->push_front((SubTask *)timer->user_data);
+		});
+		timer->user_data = node->guard->get_task();
+		node->guard->set_task(timer);
+		node->guard->WFConditional::signal(NULL);
+	}
 }
 
 /**************** Timed Go Task *****************/

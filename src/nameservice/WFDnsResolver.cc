@@ -346,6 +346,16 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 	return task;
 }
 
+static std::string __get_guard_name(const char *host, unsigned short port,
+									int address_family)
+{
+	std::string guard_name("dns:");
+	guard_name.append(host ? host : "").append(":");
+	guard_name.append(std::to_string(port)).append(":");
+	guard_name.append(std::to_string(address_family));
+	return guard_name;
+}
+
 void WFResolverTask::dispatch()
 {
 	const ParsedURI& uri = ns_params_.uri;
@@ -355,11 +365,12 @@ void WFResolverTask::dispatch()
 	DnsCache *dns_cache = WFGlobal::get_dns_cache();
 	const DnsCache::DnsHandle *addr_handle;
 	std::string hostname = host_;
+	bool dns_delayed;
 
 	if (ns_params_.retry_times == 0)
-		addr_handle = dns_cache->get_ttl(hostname, port_);
+		addr_handle = dns_cache->get_ttl(hostname, port_, dns_delayed);
 	else
-		addr_handle = dns_cache->get_confident(hostname, port_);
+		addr_handle = dns_cache->get_confident(hostname, port_, dns_delayed);
 
 	if (addr_handle)
 	{
@@ -441,6 +452,22 @@ void WFResolverTask::dispatch()
 		}
 	}
 
+	if (!in_guard_ && !dns_delayed)
+	{
+		std::string guard_name = __get_guard_name(host_, port_,
+												  ep_params_.address_family);
+		WFTimerTask *timer = WFTaskFactory::create_timer_task(0, 0, nullptr);
+		auto *guard = WFTaskFactory::create_guard(guard_name, timer);
+
+		series_of(this)->push_front(this);
+		series_of(this)->push_front(guard);
+		in_guard_ = true;
+
+		this->set_has_next();
+		this->subtask_done();
+		return;
+	}
+
 	WFDnsClient *client = WFGlobal::get_dns_client();
 	if (client)
 	{
@@ -519,12 +546,7 @@ SubTask *WFResolverTask::done()
 	SeriesWork *series = series_of(this);
 
 	if (!has_next_)
-	{
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-	}
+		task_callback();
 	else
 		has_next_ = false;
 
@@ -596,10 +618,7 @@ void WFResolverTask::dns_single_callback(void *net_dns_task)
 		this->error = dns_task->get_error();
 	}
 
-	if (this->callback)
-		this->callback(this);
-
-	delete this;
+	task_callback();
 }
 
 void WFResolverTask::dns_partial_callback(void *net_dns_task)
@@ -659,10 +678,7 @@ void WFResolverTask::dns_parallel_callback(const void *parallel)
 
 	delete[] c4;
 
-	if (this->callback)
-		this->callback(this);
-
-	delete this;
+	task_callback();
 }
 
 void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
@@ -679,6 +695,18 @@ void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
 	{
 		this->state = dns_task->get_state();
 		this->error = dns_task->get_error();
+	}
+
+	task_callback();
+}
+
+void WFResolverTask::task_callback()
+{
+	if (in_guard_)
+	{
+		std::string guard_name = __get_guard_name(host_, port_,
+												  ep_params_.address_family);
+		WFTaskFactory::release_guard(guard_name);
 	}
 
 	if (this->callback)

@@ -38,6 +38,7 @@ public:
 		dns_ttl_default_ = dns_ttl_default;
 		dns_ttl_min_ = dns_ttl_min;
 		has_next_ = false;
+		in_guard_ = false;
 	}
 
 	WFResolverTask(const struct WFNSParams *ns_params,
@@ -46,6 +47,7 @@ public:
 		ns_params_(*ns_params)
 	{
 		has_next_ = false;
+		in_guard_ = false;
 	}
 
 protected:
@@ -62,6 +64,8 @@ private:
 							   unsigned int ttl_default,
 							   unsigned int ttl_min);
 
+	void task_callback();
+
 protected:
 	struct WFNSParams ns_params_;
 	unsigned int dns_ttl_default_;
@@ -72,6 +76,7 @@ private:
 	const char *host_;
 	unsigned short port_;
 	bool has_next_;
+	bool in_guard_;
 };
 
 class WFDnsResolver : public WFNSPolicy

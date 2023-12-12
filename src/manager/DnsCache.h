@@ -35,6 +35,8 @@ struct DnsCacheValue
 	struct addrinfo *addrinfo;
 	int64_t confident_time;
 	int64_t expire_time;
+	bool confident_delayed;
+	bool expire_delayed;
 };
 
 // RAII: NO. Release handle by user
@@ -62,34 +64,38 @@ public:
 		return get(std::string(host), port);
 	}
 
-	const DnsHandle *get_ttl(const HostPort& host_port)
+	const DnsHandle *get_ttl(const HostPort& host_port, bool& delayed)
 	{
-		return get_inner(host_port, GET_TYPE_TTL);
+		return get_inner(host_port, GET_TYPE_TTL, delayed);
 	}
 
-	const DnsHandle *get_ttl(const std::string& host, unsigned short port)
+	const DnsHandle *get_ttl(const std::string& host, unsigned short port,
+							 bool& delayed)
 	{
-		return get_ttl(HostPort(host, port));
+		return get_ttl(HostPort(host, port), delayed);
 	}
 
-	const DnsHandle *get_ttl(const char *host, unsigned short port)
+	const DnsHandle *get_ttl(const char *host, unsigned short port,
+							 bool& delayed)
 	{
-		return get_ttl(std::string(host), port);
+		return get_ttl(std::string(host), port, delayed);
 	}
 
-	const DnsHandle *get_confident(const HostPort& host_port)
+	const DnsHandle *get_confident(const HostPort& host_port, bool& delayed)
 	{
-		return get_inner(host_port, GET_TYPE_CONFIDENT);
+		return get_inner(host_port, GET_TYPE_CONFIDENT, delayed);
 	}
 
-	const DnsHandle *get_confident(const std::string& host, unsigned short port)
+	const DnsHandle *get_confident(const std::string& host, unsigned short port,
+								   bool& delayed)
 	{
-		return get_confident(HostPort(host, port));
+		return get_confident(HostPort(host, port), delayed);
 	}
 
-	const DnsHandle *get_confident(const char *host, unsigned short port)
+	const DnsHandle *get_confident(const char *host, unsigned short port,
+								   bool &delayed)
 	{
-		return get_confident(std::string(host), port);
+		return get_confident(std::string(host), port, delayed);
 	}
 
 	const DnsHandle *put(const HostPort& host_port,
@@ -132,7 +138,8 @@ public:
 	}
 
 private:
-	const DnsHandle *get_inner(const HostPort& host_port, int type);
+	const DnsHandle *get_inner(const HostPort& host_port, int type,
+							   bool &delayed);
 
 	std::mutex mutex_;
 

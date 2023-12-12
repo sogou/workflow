@@ -479,10 +479,8 @@ void WFResolverTask::dispatch()
 	if (!in_guard_ && !delayed)
 	{
 		std::string guard_name = __get_guard_name(chost, port_);
-		WFTimerTask *timer = WFTaskFactory::create_timer_task(0, 0, nullptr);
-		WFConditional *guard = WFTaskFactory::create_guard(guard_name, timer);
+		WFConditional *guard = WFTaskFactory::create_guard(guard_name, this);
 
-		series_of(this)->push_front(this);
 		series_of(this)->push_front(guard);
 		in_guard_ = true;
 
@@ -732,7 +730,7 @@ void WFResolverTask::task_callback()
 		int family = ep_params_.address_family;
 		std::string chost = __get_cache_host(host_, family);
 		std::string guard_name = __get_guard_name(chost, port_);
-		WFTaskFactory::release_guard(guard_name);
+		WFTaskFactory::release_guard_safe(guard_name);
 	}
 
 	if (this->callback)

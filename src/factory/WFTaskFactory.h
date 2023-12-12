@@ -329,6 +329,8 @@ public:
 	   and only after the task is finished, typically in its callback. */
 	static void release_guard(const std::string& resource_name);
 
+	static void release_guard_safe(const std::string& resource_name);
+
 public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,

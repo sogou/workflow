@@ -30,8 +30,6 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 											   int type, bool *delayed)
 {
 	int64_t cur_time = GET_CURRENT_SECOND;
-	*delayed = false;
-
 	std::lock_guard<std::mutex> lock(mutex_);
 	const DnsHandle *handle = cache_pool_.get(host_port);
 
@@ -50,6 +48,8 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 
 					*delayed = (cur_time <= h->value.expire_time);
 				}
+				else
+					*delayed = false;
 
 				cache_pool_.release(handle);
 				return NULL;
@@ -68,6 +68,8 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 
 					*delayed = (cur_time <= h->value.confident_time);
 				}
+				else
+					*delayed = false;
 
 				cache_pool_.release(handle);
 				return NULL;
@@ -79,6 +81,8 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 			break;
 		}
 	}
+	else
+		*delayed = false;
 
 	return handle;
 }

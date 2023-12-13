@@ -349,24 +349,18 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 static std::string __get_cache_host(const std::string& hostname,
 									int family)
 {
-	std::string cache_host = hostname;
+	char c;
 
-	switch (family)
-	{
-	case AF_UNSPEC:
-		cache_host.push_back('*');
-		break;
-	case AF_INET:
-		cache_host.push_back('4');
-		break;
-	case AF_INET6:
-		cache_host.push_back('6');
-		break;
-	default:
-		cache_host.push_back('?');
-	}
+	if (family == AF_UNSPEC)
+		c = '*';
+	else if (family == AF_INET)
+		c = '4';
+	else if (family == AF_INET6)
+		c = '6';
+	else
+		c = '?';
 
-	return cache_host;
+	return hostname + c;
 }
 
 static std::string __get_guard_name(const std::string& cache_host,

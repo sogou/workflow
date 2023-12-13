@@ -170,7 +170,9 @@ sudo dnf install workflow
 # 使用中有疑问？
 可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
 非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。  
-也可以通过QQ群：``618773193`` 联系我们。
+也可以通过QQ群：**618773193** 联系我们。
+
+<img src="https://user-images.githubusercontent.com/1880011/92300953-e9cc5400-ef91-11ea-82f5-4cf3174cd851.jpeg" align=center width = "200" alt="qq_qrcode" />
 
 #### Gitee仓库
 用户可以在访问GitHub遇到困难时，使用我们的Gitee官方仓库：https://gitee.com/sogou/workflow  

@@ -388,13 +388,13 @@ void WFResolverTask::dispatch()
 	const DnsCache::DnsHandle *addr_handle;
 	std::string hostname = host_;
 	int family = ep_params_.address_family;
-	std::string chost = __get_cache_host(hostname, family);
+	std::string cache_host = __get_cache_host(hostname, family);
 	bool delayed;
 
 	if (ns_params_.retry_times == 0)
-		addr_handle = dns_cache->get_ttl(chost, port_, &delayed);
+		addr_handle = dns_cache->get_ttl(cache_host, port_, &delayed);
 	else
-		addr_handle = dns_cache->get_confident(chost, port_, &delayed);
+		addr_handle = dns_cache->get_confident(cache_host, port_, &delayed);
 
 	if (addr_handle)
 	{
@@ -478,7 +478,7 @@ void WFResolverTask::dispatch()
 
 	if (!in_guard_ && !delayed)
 	{
-		std::string guard_name = __get_guard_name(chost, port_);
+		std::string guard_name = __get_guard_name(cache_host, port_);
 		WFConditional *guard = WFTaskFactory::create_guard(guard_name, this);
 
 		series_of(this)->push_front(guard);
@@ -602,9 +602,9 @@ void WFResolverTask::dns_callback_internal(void *thrd_dns_output,
 		const DnsCache::DnsHandle *addr_handle;
 		std::string hostname = host_;
 		int family = ep_params_.address_family;
-		std::string chost = __get_cache_host(hostname, family);
+		std::string cache_host = __get_cache_host(hostname, family);
 
-		addr_handle = dns_cache->put(chost, port_, addrinfo,
+		addr_handle = dns_cache->put(cache_host, port_, addrinfo,
 									 (unsigned int)ttl_default,
 									 (unsigned int)ttl_min);
 		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
@@ -728,8 +728,8 @@ void WFResolverTask::task_callback()
 	if (in_guard_)
 	{
 		int family = ep_params_.address_family;
-		std::string chost = __get_cache_host(host_, family);
-		std::string guard_name = __get_guard_name(chost, port_);
+		std::string cache_host = __get_cache_host(host_, family);
+		std::string guard_name = __get_guard_name(cache_host, port_);
 		WFTaskFactory::release_guard_safe(guard_name);
 	}
 

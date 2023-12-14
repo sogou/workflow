@@ -478,7 +478,7 @@ inline ExecQueue *__ExecManager::get_exec_queue(const std::string& queue_name)
 	return queue;
 }
 
-static void __default_family(bool *v4, bool *v6)
+static void __dns_server_family(bool *v4, bool *v6)
 {
 	const WFGlobalSettings *settings = WFGlobal::get_global_settings();
 	int family = settings->dns_server_params.address_family;
@@ -617,7 +617,7 @@ static int __parse_resolv_conf(const char *path,
 	bool v4 = false;
 	bool v6 = false;
 
-	__default_family(&v4, &v6);
+	__dns_server_family(&v4, &v6);
 	if (!v4 && !v6)
 		v4 = true;
 

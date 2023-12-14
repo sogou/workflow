@@ -383,12 +383,20 @@ void WFResolverTask::dispatch()
 	std::string hostname = host_;
 	int family = ep_params_.address_family;
 	std::string cache_host = __get_cache_host(hostname, family);
-	bool delayed;
 
 	if (ns_params_.retry_times == 0)
-		addr_handle = dns_cache->get_ttl(cache_host, port_, &delayed);
+		addr_handle = dns_cache->get_ttl(cache_host, port_);
 	else
-		addr_handle = dns_cache->get_confident(cache_host, port_, &delayed);
+		addr_handle = dns_cache->get_confident(cache_host, port_);
+
+	if (in_guard_ && (addr_handle == NULL || addr_handle->value.delayed))
+	{
+		if (addr_handle)
+			dns_cache->release(addr_handle);
+
+		this->request_dns();
+		return;
+	}
 
 	if (addr_handle)
 	{
@@ -470,19 +478,18 @@ void WFResolverTask::dispatch()
 		}
 	}
 
-	if (!in_guard_ && !delayed)
-	{
-		std::string guard_name = __get_guard_name(cache_host, port_);
-		WFConditional *guard = WFTaskFactory::create_guard(guard_name, this);
+	std::string guard_name = __get_guard_name(cache_host, port_);
+	WFConditional *guard = WFTaskFactory::create_guard(guard_name, this);
 
-		series_of(this)->push_front(guard);
-		in_guard_ = true;
+	in_guard_ = true;
+	has_next_ = true;
 
-		this->set_has_next();
-		this->subtask_done();
-		return;
-	}
+	series_of(this)->push_front(guard);
+	this->subtask_done();
+}
 
+void WFResolverTask::request_dns()
+{
 	WFDnsClient *client = WFGlobal::get_dns_client();
 	if (client)
 	{
@@ -498,7 +505,7 @@ void WFResolverTask::dispatch()
 			auto&& cb = std::bind(&WFResolverTask::dns_single_callback,
 								  this,
 								  std::placeholders::_1);
-			WFDnsTask *dns_task = client->create_dns_task(hostname, std::move(cb));
+			WFDnsTask *dns_task = client->create_dns_task(host_, std::move(cb));
 
 			if (family == AF_INET6)
 				dns_task->get_req()->set_question_type(DNS_TYPE_AAAA);
@@ -518,10 +525,10 @@ void WFResolverTask::dispatch()
 			dctx[0].port = port_;
 			dctx[1].port = port_;
 
-			task_v4 = client->create_dns_task(hostname, dns_partial_callback);
+			task_v4 = client->create_dns_task(host_, dns_partial_callback);
 			task_v4->user_data = dctx;
 
-			task_v6 = client->create_dns_task(hostname, dns_partial_callback);
+			task_v6 = client->create_dns_task(host_, dns_partial_callback);
 			task_v6->get_req()->set_question_type(DNS_TYPE_AAAA);
 			task_v6->user_data = dctx + 1;
 
@@ -546,7 +553,7 @@ void WFResolverTask::dispatch()
 		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
 							  this,
 							  std::placeholders::_1);
-		dns_task = __create_thread_dns_task(hostname, port_,
+		dns_task = __create_thread_dns_task(host_, port_,
 											ep_params_.address_family,
 											std::move(cb));
 		series_of(this)->push_front(dns_task);

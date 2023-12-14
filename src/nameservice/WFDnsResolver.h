@@ -64,6 +64,7 @@ private:
 							   unsigned int ttl_default,
 							   unsigned int ttl_min);
 
+	void request_dns();
 	void task_callback();
 
 protected:

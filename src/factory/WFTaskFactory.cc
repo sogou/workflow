@@ -1004,9 +1004,7 @@ struct __guard_node *__NamedGuardMap::release(const std::string& name)
 	}
 
 	mutex_.unlock();
-	if (guards)
-		delete guards;
-
+	delete guards;
 	return node;
 }
 

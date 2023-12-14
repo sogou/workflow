@@ -897,6 +897,9 @@ public:
 
 public:
 	WFConditional *create(const std::string& name, SubTask *task);
+	WFConditional *create(const std::string& name, SubTask *task,
+						  void **msgbuf);
+
 	struct __guard_node *release(const std::string& name);
 
 	void unref(GuardList *guards)
@@ -926,6 +929,11 @@ class __WFNamedGuard : public WFConditional
 {
 public:
 	__WFNamedGuard(SubTask *task) : WFConditional(task)
+	{
+		node_.guard = this;
+	}
+
+	__WFNamedGuard(SubTask *task, void **msgbuf) : WFConditional(task, msgbuf)
 	{
 		node_.guard = this;
 	}
@@ -976,6 +984,17 @@ WFConditional *__NamedGuardMap::create(const std::string& name,
 	return guard;
 }
 
+WFConditional *__NamedGuardMap::create(const std::string& name,
+									   SubTask *task, void **msgbuf)
+{
+	auto *guard = new __WFNamedGuard(task, msgbuf);
+	mutex_.lock();
+	guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
+	guard->guards_->refcnt++;
+	mutex_.unlock();
+	return guard;
+}
+
 struct __guard_node *__NamedGuardMap::release(const std::string& name)
 {
 	struct __guard_node *node = NULL;
@@ -1014,15 +1033,21 @@ WFConditional *WFTaskFactory::create_guard(const std::string& name,
 	return __guard_map.create(name, task);
 }
 
-void WFTaskFactory::release_guard(const std::string& name)
+WFConditional *WFTaskFactory::create_guard(const std::string& name,
+										   SubTask *task, void **msgbuf)
+{
+	return __guard_map.create(name, task, msgbuf);
+}
+
+void WFTaskFactory::release_guard(const std::string& name, void *msg)
 {
 	struct __guard_node *node = __guard_map.release(name);
 
 	if (node)
-		node->guard->WFConditional::signal(NULL);
+		node->guard->WFConditional::signal(msg);
 }
 
-void WFTaskFactory::release_guard_safe(const std::string& name)
+void WFTaskFactory::release_guard_safe(const std::string& name, void *msg)
 {
 	struct __guard_node *node = __guard_map.release(name);
 	WFTimerTask *timer;
@@ -1034,7 +1059,7 @@ void WFTaskFactory::release_guard_safe(const std::string& name)
 		});
 		timer->user_data = node->guard->get_task();
 		node->guard->set_task(timer);
-		node->guard->WFConditional::signal(NULL);
+		node->guard->WFConditional::signal(msg);
 	}
 }
 

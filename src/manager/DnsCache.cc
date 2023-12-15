@@ -23,55 +23,31 @@
 
 #define GET_CURRENT_SECOND	std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
 
-#define CONFIDENT_INC		5
 #define	TTL_INC				5
 
 const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 											   int type)
 {
-	int64_t cur_time = GET_CURRENT_SECOND;
+	int64_t cur = GET_CURRENT_SECOND;
 	std::lock_guard<std::mutex> lock(mutex_);
 	const DnsHandle *handle = cache_pool_.get(host_port);
 
-	if (handle)
+	if (handle && ((type == GET_TYPE_TTL && cur > handle->value.expire_time) ||
+		(type == GET_TYPE_CONFIDENT && cur > handle->value.confident_time)))
 	{
-		switch (type)
+		if (!handle->value.delayed)
 		{
-		case GET_TYPE_TTL:
-			if (cur_time > handle->value.expire_time)
-			{
-				if (!handle->value.delayed)
-				{
-					DnsHandle *h = const_cast<DnsHandle *>(handle);
-					h->value.expire_time += TTL_INC;
-					h->value.delayed = true;
-				}
+			DnsHandle *h = const_cast<DnsHandle *>(handle);
+			if (type == GET_TYPE_TTL)
+				h->value.expire_time += TTL_INC;
+			else
+				h->value.confident_time += TTL_INC;
 
-				cache_pool_.release(handle);
-				return NULL;
-			}
-
-			break;
-
-		case GET_TYPE_CONFIDENT:
-			if (cur_time > handle->value.confident_time)
-			{
-				if (!handle->value.delayed)
-				{
-					DnsHandle *h = const_cast<DnsHandle *>(handle);
-					h->value.confident_time += CONFIDENT_INC;
-					h->value.delayed = true;
-				}
-
-				cache_pool_.release(handle);
-				return NULL;
-			}
-
-			break;
-
-		default:
-			break;
+			h->value.delayed = true;
 		}
+
+		cache_pool_.release(handle);
+		return NULL;
 	}
 
 	return handle;

@@ -486,10 +486,12 @@ static void __dns_server_family(bool *v4, bool *v6)
 	if (family == AF_INET)
 	{
 		*v4 = true;
+		*v6 = false;
 		return;
 	}
 	else if (family == AF_INET6)
 	{
+		*v4 = false;
 		*v6 = true;
 		return;
 	}
@@ -501,6 +503,9 @@ static void __dns_server_family(bool *v4, bool *v6)
 	};
 	struct addrinfo *res;
 	struct addrinfo *cur;
+
+	*v4 = false;
+	*v6 = false;
 
 	if (getaddrinfo(NULL, "1", &hints, &res) == 0)
 	{
@@ -614,8 +619,7 @@ static int __parse_resolv_conf(const char *path,
 	if (!fp)
 		return -1;
 
-	bool v4 = false;
-	bool v6 = false;
+	bool v4, v6;
 
 	__dns_server_family(&v4, &v6);
 	if (!v4 && !v6)

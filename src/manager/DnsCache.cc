@@ -35,7 +35,7 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 	if (handle && ((type == GET_TYPE_TTL && cur > handle->value.expire_time) ||
 		(type == GET_TYPE_CONFIDENT && cur > handle->value.confident_time)))
 	{
-		if (!handle->value.delayed)
+		if (!handle->value.delayed())
 		{
 			DnsHandle *h = const_cast<DnsHandle *>(handle);
 			if (type == GET_TYPE_TTL)
@@ -43,7 +43,7 @@ const DnsCache::DnsHandle *DnsCache::get_inner(const HostPort& host_port,
 			else
 				h->value.confident_time += TTL_INC;
 
-			h->value.delayed = true;
+			h->value.addrinfo->ai_flags |= 2;
 		}
 
 		cache_pool_.release(handle);

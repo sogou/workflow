@@ -321,12 +321,11 @@ static int __readaddrinfo(const char *path,
 	return ret;
 }
 
-// Add AI_PASSIVE to point that this addrinfo is alloced by getaddrinfo
-static void __add_passive_flags(struct addrinfo *ai)
+static void __set_thread_dns_flag(struct addrinfo *ai)
 {
 	while (ai)
 	{
-		ai->ai_flags |= AI_PASSIVE;
+		ai->ai_flags = 1;
 		ai = ai->ai_next;
 	}
 }
@@ -366,7 +365,7 @@ static std::string __get_cache_host(const std::string& hostname,
 static std::string __get_guard_name(const std::string& cache_host,
 									unsigned short port)
 {
-	std::string guard_name("dns:");
+	std::string guard_name("INTERNAL-dns:");
 	guard_name.append(cache_host).append(":");
 	guard_name.append(std::to_string(port));
 	return guard_name;
@@ -389,7 +388,7 @@ void WFResolverTask::dispatch()
 	else
 		addr_handle = dns_cache->get_confident(cache_host, port_);
 
-	if (in_guard_ && (addr_handle == NULL || addr_handle->value.delayed))
+	if (in_guard_ && (addr_handle == NULL || addr_handle->value.delayed()))
 	{
 		if (addr_handle)
 			dns_cache->release(addr_handle);
@@ -448,7 +447,7 @@ void WFResolverTask::dispatch()
 			DnsOutput dns_out;
 
 			DnsRoutine::run(&dns_in, &dns_out);
-			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
+			__set_thread_dns_flag((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
 			this->subtask_done();
 			return;
@@ -471,7 +470,7 @@ void WFResolverTask::dispatch()
 		{
 			DnsOutput out;
 			DnsRoutine::create(&out, ret, ai);
-			__add_passive_flags((struct addrinfo *)out.get_addrinfo());
+			__set_thread_dns_flag((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
 			this->subtask_done();
 			return;
@@ -712,7 +711,7 @@ void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		DnsOutput *out = dns_task->get_output();
-		__add_passive_flags((struct addrinfo *)out->get_addrinfo());
+		__set_thread_dns_flag((struct addrinfo *)out->get_addrinfo());
 		dns_callback_internal(out, dns_ttl_default_, dns_ttl_min_);
 	}
 	else

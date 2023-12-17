@@ -363,6 +363,23 @@ static double __evaluate_json_number(const char *integer,
 		figures++;
 	}
 
+	if (exp != 0 && figures != 0)
+	{
+		while (exp > 0 && figures < 18)
+		{
+			mant *= 10;
+			exp--;
+			figures++;
+		}
+
+		while (exp < 0 && mant % 10 == 0)
+		{
+			mant /= 10;
+			exp++;
+			figures--;
+		}
+	}
+
 	num = mant;
 	if (exp != 0 && figures != 0)
 	{

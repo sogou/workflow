@@ -478,51 +478,7 @@ inline ExecQueue *__ExecManager::get_exec_queue(const std::string& queue_name)
 	return queue;
 }
 
-static void __dns_server_family(bool *v4, bool *v6)
-{
-	const WFGlobalSettings *settings = WFGlobal::get_global_settings();
-	int family = settings->dns_server_params.address_family;
-
-	if (family == AF_INET)
-	{
-		*v4 = true;
-		*v6 = false;
-		return;
-	}
-	else if (family == AF_INET6)
-	{
-		*v4 = false;
-		*v6 = true;
-		return;
-	}
-
-	struct addrinfo hints = {
-		.ai_flags		=	AI_ADDRCONFIG,
-		.ai_family		=	AF_UNSPEC,
-		.ai_socktype	=	SOCK_STREAM,
-	};
-	struct addrinfo *res;
-	struct addrinfo *cur;
-
-	*v4 = false;
-	*v6 = false;
-
-	if (getaddrinfo(NULL, "1", &hints, &res) == 0)
-	{
-		for (cur = res; cur; cur = cur->ai_next)
-		{
-			if (cur->ai_family == AF_INET)
-				*v4 = true;
-			else if (cur->ai_family == AF_INET6)
-				*v6 = true;
-		}
-
-		freeaddrinfo(res);
-	}
-}
-
 static void __split_merge_str(const char *p, bool is_nameserver,
-							  bool v4, bool v6,
 							  std::string& result)
 {
 	const char *start;
@@ -542,28 +498,18 @@ static void __split_merge_str(const char *p, bool is_nameserver,
 		if (start == p)
 			break;
 
+		if (!result.empty())
+			result.push_back(',');
+
 		std::string str(start, p);
 		if (is_nameserver)
 		{
 			struct in6_addr buf;
 			if (inet_pton(AF_INET6, str.c_str(), &buf) > 0)
-			{
-				if (v6)
-					str = "[" + str + "]";
-				else
-					str.clear();
-			}
-			else if (!v4)
-				str.clear();
+				str = "[" + str + "]";
 		}
 
-		if (!str.empty())
-		{
-			if (!result.empty())
-				result.push_back(',');
-
-			result.append(str);
-		}
+		result.append(str);
 	}
 }
 
@@ -619,18 +565,12 @@ static int __parse_resolv_conf(const char *path,
 	if (!fp)
 		return -1;
 
-	bool v4, v6;
-
-	__dns_server_family(&v4, &v6);
-	if (!v4 && !v6)
-		v4 = true;
-
 	while ((ret = getline(&line, &bufsize, fp)) > 0)
 	{
 		if (strncmp(line, "nameserver", 10) == 0)
-			__split_merge_str(line + 10, true, v4, v6, url);
+			__split_merge_str(line + 10, true, url);
 		else if (strncmp(line, "search", 6) == 0)
-			__split_merge_str(line + 6, false, v4, v6, search_list);
+			__split_merge_str(line + 6, false, search_list);
 		else if (strncmp(line, "options", 7) == 0)
 			__set_options(line + 7, ndots, attempts, rotate);
 	}

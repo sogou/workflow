@@ -321,12 +321,11 @@ static int __readaddrinfo(const char *path,
 	return ret;
 }
 
-// Add AI_PASSIVE to point that this addrinfo is alloced by getaddrinfo
-static void __add_passive_flags(struct addrinfo *ai)
+static void __set_thread_dns_flag(struct addrinfo *ai)
 {
 	while (ai)
 	{
-		ai->ai_flags |= AI_PASSIVE;
+		ai->ai_flags = 1;
 		ai = ai->ai_next;
 	}
 }
@@ -346,6 +345,32 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 	return task;
 }
 
+static std::string __get_cache_host(const std::string& hostname,
+									int family)
+{
+	char c;
+
+	if (family == AF_UNSPEC)
+		c = '*';
+	else if (family == AF_INET)
+		c = '4';
+	else if (family == AF_INET6)
+		c = '6';
+	else
+		c = '?';
+
+	return hostname + c;
+}
+
+static std::string __get_guard_name(const std::string& cache_host,
+									unsigned short port)
+{
+	std::string guard_name("INTERNAL-dns:");
+	guard_name.append(cache_host).append(":");
+	guard_name.append(std::to_string(port));
+	return guard_name;
+}
+
 void WFResolverTask::dispatch()
 {
 	const ParsedURI& uri = ns_params_.uri;
@@ -355,11 +380,22 @@ void WFResolverTask::dispatch()
 	DnsCache *dns_cache = WFGlobal::get_dns_cache();
 	const DnsCache::DnsHandle *addr_handle;
 	std::string hostname = host_;
+	int family = ep_params_.address_family;
+	std::string cache_host = __get_cache_host(hostname, family);
 
 	if (ns_params_.retry_times == 0)
-		addr_handle = dns_cache->get_ttl(hostname, port_);
+		addr_handle = dns_cache->get_ttl(cache_host, port_);
 	else
-		addr_handle = dns_cache->get_confident(hostname, port_);
+		addr_handle = dns_cache->get_confident(cache_host, port_);
+
+	if (in_guard_ && (addr_handle == NULL || addr_handle->value.delayed()))
+	{
+		if (addr_handle)
+			dns_cache->release(addr_handle);
+
+		this->request_dns();
+		return;
+	}
 
 	if (addr_handle)
 	{
@@ -411,7 +447,7 @@ void WFResolverTask::dispatch()
 			DnsOutput dns_out;
 
 			DnsRoutine::run(&dns_in, &dns_out);
-			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
+			__set_thread_dns_flag((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
 			this->subtask_done();
 			return;
@@ -434,13 +470,25 @@ void WFResolverTask::dispatch()
 		{
 			DnsOutput out;
 			DnsRoutine::create(&out, ret, ai);
-			__add_passive_flags((struct addrinfo *)out.get_addrinfo());
+			__set_thread_dns_flag((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
 			this->subtask_done();
 			return;
 		}
 	}
 
+	std::string guard_name = __get_guard_name(cache_host, port_);
+	WFConditional *guard = WFTaskFactory::create_guard(guard_name, this);
+
+	in_guard_ = true;
+	has_next_ = true;
+
+	series_of(this)->push_front(guard);
+	this->subtask_done();
+}
+
+void WFResolverTask::request_dns()
+{
 	WFDnsClient *client = WFGlobal::get_dns_client();
 	if (client)
 	{
@@ -456,7 +504,7 @@ void WFResolverTask::dispatch()
 			auto&& cb = std::bind(&WFResolverTask::dns_single_callback,
 								  this,
 								  std::placeholders::_1);
-			WFDnsTask *dns_task = client->create_dns_task(hostname, std::move(cb));
+			WFDnsTask *dns_task = client->create_dns_task(host_, std::move(cb));
 
 			if (family == AF_INET6)
 				dns_task->get_req()->set_question_type(DNS_TYPE_AAAA);
@@ -476,10 +524,10 @@ void WFResolverTask::dispatch()
 			dctx[0].port = port_;
 			dctx[1].port = port_;
 
-			task_v4 = client->create_dns_task(hostname, dns_partial_callback);
+			task_v4 = client->create_dns_task(host_, dns_partial_callback);
 			task_v4->user_data = dctx;
 
-			task_v6 = client->create_dns_task(hostname, dns_partial_callback);
+			task_v6 = client->create_dns_task(host_, dns_partial_callback);
 			task_v6->get_req()->set_question_type(DNS_TYPE_AAAA);
 			task_v6->user_data = dctx + 1;
 
@@ -504,7 +552,7 @@ void WFResolverTask::dispatch()
 		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
 							  this,
 							  std::placeholders::_1);
-		dns_task = __create_thread_dns_task(hostname, port_,
+		dns_task = __create_thread_dns_task(host_, port_,
 											ep_params_.address_family,
 											std::move(cb));
 		series_of(this)->push_front(dns_task);
@@ -519,12 +567,7 @@ SubTask *WFResolverTask::done()
 	SeriesWork *series = series_of(this);
 
 	if (!has_next_)
-	{
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-	}
+		task_callback();
 	else
 		has_next_ = false;
 
@@ -558,8 +601,10 @@ void WFResolverTask::dns_callback_internal(void *thrd_dns_output,
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
 		const DnsCache::DnsHandle *addr_handle;
 		std::string hostname = host_;
+		int family = ep_params_.address_family;
+		std::string cache_host = __get_cache_host(hostname, family);
 
-		addr_handle = dns_cache->put(hostname, port_, addrinfo,
+		addr_handle = dns_cache->put(cache_host, port_, addrinfo,
 									 (unsigned int)ttl_default,
 									 (unsigned int)ttl_min);
 		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
@@ -596,10 +641,7 @@ void WFResolverTask::dns_single_callback(void *net_dns_task)
 		this->error = dns_task->get_error();
 	}
 
-	if (this->callback)
-		this->callback(this);
-
-	delete this;
+	task_callback();
 }
 
 void WFResolverTask::dns_partial_callback(void *net_dns_task)
@@ -659,10 +701,7 @@ void WFResolverTask::dns_parallel_callback(const void *parallel)
 
 	delete[] c4;
 
-	if (this->callback)
-		this->callback(this);
-
-	delete this;
+	task_callback();
 }
 
 void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
@@ -672,13 +711,26 @@ void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		DnsOutput *out = dns_task->get_output();
-		__add_passive_flags((struct addrinfo *)out->get_addrinfo());
+		__set_thread_dns_flag((struct addrinfo *)out->get_addrinfo());
 		dns_callback_internal(out, dns_ttl_default_, dns_ttl_min_);
 	}
 	else
 	{
 		this->state = dns_task->get_state();
 		this->error = dns_task->get_error();
+	}
+
+	task_callback();
+}
+
+void WFResolverTask::task_callback()
+{
+	if (in_guard_)
+	{
+		int family = ep_params_.address_family;
+		std::string cache_host = __get_cache_host(host_, family);
+		std::string guard_name = __get_guard_name(cache_host, port_);
+		WFTaskFactory::release_guard_safe(guard_name);
 	}
 
 	if (this->callback)

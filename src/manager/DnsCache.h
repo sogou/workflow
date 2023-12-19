@@ -35,6 +35,11 @@ struct DnsCacheValue
 	struct addrinfo *addrinfo;
 	int64_t confident_time;
 	int64_t expire_time;
+
+	bool delayed() const
+	{
+		return addrinfo->ai_flags & 2;
+	}
 };
 
 // RAII: NO. Release handle by user
@@ -143,7 +148,7 @@ private:
 		{
 			struct addrinfo *ai = value.addrinfo;
 
-			if (ai && (ai->ai_flags & AI_PASSIVE))
+			if (ai && (ai->ai_flags & 1))
 				freeaddrinfo(ai);
 			else
 				protocol::DnsUtil::freeaddrinfo(ai);

@@ -39,6 +39,7 @@ public:
 		dns_ttl_min_ = dns_ttl_min;
 		has_next_ = false;
 		in_guard_ = false;
+		msg_ = NULL;
 	}
 
 	WFResolverTask(const struct WFNSParams *ns_params,
@@ -48,6 +49,7 @@ public:
 	{
 		has_next_ = false;
 		in_guard_ = false;
+		msg_ = NULL;
 	}
 
 protected:
@@ -78,6 +80,7 @@ private:
 	unsigned short port_;
 	bool has_next_;
 	bool in_guard_;
+	void *msg_;
 };
 
 class WFDnsResolver : public WFNSPolicy

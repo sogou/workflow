@@ -26,6 +26,7 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <utility>
 #include <string>
@@ -373,6 +374,14 @@ static std::string __get_guard_name(const std::string& cache_host,
 
 void WFResolverTask::dispatch()
 {
+	if (this->msg_)
+	{
+		this->state = WFT_STATE_DNS_ERROR;
+		this->error = (intptr_t)msg_;
+		this->subtask_done();
+		return;
+	}
+
 	const ParsedURI& uri = ns_params_.uri;
 	host_ = uri.host ? uri.host : "";
 	port_ = uri.port ? atoi(uri.port) : 0;
@@ -478,7 +487,7 @@ void WFResolverTask::dispatch()
 	}
 
 	std::string guard_name = __get_guard_name(cache_host, port_);
-	WFConditional *guard = WFTaskFactory::create_guard(guard_name, this);
+	WFConditional *guard = WFTaskFactory::create_guard(guard_name, this, &msg_);
 
 	in_guard_ = true;
 	has_next_ = true;
@@ -730,7 +739,11 @@ void WFResolverTask::task_callback()
 		int family = ep_params_.address_family;
 		std::string cache_host = __get_cache_host(host_, family);
 		std::string guard_name = __get_guard_name(cache_host, port_);
-		WFTaskFactory::release_guard_safe(guard_name);
+
+		if (this->state == WFT_STATE_DNS_ERROR)
+			msg_ = (void *)(intptr_t)this->error;
+
+		WFTaskFactory::release_guard_safe(guard_name, msg_);
 	}
 
 	if (this->callback)

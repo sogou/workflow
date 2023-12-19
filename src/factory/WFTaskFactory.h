@@ -286,11 +286,26 @@ public:
 	static WFConditional *create_guard(const std::string& resource_name,
 									   SubTask *task);
 
-	/* The 'guard' is acquired after started, so call 'release_guard' after
-	   and only after the task is finished, typically in its callback. */
-	static void release_guard(const std::string& resource_name);
+	static WFConditional *create_guard(const std::string& resource_name,
+									   SubTask *task, void **msgbuf);
 
-	static void release_guard_safe(const std::string& resource_name);
+	/* The 'guard' is acquired after started, so call 'release_guard' after
+	   and only after the task is finished, typically in its callback.
+	   The function returns 1 if another is signaled, otherwise returns 0. */
+	static int release_guard(const std::string& resource_name)
+	{
+		return WFTaskFactory::release_guard(resource_name, NULL);
+	}
+
+	static int release_guard(const std::string& resaource_name, void *msg);
+
+	static int release_guard_safe(const std::string& resource_name)
+	{
+		return WFTaskFactory::release_guard_safe(resource_name, NULL);
+	}
+
+	static int release_guard_safe(const std::string& resource_name, void *msg);
+
 
 public:
 	template<class FUNC, class... ARGS>

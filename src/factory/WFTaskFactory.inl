@@ -577,7 +577,9 @@ public:
 protected:
 	virtual void execute()
 	{
-		this->go();
+		if (this->go) {
+			this->go();
+		}
 	}
 
 protected:

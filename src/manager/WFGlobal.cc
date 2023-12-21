@@ -510,7 +510,7 @@ static std::string __dns_server_url(const std::string& url,
 }
 
 static void __split_merge_str(const char *p, bool is_nameserver,
-							  struct addrinfo *hints,
+							  const struct addrinfo *hints,
 							  std::string& result)
 {
 	const char *start;

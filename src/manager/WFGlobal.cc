@@ -35,6 +35,7 @@
 #include "WFTaskError.h"
 #include "WFDnsClient.h"
 #include "WFGlobal.h"
+#include "URIParser.h"
 
 class __WFGlobal
 {
@@ -373,7 +374,38 @@ inline ExecQueue *__ExecManager::get_exec_queue(const std::string& queue_name)
 	return queue;
 }
 
+static std::string __dns_server_url(const std::string& url,
+									const struct addrinfo *hints)
+{
+	std::string host;
+	ParsedURI uri;
+	struct addrinfo *res;
+	struct in6_addr buf;
+
+	if (strncasecmp(url.c_str(), "dns://", 6) == 0 ||
+		strncasecmp(url.c_str(), "dnss://", 7) == 0)
+	{
+		host = url;
+	}
+	else if (inet_pton(AF_INET6, url.c_str(), &buf) > 0)
+		host = "dns://[" + url + "]";
+	else
+		host = "dns://" + url;
+
+	if (URIParser::parse(host, uri) == 0 && uri.host && uri.host[0])
+	{
+		if (getaddrinfo(uri.host, "53", hints, &res) == 0)
+		{
+			freeaddrinfo(res);
+			return host;
+		}
+	}
+
+	return "";
+}
+
 static void __split_merge_str(const char *p, bool is_nameserver,
+							  const struct addrinfo *hints,
 							  std::string& result)
 {
 	const char *start;
@@ -393,18 +425,17 @@ static void __split_merge_str(const char *p, bool is_nameserver,
 		if (start == p)
 			break;
 
-		if (!result.empty())
-			result.push_back(',');
-
 		std::string str(start, p);
 		if (is_nameserver)
-		{
-			struct in6_addr buf;
-			if (inet_pton(AF_INET6, str.c_str(), &buf) > 0)
-				str = "[" + str + "]";
-		}
+			str = __dns_server_url(str, hints);
 
-		result.append(str);
+		if (!str.empty())
+		{
+			if (!result.empty())
+				result.push_back(',');
+
+			result.append(str);
+		}
 	}
 }
 
@@ -460,12 +491,19 @@ static int __parse_resolv_conf(const char *path,
 	if (!fp)
 		return -1;
 
+	const struct WFGlobalSettings *settings = WFGlobal::get_global_settings();
+	struct addrinfo hints = {
+		.ai_flags		=	AI_ADDRCONFIG | AI_NUMERICHOST | AI_NUMERICSERV,
+		.ai_family		=	settings->dns_server_params.address_family,
+		.ai_socktype	=	SOCK_STREAM,
+	};
+
 	while ((ret = getline(&line, &bufsize, fp)) > 0)
 	{
 		if (strncmp(line, "nameserver", 10) == 0)
-			__split_merge_str(line + 10, true, url);
+			__split_merge_str(line + 10, true, &hints, url);
 		else if (strncmp(line, "search", 6) == 0)
-			__split_merge_str(line + 6, false, search_list);
+			__split_merge_str(line + 6, false, &hints, search_list);
 		else if (strncmp(line, "options", 7) == 0)
 			__set_options(line + 7, ndots, attempts, rotate);
 	}

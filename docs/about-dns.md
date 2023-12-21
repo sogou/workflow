@@ -20,7 +20,8 @@ workflow也设计了自己的DNS Cache，为了方便用户使用，DNS这部分
 4. DNS解析使用的是一个完全独立隔离的线程池，即不占用计算线程池、也不占用通信线程池。
 
 #### 异步请求
-框架实现了完备的DNS协议解析，当前版本需要用户手动指定`resolv_conf_path`来启用此功能。在常见的Linux发行版上，`resolv_conf_path`一般是`/etc/resolv.conf`，`hosts_path`一般是`/etc/hosts`。将上述参数置空，则会使用同步请求方案。
+框架实现了完备的DNS协议解析，在Unix系统下默认将默认使用框架内置的DNS解析器，不会创建DNS线程池。  
+如需想恢复为多线程dns解析，需要在全局配置里将resolv_conf_path参数设置为NULL。
 
 ### 全局DNS配置
 
@@ -42,6 +43,7 @@ struct WFGlobalSettings
 static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
 {
     .endpoint_params    =    ENDPOINT_PARAMS_DEFAULT,
+    .dns_server_params	=    ENDPOINT_PARAMS_DEFAULT,
     .dns_ttl_default    =    12 * 3600,  /* in seconds */
     .dns_ttl_min        =    180,        /* reacquire when communication error */
     .dns_threads        =    4,
@@ -51,14 +53,14 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
     .resolv_conf_path   =    "/etc/resolv.conf",
     .hosts_path         =    "/etc/hosts",
 };
-//compute_threads<=0 means auto-set by system cpu number
 ~~~
 其中，与DNS相关的配置包括：
+  * dns_server_params：对dns服务器的最大并发数，超时等配置。
   * dns_threads: DNS线程池线程数，默认4。只有当resolv_conf_path配置为空时，这个参数才会起作用。否则我们并不会创建dns线程。
   * dns_ttl_default: DNS Cache中默认的TTL，单位秒，默认12小时，dns cache是当前进程的，即进程退出就会消失，配置也仅对当前进程有效。
   * dns_ttl_min: dns最短生效时间，单位秒，默认3分钟，用于通信失败重试是否尝试重新dns的决策。
-  * resolv_conf_path: resolv.conf配置文件路径，为NULL表示使用多线程DNS解析
-  * hosts_path: hosts配置文件路径。可以为NULL
+  * resolv_conf_path: resolv.conf配置文件路径，为NULL表示使用多线程DNS解析。
+  * hosts_path: hosts配置文件路径。可以为NULL。
 
 简单来讲，每次通信都会检查TTL来决定要不要重新进行DNS解析。  
 默认检查dns_ttl_default，通信失败重试时才会去检查dns_ttl_min。
@@ -91,20 +93,8 @@ int main()
 }
 ~~~
 
-### 高并发场景下TTL过期瞬间的处理
-
-如果TTL过期瞬间，对这个域名正在发生大量的并发请求，可能会面临同一时刻对同一个域名进行大量DNS解析。  
-框架通过自洽逻辑，合理规避/降低这种可能的发生：
-  * 从DNS Cache中get结果时，如果发生TTL过期，会直接将TTL过期时间增加10秒，然后把过期这个结果返回出去，这一系列在一个互斥锁的保护下进行。
-  * 如果TTL过期瞬间大量请求涌入，在这段互斥逻辑的保护下，【第一个】发现过期会得到过期的结果并发起DNS解析、而其他请求10秒内都会继续使用旧的结果。
-  * 只要10秒内【第一个】成功完成新的DNS解析，就可以更新DNS Cache、保证逻辑的正确性；下一个10秒，会再进行有且只有1次的DNS解析。
-  * 每一个10秒，会对“刚刚”过期域名进行有且只有1次的DNS解析。
-  * 为了不让这段互斥逻辑影响性能，框架使用了双检锁的模式进行处理加速、有效规避互斥锁的竞争。
-  * 再次强调，仅对“刚刚”过期的有效、对于过期时间太久了并没有作用。
-  * 如果想更进一步的理解这部分逻辑，请查阅[DNSCache](../src/manager/DNSCache.h)的源码。
-
-框架目前仍然有两种场景会面临同一时刻对同一个域名进行大量DNS解析：
-1. 程序刚刚启动，瞬间对同一个域名进行大量请求。
-2. 对一个域名相当长一段时间没有访问（远大于TTL），突然一瞬间对这个域名进行大量请求。
-
-框架认为这两种场景是可以接受的，更确切的说这种场景下的大量DNS请求是完全合理且逻辑严密的。
+### DNS解析策略与DNS cache过期策略
+* 同一个域名，同时只会发送一个DNS请求，这是通过一种异步锁机制实现的。
+  * 只有一种例外，两个不同的upstream指向同一个域名，但分别要求只用IPv4和只用IPv6，可能会同时发起两个请求。
+* 对DNS server的最大并发，受dns_server_params.max_connections控制，默认为200。
+* 某个域名DNS cache过期一瞬间，如果多个请求同时需要请求该域名，会有一个任务重新发起DNS请求，并把原cache有效期临时延长5秒，尽量减少DNS cache过期引起的访问中断。

@@ -480,42 +480,29 @@ inline ExecQueue *__ExecManager::get_exec_queue(const std::string& queue_name)
 }
 
 static std::string __dns_server_url(const std::string& url,
-									struct addrinfo *hints)
+									const struct addrinfo *hints)
 {
-	struct addrinfo *res;
-	int ret;
-
-	ret = getaddrinfo(url.c_str(), "53", hints, &res);
-	if (ret == 0)
-	{
-		int family = res->ai_family;
-		freeaddrinfo(res);
-
-		if (family != AF_INET6)
-			return url;
-		else
-			return "[" + url + "]";
-	}
-	else if (ret == EAI_ADDRFAMILY)
-		return "";
-
 	std::string host;
 	ParsedURI uri;
+	struct addrinfo *res;
+	struct in6_addr buf;
 
-	if (strncasecmp(url.c_str(), "dns://", 6) != 0 &&
-		strncasecmp(url.c_str(), "dnss://", 7) != 0)
+	if (strncasecmp(url.c_str(), "dns://", 6) == 0 ||
+		strncasecmp(url.c_str(), "dnss://", 7) == 0)
 	{
-		host = "dns://" + url;
-	}
-	else
 		host = url;
+	}
+	else if (inet_pton(AF_INET6, url.c_str(), &buf) > 0)
+		host = "dns://[" + url + "]";
+	else
+		host = "dns://" + url;
 
 	if (URIParser::parse(host, uri) == 0 && uri.host && uri.host[0])
 	{
 		if (getaddrinfo(uri.host, "53", hints, &res) == 0)
 		{
 			freeaddrinfo(res);
-			return url;
+			return host;
 		}
 	}
 

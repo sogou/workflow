@@ -380,23 +380,18 @@ static double __evaluate_json_number(const char *integer,
 		}
 	}
 
-	num = mant;
-	if (exp != 0 && figures != 0)
-	{
-		if (exp > 309 - figures)
-			num = INFINITY;
-		else if (exp > 0)
-			num *= __power_of_10[exp];
-		else if (exp > -309)
-			num /= __power_of_10[-exp];
-		else if (exp > -324 - figures)
-		{
-			num /= __power_of_10[-exp - 308];
-			num /= __power_of_10[308];
-		}
-		else
-			num = 0.0;
-	}
+	if (exp == 0 || figures == 0)
+		num = mant;
+	else if (exp > 291)
+		num = INFINITY;
+	else if (exp > 0)
+		num = mant * __power_of_10[exp];
+	else if (exp > -309)
+		num = mant / __power_of_10[-exp];
+	else if (exp > -324 - figures)
+		num = mant / __power_of_10[-exp - 308] / __power_of_10[308];
+	else
+		num = 0.0;
 
 	return sign ? -num : num;
 }

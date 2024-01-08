@@ -63,12 +63,16 @@ void Executor::executor_thread_routine(void *context)
 	ExecQueue *queue = (ExecQueue *)context;
 	ExecSessionEntry *entry;
 	ExecSession *session;
+	int empty;
 
-	queue->mutex.lock();
 	entry = list_entry(queue->session_list.next, ExecSessionEntry, list);
+	queue->mutex.lock();
 	list_del(&entry->list);
+	empty = list_empty(&queue->session_list);
+	queue->mutex.unlock();
+
 	session = entry->session;
-	if (!list_empty(&queue->session_list))
+	if (!empty)
 	{
 		struct thrdpool_task task = {Executor::executor_thread_routine, queue};
 		/*
@@ -82,7 +86,6 @@ void Executor::executor_thread_routine(void *context)
 	else
 		delete entry;
 
-	queue->mutex.unlock();
 	session->execute();
 	session->handle(ES_STATE_FINISHED, 0);
 }

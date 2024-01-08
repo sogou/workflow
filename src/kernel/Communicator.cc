@@ -574,7 +574,7 @@ int Communicator::send_message_async(struct iovec vectors[], int cnt,
 	return 1;
 }
 
-#define ENCODE_IOV_MAX		8192
+#define ENCODE_IOV_MAX		2048
 
 int Communicator::send_message(struct CommConnEntry *entry)
 {
@@ -1421,7 +1421,7 @@ int Communicator::create_poller(size_t poller_threads)
 	if ((ssize_t)params.max_open_files < 0)
 		return -1;
 
-	this->msgqueue = msgqueue_create(4096, sizeof (struct poller_result));
+	this->msgqueue = msgqueue_create(16 * 1024, sizeof (struct poller_result));
 	if (this->msgqueue)
 	{
 		params.context = this->msgqueue;

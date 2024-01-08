@@ -400,9 +400,6 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->port = 0;
 	broker->host = NULL;
 	broker->rack = NULL;
-	broker->to_addr = 0;
-	memset(&broker->addr, 0, sizeof(broker->addr));
-	broker->addrlen = 0;
 	broker->error = 0;
 	broker->status = KAFKA_BROKER_UNINIT;
 }
@@ -1212,6 +1209,8 @@ void kafka_sasl_init(kafka_sasl_t *sasl)
 	sasl->scram.first_msg.iov_len = 0;
 	sasl->scram.server_signature_b64.iov_base = NULL;
 	sasl->scram.server_signature_b64.iov_len = 0;
+	sasl->buf = NULL;
+	sasl->bsize = 0;
 	sasl->status = 0;
 }
 
@@ -1219,6 +1218,7 @@ void kafka_sasl_deinit(kafka_sasl_t *sasl)
 {
 	free(sasl->scram.cnonce.iov_base);
 	free(sasl->scram.server_signature_b64.iov_base);
+	free(sasl->buf);
 }
 
 int kafka_sasl_set_username(const char *username, kafka_config_t *conf)

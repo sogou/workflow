@@ -305,9 +305,6 @@ typedef struct __kafka_broker
 	int port;
 	char *host;
 	char *rack;
-	int to_addr;
-	struct sockaddr_storage addr;
-	socklen_t addrlen;
 	short error;
 	int status;
 } kafka_broker_t;

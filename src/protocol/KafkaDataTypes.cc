@@ -562,7 +562,7 @@ void KafkaBuffer::list_splice(KafkaBuffer *buffer)
 	this->buf_size -= this->insert_buf_size;
 
 	pre_insert = this->insert_pos->next;
-	__list_splice(buffer->get_head(), this->insert_pos);
+	__list_splice(buffer->get_head(), this->insert_pos, pre_insert);
 
 	pre_tail = this->block_list.get_tail();
 	buffer->get_head()->prev->next = this->block_list.get_head();

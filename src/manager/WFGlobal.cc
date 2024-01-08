@@ -165,6 +165,11 @@ __WFGlobal::__WFGlobal()
 	static_scheme_port_["Kafka"] = "9092";
 	static_scheme_port_["KAFKA"] = "9092";
 
+	static_scheme_port_["kafkas"] = "9093";
+	static_scheme_port_["Kafkas"] = "9093";
+	static_scheme_port_["KAFKAs"] = "9093";
+	static_scheme_port_["KAFKAS"] = "9093";
+
 	sync_count_ = 0;
 	sync_max_ = 0;
 

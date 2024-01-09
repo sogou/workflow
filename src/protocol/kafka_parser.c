@@ -613,13 +613,13 @@ int kafka_parser_append_message(const void *buf, size_t *size,
 
 	if (s > parser->message_size - parser->cur_size)
 	{
-		memcpy(parser->msgbuf + parser->cur_size, buf,
+		memcpy((char *)parser->msgbuf + parser->cur_size, buf,
 			   parser->message_size - parser->cur_size);
 		parser->cur_size = parser->message_size;
 	}
 	else
 	{
-		memcpy(parser->msgbuf + parser->cur_size, buf, s);
+		memcpy((char *)parser->msgbuf + parser->cur_size, buf, s);
 		parser->cur_size += s;
 	}
 

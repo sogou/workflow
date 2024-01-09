@@ -26,6 +26,31 @@ namespace protocol
 
 #define MIN(x, y)	((x) <= (y) ? (x) : (y))
 
+std::string KafkaConfig::get_sasl_info() const
+{
+	std::string info;
+	if (strcasecmp(this->ptr->mechanisms, "plain") == 0)
+	{
+		info += this->ptr->mechanisms;
+		info += "|";
+		info += this->ptr->username;
+		info += "|";
+		info += this->ptr->password;
+		info += "|";
+	}
+	else if (strncasecmp(this->ptr->mechanisms, "SCRAM", 5) == 0)
+	{
+		info += this->ptr->mechanisms;
+		info += "|";
+		info += this->ptr->username;
+		info += "|";
+		info += this->ptr->password;
+		info += "|";
+	}
+
+	return info;
+}
+
 static int compare_member(const void *p1, const void *p2)
 {
 	kafka_member_t *member1 = (kafka_member_t *)p1;

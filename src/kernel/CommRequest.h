@@ -19,6 +19,7 @@
 #ifndef _COMMREQUEST_H_
 #define _COMMREQUEST_H_
 
+#include <errno.h>
 #include <stddef.h>
 #include "SubTask.h"
 #include "Communicator.h"

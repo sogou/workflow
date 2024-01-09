@@ -19,20 +19,20 @@
 #ifndef _KAFKA_DATATYPES_H_
 #define _KAFKA_DATATYPES_H_
 
-
-#include "PlatformSocket.h"
 #include <assert.h>
-#include <algorithm>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <utility>
+#include <string.h>
 #include <vector>
 #include <string>
-#include <string.h>
 #include <atomic>
 #include <snappy.h>
 #include <snappy-sinksource.h>
 #include "list.h"
 #include "rbtree.h"
 #include "kafka_parser.h"
-
 
 namespace protocol
 {
@@ -1259,15 +1259,7 @@ public:
 		return &this->member_vec;
 	}
 
-	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
-	{
-		return strcmp(m1->member_id, m2->member_id) < 0;
-	}
-
-	void sort_by_member()
-	{
-		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
-	}
+	void sort_by_member();
 
 private:
 	KafkaMeta *meta;

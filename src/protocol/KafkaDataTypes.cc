@@ -16,19 +16,20 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-
 #include <errno.h>
 #include <assert.h>
+#include <algorithm>
 #include "KafkaDataTypes.h"
+
+#define MIN(x, y)	((x) <= (y) ? (x) : (y))
 
 namespace protocol
 {
 
-#define MIN(x, y)	((x) <= (y) ? (x) : (y))
-
 std::string KafkaConfig::get_sasl_info() const
 {
 	std::string info;
+
 	if (strcasecmp(this->ptr->mechanisms, "plain") == 0)
 	{
 		info += this->ptr->mechanisms;
@@ -51,11 +52,14 @@ std::string KafkaConfig::get_sasl_info() const
 	return info;
 }
 
-static int compare_member(const void *p1, const void *p2)
+static bool compare_member(const kafka_member_t *m1, const kafka_member_t *m2)
 {
-	kafka_member_t *member1 = (kafka_member_t *)p1;
-	kafka_member_t *member2 = (kafka_member_t *)p2;
-	return strcmp(member1->member_id, member2->member_id);
+	return strcmp(m1->member_id, m2->member_id) < 0;
+}
+
+inline void KafkaMetaSubscriber::sort_by_member()
+{
+	std::sort(this->member_vec.begin(), this->member_vec.end(), compare_member);
 }
 
 static bool operator<(const KafkaMetaSubscriber& s1, const KafkaMetaSubscriber& s2)
@@ -139,7 +143,7 @@ int KafkaCgroup::kafka_roundrobin_assignor(kafka_member_t **members,
 	int next = -1;
 
 	std::sort(subscribers->begin(), subscribers->end());
-	qsort(members, member_elements, sizeof (kafka_member_t *), compare_member);
+	std::sort(members, members + member_elements, compare_member);
 
 	for (const auto& subscriber : *subscribers)
 	{

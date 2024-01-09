@@ -23,10 +23,9 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include "WFTask.h"
 #include "KafkaMessage.h"
 #include "KafkaResult.h"
-#include "KafkaTaskImpl.inl"
-
 
 class WFKafkaTask;
 class WFKafkaClient;

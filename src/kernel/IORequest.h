@@ -19,6 +19,7 @@
 #ifndef _IOREQUEST_H_
 #define _IOREQUEST_H_
 
+#include <errno.h>
 #include "SubTask.h"
 #include "Communicator.h"
 

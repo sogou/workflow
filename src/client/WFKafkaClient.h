@@ -19,7 +19,6 @@
 #ifndef _WFKAFKACLIENT_H_
 #define _WFKAFKACLIENT_H_
 
-
 #include <string>
 #include <vector>
 #include <functional>
@@ -119,7 +118,7 @@ protected:
 		this->finish = false;
 	}
 
-	virtual ~WFKafkaTask() {}
+	virtual ~WFKafkaTask() { }
 
 	virtual SubTask *done();
 

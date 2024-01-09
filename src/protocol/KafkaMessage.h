@@ -25,10 +25,10 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include "EncodeStream.h"
 #include "kafka_parser.h"
 #include "ProtocolMessage.h"
 #include "KafkaDataTypes.h"
-
 
 namespace protocol
 {
@@ -185,7 +185,7 @@ protected:
 	using parse_func = std::function<int (void **buf, size_t *size)>;
 	std::map<int, parse_func> parse_func_map;
 
-	class EncodeStream *stream;
+	EncodeStream *stream;
 	std::string msgbuf;
 	std::string headbuf;
 

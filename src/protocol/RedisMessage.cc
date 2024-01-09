@@ -21,7 +21,6 @@
 #include <string.h>
 #include <sstream>
 #include <utility>
-#include "EncodeStream.h"
 #include "RedisMessage.h"
 
 namespace protocol

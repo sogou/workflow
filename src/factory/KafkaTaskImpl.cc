@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string>
 #include <set>
+#include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #include "StringUtil.h"

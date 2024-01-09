@@ -551,30 +551,7 @@ public:
 		return kafka_sasl_set_password(password, this->ptr) == 0;
 	}
 
-	std::string get_sasl_info() const
-	{
-		std::string info;
-		if (strcasecmp(this->ptr->mechanisms, "plain") == 0)
-		{
-			info += this->ptr->mechanisms;
-			info += "|";
-			info += this->ptr->username;
-			info += "|";
-			info += this->ptr->password;
-			info += "|";
-		}
-		else if (strncasecmp(this->ptr->mechanisms, "SCRAM", 5) == 0)
-		{
-			info += this->ptr->mechanisms;
-			info += "|";
-			info += this->ptr->username;
-			info += "|";
-			info += this->ptr->password;
-			info += "|";
-		}
-
-		return info;
-	}
+	std::string get_sasl_info() const;
 
 	bool new_client(kafka_sasl_t *sasl)
 	{

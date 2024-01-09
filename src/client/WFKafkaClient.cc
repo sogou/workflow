@@ -28,8 +28,9 @@
 #include <atomic>
 #include <mutex>
 #include "WFTaskError.h"
-#include "WFKafkaClient.h"
 #include "StringUtil.h"
+#include "KafkaTaskImpl.inl"
+#include "WFKafkaClient.h"
 
 #define KAFKA_HEARTBEAT_INTERVAL	(3 * 1000 * 1000)
 

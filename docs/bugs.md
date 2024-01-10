@@ -20,14 +20,15 @@ void f()
     auto *task = WFTaskFactory::create_http_task("https://sogou/index.html", 0, 0, nullptr);
 }
 ~~~
-这时候http request里的Host必然填写的是"sogou"。此时如果sogou是一个upstream名，指向域名www.sogou.com。并且我们开启了TLS SNI，那么SNI server name信息就是wwww.sogou.com，与http header里的Host是不一致的，会导致SSL错误。  
+这时候http request里的Host必然填写的是"sogou"。此时如果sogou是一个upstream名，指向域名www.sogou.com。并且我们开启了TLS SNI，那么SNI server name信息就是www.sogou.com，与http header里的Host是不一致的，会导致SSL错误。  
 要解决这个问题，用户可以在通过设置prepare函数，在发送请求前修改Host，让它与最终URL里的一致：
 ~~~cpp
 void f();
 {
     auto *task = WFTaskFactory::create_http_task("https://sogou/index.html", 0, 0, nullptr);
     static_cast<WFClientTask<protocol::HttpRequest, protocol::HttpResponse> *>(task)->set_prepare([](WFHttpTask *task){
-        task->get_req()->set_header_pair("Host", task->get_current_uri()->host);  // 这里得到实际uri里的host。
+        auto *t = static_cast<WFComplexClientTask<protocol::HttpRequest, protocol::HttpResponse> *>(task);
+        task->get_req()->set_header_pair("Host", t->get_current_uri()->host);  // 这里得到实际uri里的host。
     });
 }
 ~~~

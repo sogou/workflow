@@ -206,62 +206,53 @@ CommMessageOut *__ComplexKafkaTask::message_out()
 
 	KafkaConnectionInfo *conn_info =
 		(KafkaConnectionInfo *)this->get_connection()->get_context();
-	this->get_req()->set_api(&conn_info->api);
+	KafkaRequest *req = this->get_req();
+	req->set_api(&conn_info->api);
 
-	if (this->get_req()->get_api_type() == Kafka_Fetch ||
-		this->get_req()->get_api_type() == Kafka_ListOffsets)
+	if (req->get_api_type() == Kafka_Fetch ||
+		req->get_api_type() == Kafka_ListOffsets)
 	{
-		KafkaRequest *req = this->get_req();
-		req->get_toppar_list()->rewind();
+		KafkaTopparList *req_toppar_lst = req->get_toppar_list();
 		KafkaToppar *toppar;
 		KafkaTopparList toppar_list;
 		bool flag = false;
+		long long cfg_ts = req->get_config()->get_offset_timestamp();
+		long long tp_ts;
 
-		while ((toppar = req->get_toppar_list()->get_next()) != NULL)
+		req_toppar_lst->rewind();
+		while ((toppar = req_toppar_lst->get_next()) != NULL)
 		{
-			if (toppar->get_low_watermark() < 0)
-				toppar->set_offset_timestamp(KAFKA_TIMESTAMP_EARLIEST);
-			else if (toppar->get_high_watermark() < 0)
-				toppar->set_offset_timestamp(KAFKA_TIMESTAMP_LATEST);
-			else if (toppar->get_offset() == KAFKA_OFFSET_UNINIT)
+			tp_ts = toppar->get_offset_timestamp();
+			if (tp_ts == KAFKA_TIMESTAMP_UNINIT)
+				tp_ts = cfg_ts;
+
+			if (toppar->get_offset() == KAFKA_OFFSET_UNINIT)
 			{
-				long long conf_ts =
-					this->get_req()->get_config()->get_offset_timestamp();
-				if (conf_ts == KAFKA_TIMESTAMP_EARLIEST)
-				{
+				if (tp_ts == KAFKA_TIMESTAMP_EARLIEST)
 					toppar->set_offset(toppar->get_low_watermark());
-					continue;
-				}
-				else if (conf_ts == KAFKA_TIMESTAMP_LATEST)
+				else if (tp_ts < 0)
 				{
 					toppar->set_offset(toppar->get_high_watermark());
-					continue;
-				}
-				else
-				{
-					toppar->set_offset_timestamp(conf_ts);
+					tp_ts = KAFKA_TIMESTAMP_LATEST;
 				}
 			}
 			else if (toppar->get_offset() == KAFKA_OFFSET_OVERFLOW)
 			{
-				if (this->get_req()->get_config()->get_offset_timestamp() ==
-					KAFKA_TIMESTAMP_EARLIEST)
-				{
+				if (tp_ts == KAFKA_TIMESTAMP_EARLIEST)
 					toppar->set_offset(toppar->get_low_watermark());
-				}
 				else
 				{
 					toppar->set_offset(toppar->get_high_watermark());
+					tp_ts = KAFKA_TIMESTAMP_LATEST;
 				}
-				continue;
-			}
-			else
-			{
-				continue;
 			}
 
-			toppar_list.add_item(*toppar);
-			flag = true;
+			if (toppar->get_offset() < 0)
+			{
+				toppar->set_offset_timestamp(tp_ts);
+				toppar_list.add_item(*toppar);
+				flag = true;
+			}
 		}
 
 		if (flag)
@@ -529,8 +520,7 @@ bool __ComplexKafkaTask::process_fetch()
 	this->get_resp()->get_toppar_list()->rewind();
 	while ((toppar = this->get_resp()->get_toppar_list()->get_next()) != NULL)
 	{
-		if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE &&
-			toppar->get_high_watermark() - toppar->get_low_watermark() > 0)
+		if (toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE)
 		{
 			toppar->set_offset(KAFKA_OFFSET_OVERFLOW);
 			toppar->set_low_watermark(KAFKA_OFFSET_UNINIT);

@@ -23,7 +23,6 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
-#include "EncodeStream.h"
 #include "ProtocolMessage.h"
 #include "redis_parser.h"
 
@@ -141,7 +140,7 @@ protected:
 	virtual int append(const void *buf, size_t *size);
 	bool encode_reply(redis_reply_t *reply);
 
-	EncodeStream *stream_;
+	class EncodeStream *stream_;
 
 private:
 	size_t cur_size_;

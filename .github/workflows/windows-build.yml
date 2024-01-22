@@ -17,7 +17,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Install OpenSSL
-      run: choco install -y openssl
+      run: choco install -y openssl --version 3.1.1
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
@@ -25,9 +25,9 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-#    - name: Configure Tutorial CMake
-#      run: cmake -B ${{github.workspace}}/build_tutorial -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -S tutorial
+    - name: Configure Tutorial CMake
+      run: cmake -B ${{github.workspace}}/build_tutorial -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -S tutorial
 
-#    - name: Build Tutorial
-#      run: cmake --build ${{github.workspace}}/build_tutorial --config ${{env.BUILD_TYPE}}
+    - name: Build Tutorial
+      run: cmake --build ${{github.workspace}}/build_tutorial --config ${{env.BUILD_TYPE}}
       

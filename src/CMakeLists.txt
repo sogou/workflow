@@ -130,3 +130,11 @@ if (KAFKA STREQUAL "y")
 	)
 endif ()
 
+export(
+	TARGETS workflow-shared
+	FILE ${CMAKE_CURRENT_BINARY_DIR}/workflow-targets.cmake
+	NAMESPACE workflow:: 
+)
+
+target_include_directories(${SHARED_LIB_NAME} INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../_include>)
+add_library(workflow::workflow-shared ALIAS ${SHARED_LIB_NAME})

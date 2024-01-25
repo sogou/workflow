@@ -132,9 +132,17 @@ endif ()
 
 export(
 	TARGETS workflow-shared
-	FILE ${CMAKE_CURRENT_BINARY_DIR}/workflow-targets.cmake
+	FILE workflow-targets.cmake
 	NAMESPACE workflow:: 
 )
 
-target_include_directories(${SHARED_LIB_NAME} INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../_include>)
+export(
+	TARGETS workflow-static
+	APPEND
+	FILE workflow-targets.cmake
+	NAMESPACE workflow:: 
+)
+
+target_include_directories(${SHARED_LIB_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../_include)
+target_include_directories(${STATIC_LIB_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../_include)
 add_library(workflow::workflow-shared ALIAS ${SHARED_LIB_NAME})

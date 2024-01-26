@@ -16,7 +16,6 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <random>
 #include <algorithm>
@@ -112,7 +111,6 @@ protected:
 		if (this->flag)
 			return series_of(this)->pop();
 
-		assert(this->state == WFT_STATE_SUCCESS);
 		return this->WFSortTask<T>::done();
 	}
 
@@ -274,7 +272,6 @@ protected:
 		if (this->flag)
 			return series_of(this)->pop();
 
-		assert(this->state == WFT_STATE_SUCCESS);
 		return this->WFSortTask<T>::done();
 	}
 

@@ -26,6 +26,7 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <utility>
 #include <string>
@@ -43,30 +44,21 @@
 #define HOSTS_LINEBUF_INIT_SIZE	128
 #define PORT_STR_MAX			5
 
-static constexpr struct addrinfo __ai_hints =
-{
-#ifdef AI_ADDRCONFIG
-	.ai_flags = AI_ADDRCONFIG,
-#else
-	.ai_flags = 0,
-#endif
-	.ai_family = AF_UNSPEC,
-	.ai_socktype = SOCK_STREAM
-};
-
 class DnsInput
 {
 public:
 	DnsInput() :
 		port_(0),
-		numeric_host_(false)
+		numeric_host_(false),
+		family_(AF_UNSPEC)
 	{}
 
 	DnsInput(const std::string& host, unsigned short port,
-			 bool numeric_host) :
+			 bool numeric_host, int family) :
 		host_(host),
 		port_(port),
-		numeric_host_(numeric_host)
+		numeric_host_(numeric_host),
+		family_(family)
 	{}
 
 	void reset(const std::string& host, unsigned short port)
@@ -74,14 +66,16 @@ public:
 		host_.assign(host);
 		port_ = port;
 		numeric_host_ = false;
+		family_ = AF_UNSPEC;
 	}
 
 	void reset(const std::string& host, unsigned short port,
-			   bool numeric_host)
+			   bool numeric_host, int family)
 	{
 		host_.assign(host);
 		port_ = port;
 		numeric_host_ = numeric_host;
+		family_ = family;
 	}
 
 	const std::string& get_host() const { return host_; }
@@ -92,6 +86,7 @@ protected:
 	std::string host_;
 	unsigned short port_;
 	bool numeric_host_;
+	int family_;
 
 	friend class DnsRoutine;
 };
@@ -183,20 +178,20 @@ void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 		return;
 	}
 
-	struct addrinfo hints = __ai_hints;
+	struct addrinfo hints = {
+		.ai_flags		=	AI_ADDRCONFIG | AI_NUMERICSERV,
+		.ai_family		=	in->family_,
+		.ai_socktype	=	SOCK_STREAM,
+	};
 	char port_str[PORT_STR_MAX + 1];
 
-	hints.ai_flags |= AI_NUMERICSERV;
 	if (in->is_numeric_host())
 		hints.ai_flags |= AI_NUMERICHOST;
 
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", in->port_);
-	out->error_ = getaddrinfo(in->host_.c_str(),
-							  port_str,
-							  &hints,
-							  &out->addrinfo_);
+	out->error_ = getaddrinfo(in->host_.c_str(), port_str,
+							  &hints, &out->addrinfo_);
 }
-
 
 // Dns Thread task. For internal usage only.
 using ThreadDnsTask = WFThreadTask<DnsInput, DnsOutput>;
@@ -213,13 +208,18 @@ struct DnsContext
 
 static int __default_family()
 {
+	struct addrinfo hints = {
+		.ai_flags		=	AI_ADDRCONFIG,
+		.ai_family		=	AF_UNSPEC,
+		.ai_socktype	=	SOCK_STREAM,
+	};
 	struct addrinfo *res;
 	struct addrinfo *cur;
 	int family = AF_UNSPEC;
 	bool v4 = false;
 	bool v6 = false;
 
-	if (getaddrinfo(NULL, "1", &__ai_hints, &res) == 0)
+	if (getaddrinfo(NULL, "1", &hints, &res) == 0)
 	{
 		for (cur = res; cur; cur = cur->ai_next)
 		{
@@ -290,7 +290,6 @@ static int __readaddrinfo(const char *path,
 	size_t bufsize = 0;
 	char *line = NULL;
 	int count = 0;
-	struct addrinfo h;
 	int errno_bak;
 	FILE *fp;
 	int ret;
@@ -299,14 +298,12 @@ static int __readaddrinfo(const char *path,
 	if (!fp)
 		return EAI_SYSTEM;
 
-	h = *hints;
-	h.ai_flags |= AI_NUMERICSERV | AI_NUMERICHOST,
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", port);
 
 	errno_bak = errno;
 	while ((ret = getline(&line, &bufsize, fp)) > 0)
 	{
-		if (__readaddrinfo_line(line, name, port_str, &h, res) == 0)
+		if (__readaddrinfo_line(line, name, port_str, hints, res) == 0)
 		{
 			count++;
 			res = &(*res)->ai_next;
@@ -325,18 +322,18 @@ static int __readaddrinfo(const char *path,
 	return ret;
 }
 
-// Add AI_PASSIVE to point that this addrinfo is alloced by getaddrinfo
-static void __add_passive_flags(struct addrinfo *ai)
+static void __set_thread_dns_flag(struct addrinfo *ai)
 {
 	while (ai)
 	{
-		ai->ai_flags |= AI_PASSIVE;
+		ai->ai_flags = 1;
 		ai = ai->ai_next;
 	}
 }
 
 static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 											   unsigned short port,
+											   int family,
 											   thread_dns_callback_t callback)
 {
 	auto *task = WFThreadTaskFactory<DnsInput, DnsOutput>::
@@ -345,12 +342,46 @@ static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 										   DnsRoutine::run,
 										   std::move(callback));
 
-	task->get_input()->reset(host, port);
+	task->get_input()->reset(host, port, false, family);
 	return task;
+}
+
+static std::string __get_cache_host(const std::string& hostname,
+									int family)
+{
+	char c;
+
+	if (family == AF_UNSPEC)
+		c = '*';
+	else if (family == AF_INET)
+		c = '4';
+	else if (family == AF_INET6)
+		c = '6';
+	else
+		c = '?';
+
+	return hostname + c;
+}
+
+static std::string __get_guard_name(const std::string& cache_host,
+									unsigned short port)
+{
+	std::string guard_name("INTERNAL-dns:");
+	guard_name.append(cache_host).append(":");
+	guard_name.append(std::to_string(port));
+	return guard_name;
 }
 
 void WFResolverTask::dispatch()
 {
+	if (this->msg_)
+	{
+		this->state = WFT_STATE_DNS_ERROR;
+		this->error = (intptr_t)msg_;
+		this->subtask_done();
+		return;
+	}
+
 	const ParsedURI& uri = ns_params_.uri;
 	host_ = uri.host ? uri.host : "";
 	port_ = uri.port ? atoi(uri.port) : 0;
@@ -358,11 +389,22 @@ void WFResolverTask::dispatch()
 	DnsCache *dns_cache = WFGlobal::get_dns_cache();
 	const DnsCache::DnsHandle *addr_handle;
 	std::string hostname = host_;
+	int family = ep_params_.address_family;
+	std::string cache_host = __get_cache_host(hostname, family);
 
 	if (ns_params_.retry_times == 0)
-		addr_handle = dns_cache->get_ttl(hostname, port_);
+		addr_handle = dns_cache->get_ttl(cache_host, port_);
 	else
-		addr_handle = dns_cache->get_confident(hostname, port_);
+		addr_handle = dns_cache->get_confident(cache_host, port_);
+
+	if (in_guard_ && (addr_handle == NULL || addr_handle->value.delayed()))
+	{
+		if (addr_handle)
+			dns_cache->release(addr_handle);
+
+		this->request_dns();
+		return;
+	}
 
 	if (addr_handle)
 	{
@@ -409,11 +451,12 @@ void WFResolverTask::dispatch()
 
 		if (ret == 1)
 		{
-			DnsInput dns_in(hostname, port_, true); // 'true' means numeric host
+			// 'true' means numeric host
+			DnsInput dns_in(hostname, port_, true, AF_UNSPEC);
 			DnsOutput dns_out;
 
 			DnsRoutine::run(&dns_in, &dns_out);
-			__add_passive_flags((struct addrinfo *)dns_out.get_addrinfo());
+			__set_thread_dns_flag((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
 			this->subtask_done();
 			return;
@@ -423,32 +466,54 @@ void WFResolverTask::dispatch()
 	const char *hosts = WFGlobal::get_global_settings()->hosts_path;
 	if (hosts)
 	{
+		struct addrinfo hints = {
+			.ai_flags		=	AI_ADDRCONFIG | AI_NUMERICSERV | AI_NUMERICHOST,
+			.ai_family		=	ep_params_.address_family,
+			.ai_socktype	=	SOCK_STREAM,
+		};
 		struct addrinfo *ai;
-		int ret = __readaddrinfo(hosts, host_, port_, &__ai_hints, &ai);
+		int ret;
 
+		ret = __readaddrinfo(hosts, host_, port_, &hints, &ai);
 		if (ret == 0)
 		{
 			DnsOutput out;
 			DnsRoutine::create(&out, ret, ai);
-			__add_passive_flags((struct addrinfo *)out.get_addrinfo());
+			__set_thread_dns_flag((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
 			this->subtask_done();
 			return;
 		}
 	}
 
+	std::string guard_name = __get_guard_name(cache_host, port_);
+	WFConditional *guard = WFTaskFactory::create_guard(guard_name, this, &msg_);
+
+	in_guard_ = true;
+	has_next_ = true;
+
+	series_of(this)->push_front(guard);
+	this->subtask_done();
+}
+
+void WFResolverTask::request_dns()
+{
 	WFDnsClient *client = WFGlobal::get_dns_client();
 	if (client)
 	{
-		static int family = __default_family();
+		static int default_family = __default_family();
 		WFResourcePool *respool = WFGlobal::get_dns_respool();
+
+		int family = ep_params_.address_family;
+		if (family == AF_UNSPEC)
+			family = default_family;
 
 		if (family == AF_INET || family == AF_INET6)
 		{
 			auto&& cb = std::bind(&WFResolverTask::dns_single_callback,
 								  this,
 								  std::placeholders::_1);
-			WFDnsTask *dns_task = client->create_dns_task(hostname, std::move(cb));
+			WFDnsTask *dns_task = client->create_dns_task(host_, std::move(cb));
 
 			if (family == AF_INET6)
 				dns_task->get_req()->set_question_type(DNS_TYPE_AAAA);
@@ -468,10 +533,10 @@ void WFResolverTask::dispatch()
 			dctx[0].port = port_;
 			dctx[1].port = port_;
 
-			task_v4 = client->create_dns_task(hostname, dns_partial_callback);
+			task_v4 = client->create_dns_task(host_, dns_partial_callback);
 			task_v4->user_data = dctx;
 
-			task_v6 = client->create_dns_task(hostname, dns_partial_callback);
+			task_v6 = client->create_dns_task(host_, dns_partial_callback);
 			task_v6->get_req()->set_question_type(DNS_TYPE_AAAA);
 			task_v6->user_data = dctx + 1;
 
@@ -492,11 +557,13 @@ void WFResolverTask::dispatch()
 	}
 	else
 	{
+		ThreadDnsTask *dns_task;
 		auto&& cb = std::bind(&WFResolverTask::thread_dns_callback,
 							  this,
 							  std::placeholders::_1);
-		ThreadDnsTask *dns_task = __create_thread_dns_task(hostname, port_,
-														   std::move(cb));
+		dns_task = __create_thread_dns_task(host_, port_,
+											ep_params_.address_family,
+											std::move(cb));
 		series_of(this)->push_front(dns_task);
 	}
 
@@ -509,12 +576,7 @@ SubTask *WFResolverTask::done()
 	SeriesWork *series = series_of(this);
 
 	if (!has_next_)
-	{
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-	}
+		task_callback();
 	else
 		has_next_ = false;
 
@@ -548,8 +610,10 @@ void WFResolverTask::dns_callback_internal(void *thrd_dns_output,
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
 		const DnsCache::DnsHandle *addr_handle;
 		std::string hostname = host_;
+		int family = ep_params_.address_family;
+		std::string cache_host = __get_cache_host(hostname, family);
 
-		addr_handle = dns_cache->put(hostname, port_, addrinfo,
+		addr_handle = dns_cache->put(cache_host, port_, addrinfo,
 									 (unsigned int)ttl_default,
 									 (unsigned int)ttl_min);
 		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
@@ -586,10 +650,7 @@ void WFResolverTask::dns_single_callback(void *net_dns_task)
 		this->error = dns_task->get_error();
 	}
 
-	if (this->callback)
-		this->callback(this);
-
-	delete this;
+	task_callback();
 }
 
 void WFResolverTask::dns_partial_callback(void *net_dns_task)
@@ -649,10 +710,7 @@ void WFResolverTask::dns_parallel_callback(const void *parallel)
 
 	delete[] c4;
 
-	if (this->callback)
-		this->callback(this);
-
-	delete this;
+	task_callback();
 }
 
 void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
@@ -662,13 +720,30 @@ void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		DnsOutput *out = dns_task->get_output();
-		__add_passive_flags((struct addrinfo *)out->get_addrinfo());
+		__set_thread_dns_flag((struct addrinfo *)out->get_addrinfo());
 		dns_callback_internal(out, dns_ttl_default_, dns_ttl_min_);
 	}
 	else
 	{
 		this->state = dns_task->get_state();
 		this->error = dns_task->get_error();
+	}
+
+	task_callback();
+}
+
+void WFResolverTask::task_callback()
+{
+	if (in_guard_)
+	{
+		int family = ep_params_.address_family;
+		std::string cache_host = __get_cache_host(host_, family);
+		std::string guard_name = __get_guard_name(cache_host, port_);
+
+		if (this->state == WFT_STATE_DNS_ERROR)
+			msg_ = (void *)(intptr_t)this->error;
+
+		WFTaskFactory::release_guard_safe(guard_name, msg_);
 	}
 
 	if (this->callback)

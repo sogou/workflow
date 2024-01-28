@@ -57,14 +57,14 @@ You may create a go task with running time limit by calling WFTaskFactory::creat
 class WFTaskFactory
 {
     /* Create 'Go' task with running time limit in seconds plus nanoseconds.
-     * If time exceeded, state WFT_STATE_ABORTED will be got in callback. */
+     * If time exceeded, state WFT_STATE_SYS_ERROR and error ETIMEDOUT will be got in callback. */
     template<class FUNC, class... ARGS>
     static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
                                          const std::string& queue_name,
                                          FUNC&& func, ARGS&&... args);
 };
 ~~~
-Compared with creating a normal go task, the ``create_timedgo_task`` function needs to pass two more parameters, seconds and nanoseconds. If the running time of ``func`` reaches the seconds+nanosconds time limit, the task callback directly, and the state is WFT_STATE_ABORTED.  
+Compared with creating a normal go task, the ``create_timedgo_task`` function needs to pass two more parameters, seconds and nanoseconds. If the running time of ``func`` reaches the seconds+nanosconds time limit, the task callback directly, and the state is WFT_STATE_SYS_ERROR and the error is ETIMEDOUT.  
 Note that the framework cannot interrupt the user's ongoing task. ``func`` will still continue to execute to the end, but will not callback again. In addition, the value range of nanoseconds is [0,1 billion).
 
 

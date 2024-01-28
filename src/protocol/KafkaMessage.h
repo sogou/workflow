@@ -29,7 +29,6 @@
 #include "ProtocolMessage.h"
 #include "KafkaDataTypes.h"
 
-
 namespace protocol
 {
 

@@ -107,11 +107,12 @@ sudo dnf install workflow
     * [异步IO的http server：http_file_server](docs/tutorial-09-http_file_server.md)
   * 用户定义协议基础
     * [简单的用户自定义协议client/server](docs/tutorial-10-user_defined_protocol.md)
+    * [使用TLV格式消息](docs/about-tlv-message.md)
   * 其它一些重要任务与组件
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
-    * [模块任务](/docs/about-module.md)
-    * [DAG图任务](/docs/tutorial-11-graph_task.md)
+    * [模块任务](docs/about-module.md)
+    * [DAG图任务](docs/tutorial-11-graph_task.md)
   * 任务间通信
     * [条件任务与观察者模式](docs/about-conditional.md)
     * [资源池与消息队列](docs/about-resource-pool.md)
@@ -169,7 +170,9 @@ sudo dnf install workflow
 # 使用中有疑问？
 可以先查看[FAQ](https://github.com/sogou/workflow/issues/170)和[issues](https://github.com/sogou/workflow/issues)列表，看看是否能找到答案。  
 非常欢迎将您使用中遇到的问题发送到[issues](https://github.com/sogou/workflow/issues)，我们将第一时间进行解答。同时更多的issue对新用户也会带来帮助。  
-也可以通过QQ群：``618773193`` 联系我们。
+也可以通过QQ群：**618773193** 联系我们。
+
+<img src="https://user-images.githubusercontent.com/1880011/92300953-e9cc5400-ef91-11ea-82f5-4cf3174cd851.jpeg" align=center width = "200" alt="qq_qrcode" />
 
 #### Gitee仓库
 用户可以在访问GitHub遇到困难时，使用我们的Gitee官方仓库：https://gitee.com/sogou/workflow  

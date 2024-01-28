@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #ifndef _WFTASKFACTORY_H_
@@ -217,16 +217,28 @@ public:
 											  fvio_callback_t callback);
 
 public:
-	static WFTimerTask *create_timer_task(unsigned int microseconds,
-										  timer_callback_t callback);
-
 	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
 										  timer_callback_t callback);
 
-	/* Counter is like semaphore. The callback of counter is called when
-	 * 'count' operations reach target_value & after the task is started.
-	 * It's perfectly legal to call 'count' before the task is started. */
+	/* create a named timer. */
+	static WFTimerTask *create_timer_task(const std::string& timer_name,
+										  time_t seconds, long nanoseconds,
+										  timer_callback_t callback);
 
+	/* cancel all timers under the name. */
+	static void cancel_by_name(const std::string& timer_name)
+	{
+		WFTaskFactory::cancel_by_name(timer_name, (size_t)-1);
+	}
+
+	/* cancel at most 'max' timers under the name. */
+	static void cancel_by_name(const std::string& timer_name, size_t max);
+
+	/* timer in microseconds (deprecated) */
+	static WFTimerTask *create_timer_task(unsigned int microseconds,
+										  timer_callback_t callback);
+
+public:
 	/* Create an unnamed counter. Call counter->count() directly.
 	 * NOTE: never call count() exceeding target_value. */
 	static WFCounterTask *create_counter_task(unsigned int target_value,
@@ -267,6 +279,23 @@ public:
 		return new WFMailboxTask(std::move(callback));
 	}
 
+	static WFMailboxTask *create_mailbox_task(const std::string& mailbox_name,
+											  void **mailbox,
+											  mailbox_callback_t callback);
+
+	static WFMailboxTask *create_mailbox_task(const std::string& mailbox_name,
+											  mailbox_callback_t callback);
+
+	/* The 'msg' will be sent to the all mailbox tasks under the name, and
+	 * would be lost if no task matched. */
+	static void send_by_name(const std::string& mailbox_name, void *msg)
+	{
+		WFTaskFactory::send_by_name(mailbox_name, msg, (size_t)-1);
+	}
+
+	static void send_by_name(const std::string& mailbox_name, void *msg,
+							 size_t max);
+
 public:
 	static WFConditional *create_conditional(SubTask *task, void **msgbuf)
 	{
@@ -293,12 +322,37 @@ public:
 							   size_t max);
 
 public:
+	static WFConditional *create_guard(const std::string& resource_name,
+									   SubTask *task);
+
+	static WFConditional *create_guard(const std::string& resource_name,
+									   SubTask *task, void **msgbuf);
+
+	/* The 'guard' is acquired after started, so call 'release_guard' after
+	   and only after the task is finished, typically in its callback.
+	   The function returns 1 if another is signaled, otherwise returns 0. */
+	static int release_guard(const std::string& resource_name)
+	{
+		return WFTaskFactory::release_guard(resource_name, NULL);
+	}
+
+	static int release_guard(const std::string& resaource_name, void *msg);
+
+	static int release_guard_safe(const std::string& resource_name)
+	{
+		return WFTaskFactory::release_guard_safe(resource_name, NULL);
+	}
+
+	static int release_guard_safe(const std::string& resource_name, void *msg);
+
+public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,
 									FUNC&& func, ARGS&&... args);
 
 	/* Create 'Go' task with running time limit in seconds plus nanoseconds.
-	 * If time exceeded, state WFT_STATE_ABORTED will be got in callback. */
+	 * If time exceeded, state WFT_STATE_SYS_ERROR and error ETIMEDOUT
+	 * will be got in callback. */
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
 										 const std::string& queue_name,
@@ -361,23 +415,23 @@ private:
 	using T = WFNetworkTask<REQ, RESP>;
 
 public:
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const std::string& host,
 								 unsigned short port,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const std::string& url,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const ParsedURI& uri,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const struct sockaddr *addr,
 								 socklen_t addrlen,
 								 int retry_max,
@@ -396,36 +450,26 @@ private:
 
 public:
 	static T *create_thread_task(const std::string& queue_name,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 
 	/* Create thread task with running time limit. */
 	static T *create_thread_task(time_t seconds, long nanoseconds,
-								 const std::string& queue_name,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+								const std::string& queue_name,
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 
 public:
 	/* Create thread task on user's executor and execution queue. */
 	static T *create_thread_task(ExecQueue *queue, Executor *executor,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 
 	/* With running time limit. */
 	static T *create_thread_task(time_t seconds, long nanoseconds,
-								 ExecQueue *queue, Executor *executor,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
-
-private:
-	using MT = WFMultiThreadTask<INPUT, OUTPUT>;
-
-public:
-	static MT *create_multi_thread_task(const std::string& queue_name,
-										std::function<void (INPUT *, OUTPUT *)> routine,
-										size_t nthreads,
-										std::function<void (MT *)> callback);
-
+								ExecQueue *queue, Executor *executor,
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 };
 
 #include "WFTaskFactory.inl"

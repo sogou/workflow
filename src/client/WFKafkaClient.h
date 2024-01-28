@@ -19,14 +19,12 @@
 #ifndef _WFKAFKACLIENT_H_
 #define _WFKAFKACLIENT_H_
 
-
 #include <string>
 #include <vector>
 #include <functional>
+#include "WFTask.h"
 #include "KafkaMessage.h"
 #include "KafkaResult.h"
-#include "KafkaTaskImpl.inl"
-
 
 class WFKafkaTask;
 class WFKafkaClient;
@@ -120,7 +118,7 @@ protected:
 		this->finish = false;
 	}
 
-	virtual ~WFKafkaTask() {}
+	virtual ~WFKafkaTask() { }
 
 	virtual SubTask *done();
 

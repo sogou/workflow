@@ -102,11 +102,11 @@ public:
 
 struct RouteParams
 {
-	TransportType transport_type;
+	enum TransportType transport_type;
 	const struct addrinfo *addrinfo;
 	uint64_t key;
 	SSL_CTX *ssl_ctx;
-	unsigned int max_connections;
+	size_t max_connections;
 	int connect_timeout;
 	int response_timeout;
 	int ssl_connect_timeout;
@@ -397,21 +397,22 @@ static uint64_t __fnv_hash(const unsigned char *data, size_t size)
 	return hash;
 }
 
-static uint64_t __generate_key(TransportType type,
+static uint64_t __generate_key(enum TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
 							   const struct EndpointParams *ep_params,
 							   const std::string& hostname)
 {
-	std::string buf((const char *)&type, sizeof (TransportType));
-	unsigned int max_conn = ep_params->max_connections;
+	const int params[] = {
+		ep_params->address_family, (int)ep_params->max_connections,
+		ep_params->connect_timeout, ep_params->response_timeout
+	};
+	std::string buf((const char *)&type, sizeof (enum TransportType));
 
 	if (!other_info.empty())
 		buf += other_info;
 
-	buf.append((const char *)&max_conn, sizeof (unsigned int));
-	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
-	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
+	buf.append((const char *)params, sizeof params);
 	if (type == TT_TCP_SSL)
 	{
 		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
@@ -463,7 +464,7 @@ RouteManager::~RouteManager()
 	}
 }
 
-int RouteManager::get(TransportType type,
+int RouteManager::get(enum TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
 					  const struct EndpointParams *ep_params,
@@ -514,7 +515,7 @@ int RouteManager::get(TransportType type,
 			.addrinfo 				=	addrinfo,
 			.key					=	key,
 			.ssl_ctx				=	ssl_ctx,
-			.max_connections		=	(unsigned int)ep_params->max_connections,
+			.max_connections		=	ep_params->max_connections,
 			.connect_timeout		=	ep_params->connect_timeout,
 			.response_timeout		=	ep_params->response_timeout,
 			.ssl_connect_timeout	=	ssl_connect_timeout,

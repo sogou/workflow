@@ -29,8 +29,9 @@ The program exists automatically after all the tasks are completed, and all the 
 
 In the command, the broker_url may contain several urls seperated by comma(,).
 
-- For instance, kafka://host:port,kafka://host1:port...
-- The default value is 9092;
+- For instance, kafka://host:port,kafka://host1:port... or: **kafkas**://host:port,**kafkas**://host1:port for kafka over SSL;
+- The default port is 9092 for TCP and 9093 for SSL;
+- Do not mix 'kafkas://' with "kafka://", otherwise the init function will fail with errno EINVAL;
 - If you want to use upstream policy at this layer, please refer to [upstream documents](/docs/en/about-upstream.md).
 
 The following are several Kafka broker_url samples:
@@ -40,6 +41,12 @@ kafka://127.0.0.1/
 kafka://kafka.host:9090/
 
 kafka://10.160.23.23:9000,10.123.23.23,kafka://kafka.sogou
+
+kafkas://broker1.kafka.sogou,kafkas://broker2.kafka.sogou
+
+Illegal broker_url sample (The first one is SSL, and the second one is not):
+
+kafkas://broker1.kafka.sogou,broker2.kafka.sogou
 
 # Principles and Features
 

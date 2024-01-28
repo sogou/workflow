@@ -1,112 +1,70 @@
 # About DNS
+When using a domain name to request the network, you first need to obtain the server address through domain name resolution, and then use the network address to make subsequent requests. Workflow has implemented a complete domain name resolution and caching system. Generally speaking, users can initiate network tasks smoothly without knowing the internal mechanism.
 
-Domain Network System (DNS) is a distributed network directory service. It is mainly used for the conversion between a domain name and an IP address.   
-During the communication access, it is required to perform DNS resolution for a non-IP domain name. DNS resolution is the process that converts a domain name to an IP address.   
-DNS resolution is resource consuming. The operating systems on both servers and local computers usually have their own DNS Cache to reduce unnecessary requests.   
-Some programs, including popular browsers and communication frameworks, also have their own DNS Cache in their processes. Workflow is also designed with its own DNS Cache. For convenience purposes, DNS features are completely transparent and “hidden” in the framework.
-
-### TTL
-
-TTL (Time To Live) refers to the amount of time a DNS record is considered up-to-date in the DNS Cache.
-
-### DNS methods in the framework
-
-#### Sync request method
-Currently the framework directly calls the system function **getaddrinfo** to resolve domain names. Some details:
-
-1. When the DNS Cache of the framework is hit and its TTL is valid, DNS resolution will not happen.
-2. When the domain name belongs to IPv4, IPv6 or unix-domain-socket, DNS resolution will not happen.
-3. DNS resolution is a special computing task, which is encapsulated as a WFThreadTask.
-4. DNS resolution uses a completely independent and isolated thread pool, that is, it does not occupy the computing thread pool or the communication thread pool.
-
-#### Async request method
-The framework implements a complete DNS protocol resolution. The current version requires the user to manually specify `resolv_conf_path` to enable this method. On common Linux distributions, `resolv_conf_path` is generally `/etc/resolv.conf`, and `hosts_path` is generally `/etc/hosts`. Leave the above parameters blank, and the synchronous request method will be used.
-
-### Global DNS configuration
-
-You can see global settings in [WFGlobal.h](/src/manager/WFGlobal.h).
+## DNS related configuration
+Global configuration in Workflow includes
 
 ~~~cpp
 struct WFGlobalSettings
 {
-    EndpointParams endpoint_params;
+    struct EndpointParams endpoint_params;
+    struct EndpointParams dns_server_params;
     unsigned int dns_ttl_default;
     unsigned int dns_ttl_min;
     int dns_threads;
     int poller_threads;
     int handler_threads;
     int compute_threads;
+    int fio_max_events;
     const char *resolv_conf_path;
     const char *hosts_path;
 };
-
-static constexpr struct WFGlobalSettings GLOBAL_SETTING_DEFAULT =
-{
-    .endpoint_params    =    ENDPOINT_PARAMS_DEFAULT,
-    .dns_ttl_default    =    12 * 3600,  /* in seconds */
-    .dns_ttl_min        =    180,        /* reacquire when communication error */
-    .dns_threads        =    4,
-    .poller_threads     =    4,
-    .handler_threads    =    20,
-    .compute_threads    =    -1,
-    .resolv_conf_path   =    "/etc/resolv.conf",
-    .hosts_path         =    "/etc/hosts",
-};
 ~~~
 
-where the DNS-related configuration items include:
+Among them, the configuration items related to domain name resolution include
 
-* dns\_threads: the number of threads in the DNS thread pool, 4 by default. This item will be ignored if the resolv_conf_path is not NULL, and no DNS thread will be created.  
-* dns\_ttl\_default: default TTL in DNS Cache in seconds, 12 hours by default; DNS cache is used by the current process, and will be destroyed when the process exists. The configuration is valid only for the current process.
-* dns\_ttl\_min: minimum DNS ttl value, in seconds, 3 minutes by default, which is used to decide whether to retry DNS resolution after communication failure.
-* resolv_conf_path: Path of the resolv.conf configuration file, we will use multi-threaded DNS resolution when it is NULL.
-* hosts_path: Path of the hosts configuration file. This item can also be NULL.
+* dns_server_params
+  * address_family: This item will be explained later
+  * max_connections: The maximum number of concurrent requests sent to the DNS server, the default is 200
+  * connect_timeout/response_timeout/ssl_connect_timeout: refer to [timeout](about-timeout.md) for related instructions
+* dns_threads: When using synchronous mode to implement domain name resolution, the resolution operation will be executed in an independent thread pool. This item specifies the number of threads in the thread pool. The default is 4.
+* dns_ttl_default: The result of successful domain name resolution will be placed in the domain name cache. This item specifies its survival time in seconds. The default value is 12 hours. When the resolution result expires, it will be re-parsed to obtain the latest content.
+* dns_ttl_min: When communication fails, the cached result may have expired. This item specifies a shorter survival time. When communication fails, the cache is updated at a more frequent rate. The unit is seconds. The default value is 3 minutes.
+* resolv_conf_path: This file saves the configuration related to accessing DNS. It is usually located in `/etc/resolv.conf` on common Linux distributions. If this item is configured as `NULL`, it means using multi-threaded synchronous resolution mode.
+* hosts_path: This file is a local domain name lookup table. If the resolved domain name hits this table, it will not initiate a request to DNS. It is usually located in `/etc/hosts` on common Linux distributions. If this item is configured as `NULL` means not to use the lookup table
 
-To put it simply, in every communication, the system will check TTL to decide whether to refresh DNS resolution.   
-dns\_ttl\_default is checked by default, and dns\_ttl\_min is checked in the retry after communication failure. 
+### resolv.conf extensions
+Workflow has extended the `resolv.conf` configuration file. Users can modify the configuration to support the `DNS over TLS(DoT)`. **Note** directly modifying `/etc/resolv.conf` will affect other processes. You can make a copy of the file for modification, and modify the `resolv_conf_path` configuration of Workflow to the path of the new file. For example, a `nameserver` using the `dnss` protocol will connect via SSL
 
-The global DNS configuration can be overridden by the configuration for an individual address in the upstream.   
-In Upstream, each AddressParams can also have its own dns\_ttl\_default and dns\_ttl\_min, and you can configure them in the same way as you configure the Global items.   
-For the detailed structures, please see [upstream documents](/docs/en/about-upstream.md#Address).
-
-### DNS over SSL (Dot)
-
-On the master branch (not available on windows branch), we also supports DNS resolving over SSL (Dot) by extending the format of **resolv.conf** slightly. You may edit the **resolv.conf** file and add an SSL dns server like:
 ~~~bash
 nameserver dnss://8.8.8.8/
-~~~
-We use the **dnss://** scheme to represent an SSL dns server address. With the config abort, all DNS resolving will use SSL connection to global dns server 8.8.8.8. The global DNS supports SSL perfectly, and you can try this feature right now! But to avoid changing the system **resolv.conf** file (/etc/resolv.conf), you may need to setup a private **resolv.conf** path:
-~~~cpp
-#include <workflow/WFGlobal.h>
-#include <workflow/WFTaskFactory.h>
-
-int main()
-{
-    struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
-    settings.resolv_conf_path = "./myresolv.conf";
-    WORKFLOW_library_init(&settings);
-
-    WFHttpTask *task = WFTaskFactory::create_http_task("https://www.example.com", ...);
-	...
-}
+nameserver dnss://[2001:4860:4860::8888]/
 ~~~
 
-### Handling at TTL expiration moment under high concurrency
+### Address Family
+In some network environments, although the machine supports IPv6, it cannot communicate with the outside because it has not been assigned a public IPv6 address (for example, the local IPv6 address starts with `fe80`). At this time, you can set `endpoint_params.address_family` to `AF_INET` to force only IPv4 addresses to be resolved during domain name resolution. Similarly, the `resolv.conf` file may specify both the IPv4 address and the IPv6 address of the `nameserver`. In this case, you can set `dns_server_params.address_family` to `AF_INET` or `AF_INET6` to force the use of only IPv4 or IPv6 addresses to access DNS.
 
-At the moment when the TTL is exceeded, if a large number of concurrent requests are sent to a domain name, a large amount of DNS resolution for that domain name may occur at the same time.   
-The framework uses a self-consistent logic to reasonably avoid/reduce this possibility:
+### Use Upstream configuration
+The global configuration takes effect for each domain name by default. If you need to specify different configurations for certain domain names, you can use the [Upstream](./about-upstream.md#Address attribute) function. Using Upstream, you can individually specify the `dns_ttl_default` and `dns_ttl_min` configuration items, and individually specify the IP address family used by the domain name through `endpoint_params.address_family`.
 
-* When the results are obtained from DNS Cache, if the TTL is exceeded, the TTL will be increased by 10 seconds, and then the TTL expiration will be returned. All happen under the protection of a Mutex.
-* If a large number of requests flood in at the moment of TTL expiration, under the protection of this Mutex, \[the first request] will get the expired results and initiate DNS resolution, while other requests will continue to use the old results within 10 seconds.
-* As long as the new DNS resolution for \[the first request] is successfully completed within 10 seconds, the DNS Cache is updated to ensure the correctness of the logic; in the next 10 seconds, there will be only one DNS resolution.
-* In every ten seconds, there will be only one DNS resolution for the “recently” expired domain name. 
-* In order to prevent this mutual exclusion logic from affecting performance, the framework uses the double-checked locks to accelerate processing and effectively avoid the competition of Mutex locks.
-* Once again, please note that it is only valid for the "just" expired DNS records, and has no impact for the DNS records that expires long time ago.
-* For further information on the logic of this part, please see the source codes of [DNSCache](/src/manager/DNSCache.h).
 
-Currently, there are still two scenarios in which the framework has to perform a large number of DNS resolutions for the same domain name at the same time:
+## Domain name resolution and caching strategy
+Network tasks usually require domain name resolution to obtain the IP address that needs to be accessed. The relevant strategies for domain name resolution in Workflow are as follows:
 
-1. The program just started, and instantly made a large number of requests to the same domain name.
-2. A domain name has not been visited for a long time (far larger than TTL), and suddenly a lot of requests are made to this domain name.
+1. Check whether the domain name cache has the IP address corresponding to the domain name. If there is a cache and it has not expired, use this set of IP addresses.
+2. Check whether the domain name is an IPv4, IPv6 address or `Unix Domain Socket`. If so, use the address directly without initiating domain name resolution.
+3. Check whether the `hosts_path` file contains the IP address corresponding to the domain name. If so, use the address directly.
+4. Obtain an asynchronous lock to ensure that a resolution request for the same domain name is only initiated once at the same time, and initiate a resolution request to DNS
+5. After successful parsing, the parsing result will be saved to the domain name cache of the current process for next use, and the asynchronous lock will be released.
+6. After the parsing fails, the asynchronous lock will be released and the failure reason will be notified to all tasks waiting on the same asynchronous lock. New tasks initiated after the notification is completed will request DNS again.
 
-We think that these two scenarios are acceptable in the framework. To put it more precisely, a large number of DNS requests in this scenario are completely reasonable and logical.
+Many scenarios that require a large number of network requests will be equipped with a domain name caching component. If a resolution request is sent to the DNS every time a network task is initiated, the DNS will inevitably be overwhelmed. Workflow sets the cache survival time (dns_ttl_default and dns_ttl_min) to ensure that the cache will expire after a reasonable period of time and the domain name resolution results can be updated in a timely manner. When a cache item of a domain name expires, the first task found to be expired will extend its survival time by 5 seconds and initiate a resolution request to DNS. Requests on the same domain name within 5 seconds will directly use the cached DNS resolution results without waiting.
+
+The asynchronous lock mechanism can ensure that the resolution request for the **same domain name** is only initiated once at the same time. Without lock protection, if a large number of network tasks are initiated for the same domain name in a short period of time, each task will be unable to be retrieved from the cache. Too many resolution request to DNS will place a large and unnecessary burden on DNS. The same domain name here represents the `(host, port, family)` triplet. If a domain name is required to only use IPv4 and IPv6 through Upstream, they will be protected by different asynchronous locks, and it is possible to request DNS at the same time.
+
+
+### Asynchronous domain name resolution
+Workflow implements a complete DNS task. If the `resolv_conf_path` configuration item is specified, an asynchronous request will be used when initiating domain name resolution to DNS. Under Unix-like systems, Workflow uses `/etc/resolv.conf` as the value of this configuration by default. Asynchronous domain name resolution does not block any threads or monopolize the thread pool, and can complete the task of domain name resolution more efficiently.
+
+### Synchronous domain name resolution
+If `resolv_conf_path` is specified as `NULL`, synchronous domain name resolution will be achieved by calling the `getaddrinfo` function. This method will use an independent thread pool, and the number of threads is configured through the `dns_threads` parameter. If a large number of domain name resolution requests need to be initiated in a short period of time, the synchronization method will cause a large delay.

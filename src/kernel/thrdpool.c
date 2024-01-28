@@ -148,7 +148,7 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 	if (!pool)
 		return NULL;
 
-	pool->msgqueue = msgqueue_create((size_t)-1, 0);
+	pool->msgqueue = msgqueue_create(0, 0);
 	if (pool->msgqueue)
 	{
 		ret = pthread_mutex_init(&pool->mutex, NULL);

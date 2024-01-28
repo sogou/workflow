@@ -19,22 +19,20 @@
 #ifndef _KAFKA_DATATYPES_H_
 #define _KAFKA_DATATYPES_H_
 
-
 #include <assert.h>
-#include <algorithm>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <utility>
+#include <string.h>
 #include <vector>
 #include <string>
-#include <string.h>
 #include <atomic>
 #include <snappy.h>
 #include <snappy-sinksource.h>
 #include "list.h"
 #include "rbtree.h"
 #include "kafka_parser.h"
-
 
 namespace protocol
 {
@@ -553,30 +551,7 @@ public:
 		return kafka_sasl_set_password(password, this->ptr) == 0;
 	}
 
-	std::string get_sasl_info() const
-	{
-		std::string info;
-		if (strcasecmp(this->ptr->mechanisms, "plain") == 0)
-		{
-			info += this->ptr->mechanisms;
-			info += "|";
-			info += this->ptr->username;
-			info += "|";
-			info += this->ptr->password;
-			info += "|";
-		}
-		else if (strncasecmp(this->ptr->mechanisms, "SCRAM", 5) == 0)
-		{
-			info += this->ptr->mechanisms;
-			info += "|";
-			info += this->ptr->username;
-			info += "|";
-			info += this->ptr->password;
-			info += "|";
-		}
-
-		return info;
-	}
+	std::string get_sasl_info() const;
 
 	bool new_client(kafka_sasl_t *sasl)
 	{
@@ -1016,14 +991,12 @@ public:
 		return this->ptr->port;
 	}
 
-	std::string get_uri() const
+	std::string get_host_port() const
 	{
-		std::string uri = "kafka://";
-
-		uri += this->ptr->host;
-		uri += ":";
-		uri += std::to_string(this->ptr->port);
-		return uri;
+		std::string host_port(this->ptr->host);
+		host_port += ":";
+		host_port += std::to_string(this->ptr->port);
+		return host_port;
 	}
 
 	int get_error()
@@ -1103,12 +1076,12 @@ public:
 
 	bool operator< (const KafkaBroker& broker) const
 	{
-		return this->get_uri() < broker.get_uri();
+		return this->get_host_port() < broker.get_host_port();
 	}
 
 	bool operator> (const KafkaBroker& broker) const
 	{
-		return this->get_uri() > broker.get_uri();
+		return this->get_host_port() > broker.get_host_port();
 	}
 
 	kafka_broker_t *get_raw_ptr() const { return this->ptr; }
@@ -1116,54 +1089,6 @@ public:
 	struct list_head *get_list() { return &this->list; }
 
 	struct rb_node *get_rb() { return &this->rb; }
-
-	bool is_equal(const struct sockaddr *addr, socklen_t socklen) const
-	{
-		if (this->ptr->addrlen == socklen && socklen)
-			return memcmp(addr, &this->ptr->addr, this->ptr->addrlen) == 0;
-
-		return false;
-	}
-
-	bool is_equal(const char *host, int port) const
-	{
-		if (port == this->ptr->port)
-			return strcmp(host, this->ptr->host) == 0;
-		return false;
-	}
-
-	bool is_equal(int node_id) const
-	{
-		return this->ptr->node_id == node_id;
-	}
-
-	bool is_equal(const KafkaBroker& broker) const
-	{
-		return is_equal(broker.ptr->host, broker.ptr->port);
-	}
-
-	void get_broker_addr(const struct sockaddr **addr, socklen_t *socklen) const
-	{
-		if (this->ptr->addrlen)
-		{
-			*addr = (const struct sockaddr *)&this->ptr->addr;
-			*socklen = this->ptr->addrlen;
-		}
-		else
-		{
-			*addr = NULL;
-			*socklen = 0;
-		}
-	}
-
-	void set_broker_addr(const struct sockaddr *addr, socklen_t socklen)
-	{
-		memcpy(&this->ptr->addr, addr, socklen);
-		this->ptr->addrlen = socklen;
-	}
-
-	bool is_to_addr() const { return this->ptr->to_addr == 1; }
-	void set_to_addr(int to_addr) { this->ptr->to_addr = to_addr; }
 
 	int get_node_id() const { return this->ptr->node_id; }
 
@@ -1334,15 +1259,7 @@ public:
 		return &this->member_vec;
 	}
 
-	static bool cmp(const kafka_member_t *m1, const kafka_member_t *m2)
-	{
-		return strcmp(m1->member_id, m2->member_id) < 0;
-	}
-
-	void sort_by_member()
-	{
-		std::sort(this->member_vec.begin(), this->member_vec.end(), cmp);
-	}
+	void sort_by_member();
 
 private:
 	KafkaMeta *meta;
@@ -1392,14 +1309,6 @@ public:
 	bool is_leader() const
 	{
 		return strcmp(this->ptr->leader_id, this->ptr->member_id) == 0;
-	}
-
-	bool is_equal_coordinator(const struct sockaddr *addr, socklen_t addrlen) const
-	{
-		if (addrlen == this->ptr->coordinator.addrlen)
-			return memcmp(addr, &this->ptr->coordinator.addr, addrlen) == 0;
-		else
-			return false;
 	}
 
 	struct list_head *get_group_protocol()

@@ -16,14 +16,14 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <ctype.h>
 #include "kafka_parser.h"
 
 static kafka_api_version_t kafka_api_version_queryable[] = {
@@ -397,9 +397,6 @@ void kafka_broker_init(kafka_broker_t *broker)
 	broker->port = 0;
 	broker->host = NULL;
 	broker->rack = NULL;
-	broker->to_addr = 0;
-	memset(&broker->addr, 0, sizeof(broker->addr));
-	broker->addrlen = 0;
 	broker->error = 0;
 	broker->status = KAFKA_BROKER_UNINIT;
 }
@@ -613,13 +610,13 @@ int kafka_parser_append_message(const void *buf, size_t *size,
 
 	if (s > parser->message_size - parser->cur_size)
 	{
-		memcpy(parser->msgbuf + parser->cur_size, buf,
+		memcpy((char *)parser->msgbuf + parser->cur_size, buf,
 			   parser->message_size - parser->cur_size);
 		parser->cur_size = parser->message_size;
 	}
 	else
 	{
-		memcpy(parser->msgbuf + parser->cur_size, buf, s);
+		memcpy((char *)parser->msgbuf + parser->cur_size, buf, s);
 		parser->cur_size += s;
 	}
 
@@ -1209,6 +1206,8 @@ void kafka_sasl_init(kafka_sasl_t *sasl)
 	sasl->scram.first_msg.iov_len = 0;
 	sasl->scram.server_signature_b64.iov_base = NULL;
 	sasl->scram.server_signature_b64.iov_len = 0;
+	sasl->buf = NULL;
+	sasl->bsize = 0;
 	sasl->status = 0;
 }
 
@@ -1216,6 +1215,7 @@ void kafka_sasl_deinit(kafka_sasl_t *sasl)
 {
 	free(sasl->scram.cnonce.iov_base);
 	free(sasl->scram.server_signature_b64.iov_base);
+	free(sasl->buf);
 }
 
 int kafka_sasl_set_username(const char *username, kafka_config_t *conf)

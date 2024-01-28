@@ -101,6 +101,7 @@ public:
     void set_send_timeout(int timeout) { this->send_timeo = timeout; }
     void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
     void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
+    void set_watch_timeout(int timeout) { this->watch_timeo = timeout; }
 ...
 }
 ~~~
@@ -110,7 +111,11 @@ set_receive_timeout()只对client任务有效，指接收完整server回复的�
 
 set_keep_alive()接口设置连接保持超时。一般来讲，框架能很好的处理连接保持的问题，用户不需要调用。  
 如果是http协议，client或server想要使用短连接，可通过添加HTTP header来完成，尽量不要用这个接口去修改。  
-如果一个redis client想要在请求之后关闭连接，则需要用这个接口。显然，在callback里set_keep_alive()是无效的（连接已经被复用）。
+如果一个redis client想要在请求之后关闭连接，则需要用这个接口。显然，在callback里set_keep_alive()是无效的（连接已经被复用）。  
+
+set_watch_timeout()接口为client任务专有，代表一个client任务的请求发出之后，接收到第一个返回包的最大等待时间。  
+利用watch timeout，可以避免一些需要等待数据推送的client任务受到response timeout和receive timeout的约束而超时。  
+设置了watch timeout之后，从接收到第一个数据包再开始计算receive timeout。
 
 ### 任务的同步等待超时
 

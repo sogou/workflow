@@ -291,6 +291,10 @@ private:
 	virtual int duration(struct timespec *value) = 0;
 	virtual void handle(int state, int error) = 0;
 
+private:
+	void *timer;
+	int index;
+
 public:
 	virtual ~SleepSession() { }
 	friend class Communicator;
@@ -313,6 +317,8 @@ public:
 
 	int push(const void *buf, size_t size, CommSession *session);
 
+	int shutdown(CommSession *session);
+
 	int bind(CommService *service);
 	void unbind(CommService *service);
 
@@ -321,6 +327,7 @@ public:
 	void shutdown(CommChannel *channel);
 
 	int sleep(SleepSession *session);
+	int unsleep(SleepSession *session);
 
 	int io_bind(IOService *service);
 	void io_unbind(IOService *service);

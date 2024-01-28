@@ -243,12 +243,13 @@ CommMessageOut *ComplexMySQLTask::message_out()
 	case ST_FIRST_USER_REQUEST:
 		if (this->is_fixed_addr())
 		{
-			auto *target = (RouteManager::RouteTarget *)this->get_target();
+			auto *target = (RouteManager::RouteTarget *)this->target;
 
 			/* If it's a transaction task, generate a ECONNRESET error when
 			 * the target was reconnected. */
 			if (target->state)
 			{
+				is_user_request_ = true;
 				errno = ECONNRESET;
 				return NULL;
 			}
@@ -744,9 +745,8 @@ bool ComplexMySQLTask::finish_once()
 	{
 		if (this->state != WFT_STATE_SUCCESS || this->keep_alive_timeo == 0)
 		{
-			auto *target = (RouteManager::RouteTarget *)this->get_target();
-			if (target)
-				target->state = 0;
+			if (this->target)
+				((RouteManager::RouteTarget *)this->target)->state = 0;
 		}
 	}
 

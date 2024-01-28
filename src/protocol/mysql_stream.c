@@ -86,23 +86,6 @@ static int __mysql_stream_write_payload(const void *buf, size_t *n,
 	return stream->payload_length != (1 << 24) - 1;
 }
 
-int mysql_stream_write(const void *buf, size_t n, mysql_stream_t *stream)
-{
-	size_t nleft = n;
-	int ret;
-
-	while (1)
-	{
-		ret = stream->write(buf, &n, stream);
-		if (nleft == n)
-			return ret;
-
-		nleft -= n;
-		buf = (const char *)buf + n;
-		n = nleft;
-	}
-}
-
 void mysql_stream_init(mysql_stream_t *stream)
 {
 	stream->head_left = 4;

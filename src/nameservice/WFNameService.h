@@ -78,7 +78,7 @@ public:
 
 struct WFNSParams
 {
-	TransportType type;
+	enum TransportType type;
 	ParsedURI& uri;
 	const char *info;
 	bool fixed_addr;

@@ -17,6 +17,7 @@
 */
 
 #include <string>
+#include <atomic>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "DnsMessage.h"
@@ -31,6 +32,7 @@ class ComplexDnsTask : public WFComplexClientTask<DnsRequest, DnsResponse,
 							  std::function<void (WFDnsTask *)>>
 {
 	static struct addrinfo hints;
+	static std::atomic<size_t> seq;
 
 public:
 	ComplexDnsTask(int retry_max, dns_callback_t&& cb):
@@ -55,14 +57,16 @@ struct addrinfo ComplexDnsTask::hints =
 	.ai_socktype  = SOCK_STREAM
 };
 
+std::atomic<size_t> ComplexDnsTask::seq(0);
+
 CommMessageOut *ComplexDnsTask::message_out()
 {
 	DnsRequest *req = this->get_req();
 	DnsResponse *resp = this->get_resp();
-	TransportType type = this->get_transport_type();
+	enum TransportType type = this->get_transport_type();
 
 	if (req->get_id() == 0)
-		req->set_id((this->get_seq() + 1) * 99991 % 65535 + 1);
+		req->set_id(++ComplexDnsTask::seq * 99991 % 65535 + 1);
 	resp->set_request_id(req->get_id());
 	resp->set_request_name(req->get_question_name());
 	req->set_single_packet(type == TT_UDP);
@@ -84,15 +88,15 @@ bool ComplexDnsTask::init_success()
 
 	if (!this->route_result_.request_object)
 	{
-		TransportType type = this->get_transport_type();
+		enum TransportType type = this->get_transport_type();
 		struct addrinfo *addr;
 		int ret;
 
 		ret = getaddrinfo(uri_.host, uri_.port, &hints, &addr);
 		if (ret != 0)
 		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_URI_PARSE_FAILED;
+			this->state = WFT_STATE_DNS_ERROR;
+			this->error = ret;
 			return false;
 		}
 
@@ -137,7 +141,7 @@ bool ComplexDnsTask::finish_once()
 bool ComplexDnsTask::need_redirect()
 {
 	DnsResponse *client_resp = this->get_resp();
-	TransportType type = this->get_transport_type();
+	enum TransportType type = this->get_transport_type();
 
 	if (type == TT_UDP && client_resp->get_tc() == 1)
 	{

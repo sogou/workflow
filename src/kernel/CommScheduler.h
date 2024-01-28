@@ -187,6 +187,33 @@ public:
 		this->comm.io_unbind(service);
 	}
 
+	/* for channels. */
+	int establish(CommChannel *channel, CommSchedObject *object,
+				  int wait_timeout, CommTarget **target)
+	{
+		int ret = -1;
+
+		*target = object->acquire(wait_timeout);
+		if (*target)
+		{
+			ret = this->comm.establish(channel, *target);
+			if (ret < 0)
+				(*target)->release();
+		}
+
+		return ret;
+	}
+
+	int send(TransSession *session, CommChannel *channel)
+	{
+		return this->comm.send(session, channel);
+	}
+
+	void shutdown(CommChannel *channel)
+	{
+		this->comm.shutdown(channel);
+	}
+
 public:
 	int is_handler_thread() const
 	{

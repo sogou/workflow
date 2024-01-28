@@ -11,6 +11,8 @@ set(SRC
 	HttpMessage.cc
 	HttpUtil.cc
 	TLVMessage.cc
+	websocket_parser.c
+	WebSocketMessage.cc
 )
 
 if (NOT MYSQL STREQUAL "n")

@@ -4,6 +4,7 @@ project(manager)
 set(SRC
 	DnsCache.cc
 	RouteManager.cc
+	WFCondition.cc
 	WFGlobal.cc
 )
 

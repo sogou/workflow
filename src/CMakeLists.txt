@@ -133,12 +133,16 @@ if (KAFKA STREQUAL "y")
 endif ()
 
 target_include_directories(${STATIC_LIB_NAME} BEFORE PUBLIC
+	"$<BUILD_INTERFACE:${INC_DIR}>"
 	"$<INSTALL_INTERFACE:${INC_DIR}>")
 target_include_directories(${SHARED_LIB_NAME} BEFORE PUBLIC
+	"$<BUILD_INTERFACE:${INC_DIR}>"
 	"$<INSTALL_INTERFACE:${INC_DIR}>")
 if (KAFKA STREQUAL "y")
 	target_include_directories(${KAFKA_STATIC_LIB_NAME} BEFORE PUBLIC
+		"$<BUILD_INTERFACE:${INC_DIR}>"
 		"$<INSTALL_INTERFACE:${INC_DIR}>")
 	target_include_directories(${KAFKA_SHARED_LIB_NAME} BEFORE PUBLIC
+		"$<BUILD_INTERFACE:${INC_DIR}>"
 		"$<INSTALL_INTERFACE:${INC_DIR}>")
 endif ()

@@ -67,6 +67,49 @@ bool HttpMessage::append_output_body_nocopy(const void *buf, size_t size)
 	return false;
 }
 
+size_t HttpMessage::get_output_body_blocks(const void *buf[], size_t size[],
+										   size_t max) const
+{
+	struct HttpMessageBlock *block;
+	struct list_head *pos;
+	size_t n = 0;
+
+	list_for_each(pos, &this->output_body)
+	{
+		if (n == max)
+			break;
+
+		block = list_entry(pos, struct HttpMessageBlock, list);
+		buf[n] = block->ptr;
+		size[n] = block->size;
+		n++;
+	}
+
+	return n;
+}
+
+bool HttpMessage::get_output_body_merged(void *buf, size_t *size) const
+{
+	struct HttpMessageBlock *block;
+	struct list_head *pos;
+
+	if (*size < this->output_body_size)
+	{
+		errno = ENOSPC;
+		return false;
+	}
+
+	list_for_each(pos, &this->output_body)
+	{
+		block = list_entry(pos, struct HttpMessageBlock, list);
+		memcpy(buf, block->ptr, block->size);
+		buf = (char *)buf + block->size;
+	}
+
+	*size = this->output_body_size;
+	return true;
+}
+
 void HttpMessage::clear_output_body()
 {
 	struct HttpMessageBlock *block;

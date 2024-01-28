@@ -33,8 +33,6 @@ else ()
 endif ()
 
 set(INCLUDE_HEADERS
-	src/algorithm/MapReduce.h
-	src/algorithm/MapReduce.inl
 	src/protocol/ProtocolMessage.h
 	src/protocol/http_parser.h
 	src/protocol/HttpMessage.h
@@ -55,6 +53,7 @@ set(INCLUDE_HEADERS
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/TLVMessage.h
 	src/protocol/WebSocketMessage.h
 	src/protocol/websocket_parser.h
 	src/protocol/ConsulDataTypes.h

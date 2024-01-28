@@ -65,8 +65,10 @@ add_library(
 
 if(ANDROID)
 	target_link_libraries(${SHARED_LIB_NAME} ssl crypto c)
+	target_link_libraries(${STATIC_LIB_NAME} ssl crypto c)
 else()
 	target_link_libraries(${SHARED_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
+	target_link_libraries(${STATIC_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
 endif ()
 
 set_target_properties(${STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
@@ -130,3 +132,17 @@ if (KAFKA STREQUAL "y")
 	)
 endif ()
 
+target_include_directories(${STATIC_LIB_NAME} BEFORE PUBLIC
+	"$<BUILD_INTERFACE:${INC_DIR}>"
+	"$<INSTALL_INTERFACE:${INC_DIR}>")
+target_include_directories(${SHARED_LIB_NAME} BEFORE PUBLIC
+	"$<BUILD_INTERFACE:${INC_DIR}>"
+	"$<INSTALL_INTERFACE:${INC_DIR}>")
+if (KAFKA STREQUAL "y")
+	target_include_directories(${KAFKA_STATIC_LIB_NAME} BEFORE PUBLIC
+		"$<BUILD_INTERFACE:${INC_DIR}>"
+		"$<INSTALL_INTERFACE:${INC_DIR}>")
+	target_include_directories(${KAFKA_SHARED_LIB_NAME} BEFORE PUBLIC
+		"$<BUILD_INTERFACE:${INC_DIR}>"
+		"$<INSTALL_INTERFACE:${INC_DIR}>")
+endif ()

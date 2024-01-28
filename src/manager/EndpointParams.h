@@ -19,7 +19,8 @@
 #ifndef _ENDPOINTPARAMS_H_
 #define _ENDPOINTPARAMS_H_
 
-#include <stddef.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 /**
  * @file   EndpointParams.h
@@ -37,6 +38,7 @@ enum TransportType
 
 struct EndpointParams
 {
+	int address_family;
 	size_t max_connections;
 	int connect_timeout;
 	int response_timeout;
@@ -46,6 +48,7 @@ struct EndpointParams
 
 static constexpr struct EndpointParams ENDPOINT_PARAMS_DEFAULT =
 {
+	.address_family			=	AF_UNSPEC,
 	.max_connections		=	200,
 	.connect_timeout		=	10 * 1000,
 	.response_timeout		=	10 * 1000,

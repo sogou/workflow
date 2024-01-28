@@ -37,13 +37,23 @@ public:
 
 public:
 	WFMySQLTask *create_query_task(const std::string& query,
-								   mysql_callback_t callback);
+								   mysql_callback_t callback)
+	{
+		WFMySQLTask *task = WFTaskFactory::create_mysql_task(this->uri, 0,
+													std::move(callback));
+		task->get_req()->set_query(query);
+		return task;
+	}
 
-public:
 	/* If you don't disconnect manually, the TCP connection will be
 	 * kept alive after this object is deleted, and maybe reused by
 	 * another WFMySQLConnection object with same id and url. */
-	WFMySQLTask *create_disconnect_task(mysql_callback_t callback);
+	WFMySQLTask *create_disconnect_task(mysql_callback_t callback)
+	{
+		WFMySQLTask *task = this->create_query_task("", std::move(callback));
+		task->set_keep_alive(0);
+		return task;
+	}
 
 protected:
 	ParsedURI uri;
@@ -55,26 +65,6 @@ public:
 	WFMySQLConnection(int id) { this->id = id; }
 	virtual ~WFMySQLConnection() { }
 };
-
-inline WFMySQLTask *
-WFMySQLConnection::create_query_task(const std::string& query,
-									 mysql_callback_t callback)
-{
-	WFMySQLTask *task = WFTaskFactory::create_mysql_task(this->uri, 0,
-												std::move(callback));
-	task->get_req()->set_query(query);
-	return task;
-}
-
-inline WFMySQLTask *
-WFMySQLConnection::create_disconnect_task(mysql_callback_t callback)
-{
-	WFMySQLTask *task = WFTaskFactory::create_mysql_task(this->uri, 0,
-												std::move(callback));
-	task->get_req()->set_query("");
-	task->set_keep_alive(0);
-	return task;
-}
 
 #endif
 

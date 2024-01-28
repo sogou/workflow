@@ -44,7 +44,7 @@ private:
 ### Serialization function: encode
 
 * The encode function is called before the message is sent, and it is called only once for each message.
-* In the encode function, you need to serialize the message into a vector array, and the number of array elements must not exceed max. Current the value of max is 8192.
+* In the encode function, you need to serialize the message into a vector array, and the number of array elements must not exceed max. Current the value of max is 2048.
 * For the definition of **struct iovec**, please see the system calls **readv** or **writev**.
 * Normally the return value of the encode function is between 0 and max, indicating how many vector are used in the message.
   * In case of UDP protocol, please note that the total length must not be more than 64k, and no more than 1024 vectors are used (in Linux, writev writes only 1024 vectors at one time).

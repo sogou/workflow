@@ -114,6 +114,8 @@ public:
 	/* The following functions are intended for task implementations only. */
 	SubTask *pop();
 
+	SubTask *get_last_task() const { return this->last; }
+
 	void set_last_task(SubTask *last)
 	{
 		last->set_pointer(this);
@@ -125,8 +127,6 @@ public:
 	const ParallelTask *get_in_parallel() const { return this->in_parallel; }
 
 protected:
-	SubTask *get_last_task() const { return this->last; }
-
 	void set_in_parallel(const ParallelTask *task) { this->in_parallel = task; }
 
 	void dismiss_recursive();

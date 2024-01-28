@@ -113,98 +113,6 @@ protected:
 	virtual ~WFThreadTask() { }
 };
 
-template<class INPUT, class OUTPUT>
-class WFMultiThreadTask : public ParallelTask
-{
-public:
-	void start()
-	{
-		assert(!series_of(this));
-		Workflow::start_series_work(this, nullptr);
-	}
-
-	void dismiss()
-	{
-		assert(!series_of(this));
-		delete this;
-	}
-
-public:
-	INPUT *get_input(size_t index)
-	{
-		return static_cast<Thread *>(this->subtasks[index])->get_input();
-	}
-
-	OUTPUT *get_output(size_t index)
-	{
-		return static_cast<Thread *>(this->subtasks[index])->get_output();
-	}
-
-public:
-	void *user_data;
-
-public:
-	int get_state(size_t index) const
-	{
-		return static_cast<const Thread *>(this->subtasks[index])->get_state();
-	}
-
-	int get_error(size_t index) const
-	{
-		return static_cast<const Thread *>(this->subtasks[index])->get_error();
-	}
-
-public:
-	void set_callback(
-		std::function<void (WFMultiThreadTask<INPUT, OUTPUT> *)> cb)
-	{
-		this->callback = std::move(cb);
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-		return series->pop();
-	}
-
-protected:
-	std::function<void (WFMultiThreadTask<INPUT, OUTPUT> *)> callback;
-
-protected:
-	using Thread = WFThreadTask<INPUT, OUTPUT>;
-
-public:
-	WFMultiThreadTask(Thread *const tasks[], size_t n,
-			std::function<void (WFMultiThreadTask<INPUT, OUTPUT> *)>&& cb) :
-		ParallelTask(new SubTask *[n], n),
-		callback(std::move(cb))
-	{
-		size_t i;
-
-		for (i = 0; i < n; i++)
-			this->subtasks[i] = tasks[i];
-
-		this->user_data = NULL;
-	}
-
-protected:
-	virtual ~WFMultiThreadTask()
-	{
-		size_t n = this->subtasks_nr;
-
-		while (n > 0)
-			delete this->subtasks[--n];
-
-		delete []this->subtasks;
-	}
-};
-
 template<class REQ, class RESP>
 class WFNetworkTask : public CommRequest
 {
@@ -260,18 +168,36 @@ public:
 	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
 	void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
 	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
+	void set_watch_timeout(int timeout) { this->watch_timeo = timeout; }
 
 public:
-	/* noreply(), push() are for server tasks only. */
+	/* Do not reply this request. */
 	void noreply()
 	{
 		if (this->state == WFT_STATE_TOREPLY)
 			this->state = WFT_STATE_NOREPLY;
 	}
 
+	/* Push reply data synchronously. */
 	virtual int push(const void *buf, size_t size)
 	{
 		return this->scheduler->push(buf, size, this);
+	}
+
+	/* To check if the connection was closed before replying.
+	   Always returns 'true' in callback. */
+	bool closed() const
+	{
+		switch (this->state)
+		{
+		case WFT_STATE_UNDEFINED:
+			return false;
+		case WFT_STATE_TOREPLY:
+		case WFT_STATE_NOREPLY:
+			return !this->target->has_idle_conn();
+		default:
+			return true;
+		}
 	}
 
 public:
@@ -284,11 +210,13 @@ protected:
 	virtual int send_timeout() { return this->send_timeo; }
 	virtual int receive_timeout() { return this->receive_timeo; }
 	virtual int keep_alive_timeout() { return this->keep_alive_timeo; }
+	virtual int first_timeout() { return this->watch_timeo; }
 
 protected:
 	int send_timeo;
 	int receive_timeo;
 	int keep_alive_timeo;
+	int watch_timeo;
 	REQ req;
 	RESP resp;
 	std::function<void (WFNetworkTask<REQ, RESP> *)> callback;
@@ -302,6 +230,7 @@ protected:
 		this->send_timeo = -1;
 		this->receive_timeo = -1;
 		this->keep_alive_timeo = 0;
+		this->watch_timeo = 0;
 		this->target = NULL;
 		this->timeout_reason = TOR_NOT_TIMEOUT;
 		this->user_data = NULL;

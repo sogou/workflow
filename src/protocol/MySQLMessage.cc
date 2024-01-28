@@ -98,6 +98,8 @@ int MySQLMessage::append(const void *buf, size_t *size)
 {
 	const void *stream_buf;
 	size_t stream_len;
+	size_t nleft = *size;
+	size_t n;
 	int ret;
 
 	cur_size_ += *size;
@@ -107,17 +109,24 @@ int MySQLMessage::append(const void *buf, size_t *size)
 		return -1;
 	}
 
-	ret = mysql_stream_write(buf, *size, stream_);
-	if (ret > 0)
+	while (nleft > 0)
 	{
-		seqid_ = mysql_stream_get_seq(stream_);
-		mysql_stream_get_buf(&stream_buf, &stream_len, stream_);
-		ret = decode_packet((const unsigned char *)stream_buf, stream_len);
-		if (ret == -2)
+		n = nleft;
+		ret = mysql_stream_write(buf, &n, stream_);
+		if (ret > 0)
 		{
-			errno = EBADMSG;
-			ret = -1;
+			seqid_ = mysql_stream_get_seq(stream_);
+			mysql_stream_get_buf(&stream_buf, &stream_len, stream_);
+			ret = decode_packet((const unsigned char *)stream_buf, stream_len);
+			if (ret == -2)
+				errno = EBADMSG;
 		}
+
+		if (ret < 0)
+			return -1;
+
+		nleft -= n;
+		buf = (const char *)buf + n;
 	}
 
 	return ret;
@@ -440,7 +449,6 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 	const unsigned char *pos;
 	const unsigned char *str;
 	unsigned long long len;
-	int ret;
 
 	if (end == buf)
 		return -2;
@@ -472,11 +480,7 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 
 	default:
 		pos = buf;
-		ret = decode_string(&str, &len, &pos, end);
-		if (ret <= 0)
-			return ret;
-
-		if (len == 1)
+		if (decode_string(&str, &len, &pos, end) > 0 && len == 1)
 		{
 			if (*str == 0x03)
 			{

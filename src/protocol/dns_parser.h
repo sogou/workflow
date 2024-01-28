@@ -83,6 +83,7 @@ enum
  * request or response packet, but the byte order is not
  * transformed.
  */
+#pragma pack(1)
 struct dns_header
 {
 	uint16_t id;
@@ -112,6 +113,7 @@ struct dns_header
 	uint16_t nscount;
 	uint16_t arcount;
 };
+#pragma pack()
 
 struct dns_question
 {

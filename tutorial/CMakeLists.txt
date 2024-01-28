@@ -44,7 +44,6 @@ set(TUTORIAL_LIST
 	tutorial-14-websocket_cli
 	tutorial-15-name_service
 	tutorial-17-dns_cli
-	tutorial-20-reducer
 )
 
 if (APPLE)

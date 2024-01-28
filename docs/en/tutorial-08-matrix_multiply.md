@@ -172,7 +172,7 @@ Obviously, our framework can not interrupt a computing task because it's a user 
      ...
  };
  ~~~
-This create_thread_task function needs to pass two more parameters, seconds and nanoseconds. If the running time of func reaches the seconds+nanosconds time limit, the task callback directly, and the state is WFT_STATE_ABORTED. But the task routine will continue to run till the end.
+This create_thread_task function needs to pass two more parameters, seconds and nanoseconds. If the running time of func reaches the seconds+nanosconds time limit, the task callback directly, and the state is WFT_STATE_SYS_ERROR and the error is ETIMEDOUT. But the task routine will continue to run till the end.
 
 # Symmetry of the algorithm and the protocol
 

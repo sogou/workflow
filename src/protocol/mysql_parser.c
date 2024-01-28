@@ -182,10 +182,10 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	const unsigned char *buf_end = (const unsigned char *)buf + len;
 
 	unsigned long long affected_rows, insert_id, info_len;
+	const unsigned char *str;
 	struct __mysql_result_set *result_set;
 	unsigned int warning_count;
 	int server_status;
-	int ret;
 
 	p += 1;// 0x00
 	if (decode_length_safe(&affected_rows, &p, buf_end) <= 0)
@@ -202,23 +202,24 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	warning_count = uint2korr(p);
 	p += 2;
 
-	if (p < buf_end)
+	if (p != buf_end)
 	{
-		ret = decode_length_safe(&info_len, &p, buf_end);
-		if (ret > 0)
-		{
-			if (info_len == ~0ULL)
-				info_len = 0;
-			if (p + info_len > buf_end)
-				return -2;
-		}
-		else if (ret < 0)
-			info_len = 0;
-		else
+		if (decode_string(&str, &info_len, &p, buf_end) == 0)
 			return -2;
 
+		if (p != buf_end)
+		{
+			if (server_status & MYSQL_SERVER_SESSION_STATE_CHANGED)
+			{
+				const unsigned char *tmp_str;
+				unsigned long long tmp_len;
+				if (decode_string(&tmp_str, &tmp_len, &p, buf_end) == 0)
+					return -2;
+			} else
+				return -2;
+		}
 	} else {
-		ret = 1;
+		str = p;
 		info_len = 0;
 	}
 
@@ -226,7 +227,7 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	if (result_set == NULL)
 		return -1;
 
-	result_set->info_offset = p - (const unsigned char *)buf;
+	result_set->info_offset = str - (const unsigned char *)buf;
 	result_set->info_len = info_len;
 	result_set->affected_rows = (affected_rows == ~0ULL) ? 0 : affected_rows;
 	result_set->insert_id = (insert_id == ~0ULL) ? 0 : insert_id;
@@ -241,13 +242,7 @@ static int parse_ok_packet(const void *buf, size_t len, mysql_parser_t *parser)
 	parser->packet_type = MYSQL_PACKET_OK;
 
 	parser->buf = buf;
-	parser->offset = result_set->info_offset + result_set->info_len;
-
-	if (ret < 0)
-	{
-		parser->parse = parse_error_packet;
-		return 0;
-	}
+	parser->offset = p - (const unsigned char *)buf;
 
 	if (server_status & MYSQL_SERVER_MORE_RESULTS_EXIST)
 	{

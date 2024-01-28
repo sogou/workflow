@@ -103,8 +103,9 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_del(int fd, poller_t *poller);
 int poller_mod(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_set_timeout(int fd, int timeout, poller_t *poller);
-int poller_add_timer(const struct timespec *value, void *context,
+int poller_add_timer(const struct timespec *value, void *context, void **timer,
 					 poller_t *poller);
+int poller_del_timer(void *timer, poller_t *poller);
 void poller_stop(poller_t *poller);
 void poller_destroy(poller_t *poller);
 

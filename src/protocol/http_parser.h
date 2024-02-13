@@ -88,6 +88,7 @@ int http_header_cursor_next(const void **name, size_t *name_len,
 int http_header_cursor_find(const void *name, size_t name_len,
 							const void **value, size_t *value_len,
 							http_header_cursor_t *cursor);
+int http_header_cursor_erase(http_header_cursor_t *cursor);
 
 #ifdef __cplusplus
 }

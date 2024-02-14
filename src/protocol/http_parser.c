@@ -832,3 +832,22 @@ int http_header_cursor_find(const void *name, size_t name_len,
 	return 1;
 }
 
+int http_header_cursor_erase(http_header_cursor_t *cursor)
+{
+	struct __header_line *line;
+
+	if (cursor->next != cursor->head)
+	{
+		line = list_entry(cursor->next, struct __header_line, list);
+		cursor->next = cursor->next->prev;
+		list_del(&line->list);
+		if (line->buf != (char *)(line + 1))
+			free(line->buf);
+
+		free(line);
+		return 0;
+	}
+
+	return 1;
+}
+

@@ -150,12 +150,15 @@ public:
 public:
 	bool next(struct HttpMessageHeader *header);
 	bool find(struct HttpMessageHeader *header);
+	bool erase();
+	bool find_and_erase(struct HttpMessageHeader *header);
 	void rewind();
 
 	/* std::string interface */
 public:
 	bool next(std::string& name, std::string& value);
 	bool find(const std::string& name, std::string& value);
+	bool find_and_erase(const std::string& name);
 
 protected:
 	http_header_cursor_t cursor;
@@ -203,6 +206,19 @@ inline bool HttpHeaderCursor::find(struct HttpMessageHeader *header)
 	return http_header_cursor_find(header->name, header->name_len,
 								   &header->value, &header->value_len,
 								   &this->cursor) == 0;
+}
+
+inline bool HttpHeaderCursor::erase()
+{
+	return http_header_cursor_erase(&this->cursor) == 0;
+}
+
+inline bool HttpHeaderCursor::find_and_erase(struct HttpMessageHeader *header)
+{
+	if (this->find(header))
+		return this->erase();
+
+	return false;
 }
 
 inline void HttpHeaderCursor::rewind()

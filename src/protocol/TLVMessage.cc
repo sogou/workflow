@@ -77,7 +77,7 @@ int TLVMessage::append(const void *buf, size_t *size)
 		*size = n + head_left;
 	}
 
-	this->value.append((const char *)buf, (const char *)buf + n);
+	this->value.append((const char *)buf, n);
 	return this->value.size() == *this->head;
 }
 

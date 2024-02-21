@@ -408,7 +408,7 @@ bool HttpHeaderCursor::find(const std::string& name, std::string& value)
 {
 	struct HttpMessageHeader header = {
 		.name		=	name.c_str(),
-		.name_len	=	name.size()
+		.name_len	=	name.size(),
 	};
 
 	if (this->find(&header))
@@ -418,6 +418,15 @@ bool HttpHeaderCursor::find(const std::string& name, std::string& value)
 	}
 
 	return false;
+}
+
+bool HttpHeaderCursor::find_and_erase(const std::string& name)
+{
+	struct HttpMessageHeader header = {
+		.name		=	name.c_str(),
+		.name_len	=	name.size(),
+	};
+	return this->find_and_erase(&header);
 }
 
 HttpChunkCursor::HttpChunkCursor(const HttpMessage *msg)

@@ -119,13 +119,15 @@ CommMessageOut *ComplexHttpTask::message_out()
 		this->keep_alive_timeo = 0;
 	else if (req->has_keep_alive_header())
 	{
-		HttpHeaderCursor req_cursor(req);
+		HttpHeaderCursor cursor(req);
 
 		//req---Connection: Keep-Alive
 		//req---Keep-Alive: timeout=0,max=100
 		header.name = "Keep-Alive";
 		header.name_len = strlen("Keep-Alive");
-		if (req_cursor.find(&header))
+		header.value = NULL;
+		header.value_len = 0;
+		if (cursor.find(&header))
 		{
 			std::string keep_alive((const char *)header.value, header.value_len);
 			std::vector<std::string> params = StringUtil::split(keep_alive, ',');
@@ -171,8 +173,14 @@ int ComplexHttpTask::keep_alive_timeout()
 void ComplexHttpTask::set_empty_request()
 {
 	HttpRequest *client_req = this->get_req();
+	HttpHeaderCursor cursor(client_req);
+	struct HttpMessageHeader header = {
+		.name		=	"Host",
+		.name_len	=	strlen("Host"),
+	};
+
 	client_req->set_request_uri("/");
-	client_req->set_header_pair("Host", "");
+	cursor.find_and_erase(&header);
 }
 
 void ComplexHttpTask::init_failed()
@@ -384,12 +392,13 @@ void WFHttpServerTask::handle(int state, int error)
 		req_is_alive_ = this->req.is_keep_alive();
 		if (req_is_alive_ && this->req.has_keep_alive_header())
 		{
-			HttpHeaderCursor req_cursor(&this->req);
-			struct HttpMessageHeader header;
+			HttpHeaderCursor cursor(&this->req);
+			struct HttpMessageHeader header = {
+				.name		=	"Keep-Alive",
+				.name_len	=	strlen("Keep-Alive"),
+			};
 
-			header.name = "Keep-Alive";
-			header.name_len = strlen("Keep-Alive");
-			req_has_keep_alive_header_ = req_cursor.find(&header);
+			req_has_keep_alive_header_ = cursor.find(&header);
 			if (req_has_keep_alive_header_)
 			{
 				req_keep_alive_.assign((const char *)header.value,

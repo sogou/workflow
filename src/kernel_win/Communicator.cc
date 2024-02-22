@@ -644,7 +644,7 @@ int Communicator::bind(CommService *service)
 				service->ref = 1;
 				for (i = 0; i < this->handler_threads; i++)
 				{
-					auto *new_ctx = new AcceptConext(service);
+					auto *new_ctx = new AcceptContext(service);
 
 					data.operation = PD_OP_ACCEPT;
 					data.handle = (HANDLE)listen_sockfd;
@@ -1613,7 +1613,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 
 void Communicator::handle_accept_result(struct poller_result *res)
 {
-	AcceptConext *ctx = (AcceptConext *)res->data.context;
+	AcceptContext *ctx = (AcceptContext *)res->data.context;
 	CommService *service = (CommService *)ctx->service;
 	SOCKET sockfd = ctx->accept_sockfd;
 	CommConnEntry *entry;

@@ -51,7 +51,7 @@ struct poller_result
 	struct poller_data data;
 };
 
-class AcceptConext
+class AcceptContext
 {
 public:
 	void *service;
@@ -61,14 +61,14 @@ public:
 	struct sockaddr *remote;
 	int remote_len;
 
-	AcceptConext(void *sc)
+	AcceptContext(void *sc)
 	{
 		service = sc;
 
 		buf = new char[ACCEPT_ADDR_SIZE * 2];
 	}
 
-	~AcceptConext()
+	~AcceptContext()
 	{
 		delete []buf;
 	}

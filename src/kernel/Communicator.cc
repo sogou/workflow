@@ -1215,7 +1215,6 @@ void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
 		delete target;
 	}
 
-	close(sockfd);
 	return NULL;
 }
 

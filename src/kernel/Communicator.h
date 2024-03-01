@@ -31,9 +31,8 @@
 
 class CommConnection
 {
-protected:
+public:
 	virtual ~CommConnection() { }
-	friend class Communicator;
 };
 
 class CommTarget
@@ -158,7 +157,8 @@ private:
 private:
 	struct timespec begin_time;
 	int timeout;
-	int passive;
+	short passive;
+	short reliable;
 
 public:
 	CommSession() { this->passive = 0; }
@@ -298,16 +298,6 @@ private:
 
 	int create_handler_threads(size_t handler_threads);
 
-	int nonblock_connect(CommTarget *target);
-	int nonblock_listen(CommService *service);
-
-	struct CommConnEntry *launch_conn(CommSession *session,
-									  CommTarget *target);
-	struct CommConnEntry *accept_conn(class CommServiceTarget *target,
-									  CommService *service);
-
-	void release_conn(struct CommConnEntry *entry);
-
 	void shutdown_service(CommService *service);
 
 	void shutdown_io_service(IOService *service);
@@ -319,10 +309,14 @@ private:
 
 	int send_message(struct CommConnEntry *entry);
 
+	int request_new_conn(CommSession *session, CommTarget *target);
+
 	int request_idle_conn(CommSession *session, CommTarget *target);
 	int reply_idle_conn(CommSession *session, CommTarget *target);
 
-	int request_new_conn(CommSession *session, CommTarget *target);
+	int reply_message_unreliable(struct CommConnEntry *entry);
+
+	int reply_unreliable(CommSession *session, CommTarget *target);
 
 	void handle_incoming_request(struct poller_result *res);
 	void handle_incoming_reply(struct poller_result *res);
@@ -336,6 +330,8 @@ private:
 	void handle_connect_result(struct poller_result *res);
 	void handle_listen_result(struct poller_result *res);
 
+	void handle_recvfrom_result(struct poller_result *res);
+
 	void handle_ssl_accept_result(struct poller_result *res);
 
 	void handle_sleep_result(struct poller_result *res);
@@ -343,6 +339,14 @@ private:
 	void handle_aio_result(struct poller_result *res);
 
 	static void handler_thread_routine(void *context);
+
+	static int nonblock_connect(CommTarget *target);
+	static int nonblock_listen(CommService *service, int *reliable);
+
+	static struct CommConnEntry *launch_conn(CommSession *session,
+											 CommTarget *target);
+	static struct CommConnEntry *accept_conn(class CommServiceTarget *target,
+											 CommService *service);
 
 	static int first_timeout(CommSession *session);
 	static int next_timeout(CommSession *session);
@@ -358,10 +362,16 @@ private:
 	static poller_message_t *create_request(void *context);
 	static poller_message_t *create_reply(void *context);
 
+	static int recv_request(const void *buf, size_t size,
+							struct CommConnEntry *entry);
+
 	static int partial_written(size_t n, void *context);
 
 	static void *accept(const struct sockaddr *addr, socklen_t addrlen,
 						int sockfd, void *context);
+
+	static void *recvfrom(const struct sockaddr *addr, socklen_t addrlen,
+						  const void *buf, size_t size, void *context);
 
 	static void callback(struct poller_result *res, void *context);
 

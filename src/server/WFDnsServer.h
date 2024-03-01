@@ -29,6 +29,7 @@ using WFDnsServer = WFServer<protocol::DnsRequest,
 
 static constexpr struct WFServerParams DNS_SERVER_PARAMS_DEFAULT =
 {
+	.transport_type			=	TT_UDP,
 	.max_connections		=	2000,
 	.peer_response_timeout	=	10 * 1000,
 	.receive_timeout		=	-1,

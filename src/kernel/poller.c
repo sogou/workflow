@@ -602,10 +602,7 @@ static void __poller_handle_listen(struct __poller_node *node,
 
 		result = node->data.accept(addr, addrlen, sockfd, node->data.context);
 		if (!result)
-		{
-			close(sockfd);
 			break;
-		}
 
 		res->data = node->data;
 		res->data.result = result;

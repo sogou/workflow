@@ -41,6 +41,7 @@ In [WFHttpServer.h](/src/server/WFHttpServer.h), the default parameters for an H
 ~~~cpp
 static constexpr struct WFServerParams HTTP_SERVER_PARAMS_DEFAULT =
 {
+    .transport_type         =    TT_TCP,
     .max_connections        =    2000,
     .peer_response_timeout  =    10 * 1000,
     .receive_timeout        =    -1,
@@ -49,7 +50,7 @@ static constexpr struct WFServerParams HTTP_SERVER_PARAMS_DEFAULT =
     .ssl_accept_timeout     =    10 * 1000,
 };
 ~~~
-
+**transport\_type**: the transport layer protocol. Besides the default type TT_TCP, you may specify TT_UDP, or TT_SCTP on Linux platform.  
 **max\_connections**: the maximum number of connections is 2000. When it is exceeded, the least recently used keep-alive connection will be closed. If there is no keep-alive connection, the server will refuse new connections.  
 **peer\_response\_timeout**: set the maximum duration for reading or sending out a block of data. The default setting is 10 seconds.   
 **receive\_timeout**: set the maximum duration for receiving a complete request; -1 means unlimited time.   

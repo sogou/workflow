@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
 ~~~cpp
 static constexpr struct WFServerParams HTTP_SERVER_PARAMS_DEFAULT =
 {
+    .transport_type         =    TT_TCP,
     .max_connections        =    2000,
     .peer_response_timeout  =    10 * 1000,
     .receive_timeout        =    -1,
@@ -47,6 +48,7 @@ static constexpr struct WFServerParams HTTP_SERVER_PARAMS_DEFAULT =
     .ssl_accept_timeout     =    10 * 1000,
 };
 ~~~
+transport_type：传输层协议，默认为TCP。除了TT_TCP外，可选择的还有TT_UDP和Linux下支持的TT_SCTP。  
 max_connections：最大连接数2000，达到上限之后会关闭最久未使用的keep-alive连接。没找到keep-alive连接，则拒绝新连接。  
 peer_response_timeout：每读取到一块数据或发送出一块数据的超时时间为10秒。  
 receive_timeout：接收一条完整的请求超时时间为-1，无限。  

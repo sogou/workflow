@@ -200,7 +200,16 @@ void CommTarget::deinit()
 int CommMessageIn::feedback(const void *buf, size_t size)
 {
 	struct CommConnEntry *entry = this->entry;
+	CommSession *session = entry->session;
+	const struct sockaddr *addr;
+	socklen_t addrlen;
 	int ret;
+
+	if (session->passive && !session->reliable)
+	{
+		entry->target->get_addr(&addr, &addrlen);
+		return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
+	}
 
 	if (!entry->ssl)
 		return write(entry->sockfd, buf, size);
@@ -374,7 +383,6 @@ CommSession::~CommSession()
 
 	((CommServiceTarget *)target)->decref();
 }
-
 
 inline int Communicator::first_timeout(CommSession *session)
 {
@@ -2014,21 +2022,29 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 	if (!list_empty(&target->idle_list))
 	{
 		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
-		if (!entry->ssl)
-			ret = write(entry->sockfd, buf, size);
-		else if (size == 0)
-			ret = 0;
+		if (session->reliable)
+		{
+			if (!entry->ssl)
+				ret = write(entry->sockfd, buf, size);
+			else if (size == 0)
+				ret = 0;
+			else
+			{
+				ret = SSL_write(entry->ssl, buf, size);
+				if (ret <= 0)
+				{
+					ret = SSL_get_error(entry->ssl, ret);
+					if (ret != SSL_ERROR_SYSCALL)
+						errno = -ret;
+
+					ret = -1;
+				}
+			}
+		}
 		else
 		{
-			ret = SSL_write(entry->ssl, buf, size);
-			if (ret <= 0)
-			{
-				ret = SSL_get_error(entry->ssl, ret);
-				if (ret != SSL_ERROR_SYSCALL)
-					errno = -ret;
-
-				ret = -1;
-			}
+			ret = sendto(entry->sockfd, buf, size, 0,
+						 target->addr, target->addrlen);
 		}
 	}
 	else

@@ -1931,7 +1931,7 @@ int Communicator::reply_message_unreliable(struct CommConnEntry *entry)
 			.msg_name		=	entry->target->addr,
 			.msg_namelen	=	entry->target->addrlen,
 			.msg_iov		=	vectors,
-			.msg_iovlen		=	cnt,
+			.msg_iovlen		=	(size_t)cnt,
 		};
 		if (sendmsg(entry->sockfd, &message, 0) < 0)
 			return -1;

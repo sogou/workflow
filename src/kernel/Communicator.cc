@@ -145,7 +145,6 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	CommSession *session = entry->session;
 	const struct sockaddr *addr;
 	socklen_t addrlen;
-	int ret;
 
 	if (session->passive && !session->reliable)
 	{

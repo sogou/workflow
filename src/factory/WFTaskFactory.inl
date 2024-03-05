@@ -554,6 +554,9 @@ WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
 class WFServerTaskFactory
 {
 public:
+	static WFDnsTask *create_dns_task(CommService *service,
+					std::function<void (WFDnsTask *)>& proc);
+
 	static WFHttpTask *create_http_task(CommService *service,
 					std::function<void (WFHttpTask *)>& proc)
 	{

@@ -30,6 +30,7 @@ class MySQLServer;
 
 static constexpr struct WFServerParams MYSQL_SERVER_PARAMS_DEFAULT =
 {
+	.transport_type			=	TT_TCP,
 	.max_connections		=	2000,
 	.peer_response_timeout	=	10 * 1000,
 	.receive_timeout		=	-1,

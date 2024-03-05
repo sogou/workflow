@@ -45,7 +45,6 @@ private:
   * 结构体struct iovec定义在请参考系统调用readv和writev。
   * encode函数正确情况下的返回值在0到max之间，表示消息使用了多少个vector。
     * 如果是UDP协议，请注意总长度不超过64k，并且使用不超过1024个vector（Linux一次writev只能1024个vector）。
-      * UDP协议只能用于client，无法实现UDP server。
   * encode返回-1表示错误。返回-1时，需要置errno。如果返回值>max，将得到一个EOVERFLOW错误。错误都在callback里得到。
   * 为了性能考虑vector里的iov_base指针指向的内容不会被复制。所以一般指向消息类的成员。
 

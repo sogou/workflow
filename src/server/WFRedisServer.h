@@ -29,6 +29,7 @@ using WFRedisServer = WFServer<protocol::RedisRequest,
 
 static constexpr struct WFServerParams REDIS_SERVER_PARAMS_DEFAULT =
 {
+	.transport_type			=	TT_TCP,
 	.max_connections		=	2000,
 	.peer_response_timeout	=	10 * 1000,
 	.receive_timeout		=	-1,

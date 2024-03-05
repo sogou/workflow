@@ -28,10 +28,12 @@
 #include <mutex>
 #include <condition_variable>
 #include <openssl/ssl.h>
+#include "EndpointParams.h"
 #include "WFTaskFactory.h"
 
 struct WFServerParams
 {
+	enum TransportType transport_type;
 	size_t max_connections;
 	int peer_response_timeout;	/* timeout of each read or write operation */
 	int receive_timeout;	/* timeout of receiving the whole message */
@@ -42,6 +44,7 @@ struct WFServerParams
 
 static constexpr struct WFServerParams SERVER_PARAMS_DEFAULT =
 {
+	.transport_type			=	TT_TCP,
 	.max_connections		=	2000,
 	.peer_response_timeout	=	10 * 1000,
 	.receive_timeout		=	-1,
@@ -155,6 +158,8 @@ public:
 		errno = ENOTCONN;
 		return -1;
 	}
+
+	const struct WFServerParams *get_params() const { return &this->params; }
 
 protected:
 	/* Override this function to create the initial SSL CTX of the server */

@@ -159,6 +159,8 @@ public:
 		return -1;
 	}
 
+	const struct WFServerParams *get_params() const { return &this->params; }
+
 protected:
 	/* Override this function to create the initial SSL CTX of the server */
 	virtual SSL_CTX *new_ssl_ctx(const char *cert_file, const char *key_file);

@@ -149,6 +149,12 @@ int main(int argc, char *argv[])
 	port = atoi(argv[1]);
 	signal(SIGINT, sig_handler);
 
+	struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+	settings.resolv_conf_path = "./resolv.conf";
+	settings.dns_ttl_default = 5;
+	settings.dns_ttl_min = 1;
+	WORKFLOW_library_init(&settings);
+
 	struct WFServerParams params = HTTP_SERVER_PARAMS_DEFAULT;
 	/* for safety, limit request size to 8MB. */
 	params.request_size_limit = 8 * 1024 * 1024;

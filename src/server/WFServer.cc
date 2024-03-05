@@ -26,6 +26,7 @@
 #include <mutex>
 #include <condition_variable>
 #include "CommScheduler.h"
+#include "EndpointParams.h"
 #include "WFConnection.h"
 #include "WFGlobal.h"
 #include "WFServer.h"
@@ -72,10 +73,32 @@ int WFServerBase::create_listen_fd()
 	{
 		const struct sockaddr *bind_addr;
 		socklen_t addrlen;
+		int type, protocol;
 		int reuse = 1;
 
+		switch (this->params.transport_type)
+		{
+		case TT_TCP:
+			type = SOCK_STREAM;
+			protocol = 0;
+			break;
+		case TT_UDP:
+			type = SOCK_DGRAM;
+			protocol = 0;
+			break;
+#ifdef IPPROTO_SCTP
+		case TT_SCTP:
+			type = SOCK_STREAM;
+			protocol = IPPROTO_SCTP;
+			break;
+#endif
+		default:
+			errno = EPROTONOSUPPORT;
+			return -1;
+		}
+
 		this->get_addr(&bind_addr, &addrlen);
-		this->listen_fd = socket(bind_addr->sa_family, SOCK_STREAM, 0);
+		this->listen_fd = socket(bind_addr->sa_family, type, protocol);
 		if (this->listen_fd >= 0)
 		{
 			setsockopt(this->listen_fd, SOL_SOCKET, SO_REUSEADDR,

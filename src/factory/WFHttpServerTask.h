@@ -40,7 +40,7 @@ protected:
 	virtual void handle(int state, int error);
 	virtual CommMessageOut *message_out();
 
-private:
+protected:
 	bool req_is_alive_;
 	bool req_has_keep_alive_header_;
 	std::string req_keep_alive_;

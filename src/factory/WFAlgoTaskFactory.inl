@@ -92,7 +92,7 @@ void __WFMergeTask<T>::execute()
 	else
 	{
 		output->last = std::merge(input->first1, input->last1,
-								  input->first2, input->first2,
+								  input->first2, input->last2,
 								  input->d_first);
 	}
 
@@ -252,7 +252,7 @@ void __WFMergeTaskCmp<T, CMP>::execute()
 	else
 	{
 		output->last = std::merge(input->first1, input->last1,
-								  input->first2, input->first2,
+								  input->first2, input->last2,
 								  input->d_first,
 								  std::move(this->compare));
 	}

@@ -90,16 +90,20 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 {
 	int timeout = this->params.peer_response_timeout;
 
-	if (this->params.receive_timeout >= 0)
+	if (this->params.transport_type == TT_TCP_SSL ||
+		this->params.transport_type == TT_SCTP_SSL)
 	{
-		if ((unsigned int)timeout > (unsigned int)this->params.receive_timeout)
-			timeout = this->params.receive_timeout;
+		if (!cert_file || !key_file)
+		{
+			errno = EINVAL;
+			return -1;
+		}
 	}
 
 	if (this->CommService::init(bind_addr, addrlen, -1, timeout) < 0)
 		return -1;
 
-	if (key_file && cert_file)
+	if (cert_file && key_file && this->params.transport_type != TT_UDP)
 	{
 		SSL_CTX *ssl_ctx = this->new_ssl_ctx(cert_file, key_file);
 

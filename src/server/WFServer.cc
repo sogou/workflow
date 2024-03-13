@@ -54,6 +54,12 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen)
 {
 	int timeout = this->params.peer_response_timeout;
 
+	if (this->params.receive_timeout >= 0)
+	{
+		if ((unsigned int)timeout > (unsigned int)this->params.receive_timeout)
+			timeout = this->params.receive_timeout;
+	}
+
 	if (this->CommService::init(bind_addr, addrlen, -1, timeout) < 0)
 		return -1;
 

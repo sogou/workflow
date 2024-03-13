@@ -28,8 +28,8 @@ Among them, the configuration items related to domain name resolution include
   * max_connections: The maximum number of concurrent requests sent to the DNS server, the default is 200
   * connect_timeout/response_timeout/ssl_connect_timeout: refer to [timeout](about-timeout.md) for related instructions
 * dns_threads: When using synchronous mode to implement domain name resolution, the resolution operation will be executed in an independent thread pool. This item specifies the number of threads in the thread pool. The default is 4.
-* dns_ttl_default: The result of successful domain name resolution will be placed in the domain name cache. This item specifies its survival time in seconds. The default value is 12 hours. When the resolution result expires, it will be re-parsed to obtain the latest content.
-* dns_ttl_min: When communication fails, the cached result may have expired. This item specifies a shorter survival time. When communication fails, the cache is updated at a more frequent rate. The unit is seconds. The default value is 3 minutes.
+* dns_ttl_default: The result of successful domain name resolution will be placed in the domain name cache. This item specifies its survival time in seconds. The default value is 1 hour. When the resolution result expires, it will be re-parsed to obtain the latest content.
+* dns_ttl_min: When communication fails, the cached result may have expired. This item specifies a shorter survival time. When communication fails, the cache is updated at a more frequent rate. The unit is seconds. The default value is 1 minute.
 * resolv_conf_path: This file saves the configuration related to accessing DNS. It is usually located in `/etc/resolv.conf` on common Linux distributions. If this item is configured as `NULL`, it means using multi-threaded synchronous resolution mode.
 * hosts_path: This file is a local domain name lookup table. If the resolved domain name hits this table, it will not initiate a request to DNS. It is usually located in `/etc/hosts` on common Linux distributions. If this item is configured as `NULL` means not to use the lookup table
 

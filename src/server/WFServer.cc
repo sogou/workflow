@@ -90,6 +90,12 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 {
 	int timeout = this->params.peer_response_timeout;
 
+	if (this->params.receive_timeout >= 0)
+	{
+		if ((unsigned int)timeout > (unsigned int)this->params.receive_timeout)
+			timeout = this->params.receive_timeout;
+	}
+
 	if (this->params.transport_type == TT_TCP_SSL ||
 		this->params.transport_type == TT_SCTP_SSL)
 	{

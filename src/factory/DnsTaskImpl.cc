@@ -195,8 +195,7 @@ public:
 					std::function<void (WFDnsTask *)>& proc) :
 		WFServerTask(service, WFGlobal::get_scheduler(), proc)
 	{
-		auto *server = (WFServer<DnsRequest, DnsResponse> *)service;
-		this->type = server->get_params()->transport_type;
+		this->type = ((WFServerBase *)service)->get_params()->transport_type;
 	}
 
 protected:

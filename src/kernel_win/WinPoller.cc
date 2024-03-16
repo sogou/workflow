@@ -240,7 +240,7 @@ int WinPoller::cancel_pending_io(HANDLE handle) const
 
 static int __accept_io(IOCPData *iocp_data, int timeout)
 {
-	AcceptConext *ctx = (AcceptConext *)iocp_data->data.context;
+	AcceptContext *ctx = (AcceptContext *)iocp_data->data.context;
 	DWORD dwBytes;
 	BOOL ret = AcceptEx((SOCKET)iocp_data->data.handle, ctx->accept_sockfd,
 						ctx->buf, 0, ACCEPT_ADDR_SIZE, ACCEPT_ADDR_SIZE,
@@ -415,7 +415,7 @@ int WinPoller::put_io(const struct poller_data *data, int timeout)
 static void __accept_on_success(struct poller_result *res)
 {
 	SOCKET listen_sockfd = (SOCKET)res->data.handle;
-	AcceptConext *ctx = (AcceptConext *)res->data.context;
+	AcceptContext *ctx = (AcceptContext *)res->data.context;
 	struct sockaddr *local;
 	struct sockaddr *remote;
 	int local_len = sizeof (struct sockaddr);

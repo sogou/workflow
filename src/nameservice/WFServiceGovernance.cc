@@ -116,6 +116,12 @@ void WFSGResolverTask::dispatch()
 	WFNSTracing *tracing = ns_params_.tracing;
 	EndpointAddress *addr;
 
+	if (!sg_)
+	{
+		this->WFResolverTask::dispatch();
+		return;
+	}
+
 	if (sg_->pre_select_)
 	{
 		WFConditional *cond = sg_->pre_select_(this);
@@ -145,6 +151,7 @@ void WFSGResolverTask::dispatch()
 		}
 
 		tracing_data->history.push_back(addr);
+		sg_ = NULL;
 
 		copy_host_port(ns_params_.uri, addr);
 		dns_ttl_default_ = addr->params->dns_ttl_default;

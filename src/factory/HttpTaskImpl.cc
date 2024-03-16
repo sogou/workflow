@@ -343,9 +343,7 @@ void ComplexHttpTask::check_response()
 	if (this->state == WFT_STATE_SYS_ERROR && this->error == ECONNRESET)
 	{
 		/* Servers can end the message by closing the connection. */
-		if (resp->is_header_complete() &&
-			!resp->is_keep_alive() &&
-			!resp->is_chunked() &&
+		if (resp->is_header_complete() && !resp->is_chunked() &&
 			!resp->has_content_length_header())
 		{
 			this->state = WFT_STATE_SUCCESS;

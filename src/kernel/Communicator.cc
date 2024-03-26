@@ -199,35 +199,7 @@ void CommTarget::deinit()
 
 int CommMessageIn::feedback(const void *buf, size_t size)
 {
-	struct CommConnEntry *entry = this->entry;
-	CommSession *session = entry->session;
-	const struct sockaddr *addr;
-	socklen_t addrlen;
-	int ret;
-
-	if (session->passive && !session->reliable)
-	{
-		entry->target->get_addr(&addr, &addrlen);
-		return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
-	}
-
-	if (!entry->ssl)
-		return write(entry->sockfd, buf, size);
-
-	if (size == 0)
-		return 0;
-
-	ret = SSL_write(entry->ssl, buf, size);
-	if (ret <= 0)
-	{
-		ret = SSL_get_error(entry->ssl, ret);
-		if (ret != SSL_ERROR_SYSCALL)
-			errno = -ret;
-
-		ret = -1;
-	}
-
-	return ret;
+	return this->entry->session->push(buf, size, this->entry);
 }
 
 void CommMessageIn::renew()
@@ -344,44 +316,75 @@ private:
 	friend class Communicator;
 };
 
-CommSession::~CommSession()
+int CommSession::push(const void *buf, size_t size, struct CommConnEntry *entry)
 {
-	struct CommConnEntry *entry;
-	struct list_head *pos;
-	CommTarget *target;
-	int errno_bak;
+	const struct sockaddr *addr;
+	socklen_t addrlen;
+	int ret;
 
-	if (!this->passive)
-		return;
-
-	target = this->target;
-	if (this->passive == 1)
+	if (this->passive && !this->reliable)
 	{
-		pthread_mutex_lock(&target->mutex);
-		if (!list_empty(&target->idle_list))
-		{
-			pos = target->idle_list.next;
-			entry = list_entry(pos, struct CommConnEntry, list);
-			list_del(pos);
-
-			if (this->reliable)
-			{
-				errno_bak = errno;
-				mpoller_del(entry->sockfd, entry->mpoller);
-				entry->state = CONN_STATE_CLOSING;
-				errno = errno_bak;
-			}
-			else
-			{
-				__release_conn(entry);
-				((CommServiceTarget *)target)->decref();
-			}
-		}
-
-		pthread_mutex_unlock(&target->mutex);
+		entry->target->get_addr(&addr, &addrlen);
+		return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
 	}
 
-	((CommServiceTarget *)target)->decref();
+	if (!entry->ssl)
+		return write(entry->sockfd, buf, size);
+
+	if (size == 0)
+		return 0;
+
+	ret = SSL_write(entry->ssl, buf, size);
+	if (ret <= 0)
+	{
+		ret = SSL_get_error(entry->ssl, ret);
+		if (ret != SSL_ERROR_SYSCALL)
+			errno = -ret;
+
+		ret = -1;
+	}
+
+	return ret;
+}
+
+void CommSession::shutdown()
+{
+	CommTarget *target = this->target;
+	struct CommConnEntry *entry;
+	int errno_bak;
+
+	pthread_mutex_lock(&target->mutex);
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		list_del(&entry->list);
+
+		if (this->reliable)
+		{
+			errno_bak = errno;
+			mpoller_del(entry->sockfd, entry->mpoller);
+			entry->state = CONN_STATE_CLOSING;
+			errno = errno_bak;
+		}
+		else
+		{
+			__release_conn(entry);
+			((CommServiceTarget *)target)->decref();
+		}
+	}
+
+	pthread_mutex_unlock(&target->mutex);
+}
+
+CommSession::~CommSession()
+{
+	if (this->passive)
+	{
+		if (this->target->has_idle_conn())
+			this->shutdown();
+
+		((CommServiceTarget *)this->target)->decref();
+	}
 }
 
 inline int Communicator::first_timeout(CommSession *session)
@@ -1979,14 +1982,13 @@ int Communicator::reply(CommSession *session)
 	int errno_bak;
 	int ret;
 
-	if (session->passive != 1)
+	if (!session->passive)
 	{
-		errno = session->passive ? ENOENT : EPERM;
+		errno = EINVAL;
 		return -1;
 	}
 
 	errno_bak = errno;
-	session->passive = 2;
 	target = session->target;
 	if (session->reliable)
 		ret = this->reply_idle_conn(session, target);
@@ -2016,9 +2018,9 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 	struct CommConnEntry *entry;
 	int ret;
 
-	if (session->passive != 1)
+	if (!session->passive)
 	{
-		errno = session->passive ? ENOENT : EPERM;
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -2026,30 +2028,7 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 	if (!list_empty(&target->idle_list))
 	{
 		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
-		if (session->reliable)
-		{
-			if (!entry->ssl)
-				ret = write(entry->sockfd, buf, size);
-			else if (size == 0)
-				ret = 0;
-			else
-			{
-				ret = SSL_write(entry->ssl, buf, size);
-				if (ret <= 0)
-				{
-					ret = SSL_get_error(entry->ssl, ret);
-					if (ret != SSL_ERROR_SYSCALL)
-						errno = -ret;
-
-					ret = -1;
-				}
-			}
-		}
-		else
-		{
-			ret = sendto(entry->sockfd, buf, size, 0,
-						 target->addr, target->addrlen);
-		}
+		ret = session->push(buf, size, entry);
 	}
 	else
 	{
@@ -2063,45 +2042,20 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 
 int Communicator::shutdown(CommSession *session)
 {
-	CommTarget *target = session->target;
-	struct CommConnEntry *entry;
-	struct list_head *pos;
-	int ret;
-
-	if (session->passive != 1)
+	if (!session->passive)
 	{
-		errno = session->passive ? ENOENT : EPERM;
+		errno = EINVAL;
 		return -1;
 	}
 
-	session->passive = 2;
-	pthread_mutex_lock(&target->mutex);
-	if (!list_empty(&target->idle_list))
-	{
-		pos = target->idle_list.next;
-		entry = list_entry(pos, struct CommConnEntry, list);
-		list_del(pos);
-
-		if (session->reliable)
-		{
-			ret = mpoller_del(entry->sockfd, entry->mpoller);
-			entry->state = CONN_STATE_CLOSING;
-		}
-		else
-		{
-			ret = 0;
-			__release_conn(entry);
-			((CommServiceTarget *)target)->decref();
-		}
-	}
-	else
+	if (!session->target->has_idle_conn())
 	{
 		errno = ENOENT;
-		ret = -1;
+		return -1;
 	}
 
-	pthread_mutex_unlock(&target->mutex);
-	return ret;
+	session->shutdown();
+	return 0;
 }
 
 int Communicator::sleep(SleepSession *session)

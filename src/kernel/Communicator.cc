@@ -1962,7 +1962,6 @@ int Communicator::reply_unreliable(CommSession *session, CommTarget *target)
 		entry = list_entry(pos, struct CommConnEntry, list);
 		list_del(pos);
 
-		target = entry->target;
 		session->out = session->message_out();
 		if (session->out)
 		{

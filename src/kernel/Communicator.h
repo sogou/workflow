@@ -157,11 +157,7 @@ private:
 private:
 	struct timespec begin_time;
 	int timeout;
-	char passive;
-	char reliable;
-
-private:
-	int push(const void *buf, size_t size, struct CommConnEntry *entry);
+	int passive;
 
 public:
 	CommSession() { this->passive = 0; }
@@ -226,6 +222,7 @@ private:
 	void decref();
 
 private:
+	int reliable;
 	int listen_fd;
 	int ref;
 
@@ -344,7 +341,7 @@ private:
 	static void handler_thread_routine(void *context);
 
 	static int nonblock_connect(CommTarget *target);
-	static int nonblock_listen(CommService *service, int *reliable);
+	static int nonblock_listen(CommService *service);
 
 	static struct CommConnEntry *launch_conn(CommSession *session,
 											 CommTarget *target);

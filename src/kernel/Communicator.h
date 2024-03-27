@@ -90,7 +90,7 @@ private:
 
 public:
 	virtual ~CommTarget() { }
-	friend class CommSession;
+	friend class CommServiceTarget;
 	friend class Communicator;
 };
 
@@ -157,8 +157,11 @@ private:
 private:
 	struct timespec begin_time;
 	int timeout;
-	short passive;
-	short reliable;
+	char passive;
+	char reliable;
+
+private:
+	int push(const void *buf, size_t size, struct CommConnEntry *entry);
 
 public:
 	CommSession() { this->passive = 0; }

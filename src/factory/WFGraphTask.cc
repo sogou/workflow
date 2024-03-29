@@ -30,18 +30,14 @@ SubTask *WFGraphNode::done()
 		this->user_data = (void *)1;
 	}
 	else
-		delete this;
-
-	return series->pop();
-}
-
-WFGraphNode::~WFGraphNode()
-{
-	if (this->user_data)
 	{
 		for (WFGraphNode *node : this->successors)
 			node->WFCounterTask::count();
+
+		delete this;
 	}
+
+	return series->pop();
 }
 
 WFGraphNode& WFGraphTask::create_graph_node(SubTask *task)

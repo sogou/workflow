@@ -47,7 +47,7 @@ protected:
 
 protected:
 	WFGraphNode() : WFCounterTask(0, nullptr) { }
-	virtual ~WFGraphNode();
+	virtual ~WFGraphNode() { }
 	friend class WFGraphTask;
 };
 

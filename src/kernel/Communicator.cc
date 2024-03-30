@@ -1887,7 +1887,7 @@ void Communicator::unbind(CommService *service)
 	}
 }
 
-int Communicator::reply_idle_conn(CommSession *session, CommTarget *target)
+int Communicator::reply_reliable(CommSession *session, CommTarget *target)
 {
 	struct CommConnEntry *entry;
 	struct list_head *pos;
@@ -1995,7 +1995,7 @@ int Communicator::reply(CommSession *session)
 	session->passive = 2;
 	target = (CommServiceTarget *)session->target;
 	if (target->service->reliable)
-		ret = this->reply_idle_conn(session, target);
+		ret = this->reply_reliable(session, target);
 	else
 		ret = this->reply_unreliable(session, target);
 
@@ -2006,7 +2006,7 @@ int Communicator::reply(CommSession *session)
 		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 		{
 			__release_conn(entry);
-			((CommServiceTarget *)target)->decref();
+			target->decref();
 		}
 	}
 	else if (ret < 0)

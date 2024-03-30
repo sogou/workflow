@@ -107,7 +107,7 @@ public:
 		{
 			e = list_entry(pos, Handle, list);
 			assert(e->ref == 1);
-			rb_erase(&e->rb);
+			rb_erase(&e->rb, &this->cache_map);
 			this->erase_node(e);
 		}
 	}

@@ -475,7 +475,7 @@ protected:
 class WFMailboxTask : public WFGenericTask
 {
 public:
-	void send(void *msg)
+	virtual void send(void *msg)
 	{
 		*this->mailbox = msg;
 		if (this->flag.exchange(true))

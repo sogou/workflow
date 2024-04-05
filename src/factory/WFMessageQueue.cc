@@ -28,7 +28,7 @@ public:
 
 public:
 	virtual void dispatch();
-	virtual void signal(void *msg) { }
+	virtual int signal(void *msg) { return 0; }
 
 public:
 	__MQConditional(SubTask *task, void **msgbuf,

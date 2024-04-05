@@ -30,7 +30,7 @@ public:
 
 public:
 	virtual void dispatch();
-	virtual void signal(void *res) { }
+	virtual int signal(void *res) { return 0; }
 
 public:
 	__RPConditional(SubTask *task, void **resbuf,

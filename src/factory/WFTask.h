@@ -475,7 +475,7 @@ protected:
 class WFMailboxTask : public WFGenericTask
 {
 public:
-	virtual void send(void *msg)
+	virtual int send(void *msg)
 	{
 		*this->mailbox = msg;
 		if (this->flag.exchange(true))
@@ -483,12 +483,11 @@ public:
 			this->state = WFT_STATE_SUCCESS;
 			this->subtask_done();
 		}
+
+		return 1;
 	}
 
-	void **get_mailbox() const
-	{
-		return this->mailbox;
-	}
+	void **get_mailbox() const { return this->mailbox; }
 
 public:
 	void set_callback(std::function<void (WFMailboxTask *)> cb)
@@ -545,11 +544,13 @@ protected:
 class WFConditional : public WFGenericTask
 {
 public:
-	virtual void signal(void *msg)
+	virtual int signal(void *msg)
 	{
 		*this->msgbuf = msg;
 		if (this->flag.exchange(true))
 			this->subtask_done();
+
+		return 1;
 	}
 
 protected:

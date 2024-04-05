@@ -287,14 +287,14 @@ public:
 											  mailbox_callback_t callback);
 
 	/* The 'msg' will be sent to the all mailbox tasks under the name, and
-	 * would be lost if no task matched. */
-	static void send_by_name(const std::string& mailbox_name, void *msg)
+	 * the number of receivers will be returned. */
+	static size_t send_by_name(const std::string& mailbox_name, void *msg)
 	{
-		WFTaskFactory::send_by_name(mailbox_name, msg, (size_t)-1);
+		return WFTaskFactory::send_by_name(mailbox_name, msg, (size_t)-1);
 	}
 
-	static void send_by_name(const std::string& mailbox_name, void *msg,
-							 size_t max);
+	static size_t send_by_name(const std::string& mailbox_name, void *msg,
+							   size_t max);
 
 public:
 	static WFConditional *create_conditional(SubTask *task, void **msgbuf)
@@ -313,13 +313,13 @@ public:
 	static WFConditional *create_conditional(const std::string& cond_name,
 											 SubTask *task);
 
-	static void signal_by_name(const std::string& cond_name, void *msg)
+	static size_t signal_by_name(const std::string& cond_name, void *msg)
 	{
-		WFTaskFactory::signal_by_name(cond_name, msg, (size_t)-1);
+		return WFTaskFactory::signal_by_name(cond_name, msg, (size_t)-1);
 	}
 
-	static void signal_by_name(const std::string& cond_name, void *msg,
-							   size_t max);
+	static size_t signal_by_name(const std::string& cond_name, void *msg,
+								 size_t max);
 
 public:
 	static WFConditional *create_guard(const std::string& resource_name,

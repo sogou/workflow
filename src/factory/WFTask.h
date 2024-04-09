@@ -483,10 +483,7 @@ public:
 		}
 	}
 
-	void **get_mailbox() const
-	{
-		return this->mailbox;
-	}
+	void **get_mailbox() const { return this->mailbox; }
 
 public:
 	void set_callback(std::function<void (WFMailboxTask *)> cb)
@@ -538,6 +535,99 @@ public:
 
 protected:
 	virtual ~WFMailboxTask() { }
+};
+
+class WFSelectorTask : public WFGenericTask
+{
+public:
+	virtual int submit(void *msg)
+	{
+		void *tmp = NULL;
+		int ret = 0;
+
+		if (this->message.compare_exchange_strong(tmp, msg) && msg)
+		{
+			ret = 1;
+			if (this->flag.exchange(true))
+			{
+				this->state = WFT_STATE_SUCCESS;
+				this->subtask_done();
+			}
+		}
+
+		if (--this->nleft == 0)
+		{
+			if (!this->message)
+			{
+				this->state = WFT_STATE_SYS_ERROR;
+				this->error = ENOMSG;
+				this->subtask_done();
+			}
+
+			delete this;
+		}
+
+		return ret;
+	}
+
+	void *get_message() const { return this->message; }
+
+public:
+	void set_callback(std::function<void (WFSelectorTask *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
+protected:
+	virtual void dispatch()
+	{
+		if (this->flag.exchange(true))
+		{
+			this->state = WFT_STATE_SUCCESS;
+			this->subtask_done();
+		}
+
+		if (--this->nleft == 0)
+		{
+			if (!this->message)
+			{
+				this->state = WFT_STATE_SYS_ERROR;
+				this->error = ENOMSG;
+				this->subtask_done();
+			}
+
+			delete this;
+		}
+	}
+
+	virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+
+		if (this->callback)
+			this->callback(this);
+
+		return series->pop();
+	}
+
+protected:
+	std::atomic<void *> message;
+	std::atomic<bool> flag;
+	std::atomic<size_t> nleft;
+	std::function<void (WFSelectorTask *)> callback;
+
+public:
+	WFSelectorTask(size_t candidates,
+				   std::function<void (WFSelectorTask *)>&& cb) :
+		message(NULL),
+		flag(false),
+		nleft(candidates + 1),
+		callback(std::move(cb))
+	{
+	}
+
+protected:
+	virtual ~WFSelectorTask() { }
 };
 
 class WFConditional : public WFGenericTask

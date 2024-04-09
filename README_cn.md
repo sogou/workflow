@@ -113,6 +113,7 @@ sudo dnf install workflow
     * [关于计数器](docs/about-counter.md)
     * [模块任务](docs/about-module.md)
     * [DAG图任务](docs/tutorial-11-graph_task.md)
+    * [Selector任务](docs/about-selector.md)
   * 任务间通信
     * [条件任务与观察者模式](docs/about-conditional.md)
     * [资源池与消息队列](docs/about-resource-pool.md)

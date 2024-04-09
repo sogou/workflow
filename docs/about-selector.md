@@ -38,9 +38,72 @@ public:
     void *get_message() const;
 };
 ~~~
-当第一个候选者通过submit提交了一个非空指针的msg，这个消息会被接受。如果任务已经启动，selector的callback被调用。  
-和其它任何类型的任务一样，callback结束之后，任务所在的series就继续执行了，无需等待其它候选被提交。  
-当一个候选消息被接受，submit函数返回1。之后的submit调用都返回0表示拒绝。一般这种情况下用户需要释放msg对应资源。  
-注意空指针永远不会被接受，所以submit一个NULL永远返回0。一般来讲，submit(NULL)用于表示这个分支失败了。  
+当第一个非空指针的msg被提交，submit函数返回1表示接受。随后的submit调用都返回0代表消息被拒绝。  
+Selector运行后接收到一个有效消息就进入callback了，但在收到所有submit之前，不会被销毁。  
+注意空指针永远不会被接受，所以submit一个NULL将返回0。一般来讲，submit(NULL)用于表示这个分支失败了。  
 如果所有候选都提交了NULL，selector运行到callback时，state=WFT_STATE_SYS_ERROR, error=ENOMSG。  
-作为等待者，在selector的callback里调用另外一个接口get_message()就可以得到被成功接受的消息了。
+作为等待者，在selector的callback里调用另外一个接口get_message()就可以得到被成功接受的消息了。  
+
+# 示例
+我们同时抓取两个http网页，并设置一个超时。当任意一个先抓取成功或超时，打印出抓取成功的URL或出错信息。  
+示例中使用wait group来保证两个抓取任务已经结束才退出程序。而timer可以被程序退出打断，无需等待。  
+~~~cpp
+#include <stdlib.h>
+#include <stdio.h>
+#include "workflow/WFTaskFactory.h"
+#include "workflow/WFFacilities.h"
+
+WFSelectorTask *selector;
+WFFacilities::WaitGroup wait_group(2);
+
+void http_callback(WFHttpTask *t)
+{
+    if (t->get_state() == WFT_STATE_SUCCESS)
+        selector->submit(t->user_data);
+    else
+        selector->submit(NULL);
+
+    wait_group.done();
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc != 4)
+    {
+        fprintf(stderr, "USAGE: %s <http URL1> <http URL2> <timeout>\n", argv[0]);
+        exit(1); 
+    }
+
+    selector = WFTaskFactory::create_selector_task(3, [](WFSelectorTask *selector) {
+        void *msg = selector->get_message();
+        if (msg)
+            printf("%s\n", (char *)msg);
+        else
+            printf("failed\n");
+    });
+
+    auto *t = WFTaskFactory::create_http_task(argv[1], 0, 0, http_callback);
+    t->user_data = argv[1];
+    t->start();
+
+    t = WFTaskFactory::create_http_task(argv[2], 0, 0, http_callback);
+    t->user_data = argv[2];
+    t->start();
+
+    auto *timer = WFTaskFactory::create_timer_task(atoi(argv[3]), 0, [](WFTimerTask *timer){
+        if (timer->get_state() == WFT_STATE_SUCCESS)
+            selector->submit((void *)"timeout");
+        else
+            selector->submit(NULL);
+    });
+    timer->start();
+
+    selector->start();
+
+    wait_group.wait();
+    return 0;
+}
+~~~
+
+
+

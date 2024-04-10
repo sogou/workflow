@@ -547,7 +547,7 @@ public:
 		void *tmp = NULL;
 		int ret = 0;
 
-		if (this->message.compare_exchange_strong(tmp, msg) && msg)
+		if (msg && this->message.compare_exchange_strong(tmp, msg))
 		{
 			ret = 1;
 			if (this->flag.exchange(true))
@@ -575,6 +575,10 @@ public:
 	void *get_message() const { return this->message; }
 
 public:
+	void *get_default_message() const { return this->default_message; }
+	void set_default_message(void *msg) { this->default_message = msg; }
+
+public:
 	void set_callback(std::function<void (WFSelectorTask *)> cb)
 	{
 		this->callback = std::move(cb);
@@ -583,7 +587,13 @@ public:
 protected:
 	virtual void dispatch()
 	{
-		if (this->flag.exchange(true))
+		void *default_message = this->default_message;
+		void *tmp = NULL;
+
+		if (default_message)
+			this->message.compare_exchange_strong(tmp, default_message);
+
+		if (default_message || this->flag.exchange(true))
 		{
 			this->state = WFT_STATE_SUCCESS;
 			this->subtask_done();
@@ -613,6 +623,7 @@ protected:
 	}
 
 protected:
+	void *default_message;
 	std::atomic<void *> message;
 	std::atomic<bool> flag;
 	std::atomic<size_t> nleft;
@@ -626,6 +637,7 @@ public:
 		nleft(candidates + 1),
 		callback(std::move(cb))
 	{
+		this->default_message = NULL;
 	}
 
 protected:
@@ -742,6 +754,7 @@ public:
 		this->create = std::move(create);
 	}
 
+public:
 	void set_callback(std::function<void (WFRepeaterTask *)> cb)
 	{
 		this->callback = std::move(cb);

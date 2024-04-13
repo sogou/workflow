@@ -93,8 +93,8 @@ int DnsUtil::getaddrinfo(const DnsResponse *resp,
 		if (ai == NULL)
 		{
 			if (res)
-				freeaddrinfo(res);
-			return EAI_MEMORY;
+				DnsUtil::freeaddrinfo(res);
+			return EAI_SYSTEM;
 		}
 
 		ai->ai_family = family;

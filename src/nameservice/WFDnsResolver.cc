@@ -102,7 +102,12 @@ public:
 	~DnsOutput()
 	{
 		if (addrinfo_)
-			freeaddrinfo(addrinfo_);
+		{
+			if (addrinfo_->ai_flags)
+				freeaddrinfo(addrinfo_);
+			else
+				free(addrinfo_);
+		}
 	}
 
 	int get_error() const { return error_; }
@@ -130,7 +135,12 @@ public:
 	static void create(DnsOutput *out, int error, struct addrinfo *ai)
 	{
 		if (out->addrinfo_)
-			freeaddrinfo(out->addrinfo_);
+		{
+			if (out->addrinfo_->ai_flags)
+				freeaddrinfo(out->addrinfo_);
+			else
+				free(out->addrinfo_);
+		}
 
 		out->error_ = error;
 		out->addrinfo_ = ai;
@@ -172,7 +182,7 @@ void DnsRoutine::run_local_path(const std::string& path, DnsOutput *out)
 
 void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 {
-	if (!in->host_.empty() && in->host_[0] == '/')
+	if (in->host_[0] == '/')
 	{
 		run_local_path(in->host_, out);
 		return;
@@ -191,6 +201,8 @@ void DnsRoutine::run(const DnsInput *in, DnsOutput *out)
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", in->port_);
 	out->error_ = getaddrinfo(in->host_.c_str(), port_str,
 							  &hints, &out->addrinfo_);
+	if (out->error_ == 0)
+		out->addrinfo_->ai_flags = 1;
 }
 
 // Dns Thread task. For internal usage only.
@@ -322,15 +334,6 @@ static int __readaddrinfo(const char *path,
 	return ret;
 }
 
-static void __set_thread_dns_flag(struct addrinfo *ai)
-{
-	while (ai)
-	{
-		ai->ai_flags = 1;
-		ai = ai->ai_next;
-	}
-}
-
 static ThreadDnsTask *__create_thread_dns_task(const std::string& host,
 											   unsigned short port,
 											   int family,
@@ -456,7 +459,6 @@ void WFResolverTask::dispatch()
 			DnsOutput dns_out;
 
 			DnsRoutine::run(&dns_in, &dns_out);
-			__set_thread_dns_flag((struct addrinfo *)dns_out.get_addrinfo());
 			dns_callback_internal(&dns_out, (unsigned int)-1, (unsigned int)-1);
 			this->subtask_done();
 			return;
@@ -479,7 +481,6 @@ void WFResolverTask::dispatch()
 		{
 			DnsOutput out;
 			DnsRoutine::create(&out, ret, ai);
-			__set_thread_dns_flag((struct addrinfo *)out.get_addrinfo());
 			dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
 			this->subtask_done();
 			return;
@@ -720,7 +721,6 @@ void WFResolverTask::thread_dns_callback(void *thrd_dns_task)
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		DnsOutput *out = dns_task->get_output();
-		__set_thread_dns_flag((struct addrinfo *)out->get_addrinfo());
 		dns_callback_internal(out, dns_ttl_default_, dns_ttl_min_);
 	}
 	else

@@ -148,10 +148,13 @@ private:
 		{
 			struct addrinfo *ai = value.addrinfo;
 
-			if (ai && (ai->ai_flags & 1))
-				freeaddrinfo(ai);
-			else
-				protocol::DnsUtil::freeaddrinfo(ai);
+			if (ai)
+			{
+				if (ai->ai_flags)
+					freeaddrinfo(ai);
+				else
+					protocol::DnsUtil::freeaddrinfo(ai);
+			}
 		}
 	};
 

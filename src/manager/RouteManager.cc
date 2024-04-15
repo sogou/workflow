@@ -468,7 +468,7 @@ int RouteManager::get(enum TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
 					  const struct EndpointParams *ep_params,
-					  const std::string& hostname,
+					  const std::string& hostname, unsigned short port,
 					  RouteResult& result)
 {
 	uint64_t key = __generate_key(type, addrinfo, other_info,
@@ -504,9 +504,7 @@ int RouteManager::get(enum TransportType type,
 
 		if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
 		{
-			static SSL_CTX *client_ssl_ctx = WFGlobal::get_ssl_client_ctx();
-
-			ssl_ctx = client_ssl_ctx;
+			ssl_ctx = WFGlobal::get_ssl_client_ctx(hostname, port);
 			ssl_connect_timeout = ep_params->ssl_connect_timeout;
 		}
 

@@ -63,7 +63,7 @@ public:
 			const struct addrinfo *addrinfo,
 			const std::string& other_info,
 			const struct EndpointParams *ep_params,
-			const std::string& hostname,
+			const std::string& hostname, unsigned short port,
 			RouteResult& result);
 
 	RouteManager()

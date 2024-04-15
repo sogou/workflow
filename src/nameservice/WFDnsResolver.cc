@@ -423,7 +423,8 @@ void WFResolverTask::dispatch()
 		}
 
 		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
-							   &ep_params_, hostname, this->result) < 0)
+							   &ep_params_, hostname, port_,
+							   this->result) < 0)
 		{
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;
@@ -618,7 +619,8 @@ void WFResolverTask::dns_callback_internal(void *thrd_dns_output,
 									 (unsigned int)ttl_default,
 									 (unsigned int)ttl_min);
 		if (route_manager->get(ns_params_.type, addrinfo, ns_params_.info,
-							   &ep_params_, hostname, this->result) < 0)
+							   &ep_params_, hostname, port_,
+							   this->result) < 0)
 		{
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;

@@ -358,6 +358,7 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 			return 0;
 		}
 
+		/* TODO */
 		ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
 		if (!ssl)
 		{

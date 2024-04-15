@@ -129,6 +129,13 @@ public:
 	static bool is_scheduler_created();
 	static class CommScheduler *get_scheduler();
 	static SSL_CTX *get_ssl_client_ctx();
+	static SSL_CTX *get_ssl_client_ctx(const std::string& host,
+									   unsigned short port);
+	static void set_ssl_client_ctx(const std::string& host,
+								   unsigned short port,
+								   SSL_CTX *ssl_ctx);
+	static void del_ssl_client_ctx(const std::string& host,
+								   unsigned short port);
 	static SSL_CTX *new_ssl_server_ctx();
 	static class ExecQueue *get_exec_queue(const std::string& queue_name);
 	static class Executor *get_compute_executor();

@@ -224,8 +224,9 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(enum TransportType type,
 	type_ = type;
 	info_.assign(info);
 	params.use_tls_sni = false;
+	/* TODO */
 	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, &params,
-										   "", route_result_) < 0)
+										   "", 0, route_result_) < 0)
 	{
 		this->state = WFT_STATE_SYS_ERROR;
 		this->error = errno;

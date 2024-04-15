@@ -185,7 +185,41 @@ public:
 		return &kInstance;
 	}
 
-	SSL_CTX *get_ssl_client_ctx() { return ssl_client_ctx_; }
+	SSL_CTX *get_ssl_client_ctx() { return ssl_ctx_global_; }
+
+	SSL_CTX *get_ssl_client_ctx(const std::string& host, unsigned short port)
+	{
+		std::pair<std::string, unsigned short> host_port(host, port);
+
+		mutex_.lock();
+		auto it = ssl_ctx_map_.find(host_port);
+		mutex_.unlock();
+
+		if (it != ssl_ctx_map_.end())
+			return it->second;
+		else
+			return ssl_ctx_global_;
+	}
+
+	void set_ssl_client_ctx(const std::string& host, unsigned short port,
+							SSL_CTX *ssl_ctx)
+	{
+		std::pair<std::string, unsigned short> host_port(host, port);
+
+		mutex_.lock();
+		ssl_ctx_map_[host_port] = ssl_ctx;
+		mutex_.unlock();
+	}
+
+	void del_ssl_client_ctx(const std::string& host, unsigned short port)
+	{
+		std::pair<std::string, unsigned short> host_port(host, port);
+
+		mutex_.lock();
+		ssl_ctx_map_.erase(ssl_ctx_map_.find(host_port));
+		mutex_.unlock();
+	}
+
 	SSL_CTX *new_ssl_server_ctx() { return SSL_CTX_new(SSLv23_server_method()); }
 
 private:
@@ -200,14 +234,14 @@ private:
 		//OpenSSL_add_all_algorithms();
 #endif
 
-		ssl_client_ctx_ = SSL_CTX_new(SSLv23_client_method());
-		if (ssl_client_ctx_ == NULL)
+		ssl_ctx_global_ = SSL_CTX_new(SSLv23_client_method());
+		if (ssl_ctx_global_ == NULL)
 			abort();
 	}
 
 	~__SSLManager()
 	{
-		SSL_CTX_free(ssl_client_ctx_);
+		SSL_CTX_free(ssl_ctx_global_);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		//free ssl to avoid memory leak
@@ -234,7 +268,9 @@ private:
 	}
 
 private:
-	SSL_CTX *ssl_client_ctx_;
+	SSL_CTX *ssl_ctx_global_;
+	std::map<std::pair<std::string, unsigned short>, SSL_CTX *> ssl_ctx_map_;
+	std::mutex mutex_;
 };
 
 class __FileIOService : public IOService
@@ -692,6 +728,25 @@ CommScheduler *WFGlobal::get_scheduler()
 SSL_CTX *WFGlobal::get_ssl_client_ctx()
 {
 	return __SSLManager::get_instance()->get_ssl_client_ctx();
+}
+
+SSL_CTX *WFGlobal::get_ssl_client_ctx(const std::string& host,
+									  unsigned short port)
+{
+	return __SSLManager::get_instance()->get_ssl_client_ctx(host, port);
+}
+
+void WFGlobal::set_ssl_client_ctx(const std::string& host,
+								  unsigned short port,
+								  SSL_CTX *ssl_ctx)
+{
+	return __SSLManager::get_instance()->set_ssl_client_ctx(host, port, ssl_ctx);
+}
+
+void WFGlobal::del_ssl_client_ctx(const std::string& host,
+								  unsigned short port)
+{
+	return __SSLManager::get_instance()->del_ssl_client_ctx(host, port);
 }
 
 SSL_CTX *WFGlobal::new_ssl_server_ctx()

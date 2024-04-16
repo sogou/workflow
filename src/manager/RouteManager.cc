@@ -77,7 +77,7 @@ private:
 };
 
 /* To support TLS SNI. */
-class RouteTargetSNI : public RouteManager::RouteTarget
+class RouteTargetTCPSNI : public RouteTargetTCP
 {
 private:
 	virtual int init_ssl(SSL *ssl)
@@ -92,7 +92,27 @@ private:
 	std::string hostname;
 
 public:
-	RouteTargetSNI(const std::string& name) : hostname(name)
+	RouteTargetTCPSNI(const std::string& name) : hostname(name)
+	{
+	}
+};
+
+class RouteTargetSCTPSNI : public RouteTargetSCTP
+{
+private:
+	virtual int init_ssl(SSL *ssl)
+	{
+		if (SSL_set_tlsext_host_name(ssl, this->hostname.c_str()) > 0)
+			return 0;
+		else
+			return -1;
+	}
+
+private:
+	std::string hostname;
+
+public:
+	RouteTargetSCTPSNI(const std::string& name) : hostname(name)
 	{
 	}
 };
@@ -167,7 +187,7 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 	{
 	case TT_TCP_SSL:
 		if (params->use_tls_sni)
-			target = new RouteTargetSNI(params->hostname);
+			target = new RouteTargetTCPSNI(params->hostname);
 		else
 	case TT_TCP:
 			target = new RouteTargetTCP();
@@ -175,9 +195,12 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 	case TT_UDP:
 		target = new RouteTargetUDP();
 		break;
-	case TT_SCTP:
 	case TT_SCTP_SSL:
-		target = new RouteTargetSCTP();
+		if (params->use_tls_sni)
+			target = new RouteTargetSCTPSNI(params->hostname);
+		else
+	case TT_SCTP:
+			target = new RouteTargetSCTP();
 		break;
 	default:
 		errno = EINVAL;
@@ -413,7 +436,7 @@ static uint64_t __generate_key(enum TransportType type,
 		buf += other_info;
 
 	buf.append((const char *)params, sizeof params);
-	if (type == TT_TCP_SSL)
+	if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
 	{
 		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
 		if (ep_params->use_tls_sni)

@@ -20,6 +20,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <errno.h>
 #include <time.h>
 #include <netdb.h>
@@ -221,12 +222,35 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(enum TransportType type,
 	addrinfo.ai_addr = (struct sockaddr *)addr;
 	addrinfo.ai_addrlen = addrlen;
 
+	char addrstr[INET6_ADDRSTRLEN];
+	const char *host = addrstr;
+	unsigned short port = 0;
+
+	if (addr->sa_family == AF_INET)
+	{
+		auto *sin = (const struct sockaddr_in *)addr;
+		inet_ntop(AF_INET, &sin->sin_addr, addrstr, INET_ADDRSTRLEN);
+		port = ntohs(sin->sin_port);
+	}
+	else if (addr->sa_family == AF_INET6)
+	{
+		auto *sin6 = (const struct sockaddr_in6 *)addr;
+		inet_ntop(AF_INET6, &sin6->sin6_addr, addrstr, INET6_ADDRSTRLEN);
+		port = ntohs(sin6->sin6_port);
+	}
+	else if (addr->sa_family == AF_UNIX)
+	{
+		auto *sun = (const struct sockaddr_un *)addr;
+		host = sun->sun_path;
+	}
+	else
+		*addrstr = '\0';
+
 	type_ = type;
 	info_.assign(info);
 	params.use_tls_sni = false;
-	/* TODO */
 	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, &params,
-										   "", 0, route_result_) < 0)
+										   host, port, route_result_) < 0)
 	{
 		this->state = WFT_STATE_SYS_ERROR;
 		this->error = errno;

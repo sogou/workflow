@@ -23,8 +23,10 @@
 #include <signal.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
 #include <ctype.h>
 #include <string>
+#include <map>
 #include <unordered_map>
 #include <atomic>
 #include <mutex>
@@ -190,40 +192,51 @@ public:
 	SSL_CTX *get_ssl_client_ctx(const std::string& host, unsigned short port)
 	{
 		std::pair<std::string, unsigned short> host_port(host, port);
+		SSL_CTX *ssl_ctx = ssl_ctx_global_;
 
-		mutex_.lock();
+		pthread_rwlock_rdlock(&this->rwlock_);
 		auto it = ssl_ctx_map_.find(host_port);
-		mutex_.unlock();
-
 		if (it != ssl_ctx_map_.end())
-			return it->second;
-		else
-			return ssl_ctx_global_;
+			ssl_ctx = it->second;
+
+		pthread_rwlock_unlock(&this->rwlock_);
+		return ssl_ctx;
 	}
 
 	void set_ssl_client_ctx(const std::string& host, unsigned short port,
 							SSL_CTX *ssl_ctx)
 	{
-		std::pair<std::string, unsigned short> host_port(host, port);
+		if (ssl_ctx)
+		{
+			std::pair<std::string, unsigned short> host_port(host, port);
 
-		mutex_.lock();
-		ssl_ctx_map_[host_port] = ssl_ctx;
-		mutex_.unlock();
+			pthread_rwlock_wrlock(&rwlock_);
+			ssl_ctx_map_[host_port] = ssl_ctx;
+			pthread_rwlock_unlock(&rwlock_);
+		}
 	}
 
-	void del_ssl_client_ctx(const std::string& host, unsigned short port)
+	SSL_CTX *del_ssl_client_ctx(const std::string& host, unsigned short port)
 	{
 		std::pair<std::string, unsigned short> host_port(host, port);
+		SSL_CTX *ssl_ctx = NULL;
 
-		mutex_.lock();
-		ssl_ctx_map_.erase(ssl_ctx_map_.find(host_port));
-		mutex_.unlock();
+		pthread_rwlock_wrlock(&rwlock_);
+		auto it = ssl_ctx_map_.find(host_port);
+		if (it != ssl_ctx_map_.end())
+		{
+			ssl_ctx = it->second;
+			ssl_ctx_map_.erase(it);
+		}
+
+		pthread_rwlock_unlock(&rwlock_);
+		return ssl_ctx;
 	}
 
 	SSL_CTX *new_ssl_server_ctx() { return SSL_CTX_new(SSLv23_server_method()); }
 
 private:
-	__SSLManager()
+	__SSLManager() : rwlock_(PTHREAD_RWLOCK_INITIALIZER)
 	{
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		__ssl_mutex = new std::mutex[CRYPTO_num_locks()];
@@ -269,8 +282,23 @@ private:
 
 private:
 	SSL_CTX *ssl_ctx_global_;
-	std::map<std::pair<std::string, unsigned short>, SSL_CTX *> ssl_ctx_map_;
-	std::mutex mutex_;
+	class CMP
+	{
+	public:
+		bool operator()(const std::pair<std::string, unsigned short>& p1,
+						const std::pair<std::string, unsigned short>& p2)
+		{
+			int ret = strcasecmp(p1.first.c_str(), p2.first.c_str());
+			if (ret < 0)
+				return true;
+			else if (ret > 0)
+				return false;
+			else
+				return p1.second < p2.second;
+		}
+	};
+	std::map<std::pair<std::string, unsigned short>, SSL_CTX *, CMP> ssl_ctx_map_;
+	pthread_rwlock_t rwlock_;
 };
 
 class __FileIOService : public IOService
@@ -740,11 +768,11 @@ void WFGlobal::set_ssl_client_ctx(const std::string& host,
 								  unsigned short port,
 								  SSL_CTX *ssl_ctx)
 {
-	return __SSLManager::get_instance()->set_ssl_client_ctx(host, port, ssl_ctx);
+	__SSLManager::get_instance()->set_ssl_client_ctx(host, port, ssl_ctx);
 }
 
-void WFGlobal::del_ssl_client_ctx(const std::string& host,
-								  unsigned short port)
+SSL_CTX *WFGlobal::del_ssl_client_ctx(const std::string& host,
+									  unsigned short port)
 {
 	return __SSLManager::get_instance()->del_ssl_client_ctx(host, port);
 }

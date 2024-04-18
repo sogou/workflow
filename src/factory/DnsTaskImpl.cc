@@ -103,7 +103,8 @@ bool ComplexDnsTask::init_success()
 
 		auto *ep = &WFGlobal::get_global_settings()->dns_server_params;
 		ret = WFGlobal::get_route_manager()->get(type, addr, info_, ep,
-												 uri_.host, route_result_);
+												 uri_.host, ssl_ctx_,
+												 route_result_);
 		freeaddrinfo(addr);
 		if (ret < 0)
 		{

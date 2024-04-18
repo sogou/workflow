@@ -424,7 +424,8 @@ static uint64_t __generate_key(enum TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
 							   const struct EndpointParams *ep_params,
-							   const std::string& hostname)
+							   const std::string& hostname,
+							   SSL_CTX *ssl_ctx)
 {
 	const int params[] = {
 		ep_params->address_family, (int)ep_params->max_connections,
@@ -438,6 +439,7 @@ static uint64_t __generate_key(enum TransportType type,
 	buf.append((const char *)params, sizeof params);
 	if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
 	{
+		buf.append((const char *)&ssl_ctx, sizeof (void *));
 		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
 		if (ep_params->use_tls_sni)
 		{
@@ -491,11 +493,18 @@ int RouteManager::get(enum TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
 					  const struct EndpointParams *ep_params,
-					  const std::string& hostname,
+					  const std::string& hostname, SSL_CTX *ssl_ctx,
 					  RouteResult& result)
 {
-	uint64_t key = __generate_key(type, addrinfo, other_info,
-								  ep_params, hostname);
+	if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
+	{
+		static SSL_CTX *global_client_ctx = WFGlobal::get_ssl_client_ctx();
+		if (ssl_ctx == NULL)
+			ssl_ctx = global_client_ctx;
+	}
+
+	uint64_t key = __generate_key(type, addrinfo, other_info, ep_params,
+								  hostname, ssl_ctx);
 	struct rb_node **p = &cache_.rb_node;
 	struct rb_node *parent = NULL;
 	RouteResultEntry *bound = NULL;
@@ -522,17 +531,6 @@ int RouteManager::get(enum TransportType type,
 	}
 	else
 	{
-		int ssl_connect_timeout = 0;
-		SSL_CTX *ssl_ctx = NULL;
-
-		if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
-		{
-			static SSL_CTX *client_ssl_ctx = WFGlobal::get_ssl_client_ctx();
-
-			ssl_ctx = client_ssl_ctx;
-			ssl_connect_timeout = ep_params->ssl_connect_timeout;
-		}
-
 		struct RouteParams params = {
 			.transport_type			=	type,
 			.addrinfo 				=	addrinfo,
@@ -541,7 +539,7 @@ int RouteManager::get(enum TransportType type,
 			.max_connections		=	ep_params->max_connections,
 			.connect_timeout		=	ep_params->connect_timeout,
 			.response_timeout		=	ep_params->response_timeout,
-			.ssl_connect_timeout	=	ssl_connect_timeout,
+			.ssl_connect_timeout	=	ep_params->ssl_connect_timeout,
 			.use_tls_sni			=	ep_params->use_tls_sni,
 			.hostname				=	hostname,
 		};

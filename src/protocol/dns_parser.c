@@ -100,10 +100,15 @@ static int __dns_parser_parse_host(char *phost, dns_parser_t *parser)
 		else if ((len & 0xC0) == 0xC0)
 		{
 			pointer = __dns_parser_uint16(*cur) & 0x3FFF;
-			*cur += 2;
 
 			if (pointer >= parser->msgsize)
 				return -2;
+
+			// pointer must point to a prior position
+			if ((const char *)parser->msgbase + pointer >= *cur)
+				return -2;
+
+			*cur += 2;
 
 			// backup cur only when the first pointer occurs
 			if (curbackup == NULL)

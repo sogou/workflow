@@ -81,6 +81,7 @@ struct WFNSParams
 	enum TransportType type;
 	ParsedURI& uri;
 	const char *info;
+	SSL_CTX *ssl_ctx;
 	bool fixed_addr;
 	int retry_times;
 	WFNSTracing *tracing;

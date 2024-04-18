@@ -350,7 +350,21 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 
 	if (is_ssl_)
 	{
-		if (!(resp->get_capability_flags() & 0x800))
+		if (resp->get_capability_flags() & 0x800)
+		{
+			static SSL_CTX *ssl_ctx = WFGlobal::get_ssl_client_ctx();
+
+			ssl = __create_ssl(ssl_ctx_ ? ssl_ctx_ : ssl_ctx);
+			if (!ssl)
+			{
+				state_ = WFT_STATE_SYS_ERROR;
+				error_ = errno;
+				return 0;
+			}
+
+			SSL_set_connect_state(ssl);
+		}
+		else
 		{
 			this->resp = std::move(*(MySQLResponse *)resp);
 			state_ = WFT_STATE_TASK_ERROR;
@@ -358,15 +372,6 @@ int ComplexMySQLTask::check_handshake(MySQLHandshakeResponse *resp)
 			return 0;
 		}
 
-		ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
-		if (!ssl)
-		{
-			state_ = WFT_STATE_SYS_ERROR;
-			error_ = errno;
-			return 0;
-		}
-
-		SSL_set_connect_state(ssl);
 	}
 
 	auto *conn = this->get_connection();

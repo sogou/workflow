@@ -502,6 +502,8 @@ int RouteManager::get(enum TransportType type,
 		if (ssl_ctx == NULL)
 			ssl_ctx = global_client_ctx;
 	}
+	else
+		ssl_ctx = NULL;
 
 	uint64_t key = __generate_key(type, addrinfo, other_info, ep_params,
 								  hostname, ssl_ctx);

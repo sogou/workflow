@@ -64,7 +64,7 @@ public:
 	}
 
 protected:
-	void set_ssl_ctx(WFMySQLTask *task)
+	void set_ssl_ctx(WFMySQLTask *task) const
 	{
 		using MySQLRequest = protocol::MySQLRequest;
 		using MySQLResponse = protocol::MySQLResponse;

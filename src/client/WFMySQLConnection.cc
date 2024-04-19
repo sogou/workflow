@@ -21,7 +21,6 @@
 #include <string.h>
 #include <string>
 #include <utility>
-#include <openssl/ssl.h>
 #include "URIParser.h"
 #include "WFMySQLConnection.h"
 

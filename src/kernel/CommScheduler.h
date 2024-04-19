@@ -61,8 +61,11 @@ public:
 		int ret = this->init(addr, addrlen, connect_timeout, response_timeout,
 							 max_connections);
 
-		if (ret >= 0)
+		if (ret >= 0 && ssl_ctx)
+		{
+			SSL_CTX_up_ref(ssl_ctx);
 			this->set_ssl(ssl_ctx, ssl_connect_timeout);
+		}
 
 		return ret;
 	}

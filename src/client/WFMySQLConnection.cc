@@ -21,10 +21,11 @@
 #include <string.h>
 #include <string>
 #include <utility>
+#include <openssl/ssl.h>
 #include "URIParser.h"
 #include "WFMySQLConnection.h"
 
-int WFMySQLConnection::init(const std::string& url)
+int WFMySQLConnection::init(const std::string& url, SSL_CTX *ssl_ctx)
 {
 	std::string query;
 	ParsedURI uri;
@@ -43,6 +44,7 @@ int WFMySQLConnection::init(const std::string& url)
 		if (uri.query)
 		{
 			this->uri = std::move(uri);
+			this->ssl_ctx = ssl_ctx;
 			return 0;
 		}
 	}

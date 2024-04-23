@@ -96,7 +96,7 @@ public:
 	CommSchedObject *request_object;
 	CommSchedGroup *group;
 	std::mutex mutex;
-	std::vector<CommSchedTarget *> targets;
+	std::vector<RouteManager::RouteTarget *> targets;
 	struct list_head breaker_list;
 	uint64_t key;
 	int nleft;
@@ -115,28 +115,29 @@ public:
 	int init(const struct RouteParams *params);
 	void deinit();
 
-	void notify_unavailable(CommSchedTarget *target);
-	void notify_available(CommSchedTarget *target);
+	void notify_unavailable(RouteManager::RouteTarget *target);
+	void notify_available(RouteManager::RouteTarget *target);
 	void check_breaker();
 
 private:
 	void free_list();
-	CommSchedTarget *create_target(const struct RouteParams *params,
-								   const struct addrinfo *addrinfo);
+	RouteManager::RouteTarget *create_target(const struct RouteParams *params,
+											 const struct addrinfo *addrinfo);
 	int add_group_targets(const struct RouteParams *params);
 };
 
 struct __breaker_node
 {
-	CommSchedTarget *target;
+	RouteManager::RouteTarget *target;
 	int64_t timeout;
 	struct list_head breaker_list;
 };
 
-CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *params,
-												 const struct addrinfo *addr)
+RouteManager::RouteTarget *
+RouteResultEntry::create_target(const struct RouteParams *params,
+								const struct addrinfo *addr)
 {
-	CommSchedTarget *target;
+	RouteManager::RouteTarget *target;
 
 	switch (params->transport_type)
 	{
@@ -167,7 +168,7 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 int RouteResultEntry::init(const struct RouteParams *params)
 {
 	const struct addrinfo *addr = params->addrinfo;
-	CommSchedTarget *target;
+	RouteManager::RouteTarget *target;
 
 	if (addr == NULL)//0
 	{
@@ -208,8 +209,8 @@ int RouteResultEntry::init(const struct RouteParams *params)
 
 int RouteResultEntry::add_group_targets(const struct RouteParams *params)
 {
+	RouteManager::RouteTarget *target;
 	const struct addrinfo *addr;
-	CommSchedTarget *target;
 
 	for (addr = params->addrinfo; addr; addr = addr->ai_next)
 	{
@@ -268,7 +269,7 @@ void RouteResultEntry::deinit()
 	}
 }
 
-void RouteResultEntry::notify_unavailable(CommSchedTarget *target)
+void RouteResultEntry::notify_unavailable(RouteManager::RouteTarget *target)
 {
 	if (this->targets.size() <= 1)
 		return;
@@ -294,7 +295,7 @@ void RouteResultEntry::notify_unavailable(CommSchedTarget *target)
 	this->nleft--;
 }
 
-void RouteResultEntry::notify_available(CommSchedTarget *target)
+void RouteResultEntry::notify_available(RouteManager::RouteTarget *target)
 {
 	if (this->targets.size() <= 1 || this->nbreak == 0)
 		return;
@@ -369,8 +370,7 @@ static uint64_t __fnv_hash(const unsigned char *data, size_t size)
 static uint64_t __generate_key(enum TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
-							   const struct EndpointParams *ep_params,
-							   const std::string& hostname)
+							   const struct EndpointParams *ep_params)
 {
 	const int params[] = {
 		ep_params->address_family, (int)ep_params->max_connections,
@@ -431,8 +431,7 @@ int RouteManager::get(enum TransportType type,
 					  const std::string& hostname,
 					  RouteResult& result)
 {
-	uint64_t key = __generate_key(type, addrinfo, other_info,
-								  ep_params, hostname);
+	uint64_t key = __generate_key(type, addrinfo, other_info, ep_params);
 	struct rb_node **p = &cache_.rb_node;
 	struct rb_node *parent = NULL;
 	RouteResultEntry *bound = NULL;
@@ -497,12 +496,12 @@ int RouteManager::get(enum TransportType type,
 void RouteManager::notify_unavailable(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((RouteResultEntry *)cookie)->notify_unavailable((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_unavailable((RouteTarget *)target);
 }
 
 void RouteManager::notify_available(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((RouteResultEntry *)cookie)->notify_available((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_available((RouteTarget *)target);
 }
 

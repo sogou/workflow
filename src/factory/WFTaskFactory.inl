@@ -476,15 +476,19 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 													std::function<void (WFNetworkTask<REQ, RESP> *)> callback)
 {
 	auto *task = new WFComplexClientTask<REQ, RESP>(retry_max, std::move(callback));
-	char buf[8];
-	std::string url = "scheme://";
 	ParsedURI uri;
+	char buf[32];
 
 	sprintf(buf, "%u", port);
-	url += host;
-	url += ":";
-	url += buf;
-	URIParser::parse(url, uri);
+	uri.scheme = strdup("scheme");
+	uri.host = strdup(host.c_str());
+	uri.port = strdup(buf);
+	if (!uri.scheme || !uri.host || !uri.port)
+	{
+		uri.state = URI_STATE_ERROR;
+		uri.error = errno;
+	}
+
 	task->init(std::move(uri));
 	task->set_transport_type(type);
 	return task;

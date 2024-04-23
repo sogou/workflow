@@ -21,7 +21,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <openssl/ssl.h>
 #include "CommScheduler.h"
 
 #define PTHREAD_COND_TIMEDWAIT(cond, mutex, abstime) \
@@ -85,13 +84,9 @@ int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 
 void CommSchedTarget::deinit()
 {
-	SSL_CTX *ssl_ctx = this->get_ssl_ctx();
-
 	pthread_cond_destroy(&this->cond);
 	pthread_mutex_destroy(&this->mutex);
 	this->CommTarget::deinit();
-	if (ssl_ctx)
-		SSL_CTX_free(ssl_ctx);
 }
 
 CommTarget *CommSchedTarget::acquire(int wait_timeout)

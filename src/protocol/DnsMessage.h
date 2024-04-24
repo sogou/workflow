@@ -153,8 +153,8 @@ public:
 	}
 
 	int add_a_record(int section, const char *name,
-					uint16_t rclass, uint32_t ttl,
-					const void *data)
+					 uint16_t rclass, uint32_t ttl,
+					 const void *data)
 	{
 		struct list_head *list = get_section(section);
 

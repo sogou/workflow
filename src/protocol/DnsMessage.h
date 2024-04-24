@@ -152,6 +152,109 @@ public:
 		parser->question.qname = strdup(name.c_str());
 	}
 
+	int add_a_record(int section, const char *name,
+					 uint16_t rclass, uint32_t ttl,
+					 const void *data)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_raw_record(name, DNS_TYPE_A, rclass, ttl, 4, data, list);
+	}
+
+	int add_aaaa_record(int section, const char *name,
+						uint16_t rclass, uint32_t ttl,
+						const void *data)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_raw_record(name, DNS_TYPE_AAAA, rclass, ttl,
+								  16, data, list);
+	}
+
+	int add_ns_record(int section, const char *name,
+					  uint16_t rclass, uint32_t ttl,
+					  const char *data)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_str_record(name, DNS_TYPE_NS, rclass, ttl, data, list);
+	}
+
+	int add_cname_record(int section, const char *name,
+						 uint16_t rclass, uint32_t ttl,
+						 const char *data)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_str_record(name, DNS_TYPE_CNAME, rclass, ttl,
+								  data, list);
+	}
+
+	int add_ptr_record(int section, const char *name,
+					   uint16_t rclass, uint32_t ttl,
+					   const char *data)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_str_record(name, DNS_TYPE_PTR, rclass, ttl, data, list);
+	}
+
+	int add_soa_record(int section, const char *name,
+					   uint16_t rclass, uint32_t ttl,
+					   const char *mname, const char *rname,
+					   uint32_t serial, int32_t refresh,
+					   int32_t retry, int32_t expire, uint32_t minimum)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_soa_record(name, rclass, ttl, mname, rname, serial,
+								  refresh, retry, expire, minimum, list);
+	}
+
+	int add_srv_record(int section, const char *name,
+					   uint16_t rclass, uint32_t ttl,
+					   uint16_t priority, uint16_t weight, uint16_t port,
+					   const char *target)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_srv_record(name, rclass, ttl,
+								  priority, weight, port, target, list);
+	}
+
+	int add_mx_record(int section, const char *name,
+					  uint16_t rclass, uint32_t ttl,
+					  int16_t preference, const char *exchange)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_mx_record(name, rclass, ttl, preference, exchange, list);
+	}
+
 	// Inner use only
 	bool is_single_packet() const
 	{
@@ -190,6 +293,22 @@ protected:
 private:
 	int encode_reply();
 	int encode_truncation_reply();
+
+	struct list_head *get_section(int section)
+	{
+		switch (section)
+		{
+		case DNS_ANSWER_SECTION:
+			return &(parser->answer_list);
+		case DNS_AUTHORITY_SECTION:
+			return &(parser->authority_list);
+		case DNS_ADDITIONAL_SECTION:
+			return &(parser->additional_list);
+		default:
+			errno = EINVAL;
+			return NULL;
+		}
+	}
 
 	// size of msgbuf, but in network byte order
 	uint16_t msgsize;

@@ -78,6 +78,13 @@ enum
 	DNS_RCODE_REFUSED
 };
 
+enum
+{
+	DNS_ANSWER_SECTION = 1,
+	DNS_AUTHORITY_SECTION = 2,
+	DNS_ADDITIONAL_SECTION = 3,
+};
+
 /**
  * dns_header_t is a struct to describe the header of a dns
  * request or response packet, but the byte order is not
@@ -206,6 +213,29 @@ int dns_record_cursor_next(struct dns_record **record,
 int dns_record_cursor_find_cname(const char *name,
 								 const char **cname,
 								 dns_record_cursor_t *cursor);
+
+int dns_add_raw_record(const char *name, uint16_t type, uint16_t rclass,
+					   uint32_t ttl, uint16_t rlen, const void *rdata,
+					   struct list_head *list);
+
+int dns_add_str_record(const char *name, uint16_t type, uint16_t rclass,
+					   uint32_t ttl, const char *rdata,
+					   struct list_head *list);
+
+int dns_add_soa_record(const char *name, uint16_t rclass, uint32_t ttl,
+					   const char *mname, const char *rname,
+					   uint32_t serial, int32_t refresh,
+					   int32_t retry, int32_t expire, uint32_t minimum,
+					   struct list_head *list);
+
+int dns_add_srv_record(const char *name, uint16_t rclass, uint32_t ttl,
+					   uint16_t priority, uint16_t weight,
+					   uint16_t port, const char *target,
+					   struct list_head *list);
+
+int dns_add_mx_record(const char *name, uint16_t rclass, uint32_t ttl,
+					  int16_t preference, const char *exchange,
+					  struct list_head *list);
 
 const char *dns_type2str(int type);
 const char *dns_class2str(int dnsclass);

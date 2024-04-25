@@ -16,6 +16,7 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
+#include <openssl/ssl.h>
 #include "WFTaskFactory.h"
 #include "KafkaMessage.h"
 
@@ -32,16 +33,19 @@ public:
 	 * user task.
 	 */
 	static __WFKafkaTask *create_kafka_task(const ParsedURI& uri,
+											SSL_CTX *ssl_ctx,
 											int retry_max,
 											__kafka_callback_t callback);
 
 	static __WFKafkaTask *create_kafka_task(const std::string& url,
+											SSL_CTX *ssl_ctx,
 											int retry_max,
 											__kafka_callback_t callback);
 
 	static __WFKafkaTask *create_kafka_task(enum TransportType type,
 											const char *host,
 											unsigned short port,
+											SSL_CTX *ssl_ctx,
 											const std::string& info,
 											int retry_max,
 											__kafka_callback_t callback);

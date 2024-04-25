@@ -714,12 +714,14 @@ bool __ComplexKafkaTask::finish_once()
 /**********Factory**********/
 // kafka://user:password:sasl@host:port/api=type&topic=name
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
+													   SSL_CTX *ssl_ctx,
 													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
-	ParsedURI uri;
+	task->set_ssl_ctx(ssl_ctx);
 
+	ParsedURI uri;
 	URIParser::parse(url, uri);
 	task->init(std::move(uri));
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
@@ -727,10 +729,12 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
 }
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
+													   SSL_CTX *ssl_ctx,
 													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
+	task->set_ssl_ctx(ssl_ctx);
 
 	task->init(uri);
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
@@ -740,11 +744,13 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(enum TransportType type,
 													   const char *host,
 													   unsigned short port,
+													   SSL_CTX *ssl_ctx,
 													   const std::string& info,
 													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
+	task->set_ssl_ctx(ssl_ctx);
 
 	std::string url = (type == TT_TCP_SSL ? "kafkas://" : "kafka://");
 

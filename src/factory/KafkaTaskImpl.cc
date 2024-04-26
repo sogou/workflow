@@ -712,8 +712,8 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
-	ParsedURI uri;
 
+	ParsedURI uri;
 	URIParser::parse(url, uri);
 	task->init(std::move(uri));
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);

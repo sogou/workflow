@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <openssl/ssl.h>
 #include "WFTask.h"
 #include "KafkaMessage.h"
 #include "KafkaResult.h"

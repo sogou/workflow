@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include <set>
 #include <openssl/sha.h>
@@ -739,16 +740,24 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const char *host,
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 
-	std::string url = "kafka://";
-
-	if (!info.empty())
-		url += info + "@";
-
-	url += host;
-	url += ":" + std::to_string(port);
-
 	ParsedURI uri;
-	URIParser::parse(url, uri);
+	char buf[32];
+
+	uri.scheme = strdup("kafka");
+	if (!info.empty())
+		uri.userinfo = strdup(info.c_str());
+
+	uri.host = strdup(host);
+	sprintf(buf, "%u", port);
+	uri.port = strdup(buf);
+
+	if (!uri.scheme || !uri.host || !uri.port ||
+		(!info.empty() && !uri.userinfo))
+	{
+		uri.state = URI_STATE_ERROR;
+		uri.error = errno;
+	}
+
 	task->init(std::move(uri));
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;

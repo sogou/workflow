@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include <set>
 #include <openssl/sha.h>
@@ -752,16 +753,28 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(enum TransportType type,
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
 	task->set_ssl_ctx(ssl_ctx);
 
-	std::string url = (type == TT_TCP_SSL ? "kafkas://" : "kafka://");
+	ParsedURI uri;
+	char buf[32];
+
+	if (type == TT_TCP_SSL)
+		uri.scheme = strdup("kafkas");
+	else
+		uri.scheme = strdup("kafka");
 
 	if (!info.empty())
-		url += info + "@";
+		uri.userinfo = strdup(info.c_str());
 
-	url += host;
-	url += ":" + std::to_string(port);
+	uri.host = strdup(host);
+	sprintf(buf, "%u", port);
+	uri.port = strdup(buf);
 
-	ParsedURI uri;
-	URIParser::parse(url, uri);
+	if (!uri.scheme || !uri.host || !uri.port ||
+		(!info.empty() && !uri.userinfo))
+	{
+		uri.state = URI_STATE_ERROR;
+		uri.error = errno;
+	}
+
 	task->init(std::move(uri));
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;

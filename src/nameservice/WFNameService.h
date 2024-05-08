@@ -82,6 +82,7 @@ struct WFNSParams
 	ParsedURI& uri;
 	const char *info;
 	bool fixed_addr;
+	bool fixed_conn;
 	int retry_times;
 	WFNSTracing *tracing;
 };

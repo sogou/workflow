@@ -76,6 +76,7 @@ public:
 	{
 		type_ = TT_TCP;
 		fixed_addr_ = false;
+		fixed_conn_ = false;
 		retry_max_ = retry_max;
 		retry_times_ = 0;
 		redirect_ = false;
@@ -133,8 +134,12 @@ public:
 
 	bool is_fixed_addr() const { return this->fixed_addr_; }
 
+	bool is_fixed_conn() const { return this->fixed_conn_; }
+
 protected:
 	void set_fixed_addr(int fixed) { this->fixed_addr_ = fixed; }
+
+	void set_fixed_conn(int fixed) { this->fixed_conn_ = fixed; }
 
 	void set_info(const std::string& info)
 	{
@@ -169,6 +174,7 @@ protected:
 	ParsedURI uri_;
 	std::string info_;
 	bool fixed_addr_;
+	bool fixed_conn_;
 	bool redirect_;
 	CTX ctx_;
 	int retry_max_;
@@ -315,6 +321,7 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		.uri			=	uri_,
 		.info			=	info_.c_str(),
 		.fixed_addr		=	fixed_addr_,
+		.fixed_conn		=	fixed_conn_,
 		.retry_times	=	retry_times_,
 		.tracing		=	&tracing_,
 	};

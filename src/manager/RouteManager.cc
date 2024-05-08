@@ -547,13 +547,6 @@ int RouteManager::get(enum TransportType type,
 			.hostname				=	hostname,
 		};
 
-		if (StringUtil::start_with(other_info, "?maxconn="))
-		{
-			int maxconn = atoi(other_info.c_str() + 9);
-			if (maxconn > 0)
-				params.max_connections = maxconn;
-		}
-
 		entry = new RouteResultEntry;
 		if (entry->init(&params) >= 0)
 		{

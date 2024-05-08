@@ -35,6 +35,9 @@ public:
 		ns_params_(*ns_params),
 		ep_params_(*ep_params)
 	{
+		if (ns_params_.fixed_conn)
+			ep_params_.max_connections = 1;
+
 		dns_ttl_default_ = dns_ttl_default;
 		dns_ttl_min_ = dns_ttl_min;
 		has_next_ = false;
@@ -47,6 +50,9 @@ public:
 		WFRouterTask(std::move(cb)),
 		ns_params_(*ns_params)
 	{
+		if (ns_params_.fixed_conn)
+			ep_params_.max_connections = 1;
+
 		has_next_ = false;
 		in_guard_ = false;
 		msg_ = NULL;

@@ -74,10 +74,12 @@ public:
 
 struct WFNSParams
 {
-	TransportType type;
+	enum TransportType type;
 	ParsedURI& uri;
 	const char *info;
+	SSL_CTX *ssl_ctx;
 	bool fixed_addr;
+	bool fixed_conn;
 	int retry_times;
 	WFNSTracing *tracing;
 };

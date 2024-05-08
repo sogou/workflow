@@ -25,7 +25,6 @@
 #define DNS_LABELS_MAX			63
 #define DNS_NAMES_MAX			256
 #define DNS_MSGBASE_INIT_SIZE	514 // 512 + 2(leading length)
-#define DNS_HEADER_SIZE			sizeof (struct dns_header)
 #define MAX(x, y) ((x) <= (y) ? (y) : (x))
 
 struct __dns_record_entry
@@ -102,10 +101,15 @@ static int __dns_parser_parse_host(char *phost, dns_parser_t *parser)
 		else if ((len & 0xC0) == 0xC0)
 		{
 			pointer = __dns_parser_uint16(*cur) & 0x3FFF;
-			*cur += 2;
 
 			if (pointer >= parser->msgsize)
 				return -2;
+
+			// pointer must point to a prior position
+			if ((const char *)parser->msgbase + pointer >= *cur)
+				return -2;
+
+			*cur += 2;
 
 			// backup cur only when the first pointer occurs
 			if (curbackup == NULL)
@@ -707,7 +711,7 @@ void dns_parser_init(dns_parser_t *parser)
 	parser->bufsize = 0;
 	parser->complete = 0;
 	parser->single_packet = 0;
-	memset(&parser->header, 0, DNS_HEADER_SIZE);
+	memset(&parser->header, 0, sizeof (struct dns_header));
 	memset(&parser->question, 0, sizeof (struct dns_question));
 	INIT_LIST_HEAD(&parser->answer_list);
 	INIT_LIST_HEAD(&parser->authority_list);
@@ -770,16 +774,16 @@ int dns_parser_parse_all(dns_parser_t *parser)
 	parser->cur = (const char *)parser->msgbase;
 	h = &parser->header;
 
-	if (parser->msgsize < DNS_HEADER_SIZE)
+	if (parser->msgsize < sizeof (struct dns_header))
 		return -2;
 
-	memcpy(h, parser->msgbase, DNS_HEADER_SIZE);
+	memcpy(h, parser->msgbase, sizeof (struct dns_header));
 	h->id = ntohs(h->id);
 	h->qdcount = ntohs(h->qdcount);
 	h->ancount = ntohs(h->ancount);
 	h->nscount = ntohs(h->nscount);
 	h->arcount = ntohs(h->arcount);
-	parser->cur += DNS_HEADER_SIZE;
+	parser->cur += sizeof (struct dns_header);
 
 	ret = __dns_parser_parse_question(parser);
 	if (ret < 0)
@@ -909,6 +913,186 @@ int dns_record_cursor_find_cname(const char *name,
 	}
 
 	return 1;
+}
+
+int dns_add_raw_record(const char *name, uint16_t type, uint16_t rclass,
+					   uint32_t ttl, uint16_t rlen, const void *rdata,
+					   struct list_head *list)
+{
+	struct __dns_record_entry *entry;
+	size_t entry_size = sizeof (struct __dns_record_entry) + rlen;
+
+	entry = (struct __dns_record_entry *)malloc(entry_size);
+	if (!entry)
+		return -1;
+
+	entry->record.name = strdup(name);
+	if (!entry->record.name)
+	{
+		free(entry);
+		return -1;
+	}
+
+	entry->record.type = type;
+	entry->record.rclass = rclass;
+	entry->record.ttl = ttl;
+	entry->record.rdlength = rlen;
+	entry->record.rdata = (void *)(entry + 1);
+	memcpy(entry->record.rdata, rdata, rlen);
+	list_add_tail(&entry->entry_list, list);
+
+	return 0;
+}
+
+int dns_add_str_record(const char *name, uint16_t type, uint16_t rclass,
+					   uint32_t ttl, const char *rdata,
+					   struct list_head *list)
+{
+	size_t rlen = strlen(rdata);
+	// record.rdlength has no meaning for parsed record types, ignore its
+	// correctness, same for soa/srv/mx record
+	return dns_add_raw_record(name, type, rclass, ttl, rlen+1, rdata, list);
+}
+
+int dns_add_soa_record(const char *name, uint16_t rclass, uint32_t ttl,
+					   const char *mname, const char *rname,
+					   uint32_t serial, int32_t refresh,
+					   int32_t retry, int32_t expire, uint32_t minimum,
+					   struct list_head *list)
+{
+	struct __dns_record_entry *entry;
+	struct dns_record_soa *soa;
+	size_t entry_size;
+	char *pname, *pmname, *prname;
+
+	entry_size = sizeof (struct __dns_record_entry) +
+				 sizeof (struct dns_record_soa);
+
+	entry = (struct __dns_record_entry *)malloc(entry_size);
+	if (!entry)
+		return -1;
+
+	entry->record.rdata = (void *)(entry + 1);
+	entry->record.rdlength = 0;
+	soa = (struct dns_record_soa *)(entry->record.rdata);
+
+	pname = strdup(name);
+	pmname = strdup(mname);
+	prname = strdup(rname);
+
+	if (!pname || !pmname || !prname)
+	{
+		free(pname);
+		free(pmname);
+		free(prname);
+		free(entry);
+		return -1;
+	}
+
+	soa->mname = pmname;
+	soa->rname = prname;
+	soa->serial = serial;
+	soa->refresh = refresh;
+	soa->retry = retry;
+	soa->expire = expire;
+	soa->minimum = minimum;
+
+	entry->record.name = pname;
+	entry->record.type = DNS_TYPE_SOA;
+	entry->record.rclass = rclass;
+	entry->record.ttl = ttl;
+	list_add_tail(&entry->entry_list, list);
+
+	return 0;
+}
+
+int dns_add_srv_record(const char *name, uint16_t rclass, uint32_t ttl,
+					   uint16_t priority, uint16_t weight,
+					   uint16_t port, const char *target,
+					   struct list_head *list)
+{
+	struct __dns_record_entry *entry;
+	struct dns_record_srv *srv;
+	size_t entry_size;
+	char *pname, *ptarget;
+
+	entry_size = sizeof (struct __dns_record_entry) +
+				 sizeof (struct dns_record_srv);
+
+	entry = (struct __dns_record_entry *)malloc(entry_size);
+	if (!entry)
+		return -1;
+
+	entry->record.rdata = (void *)(entry + 1);
+	entry->record.rdlength = 0;
+	srv = (struct dns_record_srv *)(entry->record.rdata);
+
+	pname = strdup(name);
+	ptarget = strdup(target);
+
+	if (!pname || !ptarget)
+	{
+		free(pname);
+		free(ptarget);
+		free(entry);
+		return -1;
+	}
+
+	srv->priority = priority;
+	srv->weight = weight;
+	srv->port = port;
+	srv->target = ptarget;
+
+	entry->record.name = pname;
+	entry->record.type = DNS_TYPE_SRV;
+	entry->record.rclass = rclass;
+	entry->record.ttl = ttl;
+	list_add_tail(&entry->entry_list, list);
+
+	return 0;
+}
+
+int dns_add_mx_record(const char *name, uint16_t rclass, uint32_t ttl,
+					  int16_t preference, const char *exchange,
+					  struct list_head *list)
+{
+	struct __dns_record_entry *entry;
+	struct dns_record_mx *mx;
+	size_t entry_size;
+	char *pname, *pexchange;
+
+	entry_size = sizeof (struct __dns_record_entry) +
+				 sizeof (struct dns_record_mx);
+
+	entry = (struct __dns_record_entry *)malloc(entry_size);
+	if (!entry)
+		return -1;
+
+	entry->record.rdata = (void *)(entry + 1);
+	entry->record.rdlength = 0;
+	mx = (struct dns_record_mx *)(entry->record.rdata);
+
+	pname = strdup(name);
+	pexchange = strdup(exchange);
+
+	if (!pname || !pexchange)
+	{
+		free(pname);
+		free(pexchange);
+		free(entry);
+		return -1;
+	}
+
+	mx->preference = preference;
+	mx->exchange = pexchange;
+
+	entry->record.name = pname;
+	entry->record.type = DNS_TYPE_MX;
+	entry->record.rclass = rclass;
+	entry->record.ttl = ttl;
+	list_add_tail(&entry->entry_list, list);
+
+	return 0;
 }
 
 const char *dns_type2str(int type)

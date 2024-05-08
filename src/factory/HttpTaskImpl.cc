@@ -484,7 +484,8 @@ private:
 
 int ComplexHttpProxyTask::init_ssl_connection()
 {
-	SSL *ssl = __create_ssl(WFGlobal::get_ssl_client_ctx());
+	static SSL_CTX *ssl_ctx = WFGlobal::get_ssl_client_ctx();
+	SSL *ssl = __create_ssl(ssl_ctx_ ? ssl_ctx_ : ssl_ctx);
 	WFConnection *conn;
 
 	if (!ssl)

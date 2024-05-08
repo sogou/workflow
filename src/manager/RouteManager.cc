@@ -76,7 +76,7 @@ private:
 };
 
 /* To support TLS SNI. */
-class RouteTargetSNI : public RouteManager::RouteTarget
+class RouteTargetTCPSNI : public RouteTargetTCP
 {
 private:
 	virtual int init_ssl(SSL *ssl)
@@ -91,7 +91,27 @@ private:
 	std::string hostname;
 
 public:
-	RouteTargetSNI(const std::string& name) : hostname(name)
+	RouteTargetTCPSNI(const std::string& name) : hostname(name)
+	{
+	}
+};
+
+class RouteTargetSCTPSNI : public RouteTargetSCTP
+{
+private:
+	virtual int init_ssl(SSL *ssl)
+	{
+		if (SSL_set_tlsext_host_name(ssl, this->hostname.c_str()) > 0)
+			return 0;
+		else
+			return -1;
+	}
+
+private:
+	std::string hostname;
+
+public:
+	RouteTargetSCTPSNI(const std::string& name) : hostname(name)
 	{
 	}
 };
@@ -101,11 +121,11 @@ public:
 
 struct RouteParams
 {
-	TransportType transport_type;
+	enum TransportType transport_type;
 	const struct addrinfo *addrinfo;
 	uint64_t key;
 	SSL_CTX *ssl_ctx;
-	unsigned int max_connections;
+	size_t max_connections;
 	int connect_timeout;
 	int response_timeout;
 	int ssl_connect_timeout;
@@ -120,7 +140,7 @@ public:
 	CommSchedObject *request_object;
 	CommSchedGroup *group;
 	std::mutex mutex;
-	std::vector<CommSchedTarget *> targets;
+	std::vector<RouteManager::RouteTarget *> targets;
 	struct list_head breaker_list;
 	uint64_t key;
 	int nleft;
@@ -139,34 +159,35 @@ public:
 	int init(const struct RouteParams *params);
 	void deinit();
 
-	void notify_unavailable(CommSchedTarget *target);
-	void notify_available(CommSchedTarget *target);
+	void notify_unavailable(RouteManager::RouteTarget *target);
+	void notify_available(RouteManager::RouteTarget *target);
 	void check_breaker();
 
 private:
 	void free_list();
-	CommSchedTarget *create_target(const struct RouteParams *params,
-								   const struct addrinfo *addrinfo);
+	RouteManager::RouteTarget *create_target(const struct RouteParams *params,
+											 const struct addrinfo *addrinfo);
 	int add_group_targets(const struct RouteParams *params);
 };
 
 struct __breaker_node
 {
-	CommSchedTarget *target;
+	RouteManager::RouteTarget *target;
 	int64_t timeout;
 	struct list_head breaker_list;
 };
 
-CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *params,
-												 const struct addrinfo *addr)
+RouteManager::RouteTarget *
+RouteResultEntry::create_target(const struct RouteParams *params,
+								const struct addrinfo *addr)
 {
-	CommSchedTarget *target;
+	RouteManager::RouteTarget *target;
 
 	switch (params->transport_type)
 	{
 	case TT_TCP_SSL:
 		if (params->use_tls_sni)
-			target = new RouteTargetSNI(params->hostname);
+			target = new RouteTargetTCPSNI(params->hostname);
 		else
 	case TT_TCP:
 			target = new RouteTargetTCP();
@@ -174,16 +195,19 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 	case TT_UDP:
 		target = new RouteTargetUDP();
 		break;
-	case TT_SCTP:
 	case TT_SCTP_SSL:
-		target = new RouteTargetSCTP();
+		if (params->use_tls_sni)
+			target = new RouteTargetSCTPSNI(params->hostname);
+		else
+	case TT_SCTP:
+			target = new RouteTargetSCTP();
 		break;
 	default:
 		errno = EINVAL;
 		return NULL;
 	}
 
-	if (target->init(addr->ai_addr, (socklen_t)addr->ai_addrlen, params->ssl_ctx,
+	if (target->init(addr->ai_addr, addr->ai_addrlen, params->ssl_ctx,
 					 params->connect_timeout, params->ssl_connect_timeout,
 					 params->response_timeout, params->max_connections) < 0)
 	{
@@ -197,7 +221,7 @@ CommSchedTarget *RouteResultEntry::create_target(const struct RouteParams *param
 int RouteResultEntry::init(const struct RouteParams *params)
 {
 	const struct addrinfo *addr = params->addrinfo;
-	CommSchedTarget *target;
+	RouteManager::RouteTarget *target;
 
 	if (addr == NULL)//0
 	{
@@ -238,8 +262,8 @@ int RouteResultEntry::init(const struct RouteParams *params)
 
 int RouteResultEntry::add_group_targets(const struct RouteParams *params)
 {
+	RouteManager::RouteTarget *target;
 	const struct addrinfo *addr;
-	CommSchedTarget *target;
 
 	for (addr = params->addrinfo; addr; addr = addr->ai_next)
 	{
@@ -298,7 +322,7 @@ void RouteResultEntry::deinit()
 	}
 }
 
-void RouteResultEntry::notify_unavailable(CommSchedTarget *target)
+void RouteResultEntry::notify_unavailable(RouteManager::RouteTarget *target)
 {
 	if (this->targets.size() <= 1)
 		return;
@@ -324,7 +348,7 @@ void RouteResultEntry::notify_unavailable(CommSchedTarget *target)
 	this->nleft--;
 }
 
-void RouteResultEntry::notify_available(CommSchedTarget *target)
+void RouteResultEntry::notify_available(RouteManager::RouteTarget *target)
 {
 	if (this->targets.size() <= 1 || this->nbreak == 0)
 		return;
@@ -396,23 +420,26 @@ static uint64_t __fnv_hash(const unsigned char *data, size_t size)
 	return hash;
 }
 
-static uint64_t __generate_key(TransportType type,
+static uint64_t __generate_key(enum TransportType type,
 							   const struct addrinfo *addrinfo,
 							   const std::string& other_info,
 							   const struct EndpointParams *ep_params,
-							   const std::string& hostname)
+							   const std::string& hostname,
+							   SSL_CTX *ssl_ctx)
 {
-	std::string buf((const char *)&type, sizeof (TransportType));
-	unsigned int max_conn = ep_params->max_connections;
+	const int params[] = {
+		ep_params->address_family, (int)ep_params->max_connections,
+		ep_params->connect_timeout, ep_params->response_timeout
+	};
+	std::string buf((const char *)&type, sizeof (enum TransportType));
 
 	if (!other_info.empty())
 		buf += other_info;
 
-	buf.append((const char *)&max_conn, sizeof (unsigned int));
-	buf.append((const char *)&ep_params->connect_timeout, sizeof (int));
-	buf.append((const char *)&ep_params->response_timeout, sizeof (int));
-	if (type == TT_TCP_SSL)
+	buf.append((const char *)params, sizeof params);
+	if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
 	{
+		buf.append((const char *)&ssl_ctx, sizeof (void *));
 		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
 		if (ep_params->use_tls_sni)
 		{
@@ -462,15 +489,24 @@ RouteManager::~RouteManager()
 	}
 }
 
-int RouteManager::get(TransportType type,
+int RouteManager::get(enum TransportType type,
 					  const struct addrinfo *addrinfo,
 					  const std::string& other_info,
 					  const struct EndpointParams *ep_params,
-					  const std::string& hostname,
+					  const std::string& hostname, SSL_CTX *ssl_ctx,
 					  RouteResult& result)
 {
-	uint64_t key = __generate_key(type, addrinfo, other_info,
-								  ep_params, hostname);
+	if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
+	{
+		static SSL_CTX *global_client_ctx = WFGlobal::get_ssl_client_ctx();
+		if (ssl_ctx == NULL)
+			ssl_ctx = global_client_ctx;
+	}
+	else
+		ssl_ctx = NULL;
+
+	uint64_t key = __generate_key(type, addrinfo, other_info, ep_params,
+								  hostname, ssl_ctx);
 	struct rb_node **p = &cache_.rb_node;
 	struct rb_node *parent = NULL;
 	RouteResultEntry *bound = NULL;
@@ -497,36 +533,18 @@ int RouteManager::get(TransportType type,
 	}
 	else
 	{
-		int ssl_connect_timeout = 0;
-		SSL_CTX *ssl_ctx = NULL;
-
-		if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
-		{
-			static SSL_CTX *client_ssl_ctx = WFGlobal::get_ssl_client_ctx();
-
-			ssl_ctx = client_ssl_ctx;
-			ssl_connect_timeout = ep_params->ssl_connect_timeout;
-		}
-
 		struct RouteParams params = {
-		/*	.transport_type			=	*/	type,
-		/*	.addrinfo 				=	*/	addrinfo,
-		/*	.key					=	*/	key,
-		/*	.ssl_ctx 				=	*/	ssl_ctx,
-		/*	.max_connections		=	*/	(unsigned int)ep_params->max_connections,
-		/*	.connect_timeout		=	*/	ep_params->connect_timeout,
-		/*	.response_timeout		=	*/	ep_params->response_timeout,
-		/*	.ssl_connect_timeout	=	*/	ssl_connect_timeout,
-		/*	.use_tls_sni			=	*/	ep_params->use_tls_sni,
-		/*	.hostname				=	*/	hostname,
+			/*.transport_type		=*/	type,
+			/*.addrinfo 			=*/	addrinfo,
+			/*.key					=*/	key,
+			/*.ssl_ctx				=*/	ssl_ctx,
+			/*.max_connections		=*/	ep_params->max_connections,
+			/*.connect_timeout		=*/	ep_params->connect_timeout,
+			/*.response_timeout		=*/	ep_params->response_timeout,
+			/*.ssl_connect_timeout	=*/	ep_params->ssl_connect_timeout,
+			/*.use_tls_sni			=*/	ep_params->use_tls_sni,
+			/*.hostname				=*/	hostname,
 		};
-
-		if (StringUtil::start_with(other_info, "?maxconn="))
-		{
-			int maxconn = atoi(other_info.c_str() + 9);
-			if (maxconn > 0)
-				params.max_connections = maxconn;
-		}
 
 		entry = new RouteResultEntry;
 		if (entry->init(&params) >= 0)
@@ -549,12 +567,12 @@ int RouteManager::get(TransportType type,
 void RouteManager::notify_unavailable(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((RouteResultEntry *)cookie)->notify_unavailable((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_unavailable((RouteTarget *)target);
 }
 
 void RouteManager::notify_available(void *cookie, CommTarget *target)
 {
 	if (cookie && target)
-		((RouteResultEntry *)cookie)->notify_available((CommSchedTarget *)target);
+		((RouteResultEntry *)cookie)->notify_available((RouteTarget *)target);
 }
 

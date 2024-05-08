@@ -17,9 +17,11 @@
 */
 
 #include <string>
+#include <atomic>
+#include "DnsMessage.h"
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
-#include "DnsMessage.h"
+#include "WFServer.h"
 
 using namespace protocol;
 
@@ -31,6 +33,7 @@ class ComplexDnsTask : public WFComplexClientTask<DnsRequest, DnsResponse,
 							  std::function<void (WFDnsTask *)>>
 {
 	static struct addrinfo hints;
+	static std::atomic<size_t> seq;
 
 public:
 	ComplexDnsTask(int retry_max, dns_callback_t&& cb):
@@ -54,24 +57,21 @@ private:
 
 struct addrinfo ComplexDnsTask::hints =
 {
-	/*.ai_flags     =*/ AI_NUMERICSERV | AI_NUMERICHOST,
-	/*.ai_family    =*/ AF_UNSPEC,
-	/*.ai_socktype  =*/ SOCK_STREAM,
-	/*.ai_protocol  =*/ 0,
-	/*.ai_addrlen   =*/ 0,
-	/*.ai_addr      =*/ NULL,
-	/*.ai_canonname =*/ NULL,
-	/*.ai_next      =*/ NULL
+	/*.ai_flags     =*/	AI_NUMERICSERV | AI_NUMERICHOST,
+	/*.ai_family    =*/	AF_UNSPEC,
+	/*.ai_socktype  =*/	SOCK_STREAM
 };
+
+std::atomic<size_t> ComplexDnsTask::seq(0);
 
 CommMessageOut *ComplexDnsTask::message_out()
 {
 	DnsRequest *req = this->get_req();
 	DnsResponse *resp = this->get_resp();
-	TransportType type = this->get_transport_type();
+	enum TransportType type = this->get_transport_type();
 
 	if (req->get_id() == 0)
-		req->set_id((this->get_seq() + 1) * 99991 % 65535 + 1);
+		req->set_id(++ComplexDnsTask::seq * 99991 % 65535 + 1);
 	resp->set_request_id(req->get_id());
 	resp->set_request_name(req->get_question_name());
 	req->set_single_packet(type == TT_UDP);
@@ -93,21 +93,22 @@ bool ComplexDnsTask::init_success()
 
 	if (!this->route_result_.request_object)
 	{
-		TransportType type = this->get_transport_type();
+		enum TransportType type = this->get_transport_type();
 		struct addrinfo *addr;
 		int ret;
 
 		ret = getaddrinfo(uri_.host, uri_.port, &hints, &addr);
 		if (ret != 0)
 		{
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_URI_PARSE_FAILED;
+			this->state = WFT_STATE_DNS_ERROR;
+			this->error = ret;
 			return false;
 		}
 
 		auto *ep = &WFGlobal::get_global_settings()->dns_server_params;
 		ret = WFGlobal::get_route_manager()->get(type, addr, info_, ep,
-												 uri_.host, route_result_);
+												 uri_.host, ssl_ctx_,
+												 route_result_);
 		freeaddrinfo(addr);
 		if (ret < 0)
 		{
@@ -146,7 +147,7 @@ bool ComplexDnsTask::finish_once()
 bool ComplexDnsTask::need_redirect()
 {
 	DnsResponse *client_resp = this->get_resp();
-	TransportType type = this->get_transport_type();
+	enum TransportType type = this->get_transport_type();
 
 	if (type == TT_UDP && client_resp->get_tc() == 1)
 	{
@@ -187,5 +188,44 @@ WFDnsTask *WFTaskFactory::create_dns_task(const ParsedURI& uri,
 	task->init(uri);
 	task->set_keep_alive(DNS_KEEPALIVE_DEFAULT);
 	return task;
+}
+
+
+/**********Server**********/
+
+class WFDnsServerTask : public WFServerTask<DnsRequest, DnsResponse>
+{
+public:
+	WFDnsServerTask(CommService *service,
+					std::function<void (WFDnsTask *)>& proc) :
+		WFServerTask(service, WFGlobal::get_scheduler(), proc)
+	{
+	//	this->type = ((WFServerBase *)service)->get_params()->transport_type;
+		this->type = TT_TCP;
+	}
+
+protected:
+	virtual CommMessageIn *message_in()
+	{
+		this->get_req()->set_single_packet(this->type == TT_UDP);
+		return this->WFServerTask::message_in();
+	}
+
+	virtual CommMessageOut *message_out()
+	{
+		this->get_resp()->set_single_packet(this->type == TT_UDP);
+		return this->WFServerTask::message_out();
+	}
+
+protected:
+	enum TransportType type;
+};
+
+/**********Server Factory**********/
+
+WFDnsTask *WFServerTaskFactory::create_dns_task(CommService *service,
+						std::function<void (WFDnsTask *)>& proc)
+{
+	return new WFDnsServerTask(service, proc);
 }
 

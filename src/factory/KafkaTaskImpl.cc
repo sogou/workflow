@@ -19,9 +19,9 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include <set>
-#include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #include "StringUtil.h"
@@ -715,12 +715,14 @@ bool __ComplexKafkaTask::finish_once()
 /**********Factory**********/
 // kafka://user:password:sasl@host:port/api=type&topic=name
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
+													   SSL_CTX *ssl_ctx,
 													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
-	ParsedURI uri;
+	task->set_ssl_ctx(ssl_ctx);
 
+	ParsedURI uri;
 	URIParser::parse(url, uri);
 	task->init(std::move(uri));
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
@@ -728,10 +730,12 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const std::string& url,
 }
 
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
+													   SSL_CTX *ssl_ctx,
 													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
+	task->set_ssl_ctx(ssl_ctx);
 
 	task->init(uri);
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
@@ -741,22 +745,36 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(const ParsedURI& uri,
 __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(enum TransportType type,
 													   const char *host,
 													   unsigned short port,
+													   SSL_CTX *ssl_ctx,
 													   const std::string& info,
 													   int retry_max,
 													   __kafka_callback_t callback)
 {
 	auto *task = new __ComplexKafkaTask(retry_max, std::move(callback));
-
-	std::string url = (type == TT_TCP_SSL ? "kafkas://" : "kafka://");
-
-	if (!info.empty())
-		url += info + "@";
-
-	url += host;
-	url += ":" + std::to_string(port);
+	task->set_ssl_ctx(ssl_ctx);
 
 	ParsedURI uri;
-	URIParser::parse(url, uri);
+	char buf[32];
+
+	if (type == TT_TCP_SSL)
+		uri.scheme = strdup("kafkas");
+	else
+		uri.scheme = strdup("kafka");
+
+	if (!info.empty())
+		uri.userinfo = strdup(info.c_str());
+
+	uri.host = strdup(host);
+	sprintf(buf, "%u", port);
+	uri.port = strdup(buf);
+
+	if (!uri.scheme || !uri.host || !uri.port ||
+		(!info.empty() && !uri.userinfo))
+	{
+		uri.state = URI_STATE_ERROR;
+		uri.error = errno;
+	}
+
 	task->init(std::move(uri));
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);
 	return task;

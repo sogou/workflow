@@ -22,6 +22,7 @@
 #include <string>
 #include <utility>
 #include <functional>
+#include <openssl/ssl.h>
 #include "URIParser.h"
 #include "WFTaskFactory.h"
 
@@ -31,20 +32,50 @@ public:
 	/* example: mysql://username:passwd@127.0.0.1/dbname?character_set=utf8
 	 * IP string is recommmended in url. When using a domain name, the first
 	 * address resovled will be used. Don't use upstream name as a host. */
-	int init(const std::string& url);
+	int init(const std::string& url)
+	{
+		return init(url, NULL);
+	}
+
+	int init(const std::string& url, SSL_CTX *ssl_ctx);
+
+	void deinit() { }
 
 public:
 	WFMySQLTask *create_query_task(const std::string& query,
-								   mysql_callback_t callback);
+								   mysql_callback_t callback)
+	{
+		WFMySQLTask *task = WFTaskFactory::create_mysql_task(this->uri, 0,
+													std::move(callback));
+		this->set_ssl_ctx(task);
+		task->get_req()->set_query(query);
+		return task;
+	}
 
-public:
 	/* If you don't disconnect manually, the TCP connection will be
 	 * kept alive after this object is deleted, and maybe reused by
 	 * another WFMySQLConnection object with same id and url. */
-	WFMySQLTask *create_disconnect_task(mysql_callback_t callback);
+	WFMySQLTask *create_disconnect_task(mysql_callback_t callback)
+	{
+		WFMySQLTask *task = this->create_query_task("", std::move(callback));
+		this->set_ssl_ctx(task);
+		task->set_keep_alive(0);
+		return task;
+	}
+
+protected:
+	void set_ssl_ctx(WFMySQLTask *task) const
+	{
+		using MySQLRequest = protocol::MySQLRequest;
+		using MySQLResponse = protocol::MySQLResponse;
+		auto *t = (WFComplexClientTask<MySQLRequest, MySQLResponse> *)task;
+		/* 'ssl_ctx' can be NULL and will use default. */
+		t->set_ssl_ctx(this->ssl_ctx);
+	}
 
 protected:
 	ParsedURI uri;
+	SSL_CTX *ssl_ctx;
 	int id;
 
 public:
@@ -53,26 +84,6 @@ public:
 	WFMySQLConnection(int id) { this->id = id; }
 	virtual ~WFMySQLConnection() { }
 };
-
-inline WFMySQLTask *
-WFMySQLConnection::create_query_task(const std::string& query,
-									 mysql_callback_t callback)
-{
-	WFMySQLTask *task = WFTaskFactory::create_mysql_task(this->uri, 0,
-												std::move(callback));
-	task->get_req()->set_query(query);
-	return task;
-}
-
-inline WFMySQLTask *
-WFMySQLConnection::create_disconnect_task(mysql_callback_t callback)
-{
-	WFMySQLTask *task = WFTaskFactory::create_mysql_task(this->uri, 0,
-												std::move(callback));
-	task->get_req()->set_query("");
-	task->set_keep_alive(0);
-	return task;
-}
 
 #endif
 

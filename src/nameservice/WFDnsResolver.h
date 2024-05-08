@@ -35,9 +35,14 @@ public:
 		ns_params_(*ns_params),
 		ep_params_(*ep_params)
 	{
+		if (ns_params_.fixed_conn)
+			ep_params_.max_connections = 1;
+
 		dns_ttl_default_ = dns_ttl_default;
 		dns_ttl_min_ = dns_ttl_min;
 		has_next_ = false;
+		in_guard_ = false;
+		msg_ = NULL;
 	}
 
 	WFResolverTask(const struct WFNSParams *ns_params,
@@ -45,7 +50,12 @@ public:
 		WFRouterTask(std::move(cb)),
 		ns_params_(*ns_params)
 	{
+		if (ns_params_.fixed_conn)
+			ep_params_.max_connections = 1;
+
 		has_next_ = false;
+		in_guard_ = false;
+		msg_ = NULL;
 	}
 
 protected:
@@ -62,6 +72,9 @@ private:
 							   unsigned int ttl_default,
 							   unsigned int ttl_min);
 
+	void request_dns();
+	void task_callback();
+
 protected:
 	struct WFNSParams ns_params_;
 	unsigned int dns_ttl_default_;
@@ -72,6 +85,8 @@ private:
 	const char *host_;
 	unsigned short port_;
 	bool has_next_;
+	bool in_guard_;
+	void *msg_;
 };
 
 class WFDnsResolver : public WFNSPolicy

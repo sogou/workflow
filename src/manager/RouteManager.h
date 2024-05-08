@@ -43,6 +43,32 @@ public:
 
 	class RouteTarget : public CommSchedTarget
 	{
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	public:
+		int init(const struct sockaddr *addr, socklen_t addrlen, SSL_CTX *ssl_ctx,
+				 int connect_timeout, int ssl_connect_timeout, int response_timeout,
+				 size_t max_connections)
+		{
+			int ret = this->CommSchedTarget::init(addr, addrlen, ssl_ctx,
+								connect_timeout, ssl_connect_timeout,
+								response_timeout, max_connections);
+
+			if (ret >= 0 && ssl_ctx)
+				SSL_CTX_up_ref(ssl_ctx);
+
+			return ret;
+		}
+
+		void deinit()
+		{
+			SSL_CTX *ssl_ctx = this->get_ssl_ctx();
+
+			this->CommSchedTarget::deinit();
+			if (ssl_ctx)
+				SSL_CTX_free(ssl_ctx);
+		}
+#endif
+
 	public:
 		int state;
 
@@ -57,11 +83,11 @@ public:
 	};
 
 public:
-	int get(TransportType type,
+	int get(enum TransportType type,
 			const struct addrinfo *addrinfo,
 			const std::string& other_info,
 			const struct EndpointParams *ep_params,
-			const std::string& hostname,
+			const std::string& hostname, SSL_CTX *ssl_ctx,
 			RouteResult& result);
 
 	RouteManager()

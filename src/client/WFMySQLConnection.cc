@@ -16,6 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
@@ -23,7 +24,7 @@
 #include "URIParser.h"
 #include "WFMySQLConnection.h"
 
-int WFMySQLConnection::init(const std::string& url)
+int WFMySQLConnection::init(const std::string& url, SSL_CTX *ssl_ctx)
 {
 	std::string query;
 	ParsedURI uri;
@@ -42,9 +43,12 @@ int WFMySQLConnection::init(const std::string& url)
 		if (uri.query)
 		{
 			this->uri = std::move(uri);
+			this->ssl_ctx = ssl_ctx;
 			return 0;
 		}
 	}
+	else if (uri.state == URI_STATE_INVALID)
+		errno = EINVAL;
 
 	return -1;
 }

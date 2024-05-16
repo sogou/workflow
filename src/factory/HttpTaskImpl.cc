@@ -39,6 +39,23 @@ using namespace protocol;
 
 /**********Client**********/
 
+static int __encode_auth(const char *p, std::string& auth)
+{
+	size_t len = strlen(p);
+	size_t base64_len = (len + 2) / 3 * 4;
+	char *base64 = (char *)malloc(base64_len + 1);
+
+	if (!base64)
+		return -1;
+
+	EVP_EncodeBlock((unsigned char *)base64, (const unsigned char *)p, len);
+	auth.append("Basic ");
+	auth.append(base64, base64_len);
+
+	free(base64);
+	return 0;
+}
+
 class ComplexHttpTask : public WFComplexClientTask<HttpRequest, HttpResponse>
 {
 public:
@@ -250,6 +267,23 @@ bool ComplexHttpTask::init_success()
 		}
 	}
 
+	if (uri_.userinfo && uri_.userinfo[0])
+	{
+		std::string userinfo(uri_.userinfo);
+		std::string http_auth;
+
+		StringUtil::url_decode(userinfo);
+
+		if (__encode_auth(userinfo.c_str(), http_auth) < 0)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+			return false;
+		}
+
+		client_req->set_header_pair("Authorization", http_auth.c_str());
+	}
+
 	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
@@ -369,23 +403,6 @@ bool ComplexHttpTask::finish_once()
 }
 
 /*******Proxy Client*******/
-
-static int __encode_auth(const char *p, std::string& auth)
-{
-	size_t len = strlen(p);
-	size_t base64_len = (len + 2) / 3 * 4;
-	char *base64 = (char *)malloc(base64_len + 1);
-
-	if (!base64)
-		return -1;
-
-	EVP_EncodeBlock((unsigned char *)base64, (const unsigned char *)p, len);
-	auth.append("Basic ");
-	auth.append(base64, base64_len);
-
-	free(base64);
-	return 0;
-}
 
 static SSL *__create_ssl(SSL_CTX *ssl_ctx)
 {
@@ -653,17 +670,6 @@ bool ComplexHttpProxyTask::init_success()
 	else
 		user_port = is_ssl_ ? 443 : 80;
 
-	if (uri_.userinfo && uri_.userinfo[0])
-	{
-		proxy_auth_.clear();
-		if (__encode_auth(uri_.userinfo, proxy_auth_) < 0)
-		{
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = errno;
-			return false;
-		}
-	}
-
 	std::string info("http-proxy|remote:");
 	info += is_ssl_ ? "https://" : "http://";
 	info += user_uri_.host;
@@ -672,8 +678,24 @@ bool ComplexHttpProxyTask::init_success()
 		info += user_uri_.port;
 	else
 		info += is_ssl_ ? "443" : "80";
-	info += "|auth:";
-	info += proxy_auth_;
+
+	if (uri_.userinfo && uri_.userinfo[0])
+	{
+		std::string userinfo(uri_.userinfo);
+
+		StringUtil::url_decode(userinfo);
+		proxy_auth_.clear();
+
+		if (__encode_auth(userinfo.c_str(), proxy_auth_) < 0)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+			return false;
+		}
+
+		info += "|auth:";
+		info += proxy_auth_;
+	}
 
 	this->WFComplexClientTask::set_info(info);
 

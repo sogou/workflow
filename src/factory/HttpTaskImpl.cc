@@ -56,6 +56,24 @@ static int __encode_auth(const char *p, std::string& auth)
 	return 0;
 }
 
+static bool __same_server(const ParsedURI& a, const ParsedURI& b)
+{
+	int porta, portb;
+
+	if (a.port)
+		porta = atoi(a.port);
+	else
+		porta = strcasecmp(a.scheme, "http") == 0 ? 80 : 443;
+
+	if (b.port)
+		portb = atoi(b.port);
+	else
+		portb = strcasecmp(b.scheme, "http") == 0 ? 80 : 443;
+
+	return strcasecmp(a.scheme, b.scheme) == 0 &&
+		   strcasecmp(a.host, b.host) == 0 && porta == portb;
+}
+
 class ComplexHttpTask : public WFComplexClientTask<HttpRequest, HttpResponse>
 {
 public:
@@ -81,8 +99,9 @@ protected:
 	virtual bool finish_once();
 
 protected:
-	bool need_redirect(ParsedURI& uri);
-	bool redirect_url(HttpResponse *client_resp, ParsedURI& uri);
+	bool need_redirect(const ParsedURI& uri, ParsedURI& new_uri);
+	bool redirect_url(HttpResponse *client_resp,
+					  const ParsedURI& uri, ParsedURI& new_uri);
 	void set_empty_request();
 	void check_response();
 
@@ -201,6 +220,10 @@ void ComplexHttpTask::set_empty_request()
 
 	client_req->set_request_uri("/");
 	cursor.find_and_erase(&header);
+
+	header.name = "Authorization";
+	header.name_len = strlen("Authorization");
+	cursor.find_and_erase(&header);
 }
 
 void ComplexHttpTask::init_failed()
@@ -223,7 +246,6 @@ bool ComplexHttpTask::init_success()
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
-		this->set_empty_request();
 		return false;
 	}
 
@@ -267,6 +289,10 @@ bool ComplexHttpTask::init_success()
 		}
 	}
 
+	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
+	client_req->set_request_uri(request_uri.c_str());
+	client_req->set_header_pair("Host", header_host.c_str());
+
 	if (uri_.userinfo && uri_.userinfo[0])
 	{
 		std::string userinfo(uri_.userinfo);
@@ -284,13 +310,11 @@ bool ComplexHttpTask::init_success()
 		client_req->set_header_pair("Authorization", http_auth.c_str());
 	}
 
-	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
-	client_req->set_request_uri(request_uri.c_str());
-	client_req->set_header_pair("Host", header_host.c_str());
 	return true;
 }
 
-bool ComplexHttpTask::redirect_url(HttpResponse *client_resp, ParsedURI& uri)
+bool ComplexHttpTask::redirect_url(HttpResponse *client_resp,
+								   const ParsedURI& uri, ParsedURI& new_uri)
 {
 	if (redirect_count_ < redirect_max_)
 	{
@@ -318,14 +342,14 @@ bool ComplexHttpTask::redirect_url(HttpResponse *client_resp, ParsedURI& uri)
 			url = uri.scheme + (':' + url);
 		}
 
-		URIParser::parse(url, uri);
+		URIParser::parse(url, new_uri);
 		return true;
 	}
 
 	return false;
 }
 
-bool ComplexHttpTask::need_redirect(ParsedURI& uri)
+bool ComplexHttpTask::need_redirect(const ParsedURI& uri, ParsedURI& new_uri)
 {
 	HttpRequest *client_req = this->get_req();
 	HttpResponse *client_resp = this->get_resp();
@@ -342,7 +366,7 @@ bool ComplexHttpTask::need_redirect(ParsedURI& uri)
 	case 301:
 	case 302:
 	case 303:
-		if (redirect_url(client_resp, uri))
+		if (redirect_url(client_resp, uri, new_uri))
 		{
 			if (strcasecmp(method, HttpMethodGet) != 0 &&
 				strcasecmp(method, HttpMethodHead) != 0)
@@ -357,7 +381,7 @@ bool ComplexHttpTask::need_redirect(ParsedURI& uri)
 
 	case 307:
 	case 308:
-		if (redirect_url(client_resp, uri))
+		if (redirect_url(client_resp, uri, new_uri))
 			return true;
 		else
 			break;
@@ -393,8 +417,31 @@ bool ComplexHttpTask::finish_once()
 
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (this->need_redirect(uri_))
-			this->set_redirect(uri_);
+		ParsedURI new_uri;
+		if (this->need_redirect(uri_, new_uri))
+		{
+			if (uri_.userinfo && __same_server(uri_, new_uri))
+			{
+				if (!new_uri.userinfo)
+				{
+					new_uri.userinfo = uri_.userinfo;
+					uri_.userinfo = NULL;
+				}
+			}
+			else if (uri_.userinfo)
+			{
+				HttpRequest *client_req = this->get_req();
+				HttpHeaderCursor cursor(client_req);
+				struct HttpMessageHeader header = {
+					.name = "Authorization",
+					.name_len = strlen("Authorization")
+				};
+
+				cursor.find_and_erase(&header);
+			}
+
+			this->set_redirect(new_uri);
+		}
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();
 	}
@@ -652,7 +699,6 @@ bool ComplexHttpProxyTask::init_success()
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
-		this->set_empty_request();
 		return false;
 	}
 
@@ -754,7 +800,7 @@ bool ComplexHttpProxyTask::finish_once()
 
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (this->need_redirect(user_uri_))
+		if (this->need_redirect(user_uri_, user_uri_))
 			this->set_redirect(uri_);
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();

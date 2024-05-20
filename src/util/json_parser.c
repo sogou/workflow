@@ -806,6 +806,32 @@ static void __destroy_json_value(json_value_t *val)
 	}
 }
 
+json_value_t *json_value_parse(const char *cursor)
+{
+	json_value_t *val;
+
+	val = (json_value_t *)malloc(sizeof (json_value_t));
+	if (!val)
+		return NULL;
+
+	while (isspace(*cursor))
+		cursor++;
+
+	if (__parse_json_value(cursor, &cursor, 0, val) >= 0)
+	{
+		while (isspace(*cursor))
+			cursor++;
+
+		if (*cursor == '\0')
+			return val;
+
+		__destroy_json_value(val);
+	}
+
+	free(val);
+	return NULL;
+}
+
 static void __move_json_value(json_value_t *src, json_value_t *dest)
 {
 	switch (src->type)
@@ -879,32 +905,6 @@ static int __set_json_value(int type, va_list ap, json_value_t *val)
 	return 0;
 }
 
-json_value_t *json_value_parse(const char *cursor)
-{
-	json_value_t *val;
-
-	val = (json_value_t *)malloc(sizeof (json_value_t));
-	if (!val)
-		return NULL;
-
-	while (isspace(*cursor))
-		cursor++;
-
-	if (__parse_json_value(cursor, &cursor, 0, val) >= 0)
-	{
-		while (isspace(*cursor))
-			cursor++;
-
-		if (*cursor == '\0')
-			return val;
-
-		__destroy_json_value(val);
-	}
-
-	free(val);
-	return NULL;
-}
-
 json_value_t *json_value_create(int type, ...)
 {
 	json_value_t *val;
@@ -925,6 +925,125 @@ json_value_t *json_value_create(int type, ...)
 	}
 
 	return val;
+}
+
+static int __copy_json_value(const json_value_t *src, json_value_t *dest);
+
+static int __copy_json_members(const json_object_t *src, json_object_t *dest)
+{
+	struct list_head *pos;
+	json_member_t *entry;
+	json_member_t *memb;
+	int len;
+
+	list_for_each(pos, &src->head)
+	{
+		entry = list_entry(pos, json_member_t, list);
+		len = strlen(entry->name);
+		memb = (json_member_t *)malloc(offsetof(json_member_t, name) + len + 1);
+		if (!memb)
+			return -1;
+
+		if (__copy_json_value(&entry->value, &memb->value) < 0)
+		{
+			free(memb);
+			return -1;
+		}
+
+		memcpy(memb->name, entry->name, len + 1);
+		__insert_json_member(memb, dest->head.prev, dest);
+	}
+
+	return src->size;
+}
+
+static int __copy_json_elements(const json_array_t *src, json_array_t *dest)
+{
+	struct list_head *pos;
+	json_element_t *entry;
+	json_element_t *elem;
+
+	list_for_each(pos, &src->head)
+	{
+		elem = (json_element_t *)malloc(sizeof (json_element_t));
+		if (!elem)
+			return -1;
+
+		entry = list_entry(pos, json_element_t, list);
+		if (__copy_json_value(&entry->value, &elem->value) < 0)
+		{
+			free(elem);
+			return -1;
+		}
+
+		list_add_tail(&elem->list, &dest->head);
+	}
+
+	return src->size;
+}
+
+static int __copy_json_value(const json_value_t *src, json_value_t *dest)
+{
+	int len;
+
+	switch (src->type)
+	{
+	case JSON_VALUE_STRING:
+		len = strlen(src->value.string);
+		dest->value.string = (char *)malloc(len + 1);
+		if (!dest->value.string)
+			return -1;
+
+		memcpy(dest->value.string, src->value.string, len + 1);
+		break;
+
+	case JSON_VALUE_NUMBER:
+		dest->value.number = src->value.number;
+		break;
+
+	case JSON_VALUE_OBJECT:
+		INIT_LIST_HEAD(&dest->value.object.head);
+		dest->value.object.root.rb_node = NULL;
+		if (__copy_json_members(&src->value.object, &dest->value.object) < 0)
+		{
+			__destroy_json_members(&dest->value.object);
+			return -1;
+		}
+
+		dest->value.object.size = src->value.object.size;
+		break;
+
+	case JSON_VALUE_ARRAY:
+		INIT_LIST_HEAD(&dest->value.array.head);
+		if (__copy_json_elements(&src->value.array, &dest->value.array) < 0)
+		{
+			__destroy_json_elements(&dest->value.array);
+			return -1;
+		}
+
+		dest->value.array.size = src->value.array.size;
+		break;
+	}
+
+	dest->type = src->type;
+	return 0;
+}
+
+json_value_t *json_value_copy(const json_value_t *val)
+{
+	json_value_t *copy;
+
+	copy = (json_value_t *)malloc(sizeof (json_value_t));
+	if (!copy)
+		return NULL;
+
+	if (__copy_json_value(val, copy) < 0)
+	{
+		free(copy);
+		return NULL;
+	}
+
+	return copy;
 }
 
 void json_value_destroy(json_value_t *val)

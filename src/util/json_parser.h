@@ -40,6 +40,7 @@ extern "C"
 
 json_value_t *json_value_parse(const char *text);
 json_value_t *json_value_create(int type, ...);
+json_value_t *json_value_copy(const json_value_t *val);
 void json_value_destroy(json_value_t *val);
 
 int json_value_type(const json_value_t *val);

@@ -19,7 +19,6 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <string.h>
 #include "msgqueue.h"
 #include "thrdpool.h"
 
@@ -78,7 +77,7 @@ static void *__thrdpool_routine(void *arg)
 		pthread_cond_signal(pool->terminate);
 
 	pthread_mutex_unlock(&pool->mutex);
-	if (memcmp(&tid, &__zero_tid, sizeof (pthread_t)) != 0)
+	if (!pthread_equal(tid, __zero_tid))
 		pthread_join(tid, NULL);
 
 	return NULL;
@@ -103,7 +102,7 @@ static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 		pthread_cond_wait(&term, &pool->mutex);
 
 	pthread_mutex_unlock(&pool->mutex);
-	if (memcmp(&pool->tid, &__zero_tid, sizeof (pthread_t)) != 0)
+	if (!pthread_equal(pool->tid, __zero_tid))
 		pthread_join(pool->tid, NULL);
 }
 
@@ -159,7 +158,7 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
 			{
 				pool->stacksize = stacksize;
 				pool->nthreads = 0;
-				memset(&pool->tid, 0, sizeof (pthread_t));
+				pool->tid = __zero_tid;
 				pool->terminate = NULL;
 				if (__thrdpool_create_threads(nthreads, pool) >= 0)
 					return pool;

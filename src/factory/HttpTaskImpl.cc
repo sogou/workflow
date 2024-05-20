@@ -56,24 +56,6 @@ static int __encode_auth(const char *p, std::string& auth)
 	return 0;
 }
 
-static bool __same_server(const ParsedURI& a, const ParsedURI& b)
-{
-	int porta, portb;
-
-	if (a.port)
-		porta = atoi(a.port);
-	else
-		porta = strcasecmp(a.scheme, "http") == 0 ? 80 : 443;
-
-	if (b.port)
-		portb = atoi(b.port);
-	else
-		portb = strcasecmp(b.scheme, "http") == 0 ? 80 : 443;
-
-	return strcasecmp(a.scheme, b.scheme) == 0 &&
-		   strcasecmp(a.host, b.host) == 0 && porta == portb;
-}
-
 class ComplexHttpTask : public WFComplexClientTask<HttpRequest, HttpResponse>
 {
 public:
@@ -420,7 +402,7 @@ bool ComplexHttpTask::finish_once()
 		ParsedURI new_uri;
 		if (this->need_redirect(uri_, new_uri))
 		{
-			if (uri_.userinfo && __same_server(uri_, new_uri))
+			if (uri_.userinfo && strcasecmp(uri_.host, new_uri.host) == 0)
 			{
 				if (!new_uri.userinfo)
 				{
@@ -772,6 +754,24 @@ bool ComplexHttpProxyTask::init_success()
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 	this->WFComplexClientTask::set_transport_type(TT_TCP);
+
+	if (user_uri_.userinfo && user_uri_.userinfo[0])
+	{
+		std::string userinfo(user_uri_.userinfo);
+		std::string http_auth;
+
+		StringUtil::url_decode(userinfo);
+
+		if (__encode_auth(userinfo.c_str(), http_auth) < 0)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+			return false;
+		}
+
+		client_req->set_header_pair("Authorization", http_auth.c_str());
+	}
+
 	return true;
 }
 
@@ -800,8 +800,33 @@ bool ComplexHttpProxyTask::finish_once()
 
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (this->need_redirect(user_uri_, user_uri_))
+		ParsedURI new_uri;
+		if (this->need_redirect(user_uri_, new_uri))
+		{
+			if (user_uri_.userinfo &&
+				strcasecmp(user_uri_.host, new_uri.host) == 0)
+			{
+				if (!new_uri.userinfo)
+				{
+					new_uri.userinfo = user_uri_.userinfo;
+					user_uri_.userinfo = NULL;
+				}
+			}
+			else if (user_uri_.userinfo)
+			{
+				HttpRequest *client_req = this->get_req();
+				HttpHeaderCursor cursor(client_req);
+				struct HttpMessageHeader header = {
+					.name = "Authorization",
+					.name_len = strlen("Authorization")
+				};
+
+				cursor.find_and_erase(&header);
+			}
+
+			user_uri_ = std::move(new_uri);
 			this->set_redirect(uri_);
+		}
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();
 	}

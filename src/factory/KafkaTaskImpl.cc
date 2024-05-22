@@ -774,6 +774,8 @@ __WFKafkaTask *__WFKafkaTaskFactory::create_kafka_task(enum TransportType type,
 		uri.state = URI_STATE_ERROR;
 		uri.error = errno;
 	}
+	else
+		uri.state = URI_STATE_SUCCESS;
 
 	task->init(std::move(uri));
 	task->set_keep_alive(KAFKA_KEEPALIVE_DEFAULT);

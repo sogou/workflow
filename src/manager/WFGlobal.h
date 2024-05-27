@@ -124,6 +124,16 @@ public:
 
 	static const char *get_error_string(int state, int error);
 
+	static bool increase_compute_thread()
+	{
+		return WFGlobal::get_compute_executor()->increase_thread() == 0;
+	}
+
+	static bool decrease_compute_thread()
+	{
+		return WFGlobal::get_compute_executor()->decrease_thread() == 0;
+	}
+
 	// Internal usage only
 public:
 	static bool is_scheduler_created();

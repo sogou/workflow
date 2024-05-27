@@ -421,7 +421,7 @@ private:
 	{
 		int compute_threads = WFGlobal::get_global_settings()->compute_threads;
 
-		if (compute_threads <= 0)
+		if (compute_threads < 0)
 			compute_threads = sysconf(_SC_NPROCESSORS_ONLN);
 
 		if (compute_executor_.init(compute_threads) < 0)

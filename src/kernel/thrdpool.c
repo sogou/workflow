@@ -41,13 +41,31 @@ struct __thrdpool_task_entry
 
 static pthread_t __zero_tid;
 
+static void __thrdpool_exit_routine(void *context)
+{
+	thrdpool_t *pool = (thrdpool_t *)context;
+	pthread_t tid;
+
+	/* One thread joins another. Don't need to keep all thread IDs. */
+	pthread_mutex_lock(&pool->mutex);
+	tid = pool->tid;
+	pool->tid = pthread_self();
+	if (--pool->nthreads == 0 && pool->terminate)
+		pthread_cond_signal(pool->terminate);
+
+	pthread_mutex_unlock(&pool->mutex);
+	if (!pthread_equal(tid, __zero_tid))
+		pthread_join(tid, NULL);
+
+	pthread_exit(NULL);
+}
+
 static void *__thrdpool_routine(void *arg)
 {
 	thrdpool_t *pool = (thrdpool_t *)arg;
 	struct __thrdpool_task_entry *entry;
 	void (*task_routine)(void *);
 	void *task_context;
-	pthread_t tid;
 
 	pthread_setspecific(pool->key, pool);
 	while (!pool->terminate)
@@ -69,17 +87,7 @@ static void *__thrdpool_routine(void *arg)
 		}
 	}
 
-	/* One thread joins another. Don't need to keep all thread IDs. */
-	pthread_mutex_lock(&pool->mutex);
-	tid = pool->tid;
-	pool->tid = pthread_self();
-	if (--pool->nthreads == 0)
-		pthread_cond_signal(pool->terminate);
-
-	pthread_mutex_unlock(&pool->mutex);
-	if (!pthread_equal(tid, __zero_tid))
-		pthread_join(tid, NULL);
-
+	__thrdpool_exit_routine(pool);
 	return NULL;
 }
 
@@ -227,6 +235,23 @@ int thrdpool_increase(thrdpool_t *pool)
 	return -1;
 }
 
+int thrdpool_decrease(thrdpool_t *pool)
+{
+	void *buf = malloc(sizeof (struct __thrdpool_task_entry));
+	struct __thrdpool_task_entry *entry;
+
+	if (buf)
+	{
+		entry = (struct __thrdpool_task_entry *)buf;
+		entry->task.routine = __thrdpool_exit_routine;
+		entry->task.context = pool;
+		msgqueue_put_head(entry, pool->msgqueue);
+		return 0;
+	}
+
+	return -1;
+}
+
 inline int thrdpool_in_pool(thrdpool_t *pool);
 
 int thrdpool_in_pool(thrdpool_t *pool)
@@ -247,7 +272,7 @@ void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 		if (!entry)
 			break;
 
-		if (pending)
+		if (pending && entry->task.routine != __thrdpool_exit_routine)
 			pending(&entry->task);
 
 		free(entry);

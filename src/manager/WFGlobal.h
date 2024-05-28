@@ -54,7 +54,7 @@ struct WFGlobalSettings
 	int dns_threads;
 	int poller_threads;
 	int handler_threads;
-	int compute_threads;			///< auto-set by system CPU number if value<=0
+	int compute_threads;			///< auto-set by system CPU number if value<0
 	int fio_max_events;
 	const char *resolv_conf_path;
 	const char *hosts_path;
@@ -123,6 +123,16 @@ public:
 	}
 
 	static const char *get_error_string(int state, int error);
+
+	static bool increase_compute_thread()
+	{
+		return WFGlobal::get_compute_executor()->increase_thread() == 0;
+	}
+
+	static bool decrease_compute_thread()
+	{
+		return WFGlobal::get_compute_executor()->decrease_thread() == 0;
+	}
 
 	// Internal usage only
 public:

@@ -39,6 +39,23 @@ using namespace protocol;
 
 /**********Client**********/
 
+static int __encode_auth(const char *p, std::string& auth)
+{
+	size_t len = strlen(p);
+	size_t base64_len = (len + 2) / 3 * 4;
+	char *base64 = (char *)malloc(base64_len + 1);
+
+	if (!base64)
+		return -1;
+
+	EVP_EncodeBlock((unsigned char *)base64, (const unsigned char *)p, len);
+	auth.append("Basic ");
+	auth.append(base64, base64_len);
+
+	free(base64);
+	return 0;
+}
+
 class ComplexHttpTask : public WFComplexClientTask<HttpRequest, HttpResponse>
 {
 public:
@@ -64,8 +81,9 @@ protected:
 	virtual bool finish_once();
 
 protected:
-	bool need_redirect(ParsedURI& uri);
-	bool redirect_url(HttpResponse *client_resp, ParsedURI& uri);
+	bool need_redirect(const ParsedURI& uri, ParsedURI& new_uri);
+	bool redirect_url(HttpResponse *client_resp,
+					  const ParsedURI& uri, ParsedURI& new_uri);
 	void set_empty_request();
 	void check_response();
 
@@ -184,6 +202,10 @@ void ComplexHttpTask::set_empty_request()
 
 	client_req->set_request_uri("/");
 	cursor.find_and_erase(&header);
+
+	header.name = "Authorization";
+	header.name_len = strlen("Authorization");
+	cursor.find_and_erase(&header);
 }
 
 void ComplexHttpTask::init_failed()
@@ -206,7 +228,6 @@ bool ComplexHttpTask::init_success()
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
-		this->set_empty_request();
 		return false;
 	}
 
@@ -253,10 +274,29 @@ bool ComplexHttpTask::init_success()
 	this->WFComplexClientTask::set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
+
+	if (uri_.userinfo && uri_.userinfo[0])
+	{
+		std::string userinfo(uri_.userinfo);
+		std::string http_auth;
+
+		StringUtil::url_decode(userinfo);
+
+		if (__encode_auth(userinfo.c_str(), http_auth) < 0)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+			return false;
+		}
+
+		client_req->set_header_pair("Authorization", http_auth.c_str());
+	}
+
 	return true;
 }
 
-bool ComplexHttpTask::redirect_url(HttpResponse *client_resp, ParsedURI& uri)
+bool ComplexHttpTask::redirect_url(HttpResponse *client_resp,
+								   const ParsedURI& uri, ParsedURI& new_uri)
 {
 	if (redirect_count_ < redirect_max_)
 	{
@@ -284,14 +324,14 @@ bool ComplexHttpTask::redirect_url(HttpResponse *client_resp, ParsedURI& uri)
 			url = uri.scheme + (':' + url);
 		}
 
-		URIParser::parse(url, uri);
+		URIParser::parse(url, new_uri);
 		return true;
 	}
 
 	return false;
 }
 
-bool ComplexHttpTask::need_redirect(ParsedURI& uri)
+bool ComplexHttpTask::need_redirect(const ParsedURI& uri, ParsedURI& new_uri)
 {
 	HttpRequest *client_req = this->get_req();
 	HttpResponse *client_resp = this->get_resp();
@@ -308,7 +348,7 @@ bool ComplexHttpTask::need_redirect(ParsedURI& uri)
 	case 301:
 	case 302:
 	case 303:
-		if (redirect_url(client_resp, uri))
+		if (redirect_url(client_resp, uri, new_uri))
 		{
 			if (strcasecmp(method, HttpMethodGet) != 0 &&
 				strcasecmp(method, HttpMethodHead) != 0)
@@ -323,7 +363,7 @@ bool ComplexHttpTask::need_redirect(ParsedURI& uri)
 
 	case 307:
 	case 308:
-		if (redirect_url(client_resp, uri))
+		if (redirect_url(client_resp, uri, new_uri))
 			return true;
 		else
 			break;
@@ -359,8 +399,31 @@ bool ComplexHttpTask::finish_once()
 
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (this->need_redirect(uri_))
-			this->set_redirect(uri_);
+		ParsedURI new_uri;
+		if (this->need_redirect(uri_, new_uri))
+		{
+			if (uri_.userinfo && strcasecmp(uri_.host, new_uri.host) == 0)
+			{
+				if (!new_uri.userinfo)
+				{
+					new_uri.userinfo = uri_.userinfo;
+					uri_.userinfo = NULL;
+				}
+			}
+			else if (uri_.userinfo)
+			{
+				HttpRequest *client_req = this->get_req();
+				HttpHeaderCursor cursor(client_req);
+				struct HttpMessageHeader header = {
+					.name = "Authorization",
+					.name_len = strlen("Authorization")
+				};
+
+				cursor.find_and_erase(&header);
+			}
+
+			this->set_redirect(new_uri);
+		}
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();
 	}
@@ -369,23 +432,6 @@ bool ComplexHttpTask::finish_once()
 }
 
 /*******Proxy Client*******/
-
-static int __encode_auth(const char *p, std::string& auth)
-{
-	size_t len = strlen(p);
-	size_t base64_len = (len + 2) / 3 * 4;
-	char *base64 = (char *)malloc(base64_len + 1);
-
-	if (!base64)
-		return -1;
-
-	EVP_EncodeBlock((unsigned char *)base64, (const unsigned char *)p, len);
-	auth.append("Basic ");
-	auth.append(base64, base64_len);
-
-	free(base64);
-	return 0;
-}
 
 static SSL *__create_ssl(SSL_CTX *ssl_ctx)
 {
@@ -635,7 +681,6 @@ bool ComplexHttpProxyTask::init_success()
 	{
 		this->state = WFT_STATE_TASK_ERROR;
 		this->error = WFT_ERR_URI_SCHEME_INVALID;
-		this->set_empty_request();
 		return false;
 	}
 
@@ -653,17 +698,6 @@ bool ComplexHttpProxyTask::init_success()
 	else
 		user_port = is_ssl_ ? 443 : 80;
 
-	if (uri_.userinfo && uri_.userinfo[0])
-	{
-		proxy_auth_.clear();
-		if (__encode_auth(uri_.userinfo, proxy_auth_) < 0)
-		{
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = errno;
-			return false;
-		}
-	}
-
 	std::string info("http-proxy|remote:");
 	info += is_ssl_ ? "https://" : "http://";
 	info += user_uri_.host;
@@ -672,8 +706,24 @@ bool ComplexHttpProxyTask::init_success()
 		info += user_uri_.port;
 	else
 		info += is_ssl_ ? "443" : "80";
-	info += "|auth:";
-	info += proxy_auth_;
+
+	if (uri_.userinfo && uri_.userinfo[0])
+	{
+		std::string userinfo(uri_.userinfo);
+
+		StringUtil::url_decode(userinfo);
+		proxy_auth_.clear();
+
+		if (__encode_auth(userinfo.c_str(), proxy_auth_) < 0)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+			return false;
+		}
+
+		info += "|auth:";
+		info += proxy_auth_;
+	}
 
 	this->WFComplexClientTask::set_info(info);
 
@@ -704,6 +754,24 @@ bool ComplexHttpProxyTask::init_success()
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 	this->WFComplexClientTask::set_transport_type(TT_TCP);
+
+	if (user_uri_.userinfo && user_uri_.userinfo[0])
+	{
+		std::string userinfo(user_uri_.userinfo);
+		std::string http_auth;
+
+		StringUtil::url_decode(userinfo);
+
+		if (__encode_auth(userinfo.c_str(), http_auth) < 0)
+		{
+			this->state = WFT_STATE_SYS_ERROR;
+			this->error = errno;
+			return false;
+		}
+
+		client_req->set_header_pair("Authorization", http_auth.c_str());
+	}
+
 	return true;
 }
 
@@ -732,8 +800,33 @@ bool ComplexHttpProxyTask::finish_once()
 
 	if (this->state == WFT_STATE_SUCCESS)
 	{
-		if (this->need_redirect(user_uri_))
+		ParsedURI new_uri;
+		if (this->need_redirect(user_uri_, new_uri))
+		{
+			if (user_uri_.userinfo &&
+				strcasecmp(user_uri_.host, new_uri.host) == 0)
+			{
+				if (!new_uri.userinfo)
+				{
+					new_uri.userinfo = user_uri_.userinfo;
+					user_uri_.userinfo = NULL;
+				}
+			}
+			else if (user_uri_.userinfo)
+			{
+				HttpRequest *client_req = this->get_req();
+				HttpHeaderCursor cursor(client_req);
+				struct HttpMessageHeader header = {
+					.name = "Authorization",
+					.name_len = strlen("Authorization")
+				};
+
+				cursor.find_and_erase(&header);
+			}
+
+			user_uri_ = std::move(new_uri);
 			this->set_redirect(uri_);
+		}
 		else if (this->state != WFT_STATE_SUCCESS)
 			this->disable_retry();
 	}

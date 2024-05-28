@@ -31,7 +31,6 @@
 class StringUtil
 {
 public:
-	static size_t url_decode(char *str, size_t len);
 	static void url_decode(std::string& str);
 	static std::string url_encode(const std::string& str);
 	static std::string url_encode_component(const std::string& str);

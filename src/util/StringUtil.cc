@@ -54,9 +54,7 @@ size_t StringUtil::url_decode(char *str, size_t len)
 
 	while (len--)
 	{
-		if (*data == '%' && len >= 2
-			&& isxdigit(*(data + 1))
-			&& isxdigit(*(data + 2)))
+		if (*data == '%' && isxdigit(data[1]) && isxdigit(data[2]))
 		{
 			*dest = __htoi((unsigned char *)data + 1);
 			data += 2;
@@ -87,18 +85,18 @@ void StringUtil::url_decode(std::string& str)
 
 std::string StringUtil::url_encode(const std::string& str)
 {
-	std::string res;
 	const char *cur = str.c_str();
 	const char *ed = cur + str.size();
+	std::string res;
 
 	while (cur < ed)
 	{
 		if (*cur == ' ')
 			res += '+';
-		else if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.'
-				|| *cur == '!' || *cur == '~' || *cur == '*' || *cur == '\''
-				|| *cur == '(' || *cur == ')' || *cur == ':' || *cur == '/'
-				|| *cur == '@' || *cur == '?' || *cur == '#' || *cur == '&')
+		else if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.' ||
+				 *cur == '!' || *cur == '~' || *cur == '*' || *cur == '\'' ||
+				 *cur == '(' || *cur == ')' || *cur == ':' || *cur == '/' ||
+				 *cur == '@' || *cur == '?' || *cur == '#' || *cur == '&')
 			res += *cur;
 		else
 		{
@@ -115,17 +113,17 @@ std::string StringUtil::url_encode(const std::string& str)
 
 std::string StringUtil::url_encode_component(const std::string& str)
 {
-	std::string res;
 	const char *cur = str.c_str();
 	const char *ed = cur + str.size();
+	std::string res;
 
 	while (cur < ed)
 	{
 		if (*cur == ' ')
 			res += '+';
-		else if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.'
-				|| *cur == '!' || *cur == '~' || *cur == '*' || *cur == '\''
-				|| *cur == '(' || *cur == ')')
+		else if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.' ||
+				 *cur == '!' || *cur == '~' || *cur == '*' || *cur == '\'' ||
+				 *cur == '(' || *cur == ')')
 			res += *cur;
 		else
 		{
@@ -142,10 +140,10 @@ std::string StringUtil::url_encode_component(const std::string& str)
 
 std::vector<std::string> StringUtil::split(const std::string& str, char sep)
 {
-	std::vector<std::string> res;
 	std::string::const_iterator start = str.begin();
 	std::string::const_iterator end = str.end();
 	std::string::const_iterator next = find(start, end, sep);
+	std::vector<std::string> res;
 
 	while (next != end)
 	{

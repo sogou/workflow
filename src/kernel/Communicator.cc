@@ -1270,6 +1270,10 @@ void Communicator::handler_thread_routine(void *context)
 		case PD_OP_NOTIFY:
 			comm->handle_aio_result(res);
 			break;
+		default:
+			free(res);
+			thrdpool_exit(comm->thrdpool);
+			return;
 		}
 
 		free(res);
@@ -2109,6 +2113,23 @@ int Communicator::increase_handler_thread()
 		}
 
 		free(buf);
+	}
+
+	return -1;
+}
+
+int Communicator::decrease_handler_thread()
+{
+	struct poller_result *res;
+	size_t size;
+
+	size = sizeof (struct poller_result) + sizeof (void *);
+	res = (struct poller_result *)malloc(size);
+	if (res)
+	{
+		res->data.operation = -1;
+		msgqueue_put_head(res, this->msgqueue);
+		return 0;
 	}
 
 	return -1;

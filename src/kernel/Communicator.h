@@ -285,7 +285,9 @@ public:
 
 public:
 	int is_handler_thread() const;
+
 	int increase_handler_thread();
+	int decrease_handler_thread();
 
 private:
 	struct __mpoller *mpoller;

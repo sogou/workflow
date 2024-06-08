@@ -82,19 +82,31 @@ public:
 
 		sync_mutex_.lock();
 		inc = ++sync_count_ > sync_max_;
-
 		if (inc)
 			sync_max_ = sync_count_;
+
 		sync_mutex_.unlock();
 		if (inc)
-			WFGlobal::get_scheduler()->increase_handler_thread();
+			WFGlobal::increase_handler_thread();
 	}
 
 	void sync_operation_end()
 	{
+		int dec = 0;
+
 		sync_mutex_.lock();
-		sync_count_--;
+		if (--sync_count_ < (sync_max_ + 1) / 2)
+		{
+			dec = sync_max_ - 2 * sync_count_;
+			sync_max_ -= dec;
+		}
+
 		sync_mutex_.unlock();
+		while (dec > 0)
+		{
+			WFGlobal::decrease_handler_thread();
+			dec--;
+		}
 	}
 
 private:

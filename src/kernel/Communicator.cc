@@ -1270,6 +1270,10 @@ void Communicator::handler_thread_routine(void *context)
 		case PD_OP_NOTIFY:
 			comm->handle_aio_result(res);
 			break;
+		default:
+			free(res);
+			thrdpool_exit(comm->thrdpool);
+			continue;
 		}
 
 		free(res);
@@ -1634,6 +1638,7 @@ void Communicator::deinit()
 	this->stop_flag = 1;
 	mpoller_stop(this->mpoller);
 	msgqueue_set_nonblock(this->msgqueue);
+	Communicator::handler_thread_routine(this);
 	thrdpool_destroy(NULL, this->thrdpool);
 	mpoller_destroy(this->mpoller);
 	msgqueue_destroy(this->msgqueue);
@@ -2109,6 +2114,23 @@ int Communicator::increase_handler_thread()
 		}
 
 		free(buf);
+	}
+
+	return -1;
+}
+
+int Communicator::decrease_handler_thread()
+{
+	struct poller_result *res;
+	size_t size;
+
+	size = sizeof (struct poller_result) + sizeof (void *);
+	res = (struct poller_result *)malloc(size);
+	if (res)
+	{
+		res->data.operation = -1;
+		msgqueue_put_head(res, this->msgqueue);
+		return 0;
 	}
 
 	return -1;

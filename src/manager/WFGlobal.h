@@ -124,6 +124,16 @@ public:
 
 	static const char *get_error_string(int state, int error);
 
+	static bool increase_handler_thread()
+	{
+		return WFGlobal::get_scheduler()->increase_handler_thread() == 0;
+	}
+
+	static bool decrease_handler_thread()
+	{
+		return WFGlobal::get_scheduler()->decrease_handler_thread() == 0;
+	}
+
 	static bool increase_compute_thread()
 	{
 		return WFGlobal::get_compute_executor()->increase_thread() == 0;

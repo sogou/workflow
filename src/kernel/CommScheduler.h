@@ -198,6 +198,11 @@ public:
 		return this->comm.increase_handler_thread();
 	}
 
+	int decrease_handler_thread()
+	{
+		return this->comm.decrease_handler_thread();
+	}
+
 private:
 	Communicator comm;
 

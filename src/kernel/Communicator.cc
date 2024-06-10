@@ -1273,7 +1273,7 @@ void Communicator::handler_thread_routine(void *context)
 		default:
 			free(res);
 			thrdpool_exit(comm->thrdpool);
-			return;
+			continue;
 		}
 
 		free(res);
@@ -1638,6 +1638,7 @@ void Communicator::deinit()
 	this->stop_flag = 1;
 	mpoller_stop(this->mpoller);
 	msgqueue_set_nonblock(this->msgqueue);
+	Communicator::handler_thread_routine(this);
 	thrdpool_destroy(NULL, this->thrdpool);
 	mpoller_destroy(this->mpoller);
 	msgqueue_destroy(this->msgqueue);

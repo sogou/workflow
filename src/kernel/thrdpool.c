@@ -208,6 +208,13 @@ int thrdpool_schedule(const struct thrdpool_task *task, thrdpool_t *pool)
 	return -1;
 }
 
+inline int thrdpool_in_pool(thrdpool_t *pool);
+
+int thrdpool_in_pool(thrdpool_t *pool)
+{
+	return pthread_getspecific(pool->key) == pool;
+}
+
 int thrdpool_increase(thrdpool_t *pool)
 {
 	pthread_attr_t attr;
@@ -252,11 +259,10 @@ int thrdpool_decrease(thrdpool_t *pool)
 	return -1;
 }
 
-inline int thrdpool_in_pool(thrdpool_t *pool);
-
-int thrdpool_in_pool(thrdpool_t *pool)
+void thrdpool_exit(thrdpool_t *pool)
 {
-	return pthread_getspecific(pool->key) == pool;
+	if (thrdpool_in_pool(pool))
+		__thrdpool_exit_routine(pool);
 }
 
 void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),

@@ -1279,6 +1279,12 @@ void Communicator::handler_thread_routine(void *context)
 
 		free(res);
 	}
+
+	if (!comm->thrdpool)
+	{
+		mpoller_destroy(comm->mpoller);
+		msgqueue_destroy(comm->msgqueue);
+	}
 }
 
 int Communicator::append_request(const void *buf, size_t *size,
@@ -1636,14 +1642,15 @@ int Communicator::init(size_t poller_threads, size_t handler_threads)
 
 void Communicator::deinit()
 {
+	int in_handler = this->is_handler_thread();
+
 	this->stop_flag = 1;
 	mpoller_stop(this->mpoller);
 	msgqueue_set_nonblock(this->msgqueue);
 	thrdpool_destroy(NULL, this->thrdpool);
 	this->thrdpool = NULL;
-	Communicator::handler_thread_routine(this);
-	mpoller_destroy(this->mpoller);
-	msgqueue_destroy(this->msgqueue);
+	if (!in_handler)
+		Communicator::handler_thread_routine(this);
 }
 
 int Communicator::nonblock_connect(CommTarget *target)

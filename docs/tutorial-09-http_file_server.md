@@ -195,6 +195,5 @@ Linux操作系统支持一套效率很高，CPU占用非常少的异步IO系统�
 我们曾经实现过一套posix aio接口用于支持其它UNIX系统，并使用线程的sigevent通知方式，但由于其效率太低，已经不再使用了。  
 目前，对于非Linux系统，异步IO一律是用多线程实现，在IO任务到达时，实时创建线程执行IO任务，callback回到handler线程池。  
 多线程IO也是macOS下的唯一选择，因为macOS没有良好的sigevent支持，posix aio行不通。  
-多线程IO不支持preadv和pwritev两种任务，创建并运行这两种任务，会在callback里得到一个ENOSYS错误。  
 某些UNIX系统不支持fdatasync调用，这种情况下，fdsync任务将等价于fsync任务。
 

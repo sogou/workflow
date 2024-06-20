@@ -36,7 +36,7 @@ add_includedirs(path.join(get_config("workflow_inc"), "workflow"))
 set_config("buildir", "build.xmake")
 
 add_cflags("-fPIC", "-pipe")
-add_cxxflags("-fPIC", "-pipe", "-Wno-invalid-offsetof")
+add_cxxflags("-fPIC", "-pipe", "-Wno-invalid-offsetof", "-Wno-deprecated-declarations")
 
 includes("src", "test", "benchmark", "tutorial")
 

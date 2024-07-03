@@ -39,6 +39,12 @@ WFGraphNode::~WFGraphNode()
 {
 	if (this->user_data)
 	{
+		if (series_of(this)->is_canceled())
+		{
+			for (WFGraphNode *node : this->successors)
+				series_of(node)->SeriesWork::cancel();
+		}
+
 		for (WFGraphNode *node : this->successors)
 			node->WFCounterTask::count();
 	}

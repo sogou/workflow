@@ -84,6 +84,29 @@ Also, any of the following codes is legal and equivalent:
 }
 ~~~
 
+# Canceling successors
+
+In graph tasks, we extend SeriesWork's **cancel** operation. When the series of a graph node is canceled, the operation will apply on all it's successive nodes recursively. The **cancel** operation is usually used in a task's callback:
+~~~cpp
+int main()
+{
+    WFGraphTask *graph = WFTaskFactory::create_graph_task(graph_callback);
+    WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, 0, [](WFHttpTask *t){
+        if (t->get_state() != WFT_STATE_SUCCESS)
+            series_of(t)->cancel();
+    });
+    WFGraphNode& a = graph->create_graph_node(task);
+    WFGraphNode& b = ...;
+    WFGraphNode& c = ...;
+    WFGraphNode& d = ...;
+    a-->b-->c;
+    b-->d;
+    graph->start();
+    ...
+}
+~~~
+In this case, when http task failed, nodes b, c, d will all be canceled, because the operation is recursive.
+
 # Data passing
 
 Because the tasks in a graph don't share a same series, there is no general method for passing data between graph nodes.

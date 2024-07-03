@@ -85,6 +85,30 @@ WFGraphTask的create_graph_node接口，产生一个图节点并返回节点的�
 接下来直接运行graph，或者把graph放入任务流中就可以运行啦，和一般的任务没有区别。  
 当然，把一个图任务变成另一个图的节点，也是完全正确的行为。
 
+# 取消后继节点
+
+在图任务里，我们扩展了series的cancel操作，这个操作会取消该节点的所有后继结点。  
+取消操作一般在节点任务的callback里执行，例如：
+~~~cpp
+int main()
+{
+    WFGraphTask *graph = WFTaskFactory::create_graph_task(graph_callback);
+    WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, 0, [](WFHttpTask *t){
+        if (t->get_state() != WFT_STATE_SUCCESS)
+            series_of(t)->cancel();
+    });
+    WFGraphNode& a = graph->create_graph_node(task);
+    WFGraphNode& b = ...;
+    WFGraphNode& c = ...;
+    WFGraphNode& d = ...;
+    a-->b-->c;
+    b-->d;
+    graph->start();
+    ...
+}
+~~~
+注意取消后继节点的操作是递归的，这个例子里，如果http任务失败，b,c,d三个节点的任务都会被取消。
+
 # 数据传递
 
 图节点之间目前没有统一的数据传递方法，它们并不共享某一个series。因此，节点间数据传递需要用户解决。

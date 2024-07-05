@@ -30,10 +30,12 @@
 #include <mutex>
 #include <condition_variable>
 #include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/engine.h>
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+# include <openssl/err.h>
+# include <openssl/engine.h>
+# include <openssl/conf.h>
+# include <openssl/crypto.h>
+#endif
 #include "CommScheduler.h"
 #include "Executor.h"
 #include "WFResourcePool.h"

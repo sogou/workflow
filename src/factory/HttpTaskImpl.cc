@@ -23,8 +23,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
-#include <openssl/bio.h>
 #include <openssl/ssl.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"

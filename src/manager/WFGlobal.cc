@@ -18,11 +18,6 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/engine.h>
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
 #include <signal.h>
 #include <string.h>
 #include <thread>
@@ -32,6 +27,13 @@
 #include <mutex>
 #include <condition_variable>
 #include <fstream>
+#include <openssl/ssl.h>
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+# include <openssl/err.h>
+# include <openssl/engine.h>
+# include <openssl/conf.h>
+# include <openssl/crypto.h>
+#endif
 #include "WFGlobal.h"
 #include "EndpointParams.h"
 #include "CommScheduler.h"

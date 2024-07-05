@@ -161,36 +161,6 @@ static void __release_conn(struct CommConnEntry *entry)
 	free(entry);
 }
 
-#define SSL_WRITE_BUFSIZE	8192
-
-static int __ssl_writev(SSL *ssl, const struct iovec vectors[], int cnt)
-{
-	char buf[SSL_WRITE_BUFSIZE];
-	size_t nleft = SSL_WRITE_BUFSIZE;
-	char *p = buf;
-	size_t n;
-	int i;
-
-	if (vectors[0].iov_len >= SSL_WRITE_BUFSIZE || cnt == 1)
-		return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
-
-	for (i = 0; i < cnt; i++)
-	{
-		if (vectors[i].iov_len <= nleft)
-			n = vectors[i].iov_len;
-		else
-			n = nleft;
-
-		memcpy(p, vectors[i].iov_base, n);
-		p += n;
-		nleft -= n;
-		if (nleft == 0)
-			break;
-	}
-
-	return SSL_write(ssl, buf, p - buf);
-}
-
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 					 int connect_timeout, int response_timeout)
 {
@@ -479,7 +449,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 		}
 		else if (vectors->iov_len > 0)
 		{
-			n = __ssl_writev(entry->ssl, vectors, cnt);
+			n = SSL_write(entry->ssl, vectors->iov_base, vectors->iov_len);
 			if (n <= 0)
 				return cnt;
 		}

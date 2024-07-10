@@ -573,6 +573,9 @@ EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri,
 		}
 	}
 
+	if (!addr)
+		return NULL;
+
 	return this->check_and_get(addr, false, tracing);
 }
 

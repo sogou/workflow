@@ -1257,7 +1257,7 @@ void Communicator::handler_thread_routine(void *context)
 	}
 }
 
-int Communicator::append_request(const void *buf, size_t *size,
+int Communicator::append_message(const void *buf, size_t *size,
 								 poller_message_t *msg)
 {
 	CommMessageIn *in = (CommMessageIn *)msg;
@@ -1270,38 +1270,18 @@ int Communicator::append_request(const void *buf, size_t *size,
 	if (ret > 0)
 	{
 		entry->state = CONN_STATE_SUCCESS;
-		timeout = -1;
-	}
-	else if (ret == 0 && session->timeout != 0)
-		timeout = Communicator::next_timeout(session);
-	else
-		return ret;
-
-	/* This set_timeout() never fails, which is very important. */
-	mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
-	return ret;
-}
-
-int Communicator::append_reply(const void *buf, size_t *size,
-							   poller_message_t *msg)
-{
-	CommMessageIn *in = (CommMessageIn *)msg;
-	struct CommConnEntry *entry = in->entry;
-	CommSession *session = entry->session;
-	int timeout;
-	int ret;
-
-	ret = in->append(buf, size);
-	if (ret > 0)
-	{
-		entry->state = CONN_STATE_SUCCESS;
-		timeout = session->keep_alive_timeout();
-		session->timeout = timeout; /* Reuse session's timeout field. */
-		if (timeout == 0)
+		if (!entry->service)
 		{
-			mpoller_del(entry->sockfd, entry->mpoller);
-			return ret;
+			timeout = session->keep_alive_timeout();
+			session->timeout = timeout; /* Reuse session's timeout field. */
+			if (timeout == 0)
+			{
+				mpoller_del(entry->sockfd, entry->mpoller);
+				return ret;
+			}
 		}
+		else
+			timeout = -1;
 	}
 	else if (ret == 0 && session->timeout != 0)
 	{
@@ -1367,7 +1347,7 @@ poller_message_t *Communicator::create_request(void *context)
 	session->in = session->message_in();
 	if (session->in)
 	{
-		session->in->poller_message_t::append = Communicator::append_request;
+		session->in->poller_message_t::append = Communicator::append_message;
 		session->in->entry = entry;
 	}
 
@@ -1396,7 +1376,7 @@ poller_message_t *Communicator::create_reply(void *context)
 	session->in = session->message_in();
 	if (session->in)
 	{
-		session->in->poller_message_t::append = Communicator::append_reply;
+		session->in->poller_message_t::append = Communicator::append_message;
 		session->in->entry = entry;
 	}
 

@@ -179,8 +179,15 @@ public:
 	}
 
 	/* Push reply data synchronously. */
-	virtual int push(const void *buf, size_t size)
+	int push(const void *buf, size_t size)
 	{
+		if (this->state != WFT_STATE_TOREPLY &&
+			this->state != WFT_STATE_NOREPLY)
+		{
+			errno = ENOENT;
+			return -1;
+		}
+
 		return this->scheduler->push(buf, size, this);
 	}
 

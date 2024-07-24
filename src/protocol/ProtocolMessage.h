@@ -89,6 +89,8 @@ protected:
 			return this->CommMessageIn::renew();
 	}
 
+	virtual ProtocolMessage *inner() { return this; }
+
 protected:
 	size_t size_limit;
 
@@ -143,6 +145,12 @@ protected:
 	virtual int append(const void *buf, size_t *size)
 	{
 		return this->msg->append(buf, size);
+	}
+
+protected:
+	virtual ProtocolMessage *inner()
+	{
+		return this->msg->inner();
 	}
 
 protected:

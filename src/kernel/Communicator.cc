@@ -2004,7 +2004,7 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 		(!session->passive && in->entry->session == session) ||
 		session->passive == 1)
 	{
-		ret = in->CommMessageIn::feedback(buf, size);
+		ret = in->inner()->feedback(buf, size);
 	}
 	else
 	{

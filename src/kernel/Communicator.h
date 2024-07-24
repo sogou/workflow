@@ -116,6 +116,9 @@ protected:
 	/* In append(), reset the begin time of receiving to current time. */
 	virtual void renew();
 
+	/* Return the deepest wrapped message. */
+	virtual CommMessageIn *inner() { return this; }
+
 private:
 	struct CommConnEntry *entry;
 

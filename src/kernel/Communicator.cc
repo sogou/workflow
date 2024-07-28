@@ -176,8 +176,13 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 
 	if (!entry->ssl)
 	{
-		entry->target->get_addr(&addr, &addrlen);
-		return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
+		if (entry->service)
+		{
+			entry->target->get_addr(&addr, &addrlen);
+			return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
+		}
+		else
+			return write(entry->sockfd, buf, size);
 	}
 
 	if (size == 0)

@@ -145,8 +145,13 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	const struct sockaddr *addr;
 	socklen_t addrlen;
 
-	entry->target->get_addr(&addr, &addrlen);
-	return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
+	if (entry->service)
+	{
+		entry->target->get_addr(&addr, &addrlen);
+		return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
+	}
+	else
+		return write(entry->sockfd, buf, size);
 }
 
 void CommMessageIn::renew()

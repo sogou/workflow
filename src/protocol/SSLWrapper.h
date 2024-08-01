@@ -61,8 +61,8 @@ protected:
 	SSL *ssl;
 
 public:
-	SSLWrapper(ProtocolMessage *msg, SSL *ssl) :
-		ProtocolWrapper(msg)
+	SSLWrapper(ProtocolMessage *message, SSL *ssl) :
+		ProtocolWrapper(message)
 	{
 		this->ssl = ssl;
 	}
@@ -78,7 +78,8 @@ protected:
 	virtual int append(const void *buf, size_t *size);
 
 public:
-	ServerSSLWrapper(ProtocolMessage *msg, SSL *ssl) : SSLWrapper(msg, ssl)
+	ServerSSLWrapper(ProtocolMessage *message, SSL *ssl) :
+		SSLWrapper(message, ssl)
 	{
 	}
 

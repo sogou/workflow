@@ -39,8 +39,8 @@ int PackageWrapper::encode(struct iovec vectors[], int max)
 		}
 
 		cnt += ret;
-		this->msg = this->next(this->msg);
-		if (!this->msg)
+		this->message = this->next(this->message);
+		if (!this->message)
 			return cnt;
 
 		vectors += ret;
@@ -57,8 +57,8 @@ int PackageWrapper::append(const void *buf, size_t *size)
 
 	if (ret > 0)
 	{
-		this->msg = this->next(this->msg);
-		if (this->msg)
+		this->message = this->next(this->message);
+		if (this->message)
 		{
 			this->renew();
 			ret = 0;

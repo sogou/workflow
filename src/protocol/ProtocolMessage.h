@@ -81,6 +81,8 @@ protected:
 			return this->CommMessageIn::feedback(buf, size);
 	}
 
+	virtual ProtocolMessage *inner() { return this; }
+
 protected:
 	size_t size_limit;
 
@@ -99,23 +101,23 @@ public:
 	virtual ~ProtocolMessage() { delete this->attachment; }
 
 public:
-	ProtocolMessage(ProtocolMessage&& msg)
+	ProtocolMessage(ProtocolMessage&& message)
 	{
-		this->size_limit = msg.size_limit;
-		msg.size_limit = (size_t)-1;
-		this->attachment = msg.attachment;
-		msg.attachment = NULL;
+		this->size_limit = message.size_limit;
+		message.size_limit = (size_t)-1;
+		this->attachment = message.attachment;
+		message.attachment = NULL;
 	}
 
-	ProtocolMessage& operator = (ProtocolMessage&& msg)
+	ProtocolMessage& operator = (ProtocolMessage&& message)
 	{
-		if (&msg != this)
+		if (&message != this)
 		{
-			this->size_limit = msg.size_limit;
-			msg.size_limit = (size_t)-1;
+			this->size_limit = message.size_limit;
+			message.size_limit = (size_t)-1;
 			delete this->attachment;
-			this->attachment = msg.attachment;
-			msg.attachment = NULL;
+			this->attachment = message.attachment;
+			message.attachment = NULL;
 		}
 
 		return *this;
@@ -129,31 +131,37 @@ class ProtocolWrapper : public ProtocolMessage
 protected:
 	virtual int encode(struct iovec vectors[], int max)
 	{
-		return this->msg->encode(vectors, max);
+		return this->message->encode(vectors, max);
 	}
 
 	virtual int append(const void *buf, size_t *size)
 	{
-		return this->msg->append(buf, size);
+		return this->message->append(buf, size);
 	}
 
 protected:
-	ProtocolMessage *msg;
+	virtual ProtocolMessage *inner()
+	{
+		return this->message->inner();
+	}
+
+protected:
+	ProtocolMessage *message;
 
 public:
-	ProtocolWrapper(ProtocolMessage *msg)
+	ProtocolWrapper(ProtocolMessage *message)
 	{
-		msg->wrapper = this;
-		this->msg = msg;
+		message->wrapper = this;
+		this->message = message;
 	}
 
 public:
 	ProtocolWrapper(ProtocolWrapper&& wrapper) :
 		ProtocolMessage(std::move(wrapper))
 	{
-		wrapper.msg->wrapper = this;
-		this->msg = wrapper.msg;
-		wrapper.msg = NULL;
+		wrapper.message->wrapper = this;
+		this->message = wrapper.message;
+		wrapper.message = NULL;
 	}
 
 	ProtocolWrapper& operator = (ProtocolWrapper&& wrapper)
@@ -161,9 +169,9 @@ public:
 		if (&wrapper != this)
 		{
 			*(ProtocolMessage *)this = std::move(wrapper);
-			wrapper.msg->wrapper = this;
-			this->msg = wrapper.msg;
-			wrapper.msg = NULL;
+			wrapper.message->wrapper = this;
+			this->message = wrapper.message;
+			wrapper.message = NULL;
 		}
 
 		return *this;

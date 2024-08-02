@@ -100,8 +100,8 @@ private:
 		MySSLWrapper(ProtocolMessage *msg, SSL *ssl) :
 			SSLWrapper(msg, ssl)
 		{ }
-		ProtocolMessage *get_msg() const { return this->msg; }
-		virtual ~MySSLWrapper() { delete this->msg; }
+		ProtocolMessage *get_msg() const { return this->message; }
+		virtual ~MySSLWrapper() { delete this->message; }
 	};
 
 private:

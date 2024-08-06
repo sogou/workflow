@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include "PackageWrapper.h"
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"
@@ -274,6 +275,73 @@ bool ComplexRedisTask::finish_once()
 	}
 
 	return true;
+}
+
+/****** Redis Sub/Pub ******/
+
+class RedisSubscribeTask;
+
+class RedisSubscribeWrapper : public PackageWrapper
+{
+protected:
+	virtual ProtocolMessage *next_in(ProtocolMessage *message);
+
+protected:
+	RedisResponse msg_;
+	RedisSubscribeTask *task_;
+	std::function<void (RedisResponse *)> extract_;
+
+public:
+	RedisSubscribeWrapper(RedisSubscribeTask *task,
+					std::function<void (RedisResponse *)>&& extract);
+};
+
+class RedisSubscribeTask : public ComplexRedisTask
+{
+protected:
+	RedisSubscribeWrapper wrapper_;
+	bool finished_;
+
+public:
+	RedisSubscribeTask(std::function<void (RedisResponse *)>&& extract,
+					   redis_callback_t&& callback) :
+		ComplexRedisTask(0, std::move(callback)),
+		wrapper_(this, std::move(extract))
+	{
+		finished_ = false;
+	}
+
+	friend class RedisSubscribeWrapper;
+};
+
+RedisSubscribeWrapper::RedisSubscribeWrapper(RedisSubscribeTask *task,
+					std::function<void (RedisResponse *)>&& extract) :
+	PackageWrapper(task->get_resp()),
+	extract_(std::move(extract))
+{
+	task_ = task;
+}
+
+ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
+{
+	RedisResponse *resp = (RedisResponse *)message;
+
+	if (resp == task_->get_resp())
+	{
+		if (resp->result_ptr()->type == REDIS_REPLY_TYPE_ERROR)
+			return NULL;
+
+		return &msg_;
+	}
+	else
+	{
+		extract_(&msg_);
+		if (task_->finished_)
+			return NULL;
+
+		msg_.~RedisResponse();
+		new(&msg_) RedisResponse();
+	}
 }
 
 /**********Factory**********/

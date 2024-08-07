@@ -51,7 +51,7 @@ protected:
 	virtual bool init_success();
 	virtual bool finish_once();
 
-private:
+protected:
 	bool need_redirect();
 
 	std::string username_;
@@ -277,7 +277,7 @@ bool ComplexRedisTask::finish_once()
 	return true;
 }
 
-/****** Redis Sub/Pub ******/
+/****** Redis Subscribe ******/
 
 class RedisSubscribeTask;
 
@@ -287,61 +287,104 @@ protected:
 	virtual ProtocolMessage *next_in(ProtocolMessage *message);
 
 protected:
-	RedisResponse msg_;
 	RedisSubscribeTask *task_;
-	std::function<void (RedisResponse *)> extract_;
 
 public:
-	RedisSubscribeWrapper(RedisSubscribeTask *task,
-					std::function<void (RedisResponse *)>&& extract);
+	RedisSubscribeWrapper(RedisSubscribeTask *task);
 };
 
 class RedisSubscribeTask : public ComplexRedisTask
 {
+public:
+	virtual int push(const void *buf, size_t size)
+	{
+		if (!enable_pushing_)
+		{
+			errno = ENOENT;
+			return -1;
+		}
+
+		return this->scheduler->push(buf, size, this);
+	}
+
+protected:
+	virtual CommMessageIn *message_in()
+	{
+		if (!is_user_request_)
+			return this->ComplexRedisTask::message_in();
+
+		return &wrapper_;
+	}
+
+	virtual int keep_alive_timeout()
+	{
+		if (!is_user_request_)
+			return this->ComplexRedisTask::keep_alive_timeout();
+
+		return 0;
+	}
+
 protected:
 	RedisSubscribeWrapper wrapper_;
-	bool finished_;
+	bool enable_pushing_;
+	std::function<void (WFRedisTask *)> extract_;
 
 public:
-	RedisSubscribeTask(std::function<void (RedisResponse *)>&& extract,
+	RedisSubscribeTask(std::function<void (WFRedisTask *)>&& extract,
 					   redis_callback_t&& callback) :
 		ComplexRedisTask(0, std::move(callback)),
-		wrapper_(this, std::move(extract))
+		wrapper_(this),
+		extract_(std::move(extract))
 	{
-		finished_ = false;
+		enable_pushing_ = false;
 	}
 
 	friend class RedisSubscribeWrapper;
 };
 
-RedisSubscribeWrapper::RedisSubscribeWrapper(RedisSubscribeTask *task,
-					std::function<void (RedisResponse *)>&& extract) :
-	PackageWrapper(task->get_resp()),
-	extract_(std::move(extract))
+RedisSubscribeWrapper::RedisSubscribeWrapper(RedisSubscribeTask *task) :
+	PackageWrapper(task->get_resp())
 {
 	task_ = task;
 }
 
 ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
 {
-	RedisResponse *resp = (RedisResponse *)message;
+	redis_reply_t *reply = ((RedisResponse *)message)->result_ptr();
 
-	if (resp == task_->get_resp())
+	if (reply->type == REDIS_REPLY_TYPE_ARRAY && reply->elements == 3 &&
+		reply->element[0]->type == REDIS_REPLY_TYPE_STRING)
 	{
-		if (resp->result_ptr()->type == REDIS_REPLY_TYPE_ERROR)
-			return NULL;
+		const char *str = reply->element[0]->str;
 
-		return &msg_;
+		if (strcasecmp(str, "message") != 0 &&
+			strcasecmp(str, "subscribe") != 0 &&
+			strcasecmp(str, "unsubscribe") != 0)
+		{
+			return NULL;
+		}
+
+		if (strcasecmp(str, "unsubscribe") == 0)
+		{
+			if (reply->element[2]->type != REDIS_REPLY_TYPE_INTEGER ||
+				reply->element[2]->integer == 0)
+			{
+				return NULL;
+			}
+		}
+
+		task_->enable_pushing_ = true;
+		task_->extract_(task_);
 	}
-	else
+	else if (reply->type != REDIS_REPLY_TYPE_STRING ||
+			 strcasecmp(reply->str, "pong") != 0)
 	{
-		extract_(&msg_);
-		if (task_->finished_)
-			return NULL;
-
-		msg_.~RedisResponse();
-		new(&msg_) RedisResponse();
+		return NULL;
 	}
+
+	task_->resp.~RedisResponse();
+	new(&task_->resp) RedisResponse();
+	return &task_->resp;
 }
 
 /**********Factory**********/

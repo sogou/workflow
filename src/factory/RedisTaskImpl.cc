@@ -357,13 +357,6 @@ ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
 	{
 		const char *str = reply->element[0]->str;
 
-		if (strcasecmp(str, "message") != 0 &&
-			strcasecmp(str, "subscribe") != 0 &&
-			strcasecmp(str, "unsubscribe") != 0)
-		{
-			return NULL;
-		}
-
 		if (strcasecmp(str, "unsubscribe") == 0)
 		{
 			if (reply->element[2]->type != REDIS_REPLY_TYPE_INTEGER ||
@@ -371,6 +364,11 @@ ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
 			{
 				return NULL;
 			}
+		}
+		else if (strcasecmp(str, "message") != 0 &&
+				 strcasecmp(str, "subscribe") != 0)
+		{
+			return NULL;
 		}
 
 		task_->enable_pushing_ = true;
@@ -382,8 +380,7 @@ ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
 		return NULL;
 	}
 
-	task_->resp.~RedisResponse();
-	new(&task_->resp) RedisResponse();
+	task_->clear_resp();
 	return &task_->resp;
 }
 

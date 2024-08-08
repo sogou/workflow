@@ -179,7 +179,7 @@ public:
 	}
 
 	/* Push reply data synchronously. */
-	int push(const void *buf, size_t size)
+	virtual int push(const void *buf, size_t size)
 	{
 		if (this->state != WFT_STATE_TOREPLY &&
 			this->state != WFT_STATE_NOREPLY)

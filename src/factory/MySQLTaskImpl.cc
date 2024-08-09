@@ -43,6 +43,7 @@ protected:
 	virtual CommMessageOut *message_out();
 	virtual CommMessageIn *message_in();
 	virtual int keep_alive_timeout();
+	virtual int first_timeout();
 	virtual bool init_success();
 	virtual bool finish_once();
 
@@ -396,6 +397,11 @@ int ComplexMySQLTask::keep_alive_timeout()
 
 	conn->mysql_seqid = resp->get_seqid() + 1;
 	return MYSQL_KEEPALIVE_DEFAULT;
+}
+
+int ComplexMySQLTask::first_timeout()
+{
+	return is_user_request_ ? this->watch_timeo : 0;
 }
 
 /*

@@ -298,7 +298,7 @@ class RedisSubscribeTask : public ComplexRedisTask
 public:
 	virtual int push(const void *buf, size_t size)
 	{
-		if (!enable_pushing_)
+		if (!watching_)
 		{
 			errno = ENOENT;
 			return -1;
@@ -321,12 +321,20 @@ protected:
 		if (!is_user_request_)
 			return this->ComplexRedisTask::keep_alive_timeout();
 
-		return 0;
+		return this->keep_alive_timeo;
+	}
+
+	virtual int first_timeout()
+	{
+		if (!watching_)
+			return 0;
+
+		return this->watch_timeo;
 	}
 
 protected:
 	RedisSubscribeWrapper wrapper_;
-	bool enable_pushing_;
+	bool watching_;
 	std::function<void (WFRedisTask *)> extract_;
 
 public:
@@ -336,7 +344,7 @@ public:
 		wrapper_(this),
 		extract_(std::move(extract))
 	{
-		enable_pushing_ = false;
+		watching_ = false;
 	}
 
 	friend class RedisSubscribeWrapper;
@@ -352,34 +360,35 @@ ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
 {
 	redis_reply_t *reply = ((RedisResponse *)message)->result_ptr();
 
-	if (reply->type == REDIS_REPLY_TYPE_ARRAY && reply->elements == 3 &&
-		reply->element[0]->type == REDIS_REPLY_TYPE_STRING)
+	if (reply->type != REDIS_REPLY_TYPE_ARRAY || reply->elements != 3 ||
+		reply->element[0]->type != REDIS_REPLY_TYPE_STRING)
 	{
-		const char *str = reply->element[0]->str;
-
-		if (strcasecmp(str, "unsubscribe") == 0)
-		{
-			if (reply->element[2]->type != REDIS_REPLY_TYPE_INTEGER ||
-				reply->element[2]->integer == 0)
-			{
-				return NULL;
-			}
-		}
-		else if (strcasecmp(str, "message") != 0 &&
-				 strcasecmp(str, "subscribe") != 0)
-		{
-			return NULL;
-		}
-
-		task_->enable_pushing_ = true;
-		task_->extract_(task_);
-	}
-	else if (reply->type != REDIS_REPLY_TYPE_STRING ||
-			 strcasecmp(reply->str, "pong") != 0)
-	{
+		task_->keep_alive_timeo = 0;
 		return NULL;
 	}
 
+	const char *str = reply->element[0]->str;
+
+	if (strcasecmp(str, "unsubscribe") == 0)
+	{
+		if (reply->element[2]->type != REDIS_REPLY_TYPE_INTEGER)
+		{
+			task_->keep_alive_timeo = 0;
+			return NULL;
+		}
+
+		if (reply->element[2]->integer == 0)
+			return NULL;
+	}
+	else if (strcasecmp(str, "message") != 0 &&
+			 strcasecmp(str, "subscribe") != 0)
+	{
+		task_->keep_alive_timeo = 0;
+		return NULL;
+	}
+
+	task_->watching_ = true;
+	task_->extract_(task_);
 	task_->clear_resp();
 	return &task_->resp;
 }

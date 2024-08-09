@@ -481,6 +481,7 @@ protected:
 	virtual CommMessageOut *message_out();
 	virtual CommMessageIn *message_in();
 	virtual int keep_alive_timeout();
+	virtual int first_timeout();
 	virtual bool init_success();
 	virtual bool finish_once();
 
@@ -650,6 +651,11 @@ int ComplexHttpProxyTask::keep_alive_timeout()
 		return HTTP_KEEPALIVE_DEFAULT;
 
 	return this->ComplexHttpTask::keep_alive_timeout();
+}
+
+int ComplexHttpProxyTask::first_timeout()
+{
+	return is_user_request_ ? this->watch_timeo : 0;
 }
 
 bool ComplexHttpProxyTask::init_success()

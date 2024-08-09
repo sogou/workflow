@@ -158,6 +158,7 @@ void CommMessageIn::renew()
 {
 	CommSession *session = this->entry->session;
 	session->timeout = -1;
+	session->begin_time.tv_sec = -1;
 	session->begin_time.tv_nsec = -1;
 }
 
@@ -322,7 +323,6 @@ inline int Communicator::first_timeout(CommSession *session)
 	{
 		timeout = session->timeout;
 		session->timeout = 0;
-		session->begin_time.tv_nsec = 0;
 	}
 	else
 		clock_gettime(CLOCK_MONOTONIC, &session->begin_time);
@@ -447,7 +447,8 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 			else
 			{
 				session->timeout = -1;
-				session->begin_time.tv_nsec = -1;
+				session->begin_time.tv_sec = -1;
+				session->begin_time.tv_nsec = 0;
 			}
 
 			mpoller_set_timeout(entry->sockfd, timeout, this->mpoller);
@@ -788,7 +789,8 @@ void Communicator::handle_request_result(struct poller_result *res)
 		else
 		{
 			session->timeout = -1;
-			session->begin_time.tv_nsec = -1;
+			session->begin_time.tv_sec = -1;
+			session->begin_time.tv_nsec = 0;
 		}
 
 		if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
@@ -889,7 +891,8 @@ void Communicator::handle_connect_result(struct poller_result *res)
 				else
 				{
 					session->timeout = -1;
-					session->begin_time.tv_nsec = -1;
+					session->begin_time.tv_sec = -1;
+					session->begin_time.tv_nsec = 0;
 				}
 
 				if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
@@ -1156,8 +1159,18 @@ int Communicator::append_message(const void *buf, size_t *size,
 	}
 	else if (ret == 0 && session->timeout != 0)
 	{
-		if (session->begin_time.tv_nsec == -1)
-			timeout = Communicator::first_timeout_recv(session);
+		if (session->begin_time.tv_sec < 0)
+		{
+			if (session->begin_time.tv_nsec < 0)
+				timeout = session->first_timeout();
+			else
+				timeout = 0;
+
+			if (timeout == 0)
+				timeout = Communicator::first_timeout_recv(session);
+			else
+				session->begin_time.tv_nsec = 0;
+		}
 		else
 			timeout = Communicator::next_timeout(session);
 	}

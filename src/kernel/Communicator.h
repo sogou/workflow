@@ -140,7 +140,7 @@ private:
 	virtual int send_timeout() { return -1; }
 	virtual int receive_timeout() { return -1; }
 	virtual int keep_alive_timeout() { return 0; }
-	virtual int first_timeout() { return 0; }	/* for client session only. */
+	virtual int first_timeout() { return 0; }
 	virtual void handle(int state, int error) = 0;
 
 protected:

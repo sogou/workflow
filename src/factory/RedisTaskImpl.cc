@@ -48,6 +48,7 @@ protected:
 	virtual CommMessageOut *message_out();
 	virtual CommMessageIn *message_in();
 	virtual int keep_alive_timeout();
+	virtual int first_timeout();
 	virtual bool init_success();
 	virtual bool finish_once();
 
@@ -141,6 +142,11 @@ int ComplexRedisTask::keep_alive_timeout()
 			 resp->result_ptr()->type != REDIS_REPLY_TYPE_ERROR);
 
 	return succ_ ? REDIS_KEEPALIVE_DEFAULT : 0;
+}
+
+int ComplexRedisTask::first_timeout()
+{
+	return is_user_request_ ? this->watch_timeo : 0;
 }
 
 bool ComplexRedisTask::init_success()

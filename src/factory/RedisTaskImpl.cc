@@ -285,7 +285,7 @@ bool ComplexRedisTask::finish_once()
 
 /****** Redis Subscribe ******/
 
-class RedisSubscribeTask;
+class ComplexRedisSubscribeTask;
 
 class RedisSubscribeWrapper : public PackageWrapper
 {
@@ -293,13 +293,13 @@ protected:
 	virtual ProtocolMessage *next_in(ProtocolMessage *message);
 
 protected:
-	RedisSubscribeTask *task_;
+	ComplexRedisSubscribeTask *task_;
 
 public:
-	RedisSubscribeWrapper(RedisSubscribeTask *task);
+	RedisSubscribeWrapper(ComplexRedisSubscribeTask *task);
 };
 
-class RedisSubscribeTask : public ComplexRedisTask
+class ComplexRedisSubscribeTask : public ComplexRedisTask
 {
 public:
 	virtual int push(const void *buf, size_t size)
@@ -332,10 +332,7 @@ protected:
 
 	virtual int first_timeout()
 	{
-		if (!watching_)
-			return 0;
-
-		return this->watch_timeo;
+		return watching_ ? this->watch_timeo : 0;
 	}
 
 protected:
@@ -344,8 +341,8 @@ protected:
 	std::function<void (WFRedisTask *)> extract_;
 
 public:
-	RedisSubscribeTask(std::function<void (WFRedisTask *)>&& extract,
-					   redis_callback_t&& callback) :
+	ComplexRedisSubscribeTask(std::function<void (WFRedisTask *)>&& extract,
+							  redis_callback_t&& callback) :
 		ComplexRedisTask(0, std::move(callback)),
 		wrapper_(this),
 		extract_(std::move(extract))
@@ -356,7 +353,7 @@ public:
 	friend class RedisSubscribeWrapper;
 };
 
-RedisSubscribeWrapper::RedisSubscribeWrapper(RedisSubscribeTask *task) :
+RedisSubscribeWrapper::RedisSubscribeWrapper(ComplexRedisSubscribeTask *task) :
 	PackageWrapper(task->get_resp())
 {
 	task_ = task;

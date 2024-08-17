@@ -60,7 +60,7 @@ protected:
 	int id;
 
 public:
-	/* Make sure that cocurrent connections have different id.
+	/* Make sure that concurrent connections have different id.
 	 * When a connection object is deleted, id can be reused. */
 	WFMySQLConnection(int id) { this->id = id; }
 	virtual ~WFMySQLConnection() { }

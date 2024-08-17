@@ -34,7 +34,7 @@ public:
 	 * address resovled will be used. Don't use upstream name as a host. */
 	int init(const std::string& url)
 	{
-		return init(url, NULL);
+		return this->init(url, NULL);
 	}
 
 	int init(const std::string& url, SSL_CTX *ssl_ctx);
@@ -79,7 +79,7 @@ protected:
 	int id;
 
 public:
-	/* Make sure that cocurrent connections have different id.
+	/* Make sure that concurrent connections have different id.
 	 * When a connection object is deleted, id can be reused. */
 	WFMySQLConnection(int id) { this->id = id; }
 	virtual ~WFMySQLConnection() { }

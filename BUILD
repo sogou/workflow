@@ -114,9 +114,11 @@ cc_library(
 cc_library(
 	name = 'redis',
 	hdrs = [
+		'src/factory/RedisTaskImpl.inl',
 		'src/protocol/RedisMessage.h',
 		'src/protocol/redis_parser.h',
 		'src/server/WFRedisServer.h',
+		'src/client/WFRedisSubscriber.h',
 	],
 	includes = [
 		'src/protocol',
@@ -126,6 +128,7 @@ cc_library(
 		'src/factory/RedisTaskImpl.cc',
 		'src/protocol/RedisMessage.cc',
 		'src/protocol/redis_parser.c',
+		'src/client/WFRedisSubscriber.cc',
 	],
 	deps = [
 		':common',
@@ -135,7 +138,6 @@ cc_library(
 cc_library(
 	name = 'mysql',
 	hdrs = [
-		'src/client/WFMySQLConnection.h',
 		'src/protocol/MySQLMessage.h',
 		'src/protocol/MySQLMessage.inl',
 		'src/protocol/MySQLResult.h',
@@ -146,6 +148,7 @@ cc_library(
 		'src/protocol/mysql_stream.h',
 		'src/protocol/mysql_types.h',
 		'src/server/WFMySQLServer.h',
+		'src/client/WFMySQLConnection.h',
 	],
 	includes = [
 		'src/protocol',
@@ -153,7 +156,6 @@ cc_library(
 		'src/server',
 	],
 	srcs = [
-		'src/client/WFMySQLConnection.cc',
 		'src/factory/MySQLTaskImpl.cc',
 		'src/protocol/MySQLMessage.cc',
 		'src/protocol/MySQLResult.cc',
@@ -161,6 +163,7 @@ cc_library(
 		'src/protocol/mysql_byteorder.c',
 		'src/protocol/mysql_parser.c',
 		'src/protocol/mysql_stream.c',
+		'src/client/WFMySQLConnection.cc',
 	],
 	deps = [
 		':common',

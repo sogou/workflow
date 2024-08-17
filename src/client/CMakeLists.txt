@@ -5,6 +5,13 @@ set(SRC
 	WFDnsClient.cc
 )
 
+if (NOT REDIS STREQUAL "n")
+	set(SRC
+		${SRC}
+		WFRedisSubscriber.cc
+	)
+endif ()
+
 if (NOT MYSQL STREQUAL "n")
 	set(SRC
 		${SRC}

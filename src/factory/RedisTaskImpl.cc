@@ -16,6 +16,7 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
            Liu Kai (liukaidx@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <stdio.h>
@@ -25,6 +26,7 @@
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"
+#include "RedisTaskImpl.inl"
 
 using namespace protocol;
 
@@ -304,9 +306,15 @@ class ComplexRedisSubscribeTask : public ComplexRedisTask
 public:
 	virtual int push(const void *buf, size_t size)
 	{
-		if (!watching_)
+		if (finished_)
 		{
 			errno = ENOENT;
+			return -1;
+		}
+
+		if (!watching_)
+		{
+			errno = EAGAIN;
 			return -1;
 		}
 
@@ -338,6 +346,7 @@ protected:
 protected:
 	RedisSubscribeWrapper wrapper_;
 	bool watching_;
+	bool finished_;
 	std::function<void (WFRedisTask *)> extract_;
 
 public:
@@ -348,6 +357,7 @@ public:
 		extract_(std::move(extract))
 	{
 		watching_ = false;
+		finished_ = false;
 	}
 
 	friend class RedisSubscribeWrapper;
@@ -363,37 +373,27 @@ ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
 {
 	redis_reply_t *reply = ((RedisResponse *)message)->result_ptr();
 
-	if (reply->type != REDIS_REPLY_TYPE_ARRAY || reply->elements != 3 ||
-		reply->element[0]->type != REDIS_REPLY_TYPE_STRING)
+	if (reply->type == REDIS_REPLY_TYPE_ARRAY && reply->elements == 3 &&
+		reply->element[0]->type == REDIS_REPLY_TYPE_STRING)
 	{
-		task_->keep_alive_timeo = 0;
-		return NULL;
-	}
+		const char *str = reply->element[0]->str;
 
-	const char *str = reply->element[0]->str;
-
-	if (strcasecmp(str, "unsubscribe") == 0)
-	{
-		if (reply->element[2]->type != REDIS_REPLY_TYPE_INTEGER)
+		if (strcasecmp(str, "unsubscribe") == 0 ||
+			strcasecmp(str, "punsubscribe") == 0)
 		{
-			task_->keep_alive_timeo = 0;
-			return NULL;
+			if (reply->element[2]->type == REDIS_REPLY_TYPE_INTEGER &&
+				reply->element[2]->integer == 0)
+			{
+				task_->finished_ = true;
+			}
 		}
-
-		if (reply->element[2]->integer == 0)
-			return NULL;
-	}
-	else if (strcasecmp(str, "message") != 0 &&
-			 strcasecmp(str, "subscribe") != 0)
-	{
-		task_->keep_alive_timeo = 0;
-		return NULL;
 	}
 
 	task_->watching_ = true;
 	task_->extract_(task_);
+
 	task_->clear_resp();
-	return &task_->resp;
+	return task_->finished_ ? NULL : &task_->resp;
 }
 
 /**********Factory**********/
@@ -422,6 +422,32 @@ WFRedisTask *WFTaskFactory::create_redis_task(const ParsedURI& uri,
 
 	task->init(uri);
 	task->set_keep_alive(REDIS_KEEPALIVE_DEFAULT);
+	return task;
+}
+
+WFRedisTask *
+__WFRedisTaskFactory::create_subscribe_task(const std::string& url,
+											extract_t extract,
+											redis_callback_t callback)
+{
+	auto *task = new ComplexRedisSubscribeTask(std::move(extract),
+											   std::move(callback));
+	ParsedURI uri;
+
+	URIParser::parse(url, uri);
+	task->init(std::move(uri));
+	return task;
+}
+
+WFRedisTask *
+__WFRedisTaskFactory::create_subscribe_task(const ParsedURI& uri,
+											extract_t extract,
+											redis_callback_t callback)
+{
+	auto *task = new ComplexRedisSubscribeTask(std::move(extract),
+											   std::move(callback));
+
+	task->init(std::move(uri));
 	return task;
 }
 

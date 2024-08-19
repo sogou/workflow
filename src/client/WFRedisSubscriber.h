@@ -66,7 +66,8 @@ public:
 	/* All 'timeout' proxy functions can only be called only before
 	   the task is started or in 'extract'. */
 
-	/* Timeout of waiting for each message. Very useful. */
+	/* Timeout of waiting for each message. Very useful. If not set,
+	   the max waiting time will be the global 'response_timeout'*/
 	void set_watch_timeout(int timeout)
 	{
 		this->task->set_watch_timeout(timeout);
@@ -85,7 +86,7 @@ public:
 	}
 
 	/* The default keep alive timeout is 0. If you want to keep
-	   the connection alive, make sure not sending any request
+	   the connection alive, make sure not to send any request
 	   after all channels/patterns were unsubscribed. */
 	void set_keep_alive(int timeout)
 	{
@@ -93,6 +94,9 @@ public:
 	}
 
 public:
+	/* Call 'set_extract' or 'set_callback' only before the task
+	   is started, or in 'extract'. */
+
 	void set_extract(std::function<void (WFRedisSubscribeTask *)> ex)
 	{
 		this->extract = std::move(ex);

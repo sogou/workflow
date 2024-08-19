@@ -287,20 +287,6 @@ bool ComplexRedisTask::finish_once()
 
 /****** Redis Subscribe ******/
 
-class ComplexRedisSubscribeTask;
-
-class RedisSubscribeWrapper : public PackageWrapper
-{
-protected:
-	virtual ProtocolMessage *next_in(ProtocolMessage *message);
-
-protected:
-	ComplexRedisSubscribeTask *task_;
-
-public:
-	RedisSubscribeWrapper(ComplexRedisSubscribeTask *task);
-};
-
 class ComplexRedisSubscribeTask : public ComplexRedisTask
 {
 public:
@@ -344,7 +330,24 @@ protected:
 	}
 
 protected:
-	RedisSubscribeWrapper wrapper_;
+	class SubscribeWrapper : public PackageWrapper
+	{
+	protected:
+		virtual ProtocolMessage *next_in(ProtocolMessage *message);
+
+	protected:
+		ComplexRedisSubscribeTask *task_;
+
+	public:
+		SubscribeWrapper(ComplexRedisSubscribeTask *task) :
+			PackageWrapper(task->get_resp())
+		{
+			task_ = task;
+		}
+	};
+
+protected:
+	SubscribeWrapper wrapper_;
 	bool watching_;
 	bool finished_;
 	std::function<void (WFRedisTask *)> extract_;
@@ -359,17 +362,10 @@ public:
 		watching_ = false;
 		finished_ = false;
 	}
-
-	friend class RedisSubscribeWrapper;
 };
 
-RedisSubscribeWrapper::RedisSubscribeWrapper(ComplexRedisSubscribeTask *task) :
-	PackageWrapper(task->get_resp())
-{
-	task_ = task;
-}
-
-ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
+ProtocolMessage *
+ComplexRedisSubscribeTask::SubscribeWrapper::next_in(ProtocolMessage *message)
 {
 	redis_reply_t *reply = ((RedisResponse *)message)->result_ptr();
 
@@ -377,9 +373,10 @@ ProtocolMessage *RedisSubscribeWrapper::next_in(ProtocolMessage *message)
 		reply->element[0]->type == REDIS_REPLY_TYPE_STRING)
 	{
 		const char *str = reply->element[0]->str;
+		size_t len = reply->element[0]->len;
 
-		if (strcasecmp(str, "unsubscribe") == 0 ||
-			strcasecmp(str, "punsubscribe") == 0)
+		if ((len == 11 && strncasecmp(str, "unsubscribe", 11)) == 0 ||
+			(len == 12 && strncasecmp(str, "punsubscribe", 12) == 0))
 		{
 			if (reply->element[2]->type == REDIS_REPLY_TYPE_INTEGER &&
 				reply->element[2]->integer == 0)
@@ -447,7 +444,7 @@ __WFRedisTaskFactory::create_subscribe_task(const ParsedURI& uri,
 	auto *task = new ComplexRedisSubscribeTask(std::move(extract),
 											   std::move(callback));
 
-	task->init(std::move(uri));
+	task->init(uri);
 	return task;
 }
 

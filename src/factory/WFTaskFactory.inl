@@ -161,11 +161,11 @@ protected:
 
 	void clear_resp()
 	{
-		size_t size = this->resp.get_size_limit();
+		protocol::ProtocolMessage msg(std::move(this->resp));
 
 		this->resp.~RESP();
-		new(&this->resp) RESP();
-		this->resp.set_size_limit(size);
+		new(&this->resp) RESP;
+		*(protocol::ProtocolMessage *)&this->resp = std::move(msg);
 	}
 
 	void disable_retry()

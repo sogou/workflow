@@ -115,6 +115,8 @@ public:
 		message.size_limit = (size_t)-1;
 		this->attachment = message.attachment;
 		message.attachment = NULL;
+		this->wrapper = message.wrapper;
+		message.wrapper = NULL;
 	}
 
 	ProtocolMessage& operator = (ProtocolMessage&& message)
@@ -126,6 +128,8 @@ public:
 			delete this->attachment;
 			this->attachment = message.attachment;
 			message.attachment = NULL;
+			this->wrapper = message.wrapper;
+			message.wrapper = NULL;
 		}
 
 		return *this;

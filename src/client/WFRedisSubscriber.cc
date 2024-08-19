@@ -17,9 +17,45 @@
 */
 
 #include <errno.h>
+#include <string>
+#include <vector>
+#include <mutex>
 #include "URIParser.h"
 #include "RedisTaskImpl.inl"
 #include "WFRedisSubscriber.h"
+
+int WFRedisSubscribeTask::sync_send(const std::string& command,
+									const std::vector<std::string>& params)
+{
+	std::string str("*" + std::to_string(1 + params.size()) + "\r\n");
+	int ret;
+
+	str += "$" + std::to_string(command.size()) + "\r\n" + command + "\r\n";
+	for (const std::string& p : params)
+		str += "$" + std::to_string(p.size()) + "\r\n" + p + "\r\n";
+
+	this->mutex.lock();
+	if (this->task)
+	{
+		ret = this->task->push(str.c_str(), str.size());
+		if (ret == (int)str.size())
+			ret = 0;
+		else
+		{
+			if (ret >= 0)
+				errno = ENOBUFS;
+			ret = -1;
+		}
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	this->mutex.unlock();
+	return ret;
+}
 
 void WFRedisSubscribeTask::task_extract(WFRedisTask *task)
 {

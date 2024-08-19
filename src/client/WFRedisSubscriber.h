@@ -52,15 +52,40 @@ public:
 	   should not be called except in 'extract', because the task
 	   point may have been deleted because 'callback' finished. */
 
-	int subscribe(const std::vector<std::string>& channels);
-	int unsubscribe(const std::vector<std::string>& channels);
-	int unsubscribe_all();
+	int subscribe(const std::vector<std::string>& channels)
+	{
+		return this->sync_send("SUBSCRIBE", channels);
+	}
 
-	int psubscribe(const std::vector<std::string>& patterns);
-	int punsubscribe(const std::vector<std::string>& patterns);
-	int punsubscribe_all();
+	int unsubscribe(const std::vector<std::string>& channels)
+	{
+		return this->sync_send("UNSUBSCRIBE", channels);
+	}
 
-	int ping();
+	int unsubscribe_all()
+	{
+		return this->unsubscribe(std::vector<std::string>());
+	}
+
+	int psubscribe(const std::vector<std::string>& patterns)
+	{
+		return this->sync_send("PSUBSCRIBE", patterns);
+	}
+
+	int punsubscribe(const std::vector<std::string>& patterns)
+	{
+		return this->sync_send("PUNSUBSCRIBE", patterns);
+	}
+
+	int punsubscribe_all()
+	{
+		return this->punsubscribe(std::vector<std::string>());
+	}
+
+	int ping()
+	{
+		return this->sync_send("PING", std::vector<std::string>());
+	}
 
 public:
 	/* All 'timeout' proxy functions can only be called only before
@@ -120,6 +145,8 @@ protected:
 	}
 
 protected:
+	int sync_send(const std::string& command,
+				  const std::vector<std::string>& params);
 	static void task_extract(WFRedisTask *task);
 	static void task_callback(WFRedisTask *task);
 

@@ -24,7 +24,6 @@
 #include <time.h>
 #include <netdb.h>
 #include <stdio.h>
-#include <new>
 #include <string>
 #include <functional>
 #include <utility>
@@ -161,11 +160,9 @@ protected:
 
 	void clear_resp()
 	{
-		protocol::ProtocolMessage msg(std::move(this->resp));
-
-		this->resp.~RESP();
-		new(&this->resp) RESP;
-		*(protocol::ProtocolMessage *)&this->resp = std::move(msg);
+		RESP resp;
+		*(protocol::ProtocolMessage *)&resp = std::move(this->resp);
+		this->resp = std::move(resp);
 	}
 
 	void disable_retry()

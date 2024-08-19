@@ -112,9 +112,9 @@ public:
 	ProtocolMessage(ProtocolMessage&& message)
 	{
 		this->size_limit = message.size_limit;
-		message.size_limit = (size_t)-1;
 		this->attachment = message.attachment;
 		message.attachment = NULL;
+		this->wrapper = message.wrapper;
 	}
 
 	ProtocolMessage& operator = (ProtocolMessage&& message)
@@ -122,10 +122,10 @@ public:
 		if (&message != this)
 		{
 			this->size_limit = message.size_limit;
-			message.size_limit = (size_t)-1;
 			delete this->attachment;
 			this->attachment = message.attachment;
 			message.attachment = NULL;
+			this->wrapper = message.wrapper;
 		}
 
 		return *this;

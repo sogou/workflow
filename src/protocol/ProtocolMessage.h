@@ -114,7 +114,7 @@ public:
 		this->size_limit = message.size_limit;
 		this->attachment = message.attachment;
 		message.attachment = NULL;
-		this->wrapper = message.wrapper;
+		this->wrapper = NULL;
 	}
 
 	ProtocolMessage& operator = (ProtocolMessage&& message)
@@ -125,7 +125,6 @@ public:
 			delete this->attachment;
 			this->attachment = message.attachment;
 			message.attachment = NULL;
-			this->wrapper = message.wrapper;
 		}
 
 		return *this;
@@ -154,21 +153,27 @@ protected:
 	}
 
 protected:
+	void set_message(ProtocolMessage *message)
+	{
+		this->message = message;
+		if (message)
+			message->wrapper = this;
+	}
+
+protected:
 	ProtocolMessage *message;
 
 public:
 	ProtocolWrapper(ProtocolMessage *message)
 	{
-		message->wrapper = this;
-		this->message = message;
+		this->set_message(message);
 	}
 
 public:
 	ProtocolWrapper(ProtocolWrapper&& wrapper) :
 		ProtocolMessage(std::move(wrapper))
 	{
-		wrapper.message->wrapper = this;
-		this->message = wrapper.message;
+		this->set_message(wrapper.message);
 		wrapper.message = NULL;
 	}
 
@@ -177,8 +182,7 @@ public:
 		if (&wrapper != this)
 		{
 			*(ProtocolMessage *)this = std::move(wrapper);
-			wrapper.message->wrapper = this;
-			this->message = wrapper.message;
+			this->set_message(wrapper.message);
 			wrapper.message = NULL;
 		}
 

@@ -213,6 +213,13 @@ bool ComplexRedisTask::need_redirect()
 		if (reply->str == NULL)
 			return false;
 
+		if (strncasecmp(reply->str, "NOAUTH ", 7) == 0)
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_REDIS_ACCESS_DENIED;
+			return false;
+		}
+
 		bool asking = false;
 		if (strncasecmp(reply->str, "ASK ", 4) == 0)
 			asking = true;
@@ -316,14 +323,6 @@ protected:
 		return &wrapper_;
 	}
 
-	virtual int keep_alive_timeout()
-	{
-		if (!is_user_request_)
-			return this->ComplexRedisTask::keep_alive_timeout();
-
-		return this->keep_alive_timeo;
-	}
-
 	virtual int first_timeout()
 	{
 		return watching_ ? this->watch_timeo : 0;
@@ -384,6 +383,11 @@ ComplexRedisSubscribeTask::SubscribeWrapper::next_in(ProtocolMessage *message)
 				task_->finished_ = true;
 			}
 		}
+	}
+	else if (!task_->watching_)
+	{
+		task_->finished_ = true;
+		return NULL;
 	}
 
 	task_->watching_ = true;

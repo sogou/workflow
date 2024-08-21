@@ -60,8 +60,9 @@ void redis_callback(WFRedisTask *task)
 		resp->get_result(val);
 		if (val.is_error())
 		{
-		   fprintf(stderr, "Error reply. Need a password?\n");
-		   state = WFT_STATE_TASK_ERROR;
+			fprintf(stderr, "%*s\n", (int)val.string_view()->size(),
+									val.string_view()->c_str());
+			state = WFT_STATE_TASK_ERROR;
 		}
 		break;
 	}

@@ -16,14 +16,17 @@
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
            Li Yingxin (liyingxin@sogou-inc.com)
            Liu Kai (liukaidx@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include "PackageWrapper.h"
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"
+#include "RedisTaskImpl.inl"
 
 using namespace protocol;
 
@@ -51,7 +54,7 @@ protected:
 	virtual bool init_success();
 	virtual bool finish_once();
 
-private:
+protected:
 	bool need_redirect();
 
 	std::string username_;
@@ -204,6 +207,13 @@ bool ComplexRedisTask::need_redirect()
 		if (reply->str == NULL)
 			return false;
 
+		if (strncasecmp(reply->str, "NOAUTH ", 7) == 0)
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_REDIS_ACCESS_DENIED;
+			return false;
+		}
+
 		bool asking = false;
 		if (strncasecmp(reply->str, "ASK ", 4) == 0)
 			asking = true;
@@ -276,6 +286,111 @@ bool ComplexRedisTask::finish_once()
 	return true;
 }
 
+/****** Redis Subscribe ******/
+
+class ComplexRedisSubscribeTask : public ComplexRedisTask
+{
+public:
+	virtual int push(const void *buf, size_t size)
+	{
+		if (finished_)
+		{
+			errno = ENOENT;
+			return -1;
+		}
+
+		if (!watching_)
+		{
+			errno = EAGAIN;
+			return -1;
+		}
+
+		return this->scheduler->push(buf, size, this);
+	}
+
+protected:
+	virtual CommMessageIn *message_in()
+	{
+		if (!is_user_request_)
+			return this->ComplexRedisTask::message_in();
+
+		return &wrapper_;
+	}
+
+	virtual int first_timeout()
+	{
+		return watching_ ? this->watch_timeo : 0;
+	}
+
+protected:
+	class SubscribeWrapper : public PackageWrapper
+	{
+	protected:
+		virtual ProtocolMessage *next_in(ProtocolMessage *message);
+
+	protected:
+		ComplexRedisSubscribeTask *task_;
+
+	public:
+		SubscribeWrapper(ComplexRedisSubscribeTask *task) :
+			PackageWrapper(task->get_resp())
+		{
+			task_ = task;
+		}
+	};
+
+protected:
+	SubscribeWrapper wrapper_;
+	bool watching_;
+	bool finished_;
+	std::function<void (WFRedisTask *)> extract_;
+
+public:
+	ComplexRedisSubscribeTask(std::function<void (WFRedisTask *)>&& extract,
+							  redis_callback_t&& callback) :
+		ComplexRedisTask(0, std::move(callback)),
+		wrapper_(this),
+		extract_(std::move(extract))
+	{
+		watching_ = false;
+		finished_ = false;
+	}
+};
+
+ProtocolMessage *
+ComplexRedisSubscribeTask::SubscribeWrapper::next_in(ProtocolMessage *message)
+{
+	redis_reply_t *reply = ((RedisResponse *)message)->result_ptr();
+
+	if (reply->type == REDIS_REPLY_TYPE_ARRAY && reply->elements == 3 &&
+		reply->element[0]->type == REDIS_REPLY_TYPE_STRING)
+	{
+		const char *str = reply->element[0]->str;
+		size_t len = reply->element[0]->len;
+
+		if ((len == 11 && strncasecmp(str, "unsubscribe", 11)) == 0 ||
+			(len == 12 && strncasecmp(str, "punsubscribe", 12) == 0))
+		{
+			if (reply->element[2]->type == REDIS_REPLY_TYPE_INTEGER &&
+				reply->element[2]->integer == 0)
+			{
+				task_->finished_ = true;
+			}
+		}
+	}
+	else if (!task_->watching_)
+	{
+		task_->finished_ = true;
+		return NULL;
+	}
+
+	task_->watching_ = true;
+	task_->extract_(task_);
+
+	task_->clear_resp();
+	return task_->finished_ ? NULL : &task_->resp;
+}
+
 /**********Factory**********/
 
 // redis://:password@host:port/db_num
@@ -302,6 +417,32 @@ WFRedisTask *WFTaskFactory::create_redis_task(const ParsedURI& uri,
 
 	task->init(uri);
 	task->set_keep_alive(REDIS_KEEPALIVE_DEFAULT);
+	return task;
+}
+
+WFRedisTask *
+__WFRedisTaskFactory::create_subscribe_task(const std::string& url,
+											extract_t extract,
+											redis_callback_t callback)
+{
+	auto *task = new ComplexRedisSubscribeTask(std::move(extract),
+											   std::move(callback));
+	ParsedURI uri;
+
+	URIParser::parse(url, uri);
+	task->init(std::move(uri));
+	return task;
+}
+
+WFRedisTask *
+__WFRedisTaskFactory::create_subscribe_task(const ParsedURI& uri,
+											extract_t extract,
+											redis_callback_t callback)
+{
+	auto *task = new ComplexRedisSubscribeTask(std::move(extract),
+											   std::move(callback));
+
+	task->init(uri);
 	return task;
 }
 

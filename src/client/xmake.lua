@@ -2,6 +2,9 @@ target("client")
     set_kind("object")
     add_files("*.cc")
     remove_files("WFKafkaClient.cc")
+    if not has_config("redis") then
+        remove_files("WFRedisSubscriber.cc")
+    end
     if not has_config("mysql") then
         remove_files("WFMySQLConnection.cc")
     end

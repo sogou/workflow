@@ -26,6 +26,7 @@
 #include <functional>
 #include <atomic>
 #include <mutex>
+#include <openssl/ssl.h>
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 

@@ -204,6 +204,13 @@ bool ComplexRedisTask::need_redirect()
 		if (reply->str == NULL)
 			return false;
 
+		if (strncasecmp(reply->str, "NOAUTH ", 7) == 0)
+		{
+			this->state = WFT_STATE_TASK_ERROR;
+			this->error = WFT_ERR_REDIS_ACCESS_DENIED;
+			return false;
+		}
+
 		bool asking = false;
 		if (strncasecmp(reply->str, "ASK ", 4) == 0)
 			asking = true;

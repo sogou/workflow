@@ -35,7 +35,6 @@ else ()
 endif ()
 
 set(TUTORIAL_LIST
-	dns_proxy
 	tutorial-00-helloworld
 	tutorial-01-wget
 	tutorial-04-http_echo_server

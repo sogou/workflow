@@ -62,9 +62,9 @@ public:
 		return this->sync_send("UNSUBSCRIBE", channels);
 	}
 
-	int unsubscribe_all()
+	int unsubscribe()
 	{
-		return this->unsubscribe(std::vector<std::string>());
+		return this->sync_send("UNSUBSCRIBE", { });
 	}
 
 	int psubscribe(const std::vector<std::string>& patterns)
@@ -77,14 +77,19 @@ public:
 		return this->sync_send("PUNSUBSCRIBE", patterns);
 	}
 
-	int punsubscribe_all()
+	int punsubscribe()
 	{
-		return this->punsubscribe(std::vector<std::string>());
+		return this->sync_send("PUNSUBSCRIBE", { });
+	}
+
+	int ping(const std::string& message)
+	{
+		return this->sync_send("PING", { message });
 	}
 
 	int ping()
 	{
-		return this->sync_send("PING", std::vector<std::string>());
+		return this->sync_send("PING", { });
 	}
 
 public:

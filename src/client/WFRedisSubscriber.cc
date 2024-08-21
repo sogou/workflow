@@ -81,13 +81,10 @@ void WFRedisSubscribeTask::task_callback(WFRedisTask *task)
 	t->release();
 }
 
-int WFRedisSubscriber::init(const std::string& url, SSL_CTX *ssl_ctx)
+int WFRedisSubscriber::init(const std::string& url)
 {
 	if (URIParser::parse(url, this->uri) >= 0)
-	{
-		this->ssl_ctx = ssl_ctx;
 		return 0;
-	}
 
 	if (this->uri.state == URI_STATE_INVALID)
 		errno = EINVAL;
@@ -102,7 +99,6 @@ WFRedisSubscriber::create_redis_task(const std::string& command,
 	WFRedisTask *task = __WFRedisTaskFactory::create_subscribe_task(this->uri,
 									WFRedisSubscribeTask::task_extract,
 									WFRedisSubscribeTask::task_callback);
-	this->set_ssl_ctx(task);
 	task->get_req()->set_request(command, params);
 	return task;
 }

@@ -26,7 +26,6 @@
 #include <functional>
 #include <atomic>
 #include <mutex>
-#include <openssl/ssl.h>
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 
@@ -187,13 +186,7 @@ protected:
 class WFRedisSubscriber
 {
 public:
-	int init(const std::string& url)
-	{
-		return this->init(url, NULL);
-	}
-
-	int init(const std::string& url, SSL_CTX *ssl_ctx);
-
+	int init(const std::string& url);
 	void deinit() { }
 
 public:
@@ -210,22 +203,11 @@ public:
 						   extract_t extract, callback_t callback);
 
 protected:
-	void set_ssl_ctx(WFRedisTask *task) const
-	{
-		using RedisRequest = protocol::RedisRequest;
-		using RedisResponse = protocol::RedisResponse;
-		auto *t = (WFComplexClientTask<RedisRequest, RedisResponse> *)task;
-		/* 'ssl_ctx' can be NULL and will use default. */
-		t->set_ssl_ctx(this->ssl_ctx);
-	}
-
-protected:
 	WFRedisTask *create_redis_task(const std::string& command,
 								   const std::vector<std::string>& params);
 
 protected:
 	ParsedURI uri;
-	SSL_CTX *ssl_ctx;
 
 public:
 	virtual ~WFRedisSubscriber() { }

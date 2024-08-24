@@ -312,7 +312,7 @@ static double __evaluate_json_number(const char *integer,
 									 const char *fraction,
 									 int exp)
 {
-	long long mant = 0;
+	unsigned long long mant = 0;
 	int figures = 0;
 	double num;
 	int sign;
@@ -326,7 +326,7 @@ static double __evaluate_json_number(const char *integer,
 		mant = *integer - '0';
 		integer++;
 		figures++;
-		while (isdigit(*integer) && figures < 18)
+		while (isdigit(*integer) && figures < 19)
 		{
 			mant *= 10;
 			mant += *integer - '0';
@@ -349,7 +349,7 @@ static double __evaluate_json_number(const char *integer,
 		}
 	}
 
-	while (isdigit(*fraction) && figures < 18)
+	while (isdigit(*fraction) && figures < 19)
 	{
 		mant *= 10;
 		mant += *fraction - '0';
@@ -360,7 +360,7 @@ static double __evaluate_json_number(const char *integer,
 
 	if (exp != 0 && figures != 0)
 	{
-		while (exp > 0 && figures < 18)
+		while (exp > 0 && figures < 19)
 		{
 			mant *= 10;
 			exp--;
@@ -378,7 +378,7 @@ static double __evaluate_json_number(const char *integer,
 	num = mant;
 	if (exp != 0 && figures != 0)
 	{
-		if (exp > 291)
+		if (exp > 290)
 			num = INFINITY;
 		else if (exp > 0)
 			num *= __power_of_10[exp];

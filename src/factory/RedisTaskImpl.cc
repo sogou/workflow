@@ -68,6 +68,7 @@ bool ComplexRedisTask::check_request()
 	if (this->req.get_command(command) &&
 		(strcasecmp(command.c_str(), "AUTH") == 0 ||
 		 strcasecmp(command.c_str(), "SELECT") == 0 ||
+		 strcasecmp(command.c_str(), "RESET") == 0 ||
 		 strcasecmp(command.c_str(), "ASKING") == 0))
 	{
 		this->state = WFT_STATE_TASK_ERROR;

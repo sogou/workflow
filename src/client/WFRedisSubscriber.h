@@ -93,6 +93,11 @@ public:
 		return this->sync_send("PING", { });
 	}
 
+	int quit()
+	{
+		return this->sync_send("QUIT", { });
+	}
+
 public:
 	/* All 'timeout' proxy functions can only be called only before
 	   the task is started or in 'extract'. */

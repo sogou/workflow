@@ -72,6 +72,7 @@ bool ComplexRedisTask::check_request()
 	if (this->req.get_command(command) &&
 		(strcasecmp(command.c_str(), "AUTH") == 0 ||
 		 strcasecmp(command.c_str(), "SELECT") == 0 ||
+		 strcasecmp(command.c_str(), "RESET") == 0 ||
 		 strcasecmp(command.c_str(), "ASKING") == 0))
 	{
 		this->state = WFT_STATE_TASK_ERROR;
@@ -368,26 +369,17 @@ ComplexRedisSubscribeTask::SubscribeWrapper::next_in(ProtocolMessage *message)
 {
 	redis_reply_t *reply = ((RedisResponse *)message)->result_ptr();
 
-	if (reply->type == REDIS_REPLY_TYPE_ARRAY && reply->elements == 3 &&
-		reply->element[0]->type == REDIS_REPLY_TYPE_STRING)
-	{
-		const char *str = reply->element[0]->str;
-		size_t len = reply->element[0]->len;
-
-		if ((len == 11 && strncasecmp(str, "unsubscribe", 11)) == 0 ||
-			(len == 12 && strncasecmp(str, "punsubscribe", 12) == 0))
-		{
-			if (reply->element[2]->type == REDIS_REPLY_TYPE_INTEGER &&
-				reply->element[2]->integer == 0)
-			{
-				task_->finished_ = true;
-			}
-		}
-	}
-	else if (!task_->watching_)
+	if (reply->type != REDIS_REPLY_TYPE_ARRAY)
 	{
 		task_->finished_ = true;
 		return NULL;
+	}
+
+	if (reply->elements == 3 &&
+		reply->element[2]->type == REDIS_REPLY_TYPE_INTEGER &&
+		reply->element[2]->integer == 0)
+	{
+		task_->finished_ = true;
 	}
 
 	task_->watching_ = true;

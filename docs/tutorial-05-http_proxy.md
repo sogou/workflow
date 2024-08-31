@@ -220,17 +220,3 @@ int process(WFHttpTask *server_task)
     series_of(server_task)->push_back(task);
 }
 ~~~
-但鉴于很多用户不想了解series用法，我们加入一个便利类ReplyGuard，让用户可以在任何时候回复请求，用法如下：
-~~~cpp
-int process(WFHttpTask *server_task)
-{
-    auto *guard = new WFFacilities::ReplyGuard(server_task);
-    WFHttpTask *task = WFTaskFactory::create_http_task(..., [guard, server_task]{WFHttpTask *task) {
-        *server_task->get_resp() = std::move(*task->get_resp());
-        delete guard;  // 此时server才会回复。
-    });
-    task->start();
-}
-~~~
-WFFacilities::ReplyGuard用于阻止一个server task的回复，只有这个guard被析构，才会触发回复。  
-使用ReplyGuard一般不影响原server task series的使用，用户依然可以push_back任务。但**避免再调用series的cancel()**。

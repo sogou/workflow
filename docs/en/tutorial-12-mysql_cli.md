@@ -18,7 +18,11 @@ mysql://username:password@host:port/dbname?character\_set=charset&character\_set
 
 - set scheme to be **mysqls://** for accessing MySQL with SSL connnection (MySQL server 5.7 or above is required).
 
-- fill in the username and the password for the MySQL database;
+- fill in the username and the password for the MySQL database; Special characters in password need to be escaped.
+~~~cpp
+// Password: @@@@####
+std::string url = "mysql://root:" + StringUtil::url_encode_component("@@@@####") + "@127.0.0.1";
+~~~
 
 - the default port number is 3306;
 

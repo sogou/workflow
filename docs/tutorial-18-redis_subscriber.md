@@ -22,7 +22,7 @@ if (suber.init(url) != 0)
 WFRedisSubscribeTask *task;
 task = suber.create_subscribe_task(channels, extract, callback);
 
-task->set_watch_timeout(100000000); // 100000秒
+task->set_watch_timeout(1000000); // 1000秒
 task->start();
 
 // 这里可以使用task的相关接口改变订阅内容

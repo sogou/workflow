@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	WFRedisSubscribeTask *task;
 	task = suber.create_subscribe_task(channels, extract, callback);
 
-	task->set_watch_timeout(100000000);
+	task->set_watch_timeout(1000000);
 	task->start();
 
 	std::string line;
@@ -88,7 +88,12 @@ int main(int argc, char *argv[])
 		std::vector<std::string> params;
 
 		if (std::getline(std::cin, line))
+		{
+			if (line.empty())
+				continue;
+
 			params = StringUtil::split_filter_empty(line, ' ');
+		}
 
 		if (finished)
 			break;

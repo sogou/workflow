@@ -17,8 +17,11 @@ mysql://username:password@host:port/dbname?character_set=charset&character_set_r
 
 - 如果以SSL连接访问MySQL，则scheme设为**mysqls://**。MySQL server 5.7及以上支持；
 
-- username和password按需填写；
-
+- username和password按需填写，如果密码里包含特殊字符，需要转义后再拼接URL；
+~~~cpp
+// 密码为：@@@@####
+std::string url = "mysql://root:" + StringUtil::url_encode_component("@@@@####") + "@127.0.0.1";
+~~~
 - port默认为3306；
 
 - dbname为要用的数据库名，一般如果SQL语句只操作一个db的话建议填写；

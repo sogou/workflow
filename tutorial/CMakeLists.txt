@@ -67,6 +67,7 @@ if (NOT REDIS STREQUAL "n")
 set(TUTORIAL_LIST
 	tutorial-02-redis_cli
 	tutorial-03-wget_to_redis
+	tutorial-18-redis_subscriber
 )
 foreach(src ${TUTORIAL_LIST})
 	string(REPLACE "-" ";" arr ${src})

@@ -377,3 +377,9 @@ cc_binary(
 	 srcs = ['tutorial/tutorial-14-consul_cli.cc'],
 	 deps = [':consul'],
 )
+
+cc_binary(
+	 name = 'redis_subscriber',
+	 srcs = ['tutorial/tutorial-18-redis_subscriber.cc'],
+	 deps = [':redis'],
+)

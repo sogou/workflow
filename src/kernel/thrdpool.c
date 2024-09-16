@@ -117,7 +117,6 @@ static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 static int __thrdpool_create_threads(size_t nthreads, thrdpool_t *pool)
 {
 	pthread_attr_t attr;
-	pthread_t tid;
 	int ret;
 
 	ret = pthread_attr_init(&attr);
@@ -128,7 +127,7 @@ static int __thrdpool_create_threads(size_t nthreads, thrdpool_t *pool)
 
 		while (pool->nthreads < nthreads)
 		{
-			ret = pthread_create(&tid, &attr, __thrdpool_routine, pool);
+			ret = pthread_create(NULL, &attr, __thrdpool_routine, pool);
 			if (ret == 0)
 				pool->nthreads++;
 			else
@@ -218,7 +217,6 @@ int thrdpool_in_pool(thrdpool_t *pool)
 int thrdpool_increase(thrdpool_t *pool)
 {
 	pthread_attr_t attr;
-	pthread_t tid;
 	int ret;
 
 	ret = pthread_attr_init(&attr);
@@ -228,7 +226,7 @@ int thrdpool_increase(thrdpool_t *pool)
 			pthread_attr_setstacksize(&attr, pool->stacksize);
 
 		pthread_mutex_lock(&pool->mutex);
-		ret = pthread_create(&tid, &attr, __thrdpool_routine, pool);
+		ret = pthread_create(NULL, &attr, __thrdpool_routine, pool);
 		if (ret == 0)
 			pool->nthreads++;
 

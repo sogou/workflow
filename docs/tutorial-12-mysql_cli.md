@@ -256,7 +256,7 @@ begin:
 
 ### 1. WFMySQLConnection的创建与初始化
 
-创建一个WFMySQLConnection的时候需要传入一个**id**，必须全局唯一，之后的调用内部都会由这个id去唯一找到对应的那个连接。
+创建一个WFMySQLConnection的时候需要传入一个**id**，之后的调用内部都会由这个id和url去找到对应的那个连接。
 
 初始化需要传入**url**，之后在这个connection上创建的任务就不需要再设置url了。
 
@@ -298,6 +298,10 @@ WFMySQLConnection相当于一个二级工厂，我们约定任何工厂对象的
 ~~~
 
 ### 3. 注意事项
+
+不可以无限制的产生id来生成连接对象，因为每个id会占用一小块内存，无限产生id会使内存不断增加。当一个连接使用完毕，可以不创建和运行disconnect task，而是让这个连接进入内部连接池。下一个connection通过相同的id和url初始化，会自动复用这个连接。
+
+同一个连接上的多个任务并行启动，会得到EAGAIN错误。
 
 如果在使用事务期间已经开始BEGIN但还没有COMMIT或ROLLBACK，且期间连接发生过中断，则连接会被框架内部自动重连，用户会在下一个task请求中拿到**ECONNRESET**错误。此时还没COMMIT的事务语句已经失效，需要重新再发一遍。
 

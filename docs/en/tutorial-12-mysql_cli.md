@@ -265,7 +265,7 @@ Since it is a highly concurrent asynchronous client, this means that the client 
 
 ### 1\. Creating and initializing WFMySQLConnection
 
-When creating a WFMySQLConnection, you need to pass in globally unique **id**, and the subsequent calls on this WFMySQLConnection will use this id to find the corresponding unique connection.
+When creating a WFMySQLConnection, you need to pass in **id**, and the subsequent calls on this WFMySQLConnection will use this id and url to find the corresponding unique connection.
 
 When initializing a WFMySQLConnection, you need to pass a URL, and then you do not need to set the URL for the task created on this connection.
 
@@ -310,6 +310,10 @@ WFMySQLConnection is equivalent to a secondary factory. In the framework, we arr
 ~~~
 
 ### 3\. Cautions
+
+Do not generate new connection id infinitely, becauase easy id will occupy a little memory. The connection will be put to an internal connection pool if user didn't run a disconnect task, and will been reused by another WFMySQLConnection object initialized with the same id and url.
+
+Running tasks on the same connection parallelly will fail with error **EAGAIN**.
 
 If you have started `BEGIN` but have not `COMMIT` or `ROLLBACK` during the transaction and the connection has been interrupted during the transaction, the connection will be automatically reconnected internally by the framework, and you will get **ECONNRESET** error in the next task request. In this case, the transaction statements those have not been `COMMIT` would be expired and you may need to send them again.
 

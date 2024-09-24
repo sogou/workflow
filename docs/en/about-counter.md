@@ -170,16 +170,17 @@ In the example, a counter named "c1" is created, and in the HTTP callback, call 
 class WFTaskFactory
 {
     ...
-    static void count_by_name(const std::string& counter_name);
+    static int count_by_name(const std::string& counter_name);
 
-    static void count_by_name(const std::string& counter_name, unsigned int n);
+    static int count_by_name(const std::string& counter_name, unsigned int n);
     ...
 };
 ~~~
 
 You can pass an integer n to **WFTaskFactory::count\_by\_name**, indicating the count value to be increased in this operation. Obviously:   
 **count\_by\_name("c1")** is equivalent to **count\_by\_name("c1", 1)**.   
-If the "c1" counter does not exist (not created or already completed), the operation on "c1" will have no effect, so the wild pointer problem in an anonymous counter will not happen here.
+If the "c1" counter does not exist (not created or already completed), the operation on "c1" will have no effect, so the wild pointer problem in an anonymous counter will not happen here.  
+The **count\_by\_name()** function returns the number of counters that was waked up by the operation. When **n** is greater that 1, more than one counter may reach target value.
 
 # Definition of the detailed behaviors of named counters
 

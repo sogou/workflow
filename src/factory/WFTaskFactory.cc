@@ -158,7 +158,7 @@ public:
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
 						  counter_callback_t&& cb);
 
-	void count_n(const std::string& name, unsigned int n);
+	int count_n(const std::string& name, unsigned int n);
 	void count(CounterList *counters, struct __counter_node *node);
 
 	void remove(CounterList *counters, struct __counter_node *node)
@@ -260,12 +260,13 @@ bool __NamedCounterMap::count_n_locked(CounterList *counters, unsigned int n,
 	return false;
 }
 
-void __NamedCounterMap::count_n(const std::string& name, unsigned int n)
+int __NamedCounterMap::count_n(const std::string& name, unsigned int n)
 {
 	LIST_HEAD(task_list);
 	struct __counter_node *node;
 	CounterList *counters;
 	bool erased = false;
+	int ret = 0;
 
 	mutex_.lock();
 	counters = __get_object_list<CounterList>(name, &root_, false);
@@ -281,7 +282,10 @@ void __NamedCounterMap::count_n(const std::string& name, unsigned int n)
 		node = list_entry(task_list.next, struct __counter_node, list);
 		list_del(&node->list);
 		node->task->WFCounterTask::count();
+		ret++;
 	}
+
+	return ret;
 }
 
 void __NamedCounterMap::count(CounterList *counters,
@@ -312,9 +316,9 @@ WFCounterTask *WFTaskFactory::create_counter_task(const std::string& name,
 	return __counter_map.create(name, target_value, std::move(callback));
 }
 
-void WFTaskFactory::count_by_name(const std::string& name, unsigned int n)
+int WFTaskFactory::count_by_name(const std::string& name, unsigned int n)
 {
-	__counter_map.count_n(name, n);
+	return __counter_map.count_n(name, n);
 }
 
 /****************** Named Mailbox ******************/
@@ -337,7 +341,7 @@ public:
 						  mailbox_callback_t&& cb);
 	WFMailboxTask *create(const std::string& name, mailbox_callback_t&& cb);
 
-	void send(const std::string& name, void *msg, size_t max);
+	int send(const std::string& name, void *msg, size_t max);
 	void send(MailboxList *mailboxes, struct __mailbox_node *node, void *msg);
 
 	void remove(MailboxList *mailboxes, struct __mailbox_node *node)
@@ -444,12 +448,13 @@ bool __NamedMailboxMap::send_max_locked(MailboxList *mailboxes,
 	return true;
 }
 
-void __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
+int __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
 {
 	LIST_HEAD(task_list);
 	struct __mailbox_node *node;
 	MailboxList *mailboxes;
 	bool erased = false;
+	int ret = 0;
 
 	mutex_.lock();
 	mailboxes = __get_object_list<MailboxList>(name, &root_, false);
@@ -465,7 +470,10 @@ void __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
 		node = list_entry(task_list.next, struct __mailbox_node, list);
 		list_del(&node->list);
 		node->task->WFMailboxTask::send(msg);
+		ret++;
 	}
+
+	return ret;
 }
 
 void __NamedMailboxMap::send(MailboxList *mailboxes,
@@ -496,9 +504,9 @@ WFMailboxTask *WFTaskFactory::create_mailbox_task(const std::string& name,
 	return __mailbox_map.create(name, std::move(callback));
 }
 
-void WFTaskFactory::send_by_name(const std::string& name, void *msg, size_t max)
+int WFTaskFactory::send_by_name(const std::string& name, void *msg, size_t max)
 {
-	__mailbox_map.send(name, msg, max);
+	return __mailbox_map.send(name, msg, max);
 }
 
 /****************** Named Conditional ******************/
@@ -521,7 +529,7 @@ public:
 						  void **msgbuf);
 	WFConditional *create(const std::string& name, SubTask *task);
 
-	void signal(const std::string& name, void *msg, size_t max);
+	int signal(const std::string& name, void *msg, size_t max);
 	void signal(ConditionalList *conds, struct __conditional_node *node,
 				void *msg);
 
@@ -628,12 +636,13 @@ bool __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
 	return true;
 }
 
-void __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max)
+int __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max)
 {
 	LIST_HEAD(cond_list);
 	struct __conditional_node *node;
 	ConditionalList *conds;
 	bool erased = false;
+	int ret = 0;
 
 	mutex_.lock();
 	conds = __get_object_list<ConditionalList>(name, &root_, false);
@@ -649,7 +658,10 @@ void __NamedConditionalMap::signal(const std::string& name, void *msg, size_t ma
 		node = list_entry(cond_list.next, struct __conditional_node, list);
 		list_del(&node->list);
 		node->cond->WFConditional::signal(msg);
+		ret++;
 	}
+
+	return ret;
 }
 
 void __NamedConditionalMap::signal(ConditionalList *conds,
@@ -679,10 +691,10 @@ WFConditional *WFTaskFactory::create_conditional(const std::string& name,
 	return __conditional_map.create(name, task);
 }
 
-void WFTaskFactory::signal_by_name(const std::string& name, void *msg,
+int WFTaskFactory::signal_by_name(const std::string& name, void *msg,
 								   size_t max)
 {
-	__conditional_map.signal(name, msg, max);
+	return __conditional_map.signal(name, msg, max);
 }
 
 /****************** Named Guard ******************/

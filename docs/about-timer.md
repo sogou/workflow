@@ -19,12 +19,12 @@ public:
                                           time_t seconds, long nanoseconds,
                                           timer_callback_t callback);
 
-    static void cancel_by_name(const std::string& timer_name)
+    static int cancel_by_name(const std::string& timer_name)
     {
         cancel_by_name(const std::string& timer_name, (size_t)-1);
     }
 
-    static void cancel_by_name(const std::string& timer_name, size_t max);
+    static int cancel_by_name(const std::string& timer_name, size_t max);
 };
 ~~~
 我们通过seconds和nanoseconds两个参数来指定一个定时器的定时时间。其中，nanoseconds的取值范围在[0,1000000000)。  
@@ -35,7 +35,8 @@ public:
 
 如果在创建定时器任务时传入一个名称，那么这个定时器就可以在被提前中断。  
 中断一个定时任务的方法是通过WFTaskFactory::cancel_by_name这个接口，这个接口默认情况下，会取消这个名称下的所有定时器。  
-因此，我们也支持传入一个max参数，让操作最多取消max个定时器。当然，如果没有这个名称下的定时器，cancel操作不会产生任何效果。  
+因此，我们也支持传入一个max参数，让操作最多取消max个定时器。无论哪个接口，返回值都是代表实际被取消的定时器个数。  
+如果没有这个名称下的定时器，cancel操作不会产生任何效果，并返回0。  
 定时器在被创建之后就可取消，并非一定要等它被启动之后。以这个代码为例：
 ~~~cpp
 #include <stdio.h>

@@ -160,15 +160,16 @@ int main(void)
 class WFTaskFactory
 {
     ...
-    static void count_by_name(const std::string& counter_name);
+    static int count_by_name(const std::string& counter_name);
 
-    static void count_by_name(const std::string& counter_name, unsigned int n);
+    static int count_by_name(const std::string& counter_name, unsigned int n);
     ...
 };
 ~~~
 WFTaskFactory::count_by_name方法还可以传入一个整数n，表示这一次操作要增加的计数值，显然：  
 count_by_name("c1")等价于count_by_name("c1", 1)。  
 如果"c1"计数器不存在（未创建或已经完成），那么对"c1"的操作不产生任何效果，因此不会有匿名计数器野指针的问题。  
+函数的返回值表示被唤醒的计数器个数。当n大于1时，count_by_name操作可能让多个计数器达到目标值。  
 
 # 命名计数器详细行为定义
 

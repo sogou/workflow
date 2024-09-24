@@ -19,12 +19,12 @@ public:
                                           time_t seconds, long nanoseconds,
                                           timer_callback_t callback);
 
-    static void cancel_by_name(const std::string& timer_name)
+    static int cancel_by_name(const std::string& timer_name)
     {
         cancel_by_name(const std::string& timer_name, (size_t)-1);
     }
 
-    static void cancel_by_name(const std::string& timer_name, size_t max);
+    static int cancel_by_name(const std::string& timer_name, size_t max);
 };
 ~~~
 We specify the timing time of a timer through the seconds and nanoseconds parameters. Among them, the value range of nanoseconds is [0,1000000000). When creating a timer, a timer_name can be specified. And we may interrupt a timer by calling **cancel_by_name** with this name later.  
@@ -32,7 +32,7 @@ As a standard workflow task, there is also a user\_data field in the timer task 
 
 # Canceling a timer
 
-A named timer can be interrupted throught WFTaskFacotry::cancel_by_name interface, which will cancel all timers under the name by default. So we provide another cancel interface with the second argument **max** for user to cancel at most **max** timers. And of course, if no timer under the name, nothing performed.
+A named timer can be interrupted throught WFTaskFacotry::cancel_by_name interface, which will cancel all timers under the name by default. So we provide another cancel interface with the second argument **max** for user to cancel at most **max** timers. Each interface returns the number of timers that was actually canceled. And of course, if no timer under the name, nothing performed and returns 0.
 You can cancel a timer right after it's created, for example:
 ~~~cpp
 #include <stdio.h>

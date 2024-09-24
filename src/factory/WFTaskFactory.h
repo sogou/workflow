@@ -227,13 +227,13 @@ public:
 										  timer_callback_t callback);
 
 	/* cancel all timers under the name. */
-	static void cancel_by_name(const std::string& timer_name)
+	static int cancel_by_name(const std::string& timer_name)
 	{
-		WFTaskFactory::cancel_by_name(timer_name, (size_t)-1);
+		return WFTaskFactory::cancel_by_name(timer_name, (size_t)-1);
 	}
 
 	/* cancel at most 'max' timers under the name. */
-	static void cancel_by_name(const std::string& timer_name, size_t max);
+	static int cancel_by_name(const std::string& timer_name, size_t max);
 
 	/* timer in microseconds (deprecated) */
 	static WFTimerTask *create_timer_task(unsigned int microseconds,
@@ -257,15 +257,15 @@ public:
 	 * exceeding target_value. When multiple counters share a same name,
 	 * this operation will be performed on the first created. If no counter
 	 * matches the name, nothing is performed. */
-	static void count_by_name(const std::string& counter_name)
+	static int count_by_name(const std::string& counter_name)
 	{
-		WFTaskFactory::count_by_name(counter_name, 1);
+		return WFTaskFactory::count_by_name(counter_name, 1);
 	}
 
 	/* Count by name with a value n. When multiple counters share this name,
 	 * the operation is performed on the counters in the sequence of its
 	 * creation, and more than one counter may reach target value. */
-	static void count_by_name(const std::string& counter_name, unsigned int n);
+	static int count_by_name(const std::string& counter_name, unsigned int n);
 
 public:
 	static WFMailboxTask *create_mailbox_task(void **mailbox,
@@ -289,13 +289,13 @@ public:
 
 	/* The 'msg' will be sent to the all mailbox tasks under the name, and
 	 * would be lost if no task matched. */
-	static void send_by_name(const std::string& mailbox_name, void *msg)
+	static int send_by_name(const std::string& mailbox_name, void *msg)
 	{
-		WFTaskFactory::send_by_name(mailbox_name, msg, (size_t)-1);
+		return WFTaskFactory::send_by_name(mailbox_name, msg, (size_t)-1);
 	}
 
-	static void send_by_name(const std::string& mailbox_name, void *msg,
-							 size_t max);
+	static int send_by_name(const std::string& mailbox_name, void *msg,
+							size_t max);
 
 public:
 	static WFSelectorTask *create_selector_task(size_t candidates,
@@ -321,13 +321,13 @@ public:
 	static WFConditional *create_conditional(const std::string& cond_name,
 											 SubTask *task);
 
-	static void signal_by_name(const std::string& cond_name, void *msg)
+	static int signal_by_name(const std::string& cond_name, void *msg)
 	{
-		WFTaskFactory::signal_by_name(cond_name, msg, (size_t)-1);
+		return WFTaskFactory::signal_by_name(cond_name, msg, (size_t)-1);
 	}
 
-	static void signal_by_name(const std::string& cond_name, void *msg,
-							   size_t max);
+	static int signal_by_name(const std::string& cond_name, void *msg,
+							  size_t max);
 
 public:
 	static WFConditional *create_guard(const std::string& resource_name,

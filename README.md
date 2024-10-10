@@ -33,6 +33,7 @@ int main()
 ~~~
 
 * As a **multifunctional asynchronous client**, it currently supports `HTTP`, `Redis`, `MySQL` and `Kafka` protocols.
+  * MySQL protocol supports MariaDB, MySQL, TiDB and others
 * To implement **client/server on user-defined protocol** and build your own **RPC system**.
   * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc, trpc and thrift protocols.
 * To build **asynchronous workflow**; support common **series** and **parallel** structures, and also support any **DAG** structures.

@@ -195,28 +195,3 @@ server任务的callback和client一样，是在http交互完成之后被调用�
 但是，有task->noreply()调用，如果对server任务执行了这个调用，在原本回复的时刻，直接关闭连接。但callback依然会被调用（状态为NOREPLY）。  
 在server任务的callback里，同样可以通过series_of()操作获得任务的series。那么，我们依然可以往这个series里追加新任务，虽然回复已经完成。  
 
-# 另外一种实现异步Server的便利方法
-
-由于很多用户会直观的觉得，server的process函数结束server处理流程就结束并回复了。所以，经常有用户在process里使用wait group进行等待：
-~~~cpp
-int process(WFHttpTask *server_task)
-{
-    WFFacilities::WaitGroup wait_group(1);
-    WFHttpTask *task = WFTaskFactory::create_http_task(..., [&wait_group, server_task]{WFHttpTask *task) {
-        *server_task->get_resp() = std::move(*task->get_resp());
-        wait_group.done();
-    });
-    task->start();
-    wait_group.wait();
-}
-~~~
-我们需要强调，以上的代码是一种不高效的写法，因为这会让一个线程进入等待。等价的高效写法是：
-~~~cpp
-int process(WFHttpTask *server_task)
-{
-    WFHttpTask *task = WFTaskFactory::create_http_task(..., [server_task]{WFHttpTask *task) {
-        *server_task->get_resp() = std::move(*task->get_resp());
-    });
-    series_of(server_task)->push_back(task);
-}
-~~~

@@ -238,6 +238,8 @@ void __WFNamedTimerTask::dispatch()
 
 void __WFNamedTimerTask::handle(int state, int error)
 {
+	bool canceled = true;
+
 	if (node_.task)
 	{
 		bool erased = false;
@@ -245,6 +247,7 @@ void __WFNamedTimerTask::handle(int state, int error)
 		__timer_map.mutex_.lock();
 		if (node_.task)
 		{
+			canceled = false;
 			erased = timers_->del(&node_, &__timer_map.root_);
 			node_.task = NULL;
 		}
@@ -252,6 +255,12 @@ void __WFNamedTimerTask::handle(int state, int error)
 		__timer_map.mutex_.unlock();
 		if (erased)
 			delete timers_;
+	}
+
+	if (canceled)
+	{
+		state = SS_STATE_ERROR;
+		error = ECANCELED;
 	}
 
 	mutex_.lock();

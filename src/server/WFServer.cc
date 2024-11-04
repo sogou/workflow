@@ -74,7 +74,7 @@ SSL_CTX *WFServerBase::new_ssl_ctx(const char *cert_file, const char *key_file)
 	if (!ssl_ctx)
 		return NULL;
 
-	if (SSL_CTX_use_certificate_file(ssl_ctx, cert_file, SSL_FILETYPE_PEM) > 0 &&
+	if (SSL_CTX_use_certificate_chain_file(ssl_ctx, cert_file) > 0 &&
 		SSL_CTX_use_PrivateKey_file(ssl_ctx, key_file, SSL_FILETYPE_PEM) > 0 &&
 		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, ssl_ctx_callback) > 0 &&
 		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, this) > 0)

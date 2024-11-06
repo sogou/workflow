@@ -297,6 +297,9 @@ public:
 	static int send_by_name(const std::string& mailbox_name, void *msg,
 							size_t max);
 
+	static int send_by_name(const std::string& mailbox_name, void *const msg[],
+							size_t max);
+
 public:
 	static WFSelectorTask *create_selector_task(size_t candidates,
 												selector_callback_t callback)
@@ -327,6 +330,9 @@ public:
 	}
 
 	static int signal_by_name(const std::string& cond_name, void *msg,
+							  size_t max);
+
+	static int signal_by_name(const std::string& cond_name, void *const msg[],
 							  size_t max);
 
 public:

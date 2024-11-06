@@ -341,7 +341,7 @@ public:
 						  mailbox_callback_t&& cb);
 	WFMailboxTask *create(const std::string& name, mailbox_callback_t&& cb);
 
-	int send(const std::string& name, void *msg, size_t max);
+	int send(const std::string& name, void *const msg[], size_t max, int inc);
 	void send(MailboxList *mailboxes, struct __mailbox_node *node, void *msg);
 
 	void remove(MailboxList *mailboxes, struct __mailbox_node *node)
@@ -356,7 +356,7 @@ public:
 	}
 
 private:
-	bool send_max_locked(MailboxList *mailboxes, void *msg, size_t max,
+	bool send_max_locked(MailboxList *mailboxes, size_t max,
 						 struct list_head *task_list);
 	struct rb_root root_;
 	std::mutex mutex_;
@@ -426,8 +426,7 @@ WFMailboxTask *__NamedMailboxMap::create(const std::string& name,
 	return task;
 }
 
-bool __NamedMailboxMap::send_max_locked(MailboxList *mailboxes,
-										void *msg, size_t max,
+bool __NamedMailboxMap::send_max_locked(MailboxList *mailboxes, size_t max,
 										struct list_head *task_list)
 {
 	if (max == (size_t)-1)
@@ -448,7 +447,8 @@ bool __NamedMailboxMap::send_max_locked(MailboxList *mailboxes,
 	return true;
 }
 
-int __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
+int __NamedMailboxMap::send(const std::string& name, void *const msg[],
+							size_t max, int inc)
 {
 	LIST_HEAD(task_list);
 	struct __mailbox_node *node;
@@ -459,7 +459,7 @@ int __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
 	mutex_.lock();
 	mailboxes = __get_object_list<MailboxList>(name, &root_, false);
 	if (mailboxes)
-		erased = send_max_locked(mailboxes, msg, max, &task_list);
+		erased = send_max_locked(mailboxes, max, &task_list);
 
 	mutex_.unlock();
 	if (erased)
@@ -469,7 +469,8 @@ int __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
 	{
 		node = list_entry(task_list.next, struct __mailbox_node, list);
 		list_del(&node->list);
-		node->task->WFMailboxTask::send(msg);
+		node->task->WFMailboxTask::send(*msg);
+		msg += inc;
 		ret++;
 	}
 
@@ -504,9 +505,16 @@ WFMailboxTask *WFTaskFactory::create_mailbox_task(const std::string& name,
 	return __mailbox_map.create(name, std::move(callback));
 }
 
-int WFTaskFactory::send_by_name(const std::string& name, void *msg, size_t max)
+int WFTaskFactory::send_by_name(const std::string& name, void *msg,
+								size_t max)
 {
-	return __mailbox_map.send(name, msg, max);
+	return __mailbox_map.send(name, &msg, max, 0);
+}
+
+int WFTaskFactory::send_by_name(const std::string& name, void *const msg[],
+								size_t max)
+{
+	return __mailbox_map.send(name, msg, max, 1);
 }
 
 /****************** Named Conditional ******************/
@@ -529,7 +537,7 @@ public:
 						  void **msgbuf);
 	WFConditional *create(const std::string& name, SubTask *task);
 
-	int signal(const std::string& name, void *msg, size_t max);
+	int signal(const std::string& name, void *const msg[], size_t max, int inc);
 	void signal(ConditionalList *conds, struct __conditional_node *node,
 				void *msg);
 
@@ -545,7 +553,7 @@ public:
 	}
 
 private:
-	bool signal_max_locked(ConditionalList *conds, void *msg, size_t max,
+	bool signal_max_locked(ConditionalList *conds, size_t max,
 						   struct list_head *cond_list);
 	struct rb_root root_;
 	std::mutex mutex_;
@@ -615,7 +623,7 @@ WFConditional *__NamedConditionalMap::create(const std::string& name,
 }
 
 bool __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
-											  void *msg, size_t max,
+											  size_t max,
 											  struct list_head *cond_list)
 {
 	if (max == (size_t)-1)
@@ -636,7 +644,8 @@ bool __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
 	return true;
 }
 
-int __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max)
+int __NamedConditionalMap::signal(const std::string& name, void *const msg[],
+								  size_t max, int inc)
 {
 	LIST_HEAD(cond_list);
 	struct __conditional_node *node;
@@ -647,7 +656,7 @@ int __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max
 	mutex_.lock();
 	conds = __get_object_list<ConditionalList>(name, &root_, false);
 	if (conds)
-		erased = signal_max_locked(conds, msg, max, &cond_list);
+		erased = signal_max_locked(conds, max, &cond_list);
 
 	mutex_.unlock();
 	if (erased)
@@ -657,7 +666,8 @@ int __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max
 	{
 		node = list_entry(cond_list.next, struct __conditional_node, list);
 		list_del(&node->list);
-		node->cond->WFConditional::signal(msg);
+		node->cond->WFConditional::signal(*msg);
+		msg += inc;
 		ret++;
 	}
 
@@ -692,9 +702,15 @@ WFConditional *WFTaskFactory::create_conditional(const std::string& name,
 }
 
 int WFTaskFactory::signal_by_name(const std::string& name, void *msg,
-								   size_t max)
+								  size_t max)
 {
-	return __conditional_map.signal(name, msg, max);
+	return __conditional_map.signal(name, &msg, max, 0);
+}
+
+int WFTaskFactory::signal_by_name(const std::string& name, void *const msg[],
+								  size_t max)
+{
+	return __conditional_map.signal(name, msg, max, 1);
 }
 
 /****************** Named Guard ******************/

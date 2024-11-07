@@ -233,7 +233,7 @@ void __WFNamedTimerTask::dispatch()
 
 	mutex_.unlock();
 	if (ret < 0)
-		this->handle(SS_STATE_ERROR, errno);
+		this->handle(WFT_STATE_SYS_ERROR, errno);
 }
 
 void __WFNamedTimerTask::handle(int state, int error)
@@ -259,7 +259,7 @@ void __WFNamedTimerTask::handle(int state, int error)
 
 	if (canceled)
 	{
-		state = SS_STATE_ERROR;
+		state = WFT_STATE_SYS_ERROR;
 		error = ECANCELED;
 	}
 

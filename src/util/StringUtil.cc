@@ -87,10 +87,10 @@ void StringUtil::url_decode(std::string& str)
 std::string StringUtil::url_encode(const std::string& str)
 {
 	const char *cur = str.c_str();
-	const char *ed = cur + str.size();
+	const char *end = cur + str.size();
 	std::string res;
 
-	while (cur < ed)
+	while (cur < end)
 	{
 		if (*cur == ' ')
 			res += '+';
@@ -115,10 +115,10 @@ std::string StringUtil::url_encode(const std::string& str)
 std::string StringUtil::url_encode_component(const std::string& str)
 {
 	const char *cur = str.c_str();
-	const char *ed = cur + str.size();
+	const char *end = cur + str.size();
 	std::string res;
 
-	while (cur < ed)
+	while (cur < end)
 	{
 		if (*cur == ' ')
 			res += '+';
@@ -141,19 +141,19 @@ std::string StringUtil::url_encode_component(const std::string& str)
 
 std::vector<std::string> StringUtil::split(const std::string& str, char sep)
 {
-	std::string::const_iterator start = str.begin();
+	std::string::const_iterator cur = str.begin();
 	std::string::const_iterator end = str.end();
-	std::string::const_iterator next = find(start, end, sep);
+	std::string::const_iterator next = find(cur, end, sep);
 	std::vector<std::string> res;
 
 	while (next != end)
 	{
-		res.emplace_back(start, next);
-		start = next + 1;
-		next = std::find(start, end, sep);
+		res.emplace_back(cur, next);
+		cur = next + 1;
+		next = std::find(cur, end, sep);
 	}
 
-	res.emplace_back(start, next);
+	res.emplace_back(cur, next);
 	return res;
 }
 
@@ -161,21 +161,21 @@ std::vector<std::string> StringUtil::split_filter_empty(const std::string& str,
 														char sep)
 {
 	std::vector<std::string> res;
-	std::string::const_iterator start = str.begin();
+	std::string::const_iterator cur = str.begin();
 	std::string::const_iterator end = str.end();
-	std::string::const_iterator next = find(start, end, sep);
+	std::string::const_iterator next = find(cur, end, sep);
 
 	while (next != end)
 	{
-		if (start < next)
-			res.emplace_back(start, next);
+		if (cur < next)
+			res.emplace_back(cur, next);
 
-		start = next + 1;
-		next = find(start, end, sep);
+		cur = next + 1;
+		next = find(cur, end, sep);
 	}
 
-	if (start < next)
-		res.emplace_back(start, next);
+	if (cur < next)
+		res.emplace_back(cur, next);
 
 	return res;
 }
@@ -186,27 +186,27 @@ std::string StringUtil::strip(const std::string& str)
 
 	if (!str.empty())
 	{
-		const char *st = str.c_str();
-		const char *ed = st + str.size() - 1;
+		const char *cur = str.c_str();
+		const char *end = cur + str.size() - 1;
 
-		while (st <= ed)
+		while (cur <= end)
 		{
-			if (!isspace(*st))
+			if (!isspace(*cur))
 				break;
 
-			st++;
+			cur++;
 		}
 
-		while (ed >= st)
+		while (end >= cur)
 		{
-			if (!isspace(*ed))
+			if (!isspace(*end))
 				break;
 
-			ed--;
+			end--;
 		}
 
-		if (ed >= st)
-			res.assign(st, ed - st + 1);
+		if (end >= cur)
+			res.assign(cur, end - cur + 1);
 	}
 
 	return res;

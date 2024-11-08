@@ -187,9 +187,9 @@ std::string StringUtil::strip(const std::string& str)
 	if (!str.empty())
 	{
 		const char *cur = str.c_str();
-		const char *end = cur + str.size() - 1;
+		const char *end = cur + str.size();
 
-		while (cur <= end)
+		while (cur < end)
 		{
 			if (!isspace(*cur))
 				break;
@@ -197,16 +197,16 @@ std::string StringUtil::strip(const std::string& str)
 			cur++;
 		}
 
-		while (end >= cur)
+		while (end > cur)
 		{
-			if (!isspace(*end))
+			if (!isspace(*(end - 1)))
 				break;
 
 			end--;
 		}
 
-		if (end >= cur)
-			res.assign(cur, end - cur + 1);
+		if (end > cur)
+			res.assign(cur, end - cur);
 	}
 
 	return res;

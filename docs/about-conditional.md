@@ -58,11 +58,13 @@ public:
     static WFConditional *create_conditional(const std::string& cond_name, SubTask *task, void **msgbuf);
     static int signal_by_name(const std::string& cond_name, void *msg);
     static int signal_by_name(const std::string& cond_name, void *msg, size_t max);
+    static int signal_by_name(const std::string& cond_name, void *const msg[], size_t max);
 };
 ~~~
 我们看到，与普通条件任务唯一区别是，命名条件任务创建时，需要传入一个cond_name。  
 而signal_by_name()接口，默认将msg发送到所有在这个名称上等待的条件任务，将它们全部唤醒。  
-也可以通过max参数指定唤醒的最大任务数。函数的返回值表示实际唤醒的个数。  
+也可以通过max参数指定唤醒的最大任务数。此时，msg还可以是一个数组，可给不同的条件任务发送不同的消息。  
+任何一个signal_by_name的重载函数，其返回值都是表示实际唤醒的条件任务个数。  
 这就相当于实现了观察者模式。  
 
 # 示例

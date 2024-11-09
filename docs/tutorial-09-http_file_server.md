@@ -102,10 +102,10 @@ public:
     ...
 
     /* Interface with file path name */
-	static WFFileIOTask *create_pread_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+	static WFFileIOTask *create_pread_task(const std::string& path, void *buf, size_t count, off_t offset,
                                            fio_callback_t callback);
 
-    static WFFileIOTask *create_pwrite_task(const std::string& pathname, void *buf, size_t count, off_t offset,
+    static WFFileIOTask *create_pwrite_task(const std::string& path, void *buf, size_t count, off_t offset,
                                             fio_callback_t callback);  
 };
 ~~~

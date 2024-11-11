@@ -37,7 +37,6 @@
 #include "WFTaskError.h"
 #include "EndpointParams.h"
 #include "WFNameService.h"
-#include "WFHttpServerTask.h"
 
 class __WFDynamicTask : public WFDynamicTask
 {
@@ -576,9 +575,9 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 template<class REQ, class RESP>
 WFNetworkTask<REQ, RESP> *
 WFNetworkTaskFactory<REQ, RESP>::create_server_task(CommService *service,
-				std::function<void (WFNetworkTask<REQ, RESP> *)>& proc)
+				std::function<void (WFNetworkTask<REQ, RESP> *)>& process)
 {
-	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(), proc);
+	return new WFServerTask<REQ, RESP>(service, WFGlobal::get_scheduler(), process);
 }
 
 /**********Server Factory**********/
@@ -587,16 +586,13 @@ class WFServerTaskFactory
 {
 public:
 	static WFDnsTask *create_dns_task(CommService *service,
-					std::function<void (WFDnsTask *)>& proc);
+					std::function<void (WFDnsTask *)>& process);
 
 	static WFHttpTask *create_http_task(CommService *service,
-					std::function<void (WFHttpTask *)>& proc)
-	{
-		return new WFHttpServerTask(service, proc);
-	}
+					std::function<void (WFHttpTask *)>& process);
 
 	static WFMySQLTask *create_mysql_task(CommService *service,
-					std::function<void (WFMySQLTask *)>& proc);
+					std::function<void (WFMySQLTask *)>& process);
 };
 
 /************Go Task Factory************/

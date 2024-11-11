@@ -911,6 +911,29 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 
 /**********Server**********/
 
+class WFHttpServerTask : public WFServerTask<protocol::HttpRequest,
+											 protocol::HttpResponse>
+{
+private:
+	using TASK = WFNetworkTask<protocol::HttpRequest, protocol::HttpResponse>;
+
+public:
+	WFHttpServerTask(CommService *service, std::function<void (TASK *)>& proc) :
+		WFServerTask(service, WFGlobal::get_scheduler(), proc),
+		req_is_alive_(false),
+		req_has_keep_alive_header_(false)
+	{}
+
+protected:
+	virtual void handle(int state, int error);
+	virtual CommMessageOut *message_out();
+
+protected:
+	bool req_is_alive_;
+	bool req_has_keep_alive_header_;
+	std::string req_keep_alive_;
+};
+
 void WFHttpServerTask::handle(int state, int error)
 {
 	if (state == WFT_STATE_TOREPLY)
@@ -1042,5 +1065,13 @@ CommMessageOut *WFHttpServerTask::message_out()
 	}
 
 	return this->WFServerTask::message_out();
+}
+
+/**********Server Factory**********/
+
+WFHttpTask *WFServerTaskFactory::create_http_task(CommService *service,
+							std::function<void (WFHttpTask *)>& process)
+{
+	return new WFHttpServerTask(service, process);
 }
 

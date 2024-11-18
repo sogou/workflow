@@ -1357,6 +1357,12 @@ int poller_add_timer(const struct timespec *value, void *context, void **timer,
 {
 	struct __poller_node *node;
 
+	if (value->tv_nsec < 0 || value->tv_nsec >= 1000000000)
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	node = (struct __poller_node *)malloc(sizeof (struct __poller_node));
 	if (node)
 	{
@@ -1368,18 +1374,25 @@ int poller_add_timer(const struct timespec *value, void *context, void **timer,
 		node->removed = 0;
 		node->res = NULL;
 
-		clock_gettime(CLOCK_MONOTONIC, &node->timeout);
-		node->timeout.tv_sec += value->tv_sec;
-		node->timeout.tv_nsec += value->tv_nsec;
-		if (node->timeout.tv_nsec >= 1000000000)
+		if (value->tv_sec >= 0)
 		{
-			node->timeout.tv_nsec -= 1000000000;
-			node->timeout.tv_sec++;
+			clock_gettime(CLOCK_MONOTONIC, &node->timeout);
+			node->timeout.tv_sec += value->tv_sec;
+			node->timeout.tv_nsec += value->tv_nsec;
+			if (node->timeout.tv_nsec >= 1000000000)
+			{
+				node->timeout.tv_nsec -= 1000000000;
+				node->timeout.tv_sec++;
+			}
 		}
 
 		*timer = node;
 		pthread_mutex_lock(&poller->mutex);
-		__poller_insert_node(node, poller);
+		if (value->tv_sec >= 0)
+			__poller_insert_node(node, poller);
+		else
+			list_add_tail(&node->list, &poller->no_timeo_list);
+
 		pthread_mutex_unlock(&poller->mutex);
 		return 0;
 	}

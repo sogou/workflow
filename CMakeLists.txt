@@ -14,7 +14,7 @@ if (CYGWIN)
 endif ()
 
 if (MINGW)
-	message(FATAL_ERROR "Sorry, DO NOT support MinGW")
+	#message(INFO "Sorry, DO NOT support MinGW")
 endif ()
 
 ###Options
@@ -71,9 +71,12 @@ if (WIN32)
 				CMAKE_C_FLAGS_RELEASE
 				CMAKE_C_FLAGS_MINSIZEREL
 				)
-		foreach(CompilerFlag ${CompilerFlags})
-			string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
-		endforeach ()
+		if (MINGW)
+		else ()
+			foreach(CompilerFlag ${CompilerFlags})
+				string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+			endforeach ()
+		endif ()
 	endif ()
 endif ()
 
@@ -88,7 +91,10 @@ message("CMAKE_CXX_FLAGS_RELEASE is ${CMAKE_CXX_FLAGS_RELEASE}")
 message("CMAKE_CXX_FLAGS_RELWITHDEBINFO is ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 message("CMAKE_CXX_FLAGS_MINSIZEREL is ${CMAKE_CXX_FLAGS_MINSIZEREL}")
 
-if (WIN32)
+if (MINGW)
+	set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -fPIC -pipe -std=gnu90")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++14 -fexceptions -Wno-invalid-offsetof")
+elseif (WIN32)
 	set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /std:c++14")
 else ()

@@ -23,7 +23,7 @@ void SubTask::subtask_done()
 {
 	SubTask *cur = this;
 	ParallelTask *parent;
-	SubTask **entry;
+	//SubTask **entry;
 
 	while (1)
 	{

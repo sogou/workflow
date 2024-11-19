@@ -5,7 +5,9 @@ MAKE_FILE := Makefile
 DEFAULT_BUILD_DIR := build.cmake
 BUILD_DIR := $(shell if [ -f $(MAKE_FILE) ]; then echo "."; else echo $(DEFAULT_BUILD_DIR); fi)
 CMAKE3 := $(shell if which cmake3 ; then echo cmake3; else echo cmake; fi;)
-
+ifeq ($(MINGW),y)
+CMAKE3 += -G "MinGW Makefiles"
+endif
 .PHONY: $(ALL_TARGETS)
 
 all:
@@ -19,7 +21,11 @@ endif
 
 check:
 	mkdir -p $(BUILD_DIR)
+ifeq ($(DEBUG),y)
+	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug $(ROOT_DIR)
+else
 	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
+endif
 	make -C $(BUILD_DIR) check CTEST_OUTPUT_ON_FAILURE=1
 
 clean:

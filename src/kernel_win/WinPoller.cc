@@ -186,7 +186,7 @@ void WinPoller::timer_routine()
 				iocp_data->in_rbtree = false;
 				iocp_data->cancel_by_timer = true;
 				if (iocp_data->data.operation == PD_OP_SLEEP)
-					PostQueuedCompletionStatus(iocp_, sizeof IOCPData, IOCP_KEY_HANDLE, &iocp_data->overlap);
+					PostQueuedCompletionStatus(iocp_, sizeof(IOCPData), IOCP_KEY_HANDLE, &iocp_data->overlap);
 				else if (CancelIoEx(iocp_data->data.handle, &iocp_data->overlap) == 0 && GetLastError() == ERROR_NOT_FOUND)
 					iocp_data->cancel_by_timer = false;
 
@@ -205,7 +205,7 @@ void WinPoller::timer_routine()
 
 		iocp_data->in_rbtree = false;
 		if (iocp_data->data.operation == PD_OP_SLEEP)
-			PostQueuedCompletionStatus(iocp_, sizeof IOCPData, IOCP_KEY_HANDLE, &iocp_data->overlap);
+			PostQueuedCompletionStatus(iocp_, sizeof(IOCPData), IOCP_KEY_HANDLE, &iocp_data->overlap);
 		else
 			CancelIoEx(iocp_data->data.handle, &iocp_data->overlap);
 
@@ -317,7 +317,7 @@ static int __sleep_io(IOCPData *iocp_data, int timeout, HANDLE iocp)
 {
 	if (timeout == 0)
 	{
-		if (PostQueuedCompletionStatus(iocp, sizeof IOCPData, IOCP_KEY_HANDLE, &iocp_data->overlap) != 0)
+		if (PostQueuedCompletionStatus(iocp, sizeof(IOCPData), IOCP_KEY_HANDLE, &iocp_data->overlap) != 0)
 			return 0;
 
 		errno = GetLastError();
@@ -441,7 +441,7 @@ static void __accept_on_success(struct poller_result *res)
 static void __connect_on_success(struct poller_result *res)
 {
 	SOCKET sockfd = (SOCKET)res->data.handle;
-	ConnectContext *ctx = (ConnectContext *)res->data.context;
+	//ConnectContext *ctx = (ConnectContext *)res->data.context;
 	int seconds;
 	int seconds_len = sizeof (int);
 

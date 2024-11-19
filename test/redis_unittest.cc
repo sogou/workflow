@@ -153,17 +153,17 @@ TEST(WFRedisTask1, redis_unittest)
 	server.stop();
 }
 
-TEST(WFRedisTask2, redis_unittest)
-{
-	std::mutex mutex;
-	std::condition_variable cond;
-	bool done = false;
+// TEST(WFRedisTask2, redis_unittest)
+// {
+// 	std::mutex mutex;
+// 	std::condition_variable cond;
+// 	bool done = false;
+// 	// connect other redis server
+// 	test_client("redis://:1412@10.135.35.53/6", mutex, cond, done);
+// 	std::unique_lock<std::mutex> lock(mutex);
+// 	while (!done)
+// 		cond.wait(lock);
 
-	test_client("redis://:1412@10.135.35.53/6", mutex, cond, done);
-	std::unique_lock<std::mutex> lock(mutex);
-	while (!done)
-		cond.wait(lock);
-
-	lock.unlock();
-}
+// 	lock.unlock();
+// }
 

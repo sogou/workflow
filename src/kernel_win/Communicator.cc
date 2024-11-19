@@ -26,6 +26,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string>
 #include <string.h>
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
@@ -464,7 +465,7 @@ void Communicator::handle_event_result(struct poller_result *res)
 void Communicator::handle_sleep_result(struct poller_result *res)
 {
 	SleepSession *session = (SleepSession *)res->data.context;
-	int cs_state;
+	int cs_state = CS_STATE_SUCCESS;
 
 	switch (res->state)
 	{
@@ -886,7 +887,7 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 	CommTarget *target = entry->target;
 	CommSession *session = NULL;
 	int timeout;
-	int cs_state;
+	int cs_state = CS_STATE_SUCCESS;
 	int ret;
 
 	if (ctx->msgsize == 0)
@@ -1010,7 +1011,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 	CommTarget *target = entry->target;
 	CommSession *session = entry->session;
 	int timeout;
-	int cs_state;
+	int cs_state = CS_STATE_SUCCESS;
 	int ret;
 
 	switch (res->state)
@@ -1109,7 +1110,7 @@ void Communicator::handle_incoming_idle(struct poller_result *res)
 	CommConnEntry *entry = (CommConnEntry *)ctx->entry;
 	CommTarget *target = entry->target;
 	CommSession *session = NULL;
-	int cs_state;
+	int cs_state = CS_STATE_SUCCESS;
 
 	target->mutex.lock();
 	if (entry->state == CONN_STATE_IDLE)
@@ -1162,7 +1163,7 @@ void Communicator::handle_reply_result(struct poller_result *res)
 	CommService *service = entry->service;
 	CommSession *session = entry->session;
 	CommTarget *target = entry->target;
-	int cs_state;
+	int cs_state = CS_STATE_SUCCESS;
 	int timeout;
 	ULONG nleft = res->iobytes;
 	WSABUF *buffer = ctx->buffers;
@@ -1272,7 +1273,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	WriteContext *ctx = (WriteContext *)res->data.context;
 	CommConnEntry *entry = (CommConnEntry *)ctx->entry;
 	CommSession *session = entry->session;
-	int cs_state;
+	int cs_state = CS_STATE_SUCCESS;
 	int timeout;
 	ULONG nleft = res->iobytes;
 	WSABUF *buffer = ctx->buffers;
@@ -1456,12 +1457,13 @@ void Communicator::handle_read_result(struct poller_result *res)
 	CommConnEntry *entry = (CommConnEntry *)ctx->entry;
 	bool is_ssl = false;
 	int ret;
+	DWORD iobytes;
 	std::string buf;
 
 	if (entry->ssl && res->state == PR_ST_SUCCESS && res->iobytes > 0)
 	{
-		ret = BIO_write(entry->bio_recv, ctx->buffer.buf, res->iobytes);
-		if (ret == res->iobytes)
+		iobytes = BIO_write(entry->bio_recv, ctx->buffer.buf, res->iobytes);
+		if (iobytes == res->iobytes)
 			is_ssl = true;
 		else
 		{
@@ -1562,7 +1564,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	delete ctx;
 	CommTarget *target = entry->target;
 	CommSession *session = entry->session;
-	int cs_state;
+	int cs_state = CS_STATE_SUCCESS;
 
 	switch (res->state)
 	{
@@ -1955,19 +1957,19 @@ void __thrdpool_schedule(const struct thrdpool_task *, void *,
 
 int Communicator::increase_handler_thread()
 {
-	void *buf = new char(4 * sizeof (void *));
+	char *buf = new char[4 * sizeof (void *)];//void *buf = new char(4 * sizeof (void *));
 
 	if (buf)
 	{
 		if (thrdpool_increase(this->thrdpool) >= 0)
 		{
 			struct thrdpool_task task = {Communicator::handler_thread_routine, this};
-
-			__thrdpool_schedule(&task, buf, this->thrdpool);
+			
+			__thrdpool_schedule(&task, (void*)buf, this->thrdpool);
 			return 0;
 		}
-
-		free(buf);
+		
+		delete []buf;//free(buf);
 	}
 
 	return -1;

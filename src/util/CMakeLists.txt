@@ -10,10 +10,16 @@ set(SRC
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})
 if (WIN32)
-	target_compile_definitions(
-		${PROJECT_NAME} PRIVATE
-		strdup=_strdup
-	)
+	if (MINGW)
+		target_compile_definitions(
+			${PROJECT_NAME} PRIVATE
+		)
+	else ()
+		target_compile_definitions(
+			${PROJECT_NAME} PRIVATE
+			strdup=_strdup
+		)
+	endif ()
 endif ()
 
 if (KAFKA STREQUAL "y")

@@ -360,7 +360,6 @@ int UPSGroupPolicy::remove_server_locked(const std::string& address)
 			else
 				vec = &group->backups;
 
-			//std::lock_guard<std::mutex> lock(group->mutex);
 			pthread_mutex_lock(&group->mutex);
 			if (params->server_type == 0)
 				group->weight -= params->weight;

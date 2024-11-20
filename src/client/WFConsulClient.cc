@@ -16,6 +16,7 @@
   Authors: Wang Zhenpeng (wangzhenpeng@sogou-inc.com)
 */
 
+#include <stdio.h>
 #include <string.h>
 #include <string>
 #include <vector>
@@ -1116,6 +1117,60 @@ static bool parse_discover_result(const json_value_t *root,
 	return true;
 }
 
+static void print_json_string(const char *str, std::string& json_str)
+{
+	json_str += "\"";
+	while (*str)
+	{
+		switch (*str)
+		{
+		case '\r':
+			json_str += "\\r";
+			break;
+		case '\n':
+			json_str += "\\n";
+			break;
+		case '\f':
+			json_str += "\\f";
+			break;
+		case '\b':
+			json_str += "\\b";
+			break;
+		case '\"':
+			json_str += "\\\"";
+			break;
+		case '\t':
+			json_str += "\\t";
+			break;
+		case '\\':
+			json_str += "\\\\";
+			break;
+		default:
+			if ((unsigned char)*str < 0x20)
+			{
+				char buf[8];
+				sprintf(buf, "\\u00%02x", *str);
+				json_str += buf;
+			}
+			else
+				json_str += *str;
+			break;
+		}
+		str++;
+	}
+	json_str += "\"";
+}
+
+static void print_json_number(double number, std::string& json_str)
+{
+	long long integer = number;
+
+	if (integer == number)
+		json_str += std::to_string(integer);
+	else
+		json_str += std::to_string(number);
+}
+
 static void print_json_object(const json_object_t *obj, int depth,
 							  std::string& json_str)
 {
@@ -1134,9 +1189,8 @@ static void print_json_object(const json_object_t *obj, int depth,
 		for (i = 0; i < depth + 1; i++)
 			json_str += "    ";
 
-		json_str += "\"";
-		json_str += name;
-		json_str += "\": ";
+		print_json_string(name, json_str);
+		json_str += ": ";
 		print_json_value(val, depth + 1, json_str);
 	}
 
@@ -1172,53 +1226,6 @@ static void print_json_array(const json_array_t *arr, int depth,
 		json_str += "    ";
 
 	json_str += "]";
-}
-
-static void print_json_string(const char *str, std::string& json_str)
-{
-	json_str += "\"";
-	while (*str)
-	{
-		switch (*str)
-		{
-		case '\r':
-			json_str += "\\r";
-			break;
-		case '\n':
-			json_str += "\\n";
-			break;
-		case '\f':
-			json_str += "\\f";
-			break;
-		case '\b':
-			json_str += "\\b";
-			break;
-		case '\"':
-			json_str += "\\\"";
-			break;
-		case '\t':
-			json_str += "\\t";
-			break;
-		case '\\':
-			json_str += "\\\\";
-			break;
-		default:
-			json_str += *str;
-			break;
-		}
-		str++;
-	}
-	json_str += "\"";
-}
-
-static void print_json_number(double number, std::string& json_str)
-{
-	long long integer = number;
-
-	if (integer == number)
-		json_str += std::to_string(integer);
-	else
-		json_str += std::to_string(number);
 }
 
 static void print_json_value(const json_value_t *val, int depth,

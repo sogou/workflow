@@ -354,7 +354,6 @@ bool WFServiceGovernance::select(const ParsedURI& uri, WFNSTracing *tracing,
 		return false;
 	}
 
-	// select_addr == NULL will only happened in consistent_hash
 	EndpointAddress *select_addr = this->first_strategy(uri, tracing);
 
 	if (!select_addr ||

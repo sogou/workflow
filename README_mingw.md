@@ -35,7 +35,7 @@ pacman -S mingw-w64-x86_64-gtest
 
 # 编译
 代码主要调整：
-* 兼容原版Windows和MingW，编译时只需要添加`MingW=y`
+* 兼容原版Windows和MingW，编译时只需要添加`MINGW=y`
 * `MingW`编译，开启了编译`libworkflow.so`
 * `MingW`编译，开启了返回异常。关闭请更改`-fexceptions` -> `-fno-exceptions`
 * 新增基线`tutorial-00-helloworld.cc`，方便检查

@@ -1957,7 +1957,7 @@ void __thrdpool_schedule(const struct thrdpool_task *, void *,
 
 int Communicator::increase_handler_thread()
 {
-	char *buf = new char[4 * sizeof (void *)];//void *buf = new char(4 * sizeof (void *));
+	char *buf = new char[4 * sizeof (void *)];
 
 	if (buf)
 	{
@@ -1969,7 +1969,7 @@ int Communicator::increase_handler_thread()
 			return 0;
 		}
 		
-		delete []buf;//free(buf);
+		delete []buf;
 	}
 
 	return -1;

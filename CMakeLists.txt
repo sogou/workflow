@@ -13,10 +13,6 @@ if (CYGWIN)
 	message(FATAL_ERROR "Sorry, DO NOT support Cygwin")
 endif ()
 
-if (MINGW)
-	#message(INFO "Sorry, DO NOT support MinGW")
-endif ()
-
 ###Options
 
 if (WIN32)

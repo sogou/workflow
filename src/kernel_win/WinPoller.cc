@@ -441,7 +441,6 @@ static void __accept_on_success(struct poller_result *res)
 static void __connect_on_success(struct poller_result *res)
 {
 	SOCKET sockfd = (SOCKET)res->data.handle;
-	//ConnectContext *ctx = (ConnectContext *)res->data.context;
 	int seconds;
 	int seconds_len = sizeof (int);
 

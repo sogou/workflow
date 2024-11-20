@@ -100,7 +100,7 @@ int MySQLMessage::append(const void *buf, size_t *size)
 	size_t stream_len;
 	size_t nleft = *size;
 	size_t n;
-	int ret;
+	int ret = 0;
 
 	cur_size_ += *size;
 	if (cur_size_ > this->size_limit)

@@ -64,7 +64,7 @@ install(
 
 if (APPLE)
 	set(LIBSO ${LIB_DIR}/libworkflow.a)
-elseif (NOT WIN32)
+elseif (MINGW)
 	set(LIBSO ${LIB_DIR}/libworkflow.so)
 	add_custom_target(
 		SCRIPT_SHARED_LIB ALL

@@ -162,7 +162,7 @@ KZ1lOvb+vi3TLrQf4tfBekrXXe5tZK40QSJ7UdtY7HHrrbAXU+8=
 	WFHttpServer http_server(__http_process);
 	EXPECT_TRUE(http_server.start("127.0.0.1", 8811) == 0) << "http server start failed";
 
-	WFHttpServer https_server(__http_process);
+	WFHttpsServer https_server(__http_process);
 	EXPECT_TRUE(https_server.start("127.0.0.1", 8822, "server.crt", "server.key") == 0) << "https server start failed";
 
 	std::mutex mutex;

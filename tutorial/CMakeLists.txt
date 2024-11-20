@@ -36,7 +36,10 @@ if (WIN32)
 	endif ()
 endif ()
 
-if (WIN32)
+if (MINGW)
+		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -fPIC -pipe -std=gnu90")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -pipe -std=c++14 -fexceptions")
+elseif (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /wd4200 /Zc:__cplusplus /std:c++14")
 else ()
@@ -45,6 +48,7 @@ else ()
 endif ()
 
 set(TUTORIAL_LIST
+	tutorial-00-helloworld
 	tutorial-01-wget
 	tutorial-02-redis_cli
 	tutorial-03-wget_to_redis
@@ -59,6 +63,8 @@ set(TUTORIAL_LIST
 
 if (APPLE)
 	set(WORKFLOW_LIB workflow pthread OpenSSL::SSL OpenSSL::Crypto)
+elseif (MINGW)
+	set(WORKFLOW_LIB workflow ws2_32 wsock32 OpenSSL::SSL OpenSSL::Crypto iphlpapi m z)
 elseif (WIN32)
 	set(WORKFLOW_LIB workflow ws2_32 wsock32 OpenSSL::SSL OpenSSL::Crypto)
 else ()
@@ -70,7 +76,11 @@ foreach(src ${TUTORIAL_LIST})
 	list(GET arr -1 bin_name)
 	add_executable(${bin_name} ${src}.cc)
 	target_link_libraries(${bin_name} ${WORKFLOW_LIB})
-	if (WIN32)
+	if (MINGW)
+			target_compile_definitions(
+			${bin_name} PRIVATE
+		)
+	elseif (WIN32)
 		target_compile_definitions(
 			${bin_name} PRIVATE
 			strdup=_strdup
@@ -92,12 +102,18 @@ if (KAFKA STREQUAL "y")
 		find_package(zstd CONFIG REQUIRED)
 
 		target_link_libraries("kafka_cli" wfkafka ${WORKFLOW_LIB} OpenSSL::Crypto ZLIB::ZLIB Snappy::snappy lz4::lz4 zstd::libzstd_shared)
-		target_compile_definitions(
-			"kafka_cli" PRIVATE
-			strdup=_strdup
-			strcasecmp=_stricmp
-			strncasecmp=_strnicmp
-		)	
+		if (MINGW)
+			target_compile_definitions(
+				"kafka_cli" PRIVATE
+			)
+		else ()
+			target_compile_definitions(
+				"kafka_cli" PRIVATE
+				strdup=_strdup
+				strcasecmp=_stricmp
+				strncasecmp=_strnicmp
+			)
+		endif ()
 	endif(NOT WIN32)
 endif ()
 

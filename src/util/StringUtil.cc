@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #include <ctype.h>
@@ -22,31 +23,26 @@
 #include <algorithm>
 #include "StringUtil.h"
 
-static int __htoi(unsigned char *s)
+static int __hex_to_int(const char s[2])
 {
-	int value;
-	int c;
+	int value = 16;
 
-	c = s[0];
-	if (isupper(c))
-		c = tolower(c);
+	if (s[0] <= '9')
+		value *= s[0] - '0';
+	else
+		value *= toupper(s[0]) - 'A' + 10;
 
-	value = (c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10) * 16;
+	if (s[1] <= '9')
+		value += s[1] - '0';
+	else
+		value += toupper(s[1]) - 'A' + 10;
 
-	c = s[1];
-	if (isupper(c))
-		c = tolower(c);
-
-	value += (c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10);
 	return value;
 }
 
-static inline char __itoh(int n)
+static inline char __int_to_hex(int n)
 {
-	if (n > 9)
-		return n - 10 + 'A';
-
-	return n + '0';
+	return n <= 9 ? n + '0' : n - 10 + 'A';
 }
 
 static size_t __url_decode(char *str)
@@ -58,7 +54,7 @@ static size_t __url_decode(char *str)
 	{
 		if (*data == '%' && isxdigit(data[1]) && isxdigit(data[2]))
 		{
-			*dest = __htoi((unsigned char *)data + 1);
+			*dest = __hex_to_int(data + 1);
 			data += 2;
 		}
 		else if (*data == '+')
@@ -76,12 +72,7 @@ static size_t __url_decode(char *str)
 
 void StringUtil::url_decode(std::string& str)
 {
-	if (str.empty())
-		return;
-
-	size_t sz = __url_decode(const_cast<char *>(str.c_str()));
-
-	str.resize(sz);
+	str.resize(__url_decode(const_cast<char *>(str.c_str())));
 }
 
 std::string StringUtil::url_encode(const std::string& str)
@@ -92,18 +83,22 @@ std::string StringUtil::url_encode(const std::string& str)
 
 	while (cur < end)
 	{
-		if (*cur == ' ')
-			res += '+';
-		else if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.' ||
-				 *cur == '!' || *cur == '~' || *cur == '*' || *cur == '\'' ||
-				 *cur == '(' || *cur == ')' || *cur == ':' || *cur == '/' ||
-				 *cur == '@' || *cur == '?' || *cur == '#' || *cur == '&')
+		if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.' ||
+			*cur == '!' || *cur == '~' || *cur == '*' || *cur == '\'' ||
+			*cur == '(' || *cur == ')' || *cur == ':' || *cur == '/' ||
+			*cur == '@' || *cur == '?' || *cur == '#' || *cur == '&')
+		{
 			res += *cur;
+		}
+		else if (*cur == ' ')
+		{
+			res += '+';
+		}
 		else
 		{
 			res += '%';
-			res += __itoh(((const unsigned char)(*cur)) >> 4);
-			res += __itoh(((const unsigned char)(*cur)) % 16);
+			res += __int_to_hex(((const unsigned char)(*cur)) >> 4);
+			res += __int_to_hex(((const unsigned char)(*cur)) % 16);
 		}
 
 		cur++;
@@ -120,17 +115,21 @@ std::string StringUtil::url_encode_component(const std::string& str)
 
 	while (cur < end)
 	{
-		if (*cur == ' ')
-			res += '+';
-		else if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.' ||
-				 *cur == '!' || *cur == '~' || *cur == '*' || *cur == '\'' ||
-				 *cur == '(' || *cur == ')')
+		if (isalnum(*cur) || *cur == '-' || *cur == '_' || *cur == '.' ||
+			*cur == '!' || *cur == '~' || *cur == '*' || *cur == '\'' ||
+			*cur == '(' || *cur == ')')
+		{
 			res += *cur;
+		}
+		else if (*cur == ' ')
+		{
+			res += '+';
+		}
 		else
 		{
 			res += '%';
-			res += __itoh(((const unsigned char)(*cur)) >> 4);
-			res += __itoh(((const unsigned char)(*cur)) % 16);
+			res += __int_to_hex(((const unsigned char)(*cur)) >> 4);
+			res += __int_to_hex(((const unsigned char)(*cur)) % 16);
 		}
 
 		cur++;

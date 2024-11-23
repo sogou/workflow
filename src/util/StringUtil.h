@@ -18,6 +18,7 @@
 
 #ifndef _STRINGUTIL_H_
 #define _STRINGUTIL_H_
+
 #include <string>
 #include <vector>
 

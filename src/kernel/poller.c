@@ -1332,16 +1332,19 @@ static struct __poller_node *__poller_new_node(const struct poller_data *data,
 	}
 
 	node = (struct __poller_node *)malloc(sizeof (struct __poller_node));
-	if (node)
+	if (!node)
 	{
-		node->data = *data;
-		node->event = event;
-		node->in_rbtree = 0;
-		node->removed = 0;
-		node->res = res;
-		if (timeout >= 0)
-			__poller_node_set_timeout(timeout, node);
+		free(res);
+		return NULL;
 	}
+
+	node->data = *data;
+	node->event = event;
+	node->in_rbtree = 0;
+	node->removed = 0;
+	node->res = res;
+	if (timeout >= 0)
+		__poller_node_set_timeout(timeout, node);
 
 	return node;
 }

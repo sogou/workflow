@@ -1126,7 +1126,7 @@ static int kafka_sasl_scram_recv(const char *buf, size_t len, void *p, void *q)
 
 static int jitter(int low, int high)
 {
-	return (low + (rand() % ((high - low) + 1)));
+	return (low + (random() % ((high - low) + 1)));
 }
 
 static int scram_generate_nonce(struct iovec *iov)

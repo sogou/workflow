@@ -325,7 +325,7 @@ void WFServiceGovernance::try_clear_breaker()
 EndpointAddress *WFServiceGovernance::first_strategy(const ParsedURI& uri,
 													 WFNSTracing *tracing)
 {
-	unsigned int idx = rand() % this->servers.size();
+	unsigned int idx = random() % this->servers.size();
 	return this->servers[idx];
 }
 

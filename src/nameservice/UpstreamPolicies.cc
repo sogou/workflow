@@ -525,7 +525,7 @@ EndpointAddress *UPSWeightedRandomPolicy::first_strategy(const ParsedURI& uri,
 	temp_weight -= UPSWeightedRandomPolicy::select_history_weight(tracing);
 
 	if (temp_weight > 0)
-		x = rand() % temp_weight;
+		x = random() % temp_weight;
 
 	for (idx = 0; idx < this->servers.size(); idx++)
 	{
@@ -557,7 +557,7 @@ EndpointAddress *UPSWeightedRandomPolicy::another_strategy(const ParsedURI& uri,
 
 	UPSAddrParams *params;
 	EndpointAddress *addr = NULL;
-	int x = rand() % temp_weight;
+	int x = random() % temp_weight;
 	int s = 0;
 
 	for (EndpointAddress *server : this->servers)
@@ -646,7 +646,7 @@ void UPSVNSWRRPolicy::init()
 		return;
 
 	this->pre_generated_vec.clear();
-	this->cur_idx = rand() % this->total_weight;
+	this->cur_idx = random() % this->total_weight;
 	std::vector<int> t(this->servers.size(), 0);
 	this->current_weight_vec.swap(t);
 	this->init_virtual_nodes();

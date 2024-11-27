@@ -113,7 +113,7 @@ public:
 		this->config = client->member->config;
 		if (!this->member->broker_hosts.empty())
 		{
-			int rpos = rand() % this->member->broker_hosts.size();
+			int rpos = random() % this->member->broker_hosts.size();
 			this->url = this->member->broker_hosts.at(rpos);
 		}
 		this->member->mutex.unlock();
@@ -1508,7 +1508,7 @@ int KafkaClientTask::arrange_produce()
 												  key_len, partition_num);
 				}
 				else
-					partition = rand() % partition_num;
+					partition = random() % partition_num;
 
 				KafkaToppar *new_toppar = get_toppar(toppar->get_topic(),
 													 partition,

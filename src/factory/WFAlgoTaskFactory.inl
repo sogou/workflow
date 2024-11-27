@@ -433,7 +433,7 @@ protected:
 	virtual void execute()
 	{
 		std::shuffle(this->input.first, this->input.last,
-					 std::mt19937_64(random()));
+					 std::mt19937_64(rand()));
 		this->output.first = this->input.first;
 		this->output.last = this->input.last;
 	}

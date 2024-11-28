@@ -30,7 +30,7 @@ class EndpointGroup
 public:
 	EndpointGroup(int group_id, UPSGroupPolicy *policy) :
 			mutex(PTHREAD_MUTEX_INITIALIZER),
-			gen(random())
+			gen(rand())
 	{
 		this->id = group_id;
 		this->policy = policy;

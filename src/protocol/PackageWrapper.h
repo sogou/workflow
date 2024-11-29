@@ -27,17 +27,12 @@ namespace protocol
 class PackageWrapper : public ProtocolWrapper
 {
 private:
-	virtual ProtocolMessage *next_in(ProtocolMessage *message)
-	{
-		return this->next(message);
-	}
-
 	virtual ProtocolMessage *next_out(ProtocolMessage *message)
 	{
-		return this->next(message);
+		return NULL;
 	}
 
-	virtual ProtocolMessage *next(ProtocolMessage *message)
+	virtual ProtocolMessage *next_in(ProtocolMessage *message)
 	{
 		return NULL;
 	}

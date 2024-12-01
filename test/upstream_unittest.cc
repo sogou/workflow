@@ -266,7 +266,7 @@ TEST(upstream_unittest, FuseAndRecover)
 	int timeout = (MTTR + 1) * 1000000;
 
 	UPSWeightedRandomPolicy test_policy(false);
-	test_policy.set_mttr_second(MTTR);
+	test_policy.set_mttr_seconds(MTTR);
 	AddressParams address_params = ADDRESS_PARAMS_DEFAULT;
 	
 	address_params.weight = 1000;

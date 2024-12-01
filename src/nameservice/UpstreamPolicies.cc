@@ -411,6 +411,8 @@ EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash,
 	return this->check_and_get(it->second, false, tracing);
 }
 
+#define VIRTUAL_GROUP_SIZE	16
+
 void UPSGroupPolicy::hash_map_add_addr(EndpointAddress *addr)
 {
 	UPSAddrParams *params = static_cast<UPSAddrParams *>(addr->params);

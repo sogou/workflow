@@ -35,6 +35,22 @@
 #define DNS_CACHE_LEVEL_1		1
 #define DNS_CACHE_LEVEL_2		2
 
+#define MTTR_SECONDS_DEFAULT	30
+
+WFServiceGovernance::WFServiceGovernance()
+{
+	this->nalives = 0;
+	this->try_another = false;
+	this->mttr_seconds = MTTR_SECONDS_DEFAULT;
+	INIT_LIST_HEAD(&this->breaker_list);
+}
+
+WFServiceGovernance::~WFServiceGovernance()
+{
+	for (EndpointAddress *addr : this->servers)
+		delete addr;
+}
+
 PolicyAddrParams::PolicyAddrParams()
 {
 	const struct AddressParams *params = &ADDRESS_PARAMS_DEFAULT;
@@ -226,7 +242,7 @@ void WFServiceGovernance::fuse_server_to_breaker(EndpointAddress *addr)
 	this->breaker_lock.lock();
 	if (!addr->entry.list.next)
 	{
-		addr->broken_timeout = GET_CURRENT_SECOND + this->mttr_second;
+		addr->broken_timeout = GET_CURRENT_SECOND + this->mttr_seconds;
 		list_add_tail(&addr->entry.list, &this->breaker_list);
 		this->fuse_one_server(addr);
 	}

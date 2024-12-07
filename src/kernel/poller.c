@@ -1158,7 +1158,7 @@ poller_t *__poller_create(void **nodes_buf, const struct poller_params *params)
 			}
 
 			errno = ret;
-			close(poller->timerfd);
+			__poller_close_timerfd(poller->timerfd);
 		}
 
 		close(poller->pfd);

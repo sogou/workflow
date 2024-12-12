@@ -23,6 +23,8 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <time.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <utility>
 #include <functional>
 #include "URIParser.h"
@@ -419,6 +421,33 @@ public:
 		WFModuleTask *task = new WFModuleTask(first, std::move(callback));
 		task->sub_series()->set_last_task(last);
 		return task;
+	}
+
+public:
+	/* The following functions are for overload resolution only. */
+
+	static int send_by_name(const std::string& mailbox_name, intptr_t msg,
+							size_t max)
+	{
+		return WFTaskFactory::send_by_name(mailbox_name, (void *)msg, max);
+	}
+
+	static int send_by_name(const std::string& mailbox_name, std::nullptr_t msg,
+							size_t max)
+	{
+		return WFTaskFactory::send_by_name(mailbox_name, (void *)0, max);
+	}
+
+	static int signal_by_name(const std::string& cond_name, intptr_t msg,
+							  size_t max)
+	{
+		return WFTaskFactory::signal_by_name(cond_name, (void *)msg, max);
+	}
+
+	static int signal_by_name(const std::string& cond_name, std::nullptr_t msg,
+							  size_t max)
+	{
+		return WFTaskFactory::signal_by_name(cond_name, (void *)0, max);
 	}
 };
 

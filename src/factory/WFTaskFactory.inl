@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <time.h>
 #include <netdb.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <string>
 #include <functional>

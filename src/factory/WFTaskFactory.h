@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <time.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <utility>
 #include <functional>
@@ -422,6 +421,10 @@ public:
 		task->sub_series()->set_last_task(last);
 		return task;
 	}
+
+private:
+	/* Some compilers don't declare 'nullptr_t' although required by C++11. */
+	using nullptr_t = std::nullptr_t;
 
 public:
 	/* The following functions are for overload resolution only. */

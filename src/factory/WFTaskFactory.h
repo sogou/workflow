@@ -382,6 +382,50 @@ public:
 		task->sub_series()->set_last_task(last);
 		return task;
 	}
+
+private:
+	/* Some compilers don't declare 'nullptr_t' although required by C++11. */
+	using nullptr_t = std::nullptr_t;
+
+public:
+	/* The following functions are for overload resolution only. */
+
+#ifdef _WIN32
+	static int send_by_name(const std::string& mailbox_name, int msg,
+							size_t max)
+	{
+		return WFTaskFactory::send_by_name(mailbox_name, (void *)msg, max);
+	}
+
+	static int signal_by_name(const std::string& cond_name, int msg,
+							  size_t max)
+	{
+		return WFTaskFactory::signal_by_name(cond_name, (void *)msg, max);
+	}
+#else
+	static int send_by_name(const std::string& mailbox_name, intptr_t msg,
+							size_t max)
+	{
+		return WFTaskFactory::send_by_name(mailbox_name, (void *)msg, max);
+	}
+
+	static int signal_by_name(const std::string& cond_name, intptr_t msg,
+							  size_t max)
+	{
+		return WFTaskFactory::signal_by_name(cond_name, (void *)msg, max);
+	}
+#endif
+	static int send_by_name(const std::string& mailbox_name, nullptr_t msg,
+							size_t max)
+	{
+		return WFTaskFactory::send_by_name(mailbox_name, (void *)0, max);
+	}
+
+	static int signal_by_name(const std::string& cond_name, nullptr_t msg,
+							  size_t max)
+	{
+		return WFTaskFactory::signal_by_name(cond_name, (void *)0, max);
+	}
 };
 
 template<class REQ, class RESP>

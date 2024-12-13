@@ -433,7 +433,7 @@ public:
 		return WFTaskFactory::send_by_name(mailbox_name, (void *)msg, max);
 	}
 
-	static int send_by_name(const std::string& mailbox_name, std::nullptr_t msg,
+	static int send_by_name(const std::string& mailbox_name, nullptr_t msg,
 							size_t max)
 	{
 		return WFTaskFactory::send_by_name(mailbox_name, (void *)0, max);
@@ -445,7 +445,7 @@ public:
 		return WFTaskFactory::signal_by_name(cond_name, (void *)msg, max);
 	}
 
-	static int signal_by_name(const std::string& cond_name, std::nullptr_t msg,
+	static int signal_by_name(const std::string& cond_name, nullptr_t msg,
 							  size_t max)
 	{
 		return WFTaskFactory::signal_by_name(cond_name, (void *)0, max);

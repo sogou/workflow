@@ -465,6 +465,9 @@ static void __poller_handle_read(struct __poller_node *node,
 
 		if (nleft < 0)
 			break;
+
+		if (node->removed)
+			return;
 	}
 
 	if (__poller_remove_node(node, poller))
@@ -614,6 +617,9 @@ static void __poller_handle_listen(struct __poller_node *node,
 		node->res = res;
 		if (!res)
 			break;
+
+		if (node->removed)
+			return;
 	}
 
 	if (__poller_remove_node(node, poller))
@@ -689,6 +695,9 @@ static void __poller_handle_recvfrom(struct __poller_node *node,
 		node->res = res;
 		if (!res)
 			break;
+
+		if (node->removed)
+			return;
 	}
 
 	if (__poller_remove_node(node, poller))
@@ -828,6 +837,9 @@ static void __poller_handle_event(struct __poller_node *node,
 			node->res = res;
 			if (!res)
 				break;
+
+			if (node->removed)
+				return;
 		}
 	}
 
@@ -869,6 +881,9 @@ static void __poller_handle_notify(struct __poller_node *node,
 			node->res = res;
 			if (!res)
 				break;
+
+			if (node->removed)
+				return;
 		}
 		else if (n < 0 && errno == EAGAIN)
 			return;

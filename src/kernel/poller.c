@@ -90,6 +90,11 @@ static inline int __poller_create_pfd()
 	return epoll_create(1);
 }
 
+static inline int __poller_close_pfd(int fd)
+{
+	return close(fd);
+}
+
 static inline int __poller_add_fd(int fd, int event, void *data,
 								  poller_t *poller)
 {
@@ -169,6 +174,11 @@ static inline void *__poller_event_data(const __poller_event_t *event)
 static inline int __poller_create_pfd()
 {
 	return kqueue();
+}
+
+static inline int __poller_close_pfd(int fd)
+{
+	return close(fd);
 }
 
 static inline int __poller_add_fd(int fd, int event, void *data,
@@ -465,6 +475,9 @@ static void __poller_handle_read(struct __poller_node *node,
 
 		if (nleft < 0)
 			break;
+
+		if (node->removed)
+			return;
 	}
 
 	if (__poller_remove_node(node, poller))
@@ -614,6 +627,9 @@ static void __poller_handle_listen(struct __poller_node *node,
 		node->res = res;
 		if (!res)
 			break;
+
+		if (node->removed)
+			return;
 	}
 
 	if (__poller_remove_node(node, poller))
@@ -689,6 +705,9 @@ static void __poller_handle_recvfrom(struct __poller_node *node,
 		node->res = res;
 		if (!res)
 			break;
+
+		if (node->removed)
+			return;
 	}
 
 	if (__poller_remove_node(node, poller))
@@ -828,6 +847,9 @@ static void __poller_handle_event(struct __poller_node *node,
 			node->res = res;
 			if (!res)
 				break;
+
+			if (node->removed)
+				return;
 		}
 	}
 
@@ -869,6 +891,9 @@ static void __poller_handle_notify(struct __poller_node *node,
 			node->res = res;
 			if (!res)
 				break;
+
+			if (node->removed)
+				return;
 		}
 		else if (n < 0 && errno == EAGAIN)
 			return;
@@ -1161,7 +1186,7 @@ poller_t *__poller_create(void **nodes_buf, const struct poller_params *params)
 			__poller_close_timerfd(poller->timerfd);
 		}
 
-		close(poller->pfd);
+		__poller_close_pfd(poller->pfd);
 	}
 
 	free(poller);
@@ -1189,7 +1214,7 @@ void __poller_destroy(poller_t *poller)
 {
 	pthread_mutex_destroy(&poller->mutex);
 	__poller_close_timerfd(poller->timerfd);
-	close(poller->pfd);
+	__poller_close_pfd(poller->pfd);
 	free(poller);
 }
 

@@ -18,6 +18,7 @@
 
 #include <sys/uio.h>
 #include <errno.h>
+#include <dlfcn.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "list.h"
@@ -87,6 +88,7 @@ void IOSession::prep_fdsync(int fd)
 
 int IOService::init(int maxevents)
 {
+	void *p;
 	int ret;
 
 	if (maxevents <= 0)
@@ -96,18 +98,30 @@ int IOService::init(int maxevents)
 	}
 
 	ret = pthread_mutex_init(&this->mutex, NULL);
-	if (ret == 0)
+	if (ret)
 	{
-		this->maxevents = maxevents;
-		this->nevents = 0;
-		INIT_LIST_HEAD(&this->session_list);
-		this->pipe_fd[0] = -1;
-		this->pipe_fd[1] = -1;
-		return 0;
+		errno = ret;
+		return -1;
 	}
 
-	errno = ret;
-	return -1;
+	p = dlsym(RTLD_DEFAULT, "preadv");
+	if (p)
+		this->preadv = (ssize_t (*)(int, const struct iovec *, int, off_t))p;
+	else
+		this->preadv = IOService::preadv_emul;
+
+	p = dlsym(RTLD_DEFAULT, "pwritev");
+	if (p)
+		this->pwritev = (ssize_t (*)(int, const struct iovec *, int, off_t))p;
+	else
+		this->pwritev = IOService::pwritev_emul;
+
+	this->maxevents = maxevents;
+	this->nevents = 0;
+	INIT_LIST_HEAD(&this->session_list);
+	this->pipe_fd[0] = -1;
+	this->pipe_fd[1] = -1;
+	return 0;
 }
 
 void IOService::deinit()
@@ -216,9 +230,12 @@ void *IOService::io_routine(void *arg)
 		ret = fdatasync(fd);
 		break;
 	case IO_CMD_PREADV:
+		ret = service->preadv(fd, (const struct iovec *)session->buf,
+							  session->count, session->offset);
+		break;
 	case IO_CMD_PWRITEV:
-		errno = ENOSYS;
-		ret = -1;
+		ret = service->pwritev(fd, (const struct iovec *)session->buf,
+							   session->count, session->offset);
 		break;
 	default:
 		errno = EINVAL;
@@ -247,5 +264,51 @@ void *IOService::aio_finish(void *ptr, void *context)
 	service->incref();
 	pthread_detach(session->tid);
 	return session;
+}
+
+ssize_t IOService::preadv_emul(int fd, const struct iovec *iov, int iovcnt,
+							   off_t offset)
+{
+	size_t total = 0;
+	ssize_t n;
+	int i;
+
+	for (i = 0; i < iovcnt; i++)
+	{
+		n = pread(fd, iov[i].iov_base, iov[i].iov_len, offset);
+		if (n < 0)
+			return total == 0 ? -1 : total;
+
+		total += n;
+		if ((size_t)n < iov[i].iov_len)
+			return total;
+
+		offset += n;
+	}
+
+	return total;
+}
+
+ssize_t IOService::pwritev_emul(int fd, const struct iovec *iov, int iovcnt,
+								off_t offset)
+{
+	size_t total = 0;
+	ssize_t n;
+	int i;
+
+	for (i = 0; i < iovcnt; i++)
+	{
+		n = pwrite(fd, iov[i].iov_base, iov[i].iov_len, offset);
+		if (n < 0)
+			return total == 0 ? -1 : total;
+
+		total += n;
+		if ((size_t)n < iov[i].iov_len)
+			return total;
+
+		offset += n;
+	}
+
+	return total;
 }
 

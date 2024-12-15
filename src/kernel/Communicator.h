@@ -116,6 +116,9 @@ protected:
 	/* In append(), reset the begin time of receiving to current time. */
 	virtual void renew();
 
+	/* Return the deepest wrapped message. */
+	virtual CommMessageIn *inner() { return this; }
+
 private:
 	struct CommConnEntry *entry;
 
@@ -137,7 +140,7 @@ private:
 	virtual int send_timeout() { return -1; }
 	virtual int receive_timeout() { return -1; }
 	virtual int keep_alive_timeout() { return 0; }
-	virtual int first_timeout() { return 0; }	/* for client session only. */
+	virtual int first_timeout() { return 0; }
 	virtual void handle(int state, int error) = 0;
 
 protected:
@@ -285,7 +288,9 @@ public:
 
 public:
 	int is_handler_thread() const;
+
 	int increase_handler_thread();
+	int decrease_handler_thread();
 
 private:
 	struct __mpoller *mpoller;
@@ -353,10 +358,8 @@ private:
 	static int first_timeout_send(CommSession *session);
 	static int first_timeout_recv(CommSession *session);
 
-	static int append_request(const void *buf, size_t *size,
+	static int append_message(const void *buf, size_t *size,
 							  poller_message_t *msg);
-	static int append_reply(const void *buf, size_t *size,
-							poller_message_t *msg);
 
 	static poller_message_t *create_request(void *context);
 	static poller_message_t *create_reply(void *context);

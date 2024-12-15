@@ -52,12 +52,6 @@ void ExecQueue::deinit()
 
 int Executor::init(size_t nthreads)
 {
-	if (nthreads == 0)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
 	this->thrdpool = thrdpool_create(nthreads, 0);
 	if (this->thrdpool)
 		return 0;
@@ -150,5 +144,15 @@ int Executor::request(ExecSession *session, ExecQueue *queue)
 	}
 
 	return -!entry;
+}
+
+int Executor::increase_thread()
+{
+	return thrdpool_increase(this->thrdpool);
+}
+
+int Executor::decrease_thread()
+{
+	return thrdpool_decrease(this->thrdpool);
 }
 

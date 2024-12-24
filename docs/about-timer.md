@@ -27,11 +27,14 @@ public:
     static int cancel_by_name(const std::string& timer_name, size_t max);
 };
 ~~~
-我们通过seconds和nanoseconds两个参数来指定一个定时器的定时时间。其中，nanoseconds的取值范围在[0,1000000000)。  
+我们通过seconds和nanoseconds两个参数来指定一个定时器的定时时间。其中，seconds指定秒数而nanoseconds为纳秒数。  
+* seconds参数可以传递-1，产生一个无限时长的定时器，一般用于命名定时器，为了将来调用cancel取消定时。  
+* nanoseconds的取值范围在[0,1000000000)，否则timer运行之后会立刻错误返回，错误码为EINVAL。
+
 在创建定时器任务时，可以传入一个timer_name作为定时器名，用于cancel_by_name接口取消定时。  
 定时器也是一种任务，因此使用方式与其它类型任务无异，同样有user_data域可以利用。  
 
-# 中断定时
+# 取消定时
 
 如果在创建定时器任务时传入一个名称，那么这个定时器就可以在被提前中断。  
 中断一个定时任务的方法是通过WFTaskFactory::cancel_by_name这个接口，这个接口默认情况下，会取消这个名称下的所有定时器。  

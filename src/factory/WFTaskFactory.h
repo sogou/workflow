@@ -169,9 +169,6 @@ public:
 											off_t offset,
 											fio_callback_t callback);
 
-	/* preadv and pwritev tasks are supported by Linux aio only.
-	 * On macOS or others, you will get an ENOSYS error in callback. */
-
 	static WFFileVIOTask *create_preadv_task(int fd,
 											 const struct iovec *iov,
 											 int iovcnt,
@@ -346,17 +343,7 @@ public:
 	/* The 'guard' is acquired after started, so call 'release_guard' after
 	   and only after the task is finished, typically in its callback.
 	   The function returns 1 if another is signaled, otherwise returns 0. */
-	static int release_guard(const std::string& resource_name)
-	{
-		return WFTaskFactory::release_guard(resource_name, NULL);
-	}
-
 	static int release_guard(const std::string& resource_name, void *msg);
-
-	static int release_guard_safe(const std::string& resource_name)
-	{
-		return WFTaskFactory::release_guard_safe(resource_name, NULL);
-	}
 
 	static int release_guard_safe(const std::string& resource_name, void *msg);
 

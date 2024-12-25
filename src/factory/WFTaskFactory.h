@@ -170,9 +170,6 @@ public:
 											off_t offset,
 											fio_callback_t callback);
 
-	/* preadv and pwritev tasks are supported by Linux aio only.
-	 * On macOS or others, you will get an ENOSYS error in callback. */
-
 	static WFFileVIOTask *create_preadv_task(int fd,
 											 const struct iovec *iov,
 											 int iovcnt,

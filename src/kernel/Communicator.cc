@@ -616,7 +616,6 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 			list_add(&entry->list, &target->idle_list);
 		}
 
-		session->passive = 2;
 		pthread_mutex_unlock(&target->mutex);
 		break;
 
@@ -665,7 +664,10 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 	if (entry)
 	{
 		if (session)
+		{
+			session->passive = 2;
 			session->handle(state, res->error);
+		}
 
 		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 		{
@@ -1070,6 +1072,7 @@ void Communicator::handle_recvfrom_result(struct poller_result *res)
 {
 	CommService *service = (CommService *)res->data.context;
 	struct CommConnEntry *entry;
+	CommSession *session;
 	CommTarget *target;
 	int state, error;
 
@@ -1077,6 +1080,7 @@ void Communicator::handle_recvfrom_result(struct poller_result *res)
 	{
 	case PR_ST_SUCCESS:
 		entry = (struct CommConnEntry *)res->data.result;
+		session = entry->session;
 		target = entry->target;
 		if (entry->state == CONN_STATE_SUCCESS)
 		{
@@ -1094,7 +1098,8 @@ void Communicator::handle_recvfrom_result(struct poller_result *res)
 				error = EBADMSG;
 		}
 
-		entry->session->handle(state, error);
+		session->passive = 2;
+		session->handle(state, error);
 		if (state == CS_STATE_ERROR)
 		{
 			__release_conn(entry);

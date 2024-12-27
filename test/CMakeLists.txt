@@ -19,24 +19,9 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 
 enable_testing()
 
-set(CXX_STD "c++11")
+set(CXX_STD "c++14")
 
 find_package(GTest REQUIRED)
-if (GTest_VERSION VERSION_GREATER_EQUAL "1.13.0")
-	set(CXX_STD "c++14")
-else ()
-	get_filename_component(GTEST_PATH ${GTEST_LIBRARY} DIRECTORY ABSOLUTE)
-	execute_process(COMMAND grep Version "${GTEST_PATH}/pkgconfig/gtest.pc"
-					RESULT_VARIABLE GTEST_VERSION_RESULT
-					OUTPUT_VARIABLE GTEST_VERSION_OUTPUT)
-	if (${GTEST_VERSION_RESULT} EQUAL "0")
-		string(REPLACE " " ";" GTEST_VERSION_STR ${GTEST_VERSION_OUTPUT})
-		list(GET GTEST_VERSION_STR 1 GTEST_VERSION)
-		if (${GTEST_VERSION} VERSION_GREATER_EQUAL "1.13.0")
-			set(CXX_STD "c++14")
-		endif ()
-	endif ()
-endif ()
 
 if (WIN32)
 		set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   /MP /wd4200")

@@ -714,7 +714,7 @@ WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
 }
 
 template<> inline
-void WFTaskFactory::reset_go_task(WFGoTask *task, std::nullptr_t&& func)
+void WFTaskFactory::reset_go_task(WFGoTask *task, nullptr_t&& func)
 {
 	((__WFGoTask *)task)->set_go_func(nullptr);
 }

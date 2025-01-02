@@ -14,6 +14,9 @@ public:
                                     FUNC&& func, ARGS&&... args);
 };
 ~~~
+函数参数的queue_name为计算队列名，其作用在之前示例文档中有过介绍。  
+func可以是函数指针，函数对象，仿函数，lambda函数，类的成员函数等任意可调用对象。  
+args为func的参数列表。注意当func是一个类的非静态成员函数时，args的第一个成员必须是对象地址。
 
 # 示例
 我们想异步的运行一个加法函数：void add(int a, int b, int& res);  
@@ -140,7 +143,7 @@ WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [task]() {
 ~~~
 这段代码并不能在lambda函数里得到task指针，因为捕获执行时，task还没有赋值。但我们可以通过以下的代码，实现这个需求：
 ~~~cpp
-WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [](){});
+WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", nullptr);  // 执行函数可以初始化为nullptr
 WFTaskFactory::reset_go_task(task, [task]() {
         task->user_data = (void *)123;
     });

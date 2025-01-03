@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <time.h>
-#include <stdint.h>
 #include <utility>
 #include <functional>
 #include <openssl/ssl.h>
@@ -254,8 +253,7 @@ public:
 
 	/* Count by a counter's name. When count_by_name(), it's safe to count
 	 * exceeding target_value. When multiple counters share a same name,
-	 * this operation will be performed on the first created. If no counter
-	 * matches the name, nothing is performed. */
+	 * this operation will be performed on the first created. */
 	static int count_by_name(const std::string& counter_name)
 	{
 		return WFTaskFactory::count_by_name(counter_name, 1);
@@ -296,7 +294,8 @@ public:
 	static int send_by_name(const std::string& mailbox_name, void *msg,
 							size_t max);
 
-	static int send_by_name(const std::string& mailbox_name, void *const msg[],
+	template<typename T>
+	static int send_by_name(const std::string& mailbox_name, T *const msg[],
 							size_t max);
 
 public:
@@ -331,7 +330,8 @@ public:
 	static int signal_by_name(const std::string& cond_name, void *msg,
 							  size_t max);
 
-	static int signal_by_name(const std::string& cond_name, void *const msg[],
+	template<typename T>
+	static int signal_by_name(const std::string& cond_name, T *const msg[],
 							  size_t max);
 
 public:
@@ -408,37 +408,6 @@ public:
 		WFModuleTask *task = new WFModuleTask(first, std::move(callback));
 		task->sub_series()->set_last_task(last);
 		return task;
-	}
-
-private:
-	/* Some compilers don't declare 'nullptr_t' although required by C++11. */
-	using nullptr_t = std::nullptr_t;
-
-public:
-	/* The following functions are for overload resolution only. */
-
-	static int send_by_name(const std::string& mailbox_name, intptr_t msg,
-							size_t max)
-	{
-		return WFTaskFactory::send_by_name(mailbox_name, (void *)msg, max);
-	}
-
-	static int send_by_name(const std::string& mailbox_name, nullptr_t msg,
-							size_t max)
-	{
-		return WFTaskFactory::send_by_name(mailbox_name, (void *)0, max);
-	}
-
-	static int signal_by_name(const std::string& cond_name, intptr_t msg,
-							  size_t max)
-	{
-		return WFTaskFactory::signal_by_name(cond_name, (void *)msg, max);
-	}
-
-	static int signal_by_name(const std::string& cond_name, nullptr_t msg,
-							  size_t max)
-	{
-		return WFTaskFactory::signal_by_name(cond_name, (void *)0, max);
 	}
 };
 

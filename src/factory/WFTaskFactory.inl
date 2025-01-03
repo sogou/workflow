@@ -63,6 +63,26 @@ WFTaskFactory::create_dynamic_task(dynamic_create_t create)
 	return new __WFDynamicTask(std::move(create));
 }
 
+template<>
+int WFTaskFactory::send_by_name(const std::string&, void *const *, size_t);
+
+template<typename T>
+int WFTaskFactory::send_by_name(const std::string& mailbox_name, T *const msg[],
+								size_t max)
+{
+	return WFTaskFactory::send_by_name(mailbox_name, (void *const *)msg, max);
+}
+
+template<>
+int WFTaskFactory::signal_by_name(const std::string&, void *const *, size_t);
+
+template<typename T>
+int WFTaskFactory::signal_by_name(const std::string& cond_name, T *const msg[],
+								  size_t max)
+{
+	return WFTaskFactory::signal_by_name(cond_name, (void *const *)msg, max);
+}
+
 template<class REQ, class RESP, typename CTX = bool>
 class WFComplexClientTask : public WFClientTask<REQ, RESP>
 {
@@ -709,7 +729,7 @@ void WFTaskFactory::reset_go_task(WFGoTask *task, FUNC&& func, ARGS&&... args)
 
 template<> inline
 WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
-										nullptr_t&& func)
+										std::nullptr_t&& func)
 {
 	return new __WFGoTask(WFGlobal::get_exec_queue(queue_name),
 						  WFGlobal::get_compute_executor(),
@@ -719,7 +739,7 @@ WFGoTask *WFTaskFactory::create_go_task(const std::string& queue_name,
 template<> inline
 WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
 											 const std::string& queue_name,
-											 nullptr_t&& func)
+											 std::nullptr_t&& func)
 {
 	return new __WFTimedGoTask(seconds, nanoseconds,
 							   WFGlobal::get_exec_queue(queue_name),
@@ -729,7 +749,7 @@ WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
 
 template<> inline
 WFGoTask *WFTaskFactory::create_go_task(ExecQueue *queue, Executor *executor,
-										nullptr_t&& func)
+										std::nullptr_t&& func)
 {
 	return new __WFGoTask(queue, executor, nullptr);
 }
@@ -737,13 +757,13 @@ WFGoTask *WFTaskFactory::create_go_task(ExecQueue *queue, Executor *executor,
 template<> inline
 WFGoTask *WFTaskFactory::create_timedgo_task(time_t seconds, long nanoseconds,
 											 ExecQueue *queue, Executor *executor,
-											 nullptr_t&& func)
+											 std::nullptr_t&& func)
 {
 	return new __WFTimedGoTask(seconds, nanoseconds, queue, executor, nullptr);
 }
 
 template<> inline
-void WFTaskFactory::reset_go_task(WFGoTask *task, nullptr_t&& func)
+void WFTaskFactory::reset_go_task(WFGoTask *task, std::nullptr_t&& func)
 {
 	((__WFGoTask *)task)->set_go_func(nullptr);
 }

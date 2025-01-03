@@ -312,7 +312,7 @@ void KafkaClientTask::kafka_rebalance_callback(__WFKafkaTask *task)
 		snprintf(name, 64, "%p.cgroup", member);
 		member->mutex.unlock();
 
-		WFTaskFactory::signal_by_name(name, (void *)NULL, max);
+		WFTaskFactory::signal_by_name(name, NULL, max);
 	}
 	else
 	{

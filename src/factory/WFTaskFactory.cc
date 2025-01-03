@@ -707,6 +707,7 @@ int WFTaskFactory::send_by_name(const std::string& name, void *msg,
 	return __mailbox_map.send(name, &msg, max, 0);
 }
 
+template<>
 int WFTaskFactory::send_by_name(const std::string& name, void *const msg[],
 								size_t max)
 {
@@ -903,6 +904,7 @@ int WFTaskFactory::signal_by_name(const std::string& name, void *msg,
 	return __conditional_map.signal(name, &msg, max, 0);
 }
 
+template<>
 int WFTaskFactory::signal_by_name(const std::string& name, void *const msg[],
 								  size_t max)
 {

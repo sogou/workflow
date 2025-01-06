@@ -175,9 +175,10 @@ protected:
 
 	void clear_resp()
 	{
-		RESP resp;
-		*(protocol::ProtocolMessage *)&resp = std::move(this->resp);
-		this->resp = std::move(resp);
+		protocol::ProtocolMessage head(std::move(this->resp));
+		this->resp.~RESP();
+		new(&this->resp) RESP;
+		*(protocol::ProtocolMessage *)&this->resp = std::move(head);
 	}
 
 	void disable_retry()

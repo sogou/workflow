@@ -361,7 +361,7 @@ public:
 ProtocolMessage *
 ComplexRedisSubscribeTask::SubscribeWrapper::next_in(ProtocolMessage *message)
 {
-	redis_reply_t *reply = ((RedisResponse *)message)->result_ptr();
+	redis_reply_t *reply = task_->resp.result_ptr();
 
 	if (reply->type != REDIS_REPLY_TYPE_ARRAY)
 	{
@@ -379,7 +379,9 @@ ComplexRedisSubscribeTask::SubscribeWrapper::next_in(ProtocolMessage *message)
 	task_->watching_ = true;
 	task_->extract_(task_);
 
-	task_->clear_resp();
+	RedisResponse resp;
+	*(protocol::ProtocolMessage *)&resp = std::move(task_->resp);
+	task_->resp = std::move(resp);
 	return task_->finished_ ? NULL : &task_->resp;
 }
 

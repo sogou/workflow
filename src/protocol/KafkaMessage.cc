@@ -1450,8 +1450,9 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 		return 1;
 
 	KafkaBlock block;
+	bool compressed = ((hdr.attributes & 7) != 0);
 
-	if (hdr.attributes & 7)
+	if (compressed)
 	{
 		if (uncompress_buf(*buf, hdr.length - 61 + 12, &block, hdr.attributes & 7) < 0)
 			return -1;
@@ -1492,7 +1493,7 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 		}
 	}
 
-	if (hdr.attributes == 0)
+	if (!compressed)
 	{
 		*buf = p;
 		*size = n;

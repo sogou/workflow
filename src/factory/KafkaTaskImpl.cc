@@ -522,6 +522,7 @@ bool __ComplexKafkaTask::process_fetch()
 	while ((toppar = this->get_resp()->get_toppar_list()->get_next()) != NULL)
 	{
 		int toppar_error = toppar->get_error();
+
 		if (toppar_error == KAFKA_OFFSET_OUT_OF_RANGE)
 		{
 			toppar->set_offset(KAFKA_OFFSET_OVERFLOW);

@@ -201,6 +201,12 @@ public:
 	}
 
 public:
+	void set_prepare(std::function<void (WFNetworkTask<REQ, RESP> *)> prep)
+	{
+		this->prepare = std::move(prep);
+	}
+
+public:
 	void set_callback(std::function<void (WFNetworkTask<REQ, RESP> *)> cb)
 	{
 		this->callback = std::move(cb);
@@ -219,6 +225,7 @@ protected:
 	int watch_timeo;
 	REQ req;
 	RESP resp;
+	std::function<void (WFNetworkTask<REQ, RESP> *)> prepare;
 	std::function<void (WFNetworkTask<REQ, RESP> *)> callback;
 
 protected:
@@ -742,6 +749,7 @@ public:
 		this->create = std::move(create);
 	}
 
+public:
 	void set_callback(std::function<void (WFRepeaterTask *)> cb)
 	{
 		this->callback = std::move(cb);

@@ -38,6 +38,11 @@ public:
 		this->deleter = std::move(deleter);
 	}
 
+	void set_context(void *context)
+	{
+		this->context = context;
+	}
+
 	void *test_set_context(void *test_context, void *new_context,
 						   std::function<void (void *)> deleter)
 	{
@@ -46,6 +51,14 @@ public:
 			this->deleter = std::move(deleter);
 			return new_context;
 		}
+
+		return test_context;
+	}
+
+	void *test_set_context(void *test_context, void *new_context)
+	{
+		if (this->context.compare_exchange_strong(test_context, new_context))
+			return new_context;
 
 		return test_context;
 	}

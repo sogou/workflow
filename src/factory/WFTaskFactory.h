@@ -216,8 +216,7 @@ public:
 
 	/* Count by a counter's name. When count_by_name(), it's safe to count
 	 * exceeding target_value. When multiple counters share a same name,
-	 * this operation will be performed on the first created. If no counter
-	 * matches the name, nothing is performed. */
+	 * this operation will be performed on the first created. */
 	static int count_by_name(const std::string& counter_name)
 	{
 		return WFTaskFactory::count_by_name(counter_name, 1);
@@ -258,7 +257,8 @@ public:
 	static int send_by_name(const std::string& mailbox_name, void *msg,
 							size_t max);
 
-	static int send_by_name(const std::string& mailbox_name, void *const msg[],
+	template<typename T>
+	static int send_by_name(const std::string& mailbox_name, T *const msg[],
 							size_t max);
 
 public:
@@ -293,7 +293,8 @@ public:
 	static int signal_by_name(const std::string& cond_name, void *msg,
 							  size_t max);
 
-	static int signal_by_name(const std::string& cond_name, void *const msg[],
+	template<typename T>
+	static int signal_by_name(const std::string& cond_name, T *const msg[],
 							  size_t max);
 
 public:
@@ -306,20 +307,9 @@ public:
 	/* The 'guard' is acquired after started, so call 'release_guard' after
 	   and only after the task is finished, typically in its callback.
 	   The function returns 1 if another is signaled, otherwise returns 0. */
-	static int release_guard(const std::string& resource_name)
-	{
-		return WFTaskFactory::release_guard(resource_name, NULL);
-	}
-
 	static int release_guard(const std::string& resaource_name, void *msg);
 
-	static int release_guard_safe(const std::string& resource_name)
-	{
-		return WFTaskFactory::release_guard_safe(resource_name, NULL);
-	}
-
 	static int release_guard_safe(const std::string& resource_name, void *msg);
-
 
 public:
 	template<class FUNC, class... ARGS>

@@ -119,35 +119,6 @@ static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
 	return -1;
 }
 
-static int __send_to_conn(const void *buf, size_t size,
-						  struct CommConnEntry *entry)
-{
-	const struct sockaddr *addr;
-	socklen_t addrlen;
-	int ret;
-
-	if (!entry->ssl)
-	{
-		entry->target->get_addr(&addr, &addrlen);
-		return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
-	}
-
-	if (size == 0)
-		return 0;
-
-	ret = SSL_write(entry->ssl, buf, size);
-	if (ret <= 0)
-	{
-		ret = SSL_get_error(entry->ssl, ret);
-		if (ret != SSL_ERROR_SYSCALL)
-			errno = -ret;
-
-		ret = -1;
-	}
-
-	return ret;
-}
-
 static void __release_conn(struct CommConnEntry *entry)
 {
 	delete entry->conn;
@@ -159,36 +130,6 @@ static void __release_conn(struct CommConnEntry *entry)
 
 	close(entry->sockfd);
 	free(entry);
-}
-
-#define SSL_WRITE_BUFSIZE	8192
-
-static int __ssl_writev(SSL *ssl, const struct iovec vectors[], int cnt)
-{
-	char buf[SSL_WRITE_BUFSIZE];
-	size_t nleft = SSL_WRITE_BUFSIZE;
-	char *p = buf;
-	size_t n;
-	int i;
-
-	if (vectors[0].iov_len >= SSL_WRITE_BUFSIZE || cnt == 1)
-		return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
-
-	for (i = 0; i < cnt; i++)
-	{
-		if (vectors[i].iov_len <= nleft)
-			n = vectors[i].iov_len;
-		else
-			n = nleft;
-
-		memcpy(p, vectors[i].iov_base, n);
-		p += n;
-		nleft -= n;
-		if (nleft == 0)
-			break;
-	}
-
-	return SSL_write(ssl, buf, p - buf);
 }
 
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
@@ -228,13 +169,43 @@ void CommTarget::deinit()
 
 int CommMessageIn::feedback(const void *buf, size_t size)
 {
-	return __send_to_conn(buf, size, this->entry);
+	struct CommConnEntry *entry = this->entry;
+	const struct sockaddr *addr;
+	socklen_t addrlen;
+	int ret;
+
+	if (!entry->ssl)
+	{
+		if (entry->service)
+		{
+			entry->target->get_addr(&addr, &addrlen);
+			return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
+		}
+		else
+			return write(entry->sockfd, buf, size);
+	}
+
+	if (size == 0)
+		return 0;
+
+	ret = SSL_write(entry->ssl, buf, size);
+	if (ret <= 0)
+	{
+		ret = SSL_get_error(entry->ssl, ret);
+		if (ret != SSL_ERROR_SYSCALL)
+			errno = -ret;
+
+		ret = -1;
+	}
+
+	return ret;
 }
 
 void CommMessageIn::renew()
 {
 	CommSession *session = this->entry->session;
 	session->timeout = -1;
+	session->begin_time.tv_sec = -1;
 	session->begin_time.tv_nsec = -1;
 }
 
@@ -388,7 +359,7 @@ CommSession::~CommSession()
 		return;
 
 	target = (CommServiceTarget *)this->target;
-	if (this->passive == 1)
+	if (this->passive == 2)
 		target->shutdown();
 
 	target->decref();
@@ -402,7 +373,6 @@ inline int Communicator::first_timeout(CommSession *session)
 	{
 		timeout = session->timeout;
 		session->timeout = 0;
-		session->begin_time.tv_nsec = 0;
 	}
 	else
 		clock_gettime(CLOCK_MONOTONIC, &session->begin_time);
@@ -479,7 +449,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 		}
 		else if (vectors->iov_len > 0)
 		{
-			n = __ssl_writev(entry->ssl, vectors, cnt);
+			n = SSL_write(entry->ssl, vectors->iov_base, vectors->iov_len);
 			if (n <= 0)
 				return cnt;
 		}
@@ -538,7 +508,8 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 			else
 			{
 				session->timeout = -1;
-				session->begin_time.tv_nsec = -1;
+				session->begin_time.tv_sec = -1;
+				session->begin_time.tv_nsec = 0;
 			}
 
 			mpoller_set_timeout(entry->sockfd, timeout, this->mpoller);
@@ -645,6 +616,7 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 			list_add(&entry->list, &target->idle_list);
 		}
 
+		session->passive = 2;
 		pthread_mutex_unlock(&target->mutex);
 		break;
 
@@ -879,7 +851,8 @@ void Communicator::handle_request_result(struct poller_result *res)
 		else
 		{
 			session->timeout = -1;
-			session->begin_time.tv_nsec = -1;
+			session->begin_time.tv_sec = -1;
+			session->begin_time.tv_nsec = 0;
 		}
 
 		if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
@@ -993,7 +966,8 @@ void Communicator::handle_connect_result(struct poller_result *res)
 				else
 				{
 					session->timeout = -1;
-					session->begin_time.tv_nsec = -1;
+					session->begin_time.tv_sec = -1;
+					session->begin_time.tv_nsec = 0;
 				}
 			}
 			else if (ret > 0)
@@ -1270,13 +1244,24 @@ void Communicator::handler_thread_routine(void *context)
 		case PD_OP_NOTIFY:
 			comm->handle_aio_result(res);
 			break;
+		default:
+			free(res);
+			if (comm->thrdpool)
+				thrdpool_exit(comm->thrdpool);
+			continue;
 		}
 
 		free(res);
 	}
+
+	if (!comm->thrdpool)
+	{
+		mpoller_destroy(comm->mpoller);
+		msgqueue_destroy(comm->msgqueue);
+	}
 }
 
-int Communicator::append_request(const void *buf, size_t *size,
+int Communicator::append_message(const void *buf, size_t *size,
 								 poller_message_t *msg)
 {
 	CommMessageIn *in = (CommMessageIn *)msg;
@@ -1289,43 +1274,33 @@ int Communicator::append_request(const void *buf, size_t *size,
 	if (ret > 0)
 	{
 		entry->state = CONN_STATE_SUCCESS;
-		timeout = -1;
-	}
-	else if (ret == 0 && session->timeout != 0)
-		timeout = Communicator::next_timeout(session);
-	else
-		return ret;
-
-	/* This set_timeout() never fails, which is very important. */
-	mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
-	return ret;
-}
-
-int Communicator::append_reply(const void *buf, size_t *size,
-							   poller_message_t *msg)
-{
-	CommMessageIn *in = (CommMessageIn *)msg;
-	struct CommConnEntry *entry = in->entry;
-	CommSession *session = entry->session;
-	int timeout;
-	int ret;
-
-	ret = in->append(buf, size);
-	if (ret > 0)
-	{
-		entry->state = CONN_STATE_SUCCESS;
-		timeout = session->keep_alive_timeout();
-		session->timeout = timeout; /* Reuse session's timeout field. */
-		if (timeout == 0)
+		if (!entry->service)
 		{
-			mpoller_del(entry->sockfd, entry->mpoller);
-			return ret;
+			timeout = session->keep_alive_timeout();
+			session->timeout = timeout; /* Reuse session's timeout field. */
+			if (timeout == 0)
+			{
+				mpoller_del(entry->sockfd, entry->mpoller);
+				return ret;
+			}
 		}
+		else
+			timeout = -1;
 	}
 	else if (ret == 0 && session->timeout != 0)
 	{
-		if (session->begin_time.tv_nsec == -1)
-			timeout = Communicator::first_timeout_recv(session);
+		if (session->begin_time.tv_sec < 0)
+		{
+			if (session->begin_time.tv_nsec < 0)
+				timeout = session->first_timeout();
+			else
+				timeout = 0;
+
+			if (timeout == 0)
+				timeout = Communicator::first_timeout_recv(session);
+			else
+				session->begin_time.tv_nsec = 0;
+		}
 		else
 			timeout = Communicator::next_timeout(session);
 	}
@@ -1343,6 +1318,7 @@ poller_message_t *Communicator::create_request(void *context)
 	CommService *service = entry->service;
 	CommTarget *target = entry->target;
 	CommSession *session;
+	CommMessageIn *in;
 	int timeout;
 
 	if (entry->state == CONN_STATE_IDLE)
@@ -1383,20 +1359,22 @@ poller_message_t *Communicator::create_request(void *context)
 
 	((CommServiceTarget *)target)->incref();
 
-	session->in = session->message_in();
-	if (session->in)
+	in = session->message_in();
+	if (in)
 	{
-		session->in->poller_message_t::append = Communicator::append_request;
-		session->in->entry = entry;
+		in->poller_message_t::append = Communicator::append_message;
+		in->entry = entry;
+		session->in = in;
 	}
 
-	return session->in;
+	return in;
 }
 
 poller_message_t *Communicator::create_reply(void *context)
 {
 	struct CommConnEntry *entry = (struct CommConnEntry *)context;
 	CommSession *session;
+	CommMessageIn *in;
 
 	if (entry->state == CONN_STATE_IDLE)
 	{
@@ -1412,14 +1390,15 @@ poller_message_t *Communicator::create_reply(void *context)
 	}
 
 	session = entry->session;
-	session->in = session->message_in();
-	if (session->in)
+	in = session->message_in();
+	if (in)
 	{
-		session->in->poller_message_t::append = Communicator::append_reply;
-		session->in->entry = entry;
+		in->poller_message_t::append = Communicator::append_message;
+		in->entry = entry;
+		session->in = in;
 	}
 
-	return session->in;
+	return in;
 }
 
 int Communicator::recv_request(const void *buf, size_t size,
@@ -1428,6 +1407,7 @@ int Communicator::recv_request(const void *buf, size_t size,
 	CommService *service = entry->service;
 	CommTarget *target = entry->target;
 	CommSession *session;
+	CommMessageIn *in;
 	size_t n;
 	int ret;
 
@@ -1447,14 +1427,15 @@ int Communicator::recv_request(const void *buf, size_t size,
 
 	((CommServiceTarget *)target)->incref();
 
-	session->in = session->message_in();
-	if (session->in)
+	in = session->message_in();
+	if (in)
 	{
-		session->in->entry = entry;
+		in->entry = entry;
+		session->in = in;
 		do
 		{
 			n = size;
-			ret = session->in->append(buf, &n);
+			ret = in->append(buf, &n);
 			if (ret == 0)
 			{
 				size -= n;
@@ -1631,12 +1612,15 @@ int Communicator::init(size_t poller_threads, size_t handler_threads)
 
 void Communicator::deinit()
 {
+	int in_handler = this->is_handler_thread();
+
 	this->stop_flag = 1;
 	mpoller_stop(this->mpoller);
 	msgqueue_set_nonblock(this->msgqueue);
 	thrdpool_destroy(NULL, this->thrdpool);
-	mpoller_destroy(this->mpoller);
-	msgqueue_destroy(this->msgqueue);
+	this->thrdpool = NULL;
+	if (!in_handler)
+		Communicator::handler_thread_routine(this);
 }
 
 int Communicator::nonblock_connect(CommTarget *target)
@@ -1985,14 +1969,14 @@ int Communicator::reply(CommSession *session)
 	int errno_bak;
 	int ret;
 
-	if (session->passive != 1)
+	if (session->passive != 2)
 	{
-		errno = session->passive ? ENOENT : EINVAL;
+		errno = EINVAL;
 		return -1;
 	}
 
 	errno_bak = errno;
-	session->passive = 2;
+	session->passive = 3;
 	target = (CommServiceTarget *)session->target;
 	if (target->service->reliable)
 		ret = this->reply_reliable(session, target);
@@ -2018,21 +2002,27 @@ int Communicator::reply(CommSession *session)
 
 int Communicator::push(const void *buf, size_t size, CommSession *session)
 {
-	CommTarget *target = session->target;
-	struct CommConnEntry *entry;
+	CommMessageIn *in = session->in;
+	pthread_mutex_t *mutex;
 	int ret;
 
-	if (session->passive != 1)
+	if (!in)
 	{
-		errno = session->passive ? ENOENT : EINVAL;
+		errno = ENOENT;
 		return -1;
 	}
 
-	pthread_mutex_lock(&target->mutex);
-	if (!list_empty(&target->idle_list))
+	if (session->passive)
+		mutex = &session->target->mutex;
+	else
+		mutex = &in->entry->mutex;
+
+	pthread_mutex_lock(mutex);
+	if ((session->passive == 2 && !list_empty(&session->target->idle_list)) ||
+		(!session->passive && in->entry->session == session) ||
+		session->passive == 1)
 	{
-		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
-		ret = __send_to_conn(buf, size, entry);
+		ret = in->inner()->feedback(buf, size);
 	}
 	else
 	{
@@ -2040,7 +2030,7 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 		ret = -1;
 	}
 
-	pthread_mutex_unlock(&target->mutex);
+	pthread_mutex_unlock(mutex);
 	return ret;
 }
 
@@ -2048,13 +2038,13 @@ int Communicator::shutdown(CommSession *session)
 {
 	CommServiceTarget *target;
 
-	if (session->passive != 1)
+	if (session->passive != 2)
 	{
-		errno = session->passive ? ENOENT : EINVAL;
+		errno = EINVAL;
 		return -1;
 	}
 
-	session->passive = 2;
+	session->passive = 3;
 	target = (CommServiceTarget *)session->target;
 	if (!target->shutdown())
 	{
@@ -2109,6 +2099,23 @@ int Communicator::increase_handler_thread()
 		}
 
 		free(buf);
+	}
+
+	return -1;
+}
+
+int Communicator::decrease_handler_thread()
+{
+	struct poller_result *res;
+	size_t size;
+
+	size = sizeof (struct poller_result) + sizeof (void *);
+	res = (struct poller_result *)malloc(size);
+	if (res)
+	{
+		res->data.operation = -1;
+		msgqueue_put_head(res, this->msgqueue);
+		return 0;
 	}
 
 	return -1;

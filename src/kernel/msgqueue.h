@@ -35,8 +35,9 @@ extern "C"
  * 'linkoff' can be positive or negative or zero. */
 
 msgqueue_t *msgqueue_create(size_t maxlen, int linkoff);
-void msgqueue_put(void *msg, msgqueue_t *queue);
 void *msgqueue_get(msgqueue_t *queue);
+void msgqueue_put(void *msg, msgqueue_t *queue);
+void msgqueue_put_head(void *msg, msgqueue_t *queue);
 void msgqueue_set_nonblock(msgqueue_t *queue);
 void msgqueue_set_block(msgqueue_t *queue);
 void msgqueue_destroy(msgqueue_t *queue);

@@ -48,8 +48,10 @@ extern "C"
 
 thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize);
 int thrdpool_schedule(const struct thrdpool_task *task, thrdpool_t *pool);
-int thrdpool_increase(thrdpool_t *pool);
 int thrdpool_in_pool(thrdpool_t *pool);
+int thrdpool_increase(thrdpool_t *pool);
+int thrdpool_decrease(thrdpool_t *pool);
+void thrdpool_exit(thrdpool_t *pool);
 void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
 					  thrdpool_t *pool);
 

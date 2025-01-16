@@ -67,6 +67,10 @@ public:
 
 	int request(ExecSession *session, ExecQueue *queue);
 
+public:
+	int increase_thread();
+	int decrease_thread();
+
 private:
 	struct __thrdpool *thrdpool;
 

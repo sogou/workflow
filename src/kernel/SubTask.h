@@ -21,8 +21,6 @@
 
 #include <stddef.h>
 
-class ParallelTask;
-
 class SubTask
 {
 public:
@@ -39,7 +37,7 @@ public:
 	void set_pointer(void *pointer) { this->pointer = pointer; }
 
 private:
-	ParallelTask *parent;
+	class ParallelTask *parent;
 	void *pointer;
 
 public:

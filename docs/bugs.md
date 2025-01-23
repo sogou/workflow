@@ -26,7 +26,7 @@ void f()
 void f();
 {
     auto *task = WFTaskFactory::create_http_task("https://sogou/index.html", 0, 0, nullptr);
-    static_cast<WFClientTask<protocol::HttpRequest, protocol::HttpResponse> *>(task)->set_prepare([](WFHttpTask *task){
+    task->set_prepare([](WFHttpTask *task){
         auto *t = static_cast<WFComplexClientTask<protocol::HttpRequest, protocol::HttpResponse> *>(task);
         task->get_req()->set_header_pair("Host", t->get_current_uri()->host);  // 这里得到实际uri里的host。
     });

@@ -112,7 +112,7 @@ void prepare_func(WFHttpTask *task)
 int some_function()
 {
     WFHttpTask *task = WFTaskFactory::create_http_task(...);
-    static_cast<WFClientTask<HttpRequest, HttpResponse>>(task)->set_prepare(prepare_func);
+    task->set_prepare(prepare_func);
     ...
 }
 ~~~

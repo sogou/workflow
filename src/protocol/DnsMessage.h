@@ -255,6 +255,18 @@ public:
 		return dns_add_mx_record(name, rclass, ttl, preference, exchange, list);
 	}
 
+	int add_raw_record(int section, const char *name, uint16_t type,
+					   uint16_t rclass, uint32_t ttl,
+					   const void *data, uint16_t dlen)
+	{
+		struct list_head *list = get_section(section);
+
+		if (!list)
+			return -1;
+
+		return dns_add_raw_record(name, type, rclass, ttl, dlen, data, list);
+	}
+
 	// Inner use only
 	bool is_single_packet() const
 	{

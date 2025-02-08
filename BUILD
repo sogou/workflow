@@ -384,6 +384,21 @@ cc_binary(
 )
 
 cc_binary(
+	name = 'graceful_restart_bootstrap',
+	srcs = [
+		'tutorial/tutorial-16-graceful_restart/bootstrap.c',
+	],
+)
+
+cc_binary(
+	name = 'graceful_restart_server',
+	srcs = [
+		'tutorial/tutorial-16-graceful_restart/server.cc',
+	],
+	deps = [':http'],
+)
+
+cc_binary(
 	name = 'dns_cli',
 	srcs = ['tutorial/tutorial-17-dns_cli.cc'],
 	deps = [':common'],

@@ -19,16 +19,6 @@ void process(WFDnsTask *task)
 	printf("name:%s type:%s class:%s\n",
 		   name.c_str(), dns_type2str(qtype), dns_class2str(qclass));
 
-	resp->set_question_name(name);
-	resp->set_question_type(qtype);
-	resp->set_question_class(qclass);
-
-	resp->set_opcode(opcode);
-	resp->set_id(req->get_id()); // resp should set same id
-	resp->set_qr(1); // this is a response
-	resp->set_aa(1); // this is an authoritative answer
-	resp->set_rd(req->get_rd());
-
 	if (opcode != 0)
 	{
 		resp->set_rcode(DNS_RCODE_NOT_IMPLEMENTED);
@@ -36,6 +26,7 @@ void process(WFDnsTask *task)
 	}
 
 	resp->set_rcode(DNS_RCODE_NO_ERROR);
+	resp->set_aa(1);
 
 	if (qtype == DNS_TYPE_A)
 	{

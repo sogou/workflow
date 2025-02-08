@@ -376,7 +376,40 @@ cc_binary(
 )
 
 cc_binary(
+	name = 'name_service',
+	srcs = ['tutorial/tutorial-15-name_service.cc'],
+	deps = [':http'],
+)
+
+cc_binary(
+	name = 'graceful_restart_bootstrap',
+	srcs = [
+		'tutorial/tutorial-16-graceful_restart/bootstrap.c',
+	],
+)
+
+cc_binary(
+	name = 'graceful_restart_server',
+	srcs = [
+		'tutorial/tutorial-16-graceful_restart/server.cc',
+	],
+	deps = [':http'],
+)
+
+cc_binary(
+	name = 'dns_cli',
+	srcs = ['tutorial/tutorial-17-dns_cli.cc'],
+	deps = [':common'],
+)
+
+cc_binary(
 	 name = 'redis_subscriber',
 	 srcs = ['tutorial/tutorial-18-redis_subscriber.cc'],
 	 deps = [':redis'],
+)
+
+cc_binary(
+	name = 'dns_server',
+	srcs = ['tutorial/tutorial-19-dns_server.cc'],
+	deps = [':common'],
 )

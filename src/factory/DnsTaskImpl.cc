@@ -217,9 +217,30 @@ protected:
 		return this->WFServerTask::message_out();
 	}
 
+	virtual void handle(int state, int error);
+
 protected:
 	enum TransportType type;
 };
+
+void WFDnsServerTask::handle(int state, int error)
+{
+	if (state == WFT_STATE_TOREPLY)
+	{
+		DnsRequest *req = this->get_req();
+		DnsResponse *resp = this->get_resp();
+
+		resp->set_question_name(req->get_question_name());
+		resp->set_question_type(req->get_question_type());
+		resp->set_question_class(req->get_question_class());
+		resp->set_opcode(req->get_opcode());
+		resp->set_id(req->get_id());
+		resp->set_rd(req->get_rd());
+		resp->set_qr(1);
+	}
+
+	return WFServerTask::handle(state, error);
+}
 
 /**********Server Factory**********/
 

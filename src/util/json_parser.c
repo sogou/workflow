@@ -1180,6 +1180,12 @@ const json_value_t *json_object_prev_value(const json_value_t *val,
 	return &list_entry(pos->prev, json_member_t, list)->value;
 }
 
+const char *json_object_value_name(const json_value_t *val,
+								   const json_object_t *obj)
+{
+	return list_entry(val, json_member_t, value)->name;
+}
+
 static const json_value_t *__json_object_insert(const char *name,
 												int type, va_list ap,
 												struct list_head *pos,

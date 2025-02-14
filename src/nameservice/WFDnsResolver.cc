@@ -649,8 +649,8 @@ void WFResolverTask::dns_single_callback(void *net_dns_task)
 	}
 	else
 	{
-		this->state = dns_task->get_state();
-		this->error = dns_task->get_error();
+		this->state = WFT_STATE_DNS_ERROR;
+		this->error = EAI_AGAIN;
 	}
 
 	task_callback();
@@ -672,7 +672,7 @@ void WFResolverTask::dns_partial_callback(void *net_dns_task)
 														&ctx->ai);
 	}
 	else
-		ctx->eai_error = EAI_NONAME;
+		ctx->eai_error = EAI_AGAIN;
 }
 
 void WFResolverTask::dns_parallel_callback(const void *parallel)
@@ -684,12 +684,17 @@ void WFResolverTask::dns_parallel_callback(const void *parallel)
 
 	if (c4->state != WFT_STATE_SUCCESS && c6->state != WFT_STATE_SUCCESS)
 	{
-		this->state = c4->state;
-		this->error = c4->error;
+		this->state = WFT_STATE_DNS_ERROR;
+		this->error = EAI_AGAIN;
 	}
 	else if (c4->eai_error != 0 && c6->eai_error != 0)
 	{
-		DnsRoutine::create(&out, c4->eai_error, NULL);
+		int eai_error = c4->eai_error;
+
+		if (c6->eai_error == EAI_AGAIN)
+			eai_error = EAI_AGAIN;
+
+		DnsRoutine::create(&out, eai_error, NULL);
 		dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
 	}
 	else

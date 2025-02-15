@@ -99,6 +99,7 @@ static inline int __append_record_list(std::string& s, int *count,
 
 		switch (record->type)
 		{
+		default: // encode unknown types as raw record
 		case DNS_TYPE_A:
 		case DNS_TYPE_AAAA:
 			__append_uint16(record_buf, record->rdlength);
@@ -115,7 +116,6 @@ static inline int __append_record_list(std::string& s, int *count,
 
 			__append_uint16(record_buf, rdata_buf.size());
 			record_buf.append(rdata_buf);
-
 			break;
 
 		case DNS_TYPE_SOA:
@@ -138,7 +138,6 @@ static inline int __append_record_list(std::string& s, int *count,
 
 			__append_uint16(record_buf, rdata_buf.size());
 			record_buf.append(rdata_buf);
-
 			break;
 		}
 
@@ -156,12 +155,13 @@ static inline int __append_record_list(std::string& s, int *count,
 
 			__append_uint16(record_buf, rdata_buf.size());
 			record_buf.append(rdata_buf);
-
 			break;
 		}
+
 		case DNS_TYPE_MX:
 		{
 			auto *mx = (struct dns_record_mx *)record->rdata;
+
 			rdata_buf.clear();
 			__append_uint16(rdata_buf, mx->preference);
 			ret = __append_name(rdata_buf, mx->exchange);
@@ -170,12 +170,8 @@ static inline int __append_record_list(std::string& s, int *count,
 
 			__append_uint16(record_buf, rdata_buf.size());
 			record_buf.append(rdata_buf);
-
 			break;
 		}
-		default:
-			// TODO not implement
-			continue;
 		}
 
 		cnt++;

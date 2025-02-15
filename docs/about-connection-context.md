@@ -19,6 +19,8 @@ http协议可以说是一种完全无连接状态的协议，http会话，是通
 事务型mysql，可以固定连接，这部分内容请参考mysql相关文档。  
 但是，如果我们实现一个redis协议的server，那我们需要知道当前连接上的状态了。  
 
+此外，我们还可以通过连接上下文件被释放的事件来感知连接被远端关闭。
+
 # 使用连接上下文的方法
 
 我们需要强调的是，一般情况下只有server任务需要使用连接上下文，并且只需要在process函数内部使用，这也是最安全最简单的用法。  
@@ -40,12 +42,16 @@ class WFConnection : public CommConnection
 public:
     void *get_context() const;
     void set_context(void *context, std::function<void (void *)> deleter);
+    void set_context(void *context);
     void *test_set_context(void *test_context, void *new_context,
                            std::function<void (void *)> deleter);
+    void *test_set_context(void *test_context, void *new_context);
 };
 ~~~
 get_connection()只可在process或callback里调用，而且如果callback里调用，需要检查返回值是否为NULL。  
-如果成功取得WFConnection对象，就可以操作连接上下文了。连接上下文是一个void *指针，在连接被关闭时，deleter被自动调用。  
+如果成功取得WFConnection对象，就可以操作连接上下文了。连接上下文是一个void *指针。  
+设置连接上下文可以同时传入deleter函数，在连接被关闭时，deleter被自动调用。    
+如果调用无deleter参数的接口，可以只设置新的上下文，保持原有的deleter不变。  
 
 # 访问连接上下文的时机和并发问题
 
@@ -100,7 +106,7 @@ void prepare_func(WFHttpTask *task)
 int some_function()
 {
     WFHttpTask *task = WFTaskFactory::create_http_task(...);
-    static_cast<WFClientTask<HttpRequest, HttpResponse>>(task)->set_prepare(prepare_func);
+    task->set_prepare(prepare_func);
     ...
 }
 ~~~

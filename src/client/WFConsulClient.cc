@@ -493,8 +493,6 @@ static bool create_tagged_address(const ConsulAddress& consul_address,
 		return false;
 
 	json_object_t *obj = json_value_object(val);
-	if (!obj)
-		return false;
 
 	if (!json_object_append(obj, "Address", JSON_VALUE_STRING,
 							consul_address.first.c_str()))
@@ -520,8 +518,6 @@ static bool create_health_check(const ConsulConfig& config, json_object_t *obj)
 		return false;
 
 	obj = json_value_object(val);
-	if (!obj)
-		return false;
 
 	str = config.get_check_name();
 	if (!json_object_append(obj, "Name", JSON_VALUE_STRING, str.c_str()))
@@ -550,8 +546,6 @@ static bool create_health_check(const ConsulConfig& config, json_object_t *obj)
 			return false;
 
 		json_object_t *header_obj = json_value_object(val);
-		if (!header_obj)
-			return false;
 
 		for (const auto& header : *config.get_http_headers())
 		{
@@ -561,8 +555,6 @@ static bool create_health_check(const ConsulConfig& config, json_object_t *obj)
 				return false;
 
 			json_array_t *arr = json_value_array(val);
-			if (!arr)
-				return false;
 
 			for (const auto& value : header.second)
 			{
@@ -638,8 +630,6 @@ static bool create_register_request(const json_value_t *root,
 		return false;
 
 	json_array_t *arr = json_value_array(val);
-	if (!arr)
-		return false;
 
 	for (const auto& tag : service->tags)
 	{
@@ -660,8 +650,6 @@ static bool create_register_request(const json_value_t *root,
 		return false;
 
 	json_object_t *meta_obj = json_value_object(val);
-	if (!meta_obj)
-		return false;
 
 	for (const auto& meta_kv : service->meta)
 	{
@@ -820,11 +808,11 @@ static bool parse_discover_node(const json_object_t *obj,
 	}
 
 	val = json_object_find("CreateIndex", obj);
-	if (val)
+	if (val && json_value_type(val) == JSON_VALUE_NUMBER)
 		instance->create_index = json_value_number(val);
 
 	val = json_object_find("ModifyIndex", obj);
-	if (val)
+	if (val && json_value_type(val) == JSON_VALUE_NUMBER)
 		instance->modify_index = json_value_number(val);
 
 	return true;
@@ -860,7 +848,7 @@ static bool parse_tagged_address(const char *name,
 
 	tagged_address.first = str;
 	val = json_object_find("Port", obj);
-	if (!val)
+	if (!val || json_value_type(val) != JSON_VALUE_NUMBER)
 		return false;
 
 	tagged_address.second = json_value_number(val);

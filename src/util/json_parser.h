@@ -60,6 +60,8 @@ const char *json_object_prev_name(const char *name,
 								  const json_object_t *obj);
 const json_value_t *json_object_prev_value(const json_value_t *val,
 										   const json_object_t *obj);
+const char *json_object_value_name(const json_value_t *val,
+								   const json_object_t *obj);
 const json_value_t *json_object_append(json_object_t *obj,
 									   const char *name,
 									   int type, ...);

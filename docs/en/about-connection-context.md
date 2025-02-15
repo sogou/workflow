@@ -20,6 +20,8 @@ Due to this limitation, in the framework, you cannot use the SELECT command of R
 Transactional MySQL tasks can use fixed connections. Please see MySQL documentations for relevant details.   
 However, if you implement a server based on Redis protocol, you need to know the current connection status.
 
+By using the deleter function of connection context, users can also get notified when the connection was closed by the peer.
+
 # How to use connection context
 
 Note: generally, only the server tasks need to use the connection context, and the connection context is used only inside the process function, which is also the safest and simplest.   
@@ -44,13 +46,15 @@ class WFConnection : public CommConnection
 public:
     void *get_context() const;
     void set_context(void *context, std::function<void (void *)> deleter);
+    void set_context(void *context);
     void *test_set_context(void *test_context, void *new_context,
                            std::function<void (void *)> deleter);
+    void *test_set_context(void *test_context, void *new_context);
 };
 ~~~
 
 **get\_connection()** can only be called in a process or a callback. If you call it in the callback, please check whether the return value is NULL.   
-If you get the WFConnection object successfully, you can perform operations on the connection context. A connection context is a void \* pointer. When the connection is closed, the deleter is automatically called.
+If you get the WFConnection object successfully, you can perform operations on the connection context. A connection context is a void \* pointer. When the connection is closed, the deleter is automatically called. When using the setting context functions without ``deleter`` argument, the original deleter will be kept unchanged.
 
 # Timing and concurrency for accessing connection context
 
@@ -108,7 +112,7 @@ void prepare_func(WFHttpTask *task)
 int some_function()
 {
     WFHttpTask *task = WFTaskFactory::create_http_task(...);
-    static_cast<WFClientTask<HttpRequest, HttpResponse>>(task)->set_prepare(prepare_func);
+    task->set_prepare(prepare_func);
     ...
 }
 ~~~

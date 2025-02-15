@@ -47,7 +47,7 @@ class WFClientTask : public WFNetworkTask<REQ, RESP>
 protected:
 	virtual CommMessageOut *message_out()
 	{
-		/* By using prepare function, users can modify request after
+		/* By using prepare function, users can modify the request after
 		 * the connection is established. */
 		if (this->prepare)
 			this->prepare(this);
@@ -86,15 +86,6 @@ protected:
 	}
 
 public:
-	void set_prepare(std::function<void (WFNetworkTask<REQ, RESP> *)> prep)
-	{
-		this->prepare = std::move(prep);
-	}
-
-protected:
-	std::function<void (WFNetworkTask<REQ, RESP> *)> prepare;
-
-public:
 	WFClientTask(CommSchedObject *object, CommScheduler *scheduler,
 				 std::function<void (WFNetworkTask<REQ, RESP> *)>&& cb) :
 		WFNetworkTask<REQ, RESP>(object, scheduler, std::move(cb))
@@ -109,7 +100,16 @@ template<class REQ, class RESP>
 class WFServerTask : public WFNetworkTask<REQ, RESP>
 {
 protected:
-	virtual CommMessageOut *message_out() { return &this->resp; }
+	virtual CommMessageOut *message_out()
+	{
+		/* By using prepare function, users can modify the response before
+		 * replying to the client. */
+		if (this->prepare)
+			this->prepare(this);
+
+		return &this->resp;
+	}
+
 	virtual CommMessageIn *message_in() { return &this->req; }
 	virtual void handle(int state, int error);
 

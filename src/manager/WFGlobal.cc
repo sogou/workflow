@@ -290,10 +290,19 @@ inline IOService *__CommManager::get_io_service()
 		if (!fio_flag_)
 		{
 			int maxevents = WFGlobal::get_global_settings()->fio_max_events;
+			int n = 65536;
 
 			fio_service_ = new __FileIOService(&scheduler_);
-			if (fio_service_->init(maxevents) < 0)
-				abort();
+			while (fio_service_->init(maxevents) < 0)
+			{
+				if ((errno != EAGAIN && errno != EINVAL) || maxevents <= 16)
+					abort();
+
+				while (n >= maxevents)
+					n /= 2;
+
+				maxevents = n;
+			}
 
 			if (fio_service_->bind() < 0)
 				abort();

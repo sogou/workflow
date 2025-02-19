@@ -97,7 +97,7 @@ counter->start()调用可以放在for循环之前。counter只要被创建，就
 # Server与其它异步引擎结合使用
 
 某些情况下，我们的server可能需要调用非本框架的异步客户端等待结果。简单的方法我们可以在process里同步等待，通过条件变量来唤醒。  
-这个做的缺点是我们占用了一个处理线程，把其它框架的异步客户端变为同步客户端。但通过counter的方法，我们可以不占线程地等待。
+这么做的缺点是我们占用了一个处理线程，把其它框架的异步客户端变为同步客户端。但通过counter，我们可以不占线程地等待。  
 方法很简单：
 ~~~cpp
 
@@ -120,6 +120,7 @@ void process(WFHttpTask *task)
 }
 ~~~
 在这里，我们可以把server任务所在的series理解为一个协程，而目标值为1的counter，可以理解为一个条件变量。  
+Counter的缺点是count操作不传递数据。如果业务有数据传达的需求，可以使用[Mailbox任务](https://github.com/sogou/workflow/blob/master/src/factory/WFTaskFactory.h#L268)。  
 
 # 命名计数器
 

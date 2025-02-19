@@ -211,10 +211,8 @@ using thread_dns_callback_t = std::function<void (ThreadDnsTask *)>;
 
 struct DnsContext
 {
-	int state;
-	int error;
-	int eai_error;
 	unsigned short port;
+	int eai_error;
 	struct addrinfo *ai;
 };
 
@@ -647,8 +645,8 @@ void WFResolverTask::dns_single_callback(void *net_dns_task)
 	}
 	else
 	{
-		this->state = dns_task->get_state();
-		this->error = dns_task->get_error();
+		this->state = WFT_STATE_DNS_ERROR;
+		this->error = EAI_AGAIN;
 	}
 
 	task_callback();
@@ -660,57 +658,50 @@ void WFResolverTask::dns_partial_callback(void *net_dns_task)
 	WFGlobal::get_dns_respool()->post(NULL);
 
 	struct DnsContext *ctx = (struct DnsContext *)dns_task->user_data;
+
 	ctx->ai = NULL;
-	ctx->state = dns_task->get_state();
-	ctx->error = dns_task->get_error();
-	if (ctx->state == WFT_STATE_SUCCESS)
+	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 	{
 		protocol::DnsResponse *resp = dns_task->get_resp();
 		ctx->eai_error = protocol::DnsUtil::getaddrinfo(resp, ctx->port,
 														&ctx->ai);
 	}
 	else
-		ctx->eai_error = EAI_NONAME;
+		ctx->eai_error = EAI_AGAIN;
 }
 
 void WFResolverTask::dns_parallel_callback(const void *parallel)
 {
 	const ParallelWork *pwork = (const ParallelWork *)parallel;
-	struct DnsContext *c4 = (struct DnsContext *)(pwork->get_context());
+	struct DnsContext *c4 = (struct DnsContext *)pwork->get_context();
 	struct DnsContext *c6 = c4 + 1;
-	DnsOutput out;
 
-	if (c4->state != WFT_STATE_SUCCESS && c6->state != WFT_STATE_SUCCESS)
+	if (c4->eai_error == 0 || c6->eai_error == 0)
 	{
-		this->state = c4->state;
-		this->error = c4->error;
-	}
-	else if (c4->eai_error != 0 && c6->eai_error != 0)
-	{
-		DnsRoutine::create(&out, c4->eai_error, NULL);
+		struct addrinfo *ai = NULL;
+		struct addrinfo **pai = &ai;
+		DnsOutput out;
+
+		*pai = c4->ai;
+		while (*pai)
+			pai = &(*pai)->ai_next;
+
+		*pai = c6->ai;
+		DnsRoutine::create(&out, 0, ai);
 		dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
 	}
 	else
 	{
-		struct addrinfo *ai = NULL;
-		struct addrinfo **pai = &ai;
+		int eai_error = c4->eai_error;
 
-		if (c4->ai != NULL)
-		{
-			*pai = c4->ai;
-			while (*pai)
-				pai = &(*pai)->ai_next;
-		}
+		if (c6->eai_error == EAI_AGAIN)
+			eai_error = EAI_AGAIN;
 
-		if (c6->ai != NULL)
-			*pai = c6->ai;
-
-		DnsRoutine::create(&out, 0, ai);
-		dns_callback_internal(&out, dns_ttl_default_, dns_ttl_min_);
+		this->state = WFT_STATE_DNS_ERROR;
+		this->error = eai_error;
 	}
 
-	delete[] c4;
-
+	delete []c4;
 	task_callback();
 }
 

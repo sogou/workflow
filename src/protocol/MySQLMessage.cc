@@ -542,7 +542,7 @@ int MySQLRSAAuthRequest::encode(struct iovec vectors[], int max)
 	EVP_PKEY_CTX *pkey_ctx;
 	int ret = -1;
 
-	bio = BIO_new_mem_buf(public_key_.c_str(), public_key_.size());
+	bio = BIO_new_mem_buf((void *)public_key_.c_str(), public_key_.size());
 	if (bio)
 	{
 		pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);

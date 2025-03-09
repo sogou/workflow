@@ -70,9 +70,9 @@ struct __json_element
 typedef struct __json_member json_member_t;
 typedef struct __json_element json_element_t;
 
-static int __json_string_length(const char *cursor)
+static int __json_string_length(const char *cursor, size_t *len)
 {
-	int len = 0;
+	size_t n = 0;
 
 	while (*cursor != '\"')
 	{
@@ -86,10 +86,11 @@ static int __json_string_length(const char *cursor)
 			return -2;
 
 		cursor++;
-		len++;
+		n++;
 	}
 
-	return len;
+	*len = n;
+	return 0;
 }
 
 static int __parse_json_hex4(const char *cursor, const char **end,
@@ -522,6 +523,7 @@ static int __parse_json_members(const char *cursor, const char **end,
 {
 	json_member_t *memb;
 	int cnt = 0;
+	size_t len;
 	int ret;
 
 	while (isspace(*cursor))
@@ -539,11 +541,11 @@ static int __parse_json_members(const char *cursor, const char **end,
 			return -2;
 
 		cursor++;
-		ret = __json_string_length(cursor);
+		ret = __json_string_length(cursor, &len);
 		if (ret < 0)
 			return ret;
 
-		memb = (json_member_t *)malloc(offsetof(json_member_t, name) + ret + 1);
+		memb = (json_member_t *)malloc(offsetof(json_member_t, name) + len + 1);
 		if (!memb)
 			return -1;
 
@@ -697,17 +699,18 @@ static int __parse_json_array(const char *cursor, const char **end,
 static int __parse_json_value(const char *cursor, const char **end,
 							  int depth, json_value_t *val)
 {
+	size_t len;
 	int ret;
 
 	switch (*cursor)
 	{
 	case '\"':
 		cursor++;
-		ret = __json_string_length(cursor);
+		ret = __json_string_length(cursor, &len);
 		if (ret < 0)
 			return ret;
 
-		val->value.string = (char *)malloc(ret + 1);
+		val->value.string = (char *)malloc(len + 1);
 		if (!val->value.string)
 			return -1;
 
@@ -865,7 +868,7 @@ static int __set_json_value(int type, va_list ap, json_value_t *val)
 {
 	json_value_t *src;
 	const char *str;
-	int len;
+	size_t len;
 
 	switch (type)
 	{
@@ -934,7 +937,7 @@ static int __copy_json_members(const json_object_t *src, json_object_t *dest)
 	struct list_head *pos;
 	json_member_t *entry;
 	json_member_t *memb;
-	int len;
+	size_t len;
 
 	list_for_each(pos, &src->head)
 	{
@@ -984,7 +987,7 @@ static int __copy_json_elements(const json_array_t *src, json_array_t *dest)
 
 static int __copy_json_value(const json_value_t *src, json_value_t *dest)
 {
-	int len;
+	size_t len;
 
 	switch (src->type)
 	{
@@ -1192,7 +1195,7 @@ static const json_value_t *__json_object_insert(const char *name,
 												json_object_t *obj)
 {
 	json_member_t *memb;
-	int len;
+	size_t len;
 
 	len = strlen(name);
 	memb = (json_member_t *)malloc(offsetof(json_member_t, name) + len + 1);

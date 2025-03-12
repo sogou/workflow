@@ -398,5 +398,119 @@ int HttpResponse::append(const void *buf, size_t *size)
 	return ret;
 }
 
+#define MIN(x, y)	((x) <= (y) ? (x) : (y))
+
+int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)
+{
+	char *end;
+	size_t i;
+
+	size = MIN(size, 64 - this->nreceived);
+	memcpy(this->chunk_line + this->nreceived, buf, size);
+	this->nreceived += size;
+	for (i = 0; i + 1 < this->nreceived; i++)
+	{
+		if (this->chunk_line[i] == '\r')
+		{
+			if (this->chunk_line[i + 1] != '\n')
+			{
+				errno = EBADMSG;
+				return -1;
+			}
+
+			this->chunk_line[i] = '\0';
+			this->chunk_size = strtol(this->chunk_line, &end, 16);
+			if (end == this->chunk_line)
+			{
+				errno = EBADMSG;
+				return -1;
+			}
+
+			if (this->chunk_size > this->size_limit)
+			{
+				errno = EMSGSIZE;
+				return -1;
+			}
+
+			this->chunk = malloc(this->chunk_size + 2);
+			if (!this->chunk)
+				return -1;
+
+			this->nreceived = i;
+			return 1;
+		}
+	}
+
+	if (this->nreceived == 64)
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
+	return 0;
+}
+
+int HttpMessageChunk::append(const void *buf, size_t *size)
+{
+	size_t n = 0;
+	size_t nleft;
+	int ret;
+
+	if (!this->chunk)
+	{
+		n = this->nreceived;
+		ret = this->append_chunk_line(buf, *size);
+		if (ret <= 0)
+			return ret;
+
+		n = this->nreceived - n;
+		this->nreceived = 0;
+		buf = (const char *)buf + n;
+	}
+
+	nleft = this->chunk_size + 2 - this->nreceived;
+	if (*size - n > nleft)
+		*size = n + nleft;
+
+	memcpy((char *)this->chunk + this->nreceived, buf, *size);
+	this->nreceived += *size;
+	if (this->nreceived == this->chunk_size + 2)
+	{
+		((char *)this->chunk)[0] = '\0';
+		((char *)this->chunk)[1] = '\0';
+		return 0;
+	}
+
+	return 1;
+}
+
+HttpMessageChunk::HttpMessageChunk(HttpMessageChunk&& msg) :
+	ProtocolMessage(std::move(msg))
+{
+	memcpy(this->chunk_line, msg.chunk_line, 64);
+	this->chunk = msg.chunk;
+	msg.chunk = NULL;
+	this->chunk_size = msg.chunk_size;
+	this->nreceived = msg.nreceived;
+	msg.nreceived = 0;
+}
+
+HttpMessageChunk& HttpMessageChunk::operator = (HttpMessageChunk&& msg)
+{
+	if (&msg != this)
+	{
+		*(ProtocolMessage *)this = std::move(msg);
+
+		memcpy(this->chunk_line, msg.chunk_line, 64);
+		this->chunk = msg.chunk;
+		msg.chunk = NULL;
+		this->chunk_size = msg.chunk_size;
+		this->nreceived = msg.nreceived;
+		msg.nreceived = 0;
+	}
+
+	return *this;
+}
+
 }
 

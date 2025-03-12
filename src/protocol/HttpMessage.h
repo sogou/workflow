@@ -19,6 +19,7 @@
 #ifndef _HTTPMESSAGE_H_
 #define _HTTPMESSAGE_H_
 
+#include <stdlib.h>
 #include <string.h>
 #include <utility>
 #include <string>
@@ -402,6 +403,50 @@ public:
 public:
 	HttpResponse(HttpResponse&& resp) = default;
 	HttpResponse& operator = (HttpResponse&& resp) = default;
+};
+
+class HttpMessageChunk : public ProtocolMessage
+{
+public:
+	bool get_chunk(const void **chunk, size_t *size) const
+	{
+		if (this->chunk && this->nreceived == this->chunk_size + 2)
+		{
+			*chunk = this->chunk;
+			*size = this->chunk_size;
+			return true;
+		}
+		else
+			return false;
+	}
+
+protected:
+	virtual int append(const void *buf, size_t *size);
+
+private:
+	int append_chunk_line(const void *buf, size_t size);
+
+private:
+	char chunk_line[64];
+	void *chunk;
+	size_t chunk_size;
+	size_t nreceived;
+
+public:
+	HttpMessageChunk()
+	{
+		this->chunk = NULL;
+		this->nreceived = 0;
+	}
+
+	virtual ~HttpMessageChunk()
+	{
+		free(this->chunk);
+	}
+
+public:
+	HttpMessageChunk(HttpMessageChunk&& msg);
+	HttpMessageChunk& operator = (HttpMessageChunk&& msg);
 };
 
 }

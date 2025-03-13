@@ -460,7 +460,7 @@ bool HttpChunkCursor::next(const void **chunk, size_t *size)
 	const char *cur = (const char *)this->pos;
 	char *end;
 
-	*size = strtol(cur, &end, 16);
+	*size = strtoul(cur, &end, 16);
 	if (*size == 0)
 	{
 		this->end = true;

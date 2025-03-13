@@ -230,7 +230,7 @@ private:
 	int ref;
 
 private:
-	struct list_head alive_list;
+	struct list_head keep_alive_list;
 	pthread_mutex_t mutex;
 
 public:

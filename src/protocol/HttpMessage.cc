@@ -432,7 +432,7 @@ int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)
 				return -1;
 			}
 
-			this->chunk = malloc(this->chunk_size + 2);
+			this->chunk = malloc(this->chunk_size + 3);
 			if (!this->chunk)
 				return -1;
 
@@ -482,7 +482,7 @@ int HttpMessageChunk::append(const void *buf, size_t *size)
 		this->nreceived += n;
 		if (this->nreceived == this->chunk_size + 2)
 		{
-			((char *)this->chunk)[this->chunk_size] = '\0';
+			((char *)this->chunk)[this->nreceived] = '\0';
 			return 1;
 		}
 	}
@@ -505,7 +505,9 @@ int HttpMessageChunk::append(const void *buf, size_t *size)
 				{
 					*size = n + 1;
 					this->nreceived = 2;
-					((char *)this->chunk)[0] = '\0';
+					((char *)this->chunk)[0] = '\r';
+					((char *)this->chunk)[1] = '\n';
+					((char *)this->chunk)[2] = '\0';
 					return 1;
 				}
 				else

@@ -425,7 +425,7 @@ int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)
 				return -1;
 			}
 
-			if (this->chunk_size > (64 * 1024 * 1024) ||
+			if (this->chunk_size > 64 * 1024 * 1024 ||
 				this->chunk_size > this->size_limit)
 			{
 				errno = EMSGSIZE;
@@ -466,21 +466,72 @@ int HttpMessageChunk::append(const void *buf, size_t *size)
 
 		n = this->nreceived - n;
 		this->nreceived = 0;
-		buf = (const char *)buf + n;
 	}
 	else
 		n = 0;
 
-	nleft = this->chunk_size + 2 - this->nreceived;
-	if (*size - n > nleft)
-		*size = n + nleft;
-
-	memcpy((char *)this->chunk + this->nreceived, buf, *size - n);
-	this->nreceived += *size - n;
-	if (this->nreceived == this->chunk_size + 2)
+	if (this->chunk_size != 0)
 	{
-		((char *)this->chunk)[this->chunk_size] = '\0';
-		return 1;
+		nleft = this->chunk_size + 2 - this->nreceived;
+		if (*size - n > nleft)
+			*size = n + nleft;
+
+		buf = (const char *)buf + n;
+		n = *size - n;
+		memcpy((char *)this->chunk + this->nreceived, buf, n);
+		this->nreceived += n;
+		if (this->nreceived == this->chunk_size + 2)
+		{
+			((char *)this->chunk)[this->chunk_size] = '\0';
+			return 1;
+		}
+	}
+	else
+	{
+		while (n < *size)
+		{
+			char c = ((const char *)buf)[n];
+
+			if (this->nreceived == 0)
+			{
+				if (c == '\r')
+					this->nreceived = 1;
+				else
+					this->nreceived = (size_t)-2;
+			}
+			else if (this->nreceived == 1)
+			{
+				if (c == '\n')
+				{
+					*size = n + 1;
+					this->nreceived = 2;
+					((char *)this->chunk)[0] = '\0';
+					return 1;
+				}
+				else
+					break;
+			}
+			else if (this->nreceived == (size_t)-2)
+			{
+				if (c == '\r')
+					this->nreceived = (size_t)-1;
+			}
+			else /* if (this->nreceived == (size_t)-1) */
+			{
+				if (c == '\n')
+					this->nreceived = 0;
+				else
+					break;
+			}
+
+			n++;
+		}
+
+		if (n < *size)
+		{
+			errno = EBADMSG;
+			return -1;
+		}
 	}
 
 	return 0;
@@ -490,7 +541,6 @@ HttpMessageChunk::HttpMessageChunk(HttpMessageChunk&& msg) :
 	ProtocolMessage(std::move(msg))
 {
 	memcpy(this->chunk_line, msg.chunk_line, 64);
-	free(this->chunk);
 	this->chunk = msg.chunk;
 	msg.chunk = NULL;
 	this->chunk_size = msg.chunk_size;

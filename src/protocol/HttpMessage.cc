@@ -405,7 +405,7 @@ int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)
 	char *end;
 	size_t i;
 
-	size = MIN(size, 64 - this->nreceived);
+	size = MIN(size, sizeof this->chunk_line - this->nreceived);
 	memcpy(this->chunk_line + this->nreceived, buf, size);
 	for (i = 0; i + 1 < this->nreceived + size; i++)
 	{
@@ -432,8 +432,8 @@ int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)
 				return -1;
 			}
 
-			this->chunk = malloc(this->chunk_size + 3);
-			if (!this->chunk)
+			this->chunk_data = malloc(this->chunk_size + 3);
+			if (!this->chunk_data)
 				return -1;
 
 			this->nreceived = i + 2;
@@ -441,7 +441,7 @@ int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)
 		}
 	}
 
-	if (i == 63)
+	if (i == sizeof this->chunk_line - 1)
 	{
 		errno = EBADMSG;
 		return -1;
@@ -457,7 +457,7 @@ int HttpMessageChunk::append(const void *buf, size_t *size)
 	size_t n;
 	int ret;
 
-	if (!this->chunk)
+	if (!this->chunk_data)
 	{
 		n = this->nreceived;
 		ret = this->append_chunk_line(buf, *size);
@@ -478,11 +478,11 @@ int HttpMessageChunk::append(const void *buf, size_t *size)
 
 		buf = (const char *)buf + n;
 		n = *size - n;
-		memcpy((char *)this->chunk + this->nreceived, buf, n);
+		memcpy((char *)this->chunk_data + this->nreceived, buf, n);
 		this->nreceived += n;
 		if (this->nreceived == this->chunk_size + 2)
 		{
-			((char *)this->chunk)[this->nreceived] = '\0';
+			((char *)this->chunk_data)[this->nreceived] = '\0';
 			return 1;
 		}
 	}
@@ -505,9 +505,9 @@ int HttpMessageChunk::append(const void *buf, size_t *size)
 				{
 					*size = n + 1;
 					this->nreceived = 2;
-					((char *)this->chunk)[0] = '\r';
-					((char *)this->chunk)[1] = '\n';
-					((char *)this->chunk)[2] = '\0';
+					((char *)this->chunk_data)[0] = '\r';
+					((char *)this->chunk_data)[1] = '\n';
+					((char *)this->chunk_data)[2] = '\0';
 					return 1;
 				}
 				else
@@ -542,9 +542,9 @@ int HttpMessageChunk::append(const void *buf, size_t *size)
 HttpMessageChunk::HttpMessageChunk(HttpMessageChunk&& msg) :
 	ProtocolMessage(std::move(msg))
 {
-	memcpy(this->chunk_line, msg.chunk_line, 64);
-	this->chunk = msg.chunk;
-	msg.chunk = NULL;
+	memcpy(this->chunk_line, msg.chunk_line, sizeof this->chunk_line);
+	this->chunk_data = msg.chunk_data;
+	msg.chunk_data = NULL;
 	this->chunk_size = msg.chunk_size;
 	this->nreceived = msg.nreceived;
 	msg.nreceived = 0;
@@ -556,10 +556,10 @@ HttpMessageChunk& HttpMessageChunk::operator = (HttpMessageChunk&& msg)
 	{
 		*(ProtocolMessage *)this = std::move(msg);
 
-		memcpy(this->chunk_line, msg.chunk_line, 64);
-		free(this->chunk);
-		this->chunk = msg.chunk;
-		msg.chunk = NULL;
+		memcpy(this->chunk_line, msg.chunk_line, sizeof this->chunk_line);
+		free(this->chunk_data);
+		this->chunk_data = msg.chunk_data;
+		msg.chunk_data = NULL;
 		this->chunk_size = msg.chunk_size;
 		this->nreceived = msg.nreceived;
 		msg.nreceived = 0;

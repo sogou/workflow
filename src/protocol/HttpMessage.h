@@ -410,9 +410,9 @@ class HttpMessageChunk : public ProtocolMessage
 public:
 	bool get_chunk(const void **chunk, size_t *size) const
 	{
-		if (this->chunk && this->nreceived == this->chunk_size + 2)
+		if (this->chunk_data && this->nreceived == this->chunk_size + 2)
 		{
-			*chunk = this->chunk;
+			*chunk = this->chunk_data;
 			*size = this->chunk_size;
 			return true;
 		}
@@ -427,21 +427,21 @@ private:
 	int append_chunk_line(const void *buf, size_t size);
 
 private:
-	char chunk_line[64];
-	void *chunk;
+	char chunk_line[32];
+	void *chunk_data;
 	size_t chunk_size;
 	size_t nreceived;
 
 public:
 	HttpMessageChunk()
 	{
-		this->chunk = NULL;
+		this->chunk_data = NULL;
 		this->nreceived = 0;
 	}
 
 	virtual ~HttpMessageChunk()
 	{
-		free(this->chunk);
+		free(this->chunk_data);
 	}
 
 public:

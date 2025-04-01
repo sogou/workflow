@@ -408,10 +408,12 @@ static int __parse_json_number(const char *cursor, const char **end,
 	if (*cursor == '-')
 		cursor++;
 
-	if (!isdigit(*cursor))
-		return -2;
-
-	if (*cursor == '0' && isdigit(cursor[1]))
+	if (*cursor == '0')
+	{
+		if (isdigit(cursor[1]))
+			return -2;
+	}
+	else if (!isdigit(*cursor))
 		return -2;
 
 	cursor++;

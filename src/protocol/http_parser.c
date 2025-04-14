@@ -452,7 +452,7 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 {
 	char chunk_line[HTTP_CHUNK_LINE_MAX];
 	size_t min = MIN(HTTP_CHUNK_LINE_MAX, len);
-	long chunk_size;
+	size_t chunk_size;
 	char *end;
 	size_t i;
 
@@ -467,8 +467,7 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 			if (ptr[i + 1] != '\n')
 				return -2;
 
-			chunk_line[i] = '\0';
-			chunk_size = strtol(chunk_line, &end, 16);
+			chunk_size = strtoul(chunk_line, &end, 16);
 			if (end == chunk_line)
 				return -2;
 
@@ -477,10 +476,10 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 				chunk_size = i + 2;
 				parser->chunk_state = CPS_TRAILER_PART;
 			}
-			else if ((unsigned long)chunk_size < CHUNK_SIZE_MAX)
+			else if (chunk_size < CHUNK_SIZE_MAX)
 			{
 				chunk_size += i + 4;
-				if (len < (size_t)chunk_size)
+				if (len < chunk_size)
 					return 0;
 			}
 			else

@@ -408,10 +408,12 @@ static int __parse_json_number(const char *cursor, const char **end,
 	if (*cursor == '-')
 		cursor++;
 
-	if (!isdigit(*cursor))
-		return -2;
-
-	if (*cursor == '0' && isdigit(cursor[1]))
+	if (*cursor == '0')
+	{
+		if (isdigit(cursor[1]))
+			return -2;
+	}
+	else if (!isdigit(*cursor))
 		return -2;
 
 	cursor++;
@@ -938,6 +940,7 @@ static int __copy_json_members(const json_object_t *src, json_object_t *dest)
 	json_member_t *entry;
 	json_member_t *memb;
 	size_t len;
+	int ret;
 
 	list_for_each(pos, &src->head)
 	{
@@ -947,10 +950,11 @@ static int __copy_json_members(const json_object_t *src, json_object_t *dest)
 		if (!memb)
 			return -1;
 
-		if (__copy_json_value(&entry->value, &memb->value) < 0)
+		ret = __copy_json_value(&entry->value, &memb->value);
+		if (ret < 0)
 		{
 			free(memb);
-			return -1;
+			return ret;
 		}
 
 		memcpy(memb->name, entry->name, len + 1);
@@ -965,6 +969,7 @@ static int __copy_json_elements(const json_array_t *src, json_array_t *dest)
 	struct list_head *pos;
 	json_element_t *entry;
 	json_element_t *elem;
+	int ret;
 
 	list_for_each(pos, &src->head)
 	{
@@ -973,10 +978,11 @@ static int __copy_json_elements(const json_array_t *src, json_array_t *dest)
 			return -1;
 
 		entry = list_entry(pos, json_element_t, list);
-		if (__copy_json_value(&entry->value, &elem->value) < 0)
+		ret = __copy_json_value(&entry->value, &elem->value);
+		if (ret < 0)
 		{
 			free(elem);
-			return -1;
+			return ret;
 		}
 
 		list_add_tail(&elem->list, &dest->head);
@@ -988,6 +994,7 @@ static int __copy_json_elements(const json_array_t *src, json_array_t *dest)
 static int __copy_json_value(const json_value_t *src, json_value_t *dest)
 {
 	size_t len;
+	int ret;
 
 	switch (src->type)
 	{
@@ -1007,24 +1014,26 @@ static int __copy_json_value(const json_value_t *src, json_value_t *dest)
 	case JSON_VALUE_OBJECT:
 		INIT_LIST_HEAD(&dest->value.object.head);
 		dest->value.object.root.rb_node = NULL;
-		if (__copy_json_members(&src->value.object, &dest->value.object) < 0)
+		ret = __copy_json_members(&src->value.object, &dest->value.object);
+		if (ret < 0)
 		{
 			__destroy_json_members(&dest->value.object);
-			return -1;
+			return ret;
 		}
 
-		dest->value.object.size = src->value.object.size;
+		dest->value.object.size = ret;
 		break;
 
 	case JSON_VALUE_ARRAY:
 		INIT_LIST_HEAD(&dest->value.array.head);
-		if (__copy_json_elements(&src->value.array, &dest->value.array) < 0)
+		ret = __copy_json_elements(&src->value.array, &dest->value.array);
+		if (ret < 0)
 		{
 			__destroy_json_elements(&dest->value.array);
-			return -1;
+			return ret;
 		}
 
-		dest->value.array.size = src->value.array.size;
+		dest->value.array.size = ret;
 		break;
 	}
 

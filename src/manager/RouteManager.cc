@@ -439,7 +439,7 @@ static uint64_t __generate_key(enum TransportType type,
 	buf.append((const char *)params, sizeof params);
 	if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
 	{
-		buf.append((const char *)&ssl_ctx, sizeof (void *));
+		buf.append((const char *)ssl_ctx, sizeof (void *));
 		buf.append((const char *)&ep_params->ssl_connect_timeout, sizeof (int));
 		if (ep_params->use_tls_sni)
 		{

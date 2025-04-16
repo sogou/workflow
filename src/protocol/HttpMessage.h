@@ -408,12 +408,27 @@ public:
 class HttpMessageChunk : public ProtocolMessage
 {
 public:
-	bool get_chunk(const void **chunk, size_t *size) const
+	bool get_chunk_data(const void **chunk_data, size_t *size) const
 	{
 		if (this->chunk_data && this->nreceived == this->chunk_size + 2)
 		{
-			*chunk = this->chunk_data;
+			*chunk_data = this->chunk_data;
 			*size = this->chunk_size;
+			return true;
+		}
+		else
+			return false;
+	}
+
+	bool move_chunk_data(void **chunk_data, size_t *size)
+	{
+		if (this->chunk_data && this->nreceived == this->chunk_size + 2)
+		{
+			*chunk_data = this->chunk_data;
+			*size = this->chunk_size;
+
+			this->chunk_data = NULL;
+			this->nreceived = 0;
 			return true;
 		}
 		else

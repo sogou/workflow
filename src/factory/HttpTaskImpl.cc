@@ -26,12 +26,14 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
+#include "PackageWrapper.h"
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"
 #include "WFGlobal.h"
 #include "HttpUtil.h"
 #include "SSLWrapper.h"
+#include "HttpTaskImpl.inl"
 
 using namespace protocol;
 
@@ -841,6 +843,90 @@ bool ComplexHttpProxyTask::finish_once()
 	return true;
 }
 
+/*******Chunked Client******/
+
+class ComplexHttpChunkedTask : public ComplexHttpTask
+{
+protected:
+	virtual CommMessageIn *message_in()
+	{
+		this->get_resp()->parse_zero_body();
+		return &wrapper_;
+	}
+
+protected:
+	class ChunkWrapper : public PackageWrapper
+	{
+	protected:
+		virtual ProtocolMessage *next_in(ProtocolMessage *msg);
+
+	protected:
+		ComplexHttpChunkedTask *task_;
+
+	public:
+		ChunkWrapper(ComplexHttpChunkedTask *task) :
+			PackageWrapper(task->get_resp())
+		{
+			task_ = task;
+		}
+	};
+
+protected:
+	HttpMessageChunk chunk_;
+	ChunkWrapper wrapper_;
+	std::function<void (WFHttpTask *)> chunked_;
+
+public:
+	ComplexHttpChunkedTask(int redirect_max,
+						   std::function<void (WFHttpTask *)>&& chunked,
+						   http_callback_t&& callback) :
+		ComplexHttpTask(redirect_max, 0, std::move(callback)),
+		wrapper_(this),
+		chunked_(std::move(chunked))
+	{
+	}
+};
+
+ProtocolMessage *
+ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
+{
+	HttpResponse *resp = task_->get_resp();
+	const void *chunk_data;
+	size_t size;
+
+	if (msg == resp)
+	{
+		if (resp->is_chunked())
+		{
+			size = resp->get_size_limit();
+			task_->chunk_.set_size_limit(size);
+			task_->user_data = &task_->chunk_;
+			return &task_->chunk_;
+		}
+
+		http_parser_t *parser = (http_parser_t *)resp->get_parser();
+		if (parser->transfer_length == 0 && parser->content_length != 0)
+		{
+			parser->transfer_length = parser->content_length;
+			parser->complete = 0;
+			return resp;
+		}
+
+		return NULL;
+	}
+
+	if (!task_->chunk_.get_chunk_data(&chunk_data, &size) || size == 0)
+		return NULL;
+
+	size = task_->chunk_.get_size_limit() - size;
+	task_->chunked_(task_);
+
+	task_->chunk_.~HttpMessageChunk();
+	new(&task_->chunk_) HttpMessageChunk;
+	task_->chunk_.set_size_limit(size);
+	return &task_->chunk_;
+}
+
 /**********Client Factory**********/
 
 WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
@@ -906,6 +992,37 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 	task->set_user_uri(uri);
 	task->set_keep_alive(HTTP_KEEPALIVE_DEFAULT);
 	task->init(proxy_uri);
+	return task;
+}
+
+
+WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const std::string& url,
+													 int redirect_max,
+													 chunked_t chunked,
+													 http_callback_t callback)
+{
+	auto *task = new ComplexHttpChunkedTask(redirect_max,
+											std::move(chunked),
+											std::move(callback));
+	ParsedURI uri;
+
+	URIParser::parse(url, uri);
+	task->init(std::move(uri));
+	task->set_keep_alive(HTTP_KEEPALIVE_DEFAULT);
+	return task;
+}
+
+WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const ParsedURI& uri,
+													 int redirect_max,
+													 chunked_t chunked,
+													 http_callback_t callback)
+{
+	auto *task = new ComplexHttpChunkedTask(redirect_max,
+											std::move(chunked),
+											std::move(callback));
+
+	task->init(uri);
+	task->set_keep_alive(HTTP_KEEPALIVE_DEFAULT);
 	return task;
 }
 

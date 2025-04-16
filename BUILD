@@ -90,6 +90,7 @@ cc_library(
 cc_library(
 	name = 'http',
 	hdrs = [
+		'src/factory/HttpTaskImpl.inl',
 		'src/protocol/HttpMessage.h',
 		'src/protocol/HttpUtil.h',
 		'src/protocol/http_parser.h',

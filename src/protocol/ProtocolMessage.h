@@ -109,27 +109,8 @@ public:
 	virtual ~ProtocolMessage() { delete this->attachment; }
 
 public:
-	ProtocolMessage(ProtocolMessage&& message)
-	{
-		this->size_limit = message.size_limit;
-		this->attachment = message.attachment;
-		message.attachment = NULL;
-		this->wrapper = NULL;
-	}
-
-	ProtocolMessage& operator = (ProtocolMessage&& message)
-	{
-		if (&message != this)
-		{
-			this->size_limit = message.size_limit;
-			delete this->attachment;
-			this->attachment = message.attachment;
-			message.attachment = NULL;
-		}
-
-		return *this;
-	}
-
+	ProtocolMessage(ProtocolMessage&& message);
+	ProtocolMessage& operator = (ProtocolMessage&& message);
 	friend class ProtocolWrapper;
 };
 
@@ -188,8 +169,35 @@ public:
 
 		return *this;
 	}
+
+	friend class ProtocolMessage;
 };
 
+inline ProtocolMessage::ProtocolMessage(ProtocolMessage&& message)
+{
+	this->size_limit = message.size_limit;
+	this->attachment = message.attachment;
+	message.attachment = NULL;
+	this->wrapper = message.wrapper;
+	if (this->wrapper)
+		((ProtocolWrapper *)this->wrapper)->message = this;
+}
+
+inline ProtocolMessage& ProtocolMessage::operator = (ProtocolMessage&& message)
+{
+	if (&message != this)
+	{
+		this->size_limit = message.size_limit;
+		delete this->attachment;
+		this->attachment = message.attachment;
+		message.attachment = NULL;
+		this->wrapper = message.wrapper;
+		if (this->wrapper)
+			((ProtocolWrapper *)this->wrapper)->message = this;
+	}
+
+	return *this;
+}
 }
 
 #endif

@@ -851,6 +851,7 @@ protected:
 	virtual CommMessageIn *message_in()
 	{
 		this->get_resp()->parse_zero_body();
+		wrapper_.set_message(this->get_resp());
 		return &wrapper_;
 	}
 
@@ -865,10 +866,12 @@ protected:
 
 	public:
 		ChunkWrapper(ComplexHttpChunkedTask *task) :
-			PackageWrapper(task->get_resp())
+			PackageWrapper(NULL)
 		{
 			task_ = task;
 		}
+
+		friend class ComplexHttpChunkedTask;
 	};
 
 protected:

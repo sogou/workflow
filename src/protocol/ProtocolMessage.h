@@ -70,7 +70,8 @@ public:
 	};
 
 	void set_attachment(Attachment *att) { this->attachment = att; }
-	Attachment *get_attachment() const { return this->attachment; }
+	Attachment *get_attachment() { return this->attachment; }
+	const Attachment *get_attachment() const { return this->attachment; }
 
 protected:
 	virtual int feedback(const void *buf, size_t size)
@@ -90,6 +91,10 @@ protected:
 	}
 
 	virtual ProtocolMessage *inner() { return this; }
+
+public:
+	const ProtocolMessage *preserve_wrapper() const { return this->wrapper; }
+	void restore_wrapper(const ProtocolMessage *wrapper);
 
 protected:
 	size_t size_limit;
@@ -188,7 +193,15 @@ public:
 
 		return *this;
 	}
+
+	friend class ProtocolMessage;
 };
+
+inline void ProtocolMessage::restore_wrapper(const ProtocolMessage *wrapper)
+{
+	if (wrapper && ((const ProtocolWrapper *)wrapper)->message == this)
+		this->wrapper = (ProtocolMessage *)wrapper;
+}
 
 }
 

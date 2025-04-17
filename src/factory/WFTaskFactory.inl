@@ -179,10 +179,12 @@ protected:
 
 	void clear_resp()
 	{
+		const auto *wrapper = this->resp.preserve_wrapper();
 		protocol::ProtocolMessage head(std::move(this->resp));
 		this->resp.~RESP();
 		new(&this->resp) RESP;
 		*(protocol::ProtocolMessage *)&this->resp = std::move(head);
+		this->resp.restore_wrapper(wrapper);
 	}
 
 	void disable_retry()

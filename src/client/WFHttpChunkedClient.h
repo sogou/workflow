@@ -16,8 +16,8 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#ifndef _HTTPCHUNKEDCLIENT_H_
-#define _HTTPCHUNKEDCLIENT_H_
+#ifndef _WFHTTPCHUNKEDCLIENT_H_
+#define _WFHTTPCHUNKEDCLIENT_H_
 
 #include <utility>
 #include <functional>

@@ -398,6 +398,32 @@ int HttpResponse::append(const void *buf, size_t *size)
 	return ret;
 }
 
+bool HttpMessageChunk::get_chunk_data(const void **data, size_t *size) const
+{
+	if (this->chunk_data && this->nreceived == this->chunk_size + 2)
+	{
+		*data = this->chunk_data;
+		*size = this->chunk_size;
+		return true;
+	}
+	else
+		return false;
+}
+
+bool HttpMessageChunk::move_chunk_data(void **data, size_t *size)
+{
+	if (this->chunk_data && this->nreceived == this->chunk_size + 2)
+	{
+		*data = this->chunk_data;
+		*size = this->chunk_size;
+		this->chunk_data = NULL;
+		this->nreceived = 0;
+		return true;
+	}
+	else
+		return false;
+}
+
 #define MIN(x, y)	((x) <= (y) ? (x) : (y))
 
 int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)

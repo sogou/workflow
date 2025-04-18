@@ -70,7 +70,8 @@ public:
 	};
 
 	void set_attachment(Attachment *att) { this->attachment = att; }
-	Attachment *get_attachment() const { return this->attachment; }
+	Attachment *get_attachment() { return this->attachment; }
+	const Attachment *get_attachment() const { return this->attachment; }
 
 protected:
 	virtual int feedback(const void *buf, size_t size)

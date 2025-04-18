@@ -26,13 +26,13 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
-#include "PackageWrapper.h"
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 #include "StringUtil.h"
 #include "WFGlobal.h"
 #include "HttpUtil.h"
 #include "SSLWrapper.h"
+#include "PackageWrapper.h"
 #include "HttpTaskImpl.inl"
 
 using namespace protocol;

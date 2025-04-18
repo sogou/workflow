@@ -848,11 +848,7 @@ bool ComplexHttpProxyTask::finish_once()
 class ComplexHttpChunkedTask : public ComplexHttpTask
 {
 protected:
-	virtual CommMessageIn *message_in()
-	{
-		this->get_resp()->parse_zero_body();
-		return &wrapper_;
-	}
+	virtual CommMessageIn *message_in();
 
 protected:
 	class ChunkWrapper : public PackageWrapper
@@ -865,20 +861,23 @@ protected:
 
 	public:
 		ChunkWrapper(ComplexHttpChunkedTask *task) :
-			PackageWrapper(task->get_resp())
+			PackageWrapper(NULL)
 		{
 			task_ = task;
 		}
+
+		friend class ComplexHttpChunkedTask;
 	};
 
 protected:
 	HttpMessageChunk chunk_;
 	ChunkWrapper wrapper_;
-	std::function<void (WFHttpTask *)> chunked_;
+	std::function<void (HttpMessageChunk *, WFHttpTask *)> chunked_;
 
 public:
 	ComplexHttpChunkedTask(int redirect_max,
-						   std::function<void (WFHttpTask *)>&& chunked,
+						   std::function<void (HttpMessageChunk *,
+											   WFHttpTask *)>&& chunked,
 						   http_callback_t&& callback) :
 		ComplexHttpTask(redirect_max, 0, std::move(callback)),
 		wrapper_(this),
@@ -886,6 +885,18 @@ public:
 	{
 	}
 };
+
+CommMessageIn *ComplexHttpChunkedTask::message_in()
+{
+	HttpResponse *resp = this->get_resp();
+
+	if (strcmp(this->get_req()->get_method(), HttpMethodHead) == 0)
+		return ComplexHttpTask::message_in();
+
+	resp->parse_zero_body();
+	wrapper_.set_message(resp);
+	return &wrapper_;
+}
 
 ProtocolMessage *
 ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
@@ -896,30 +907,41 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 
 	if (msg == resp)
 	{
+		int status_code = atoi(resp->get_status_code());
+
+		if (status_code / 100 == 1 || status_code == 204 || status_code == 304)
+			return NULL;
+
 		if (resp->is_chunked())
 		{
-			size = resp->get_size_limit();
-			task_->chunk_.set_size_limit(size);
-			task_->user_data = &task_->chunk_;
-			return &task_->chunk_;
+			if (status_code / 100 != 3)
+			{
+				size = resp->get_size_limit();
+				task_->chunk_.set_size_limit(size);
+				return &task_->chunk_;
+			}
 		}
 
 		http_parser_t *parser = (http_parser_t *)resp->get_parser();
-		if (parser->transfer_length == 0 && parser->content_length != 0)
-		{
-			parser->transfer_length = parser->content_length;
-			parser->complete = 0;
-			return resp;
-		}
+		if (parser->transfer_length != 0)
+			return NULL;
 
-		return NULL;
+		if (resp->is_chunked())
+			parser->transfer_length = (size_t)-1;
+		else if (parser->content_length != 0)
+			parser->transfer_length = parser->content_length;
+		else
+			return NULL;
+
+		parser->complete = 0;
+		return resp;
 	}
 
 	if (!task_->chunk_.get_chunk_data(&chunk_data, &size) || size == 0)
 		return NULL;
 
 	size = task_->chunk_.get_size_limit() - size;
-	task_->chunked_(task_);
+	task_->chunked_(&task_->chunk_, task_);
 
 	task_->chunk_.~HttpMessageChunk();
 	new(&task_->chunk_) HttpMessageChunk;

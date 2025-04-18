@@ -95,6 +95,7 @@ cc_library(
 		'src/protocol/HttpUtil.h',
 		'src/protocol/http_parser.h',
 		'src/server/WFHttpServer.h',
+		'src/client/WFHttpChunkedClient.h',
 	],
 	includes = [
 		'src/protocol',

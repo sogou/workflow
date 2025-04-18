@@ -16,6 +16,7 @@
   Authors: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include "HttpMessage.h"
 #include "WFTaskFactory.h"
 
 // Internal, for WFHttpChunkedTask only.
@@ -23,7 +24,8 @@
 class __WFHttpTaskFactory
 {
 private:
-	using chunked_t = std::function<void (WFHttpTask *)>;
+	using chunked_t = std::function<void (protocol::HttpMessageChunk *,
+										  WFHttpTask *)>;
 
 public:
 	static WFHttpTask *create_chunked_task(const std::string& url,

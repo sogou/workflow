@@ -426,7 +426,6 @@ public:
 		{
 			*chunk_data = this->chunk_data;
 			*size = this->chunk_size;
-
 			this->chunk_data = NULL;
 			this->nreceived = 0;
 			return true;

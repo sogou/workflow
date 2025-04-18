@@ -59,6 +59,7 @@ set(INCLUDE_HEADERS
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
+	src/client/WFHttpChunkedClient.h
 	src/client/WFMySQLConnection.h
 	src/client/WFRedisSubscriber.h
 	src/client/WFConsulClient.h

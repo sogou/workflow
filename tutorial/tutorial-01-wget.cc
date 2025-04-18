@@ -26,12 +26,11 @@
 #include "workflow/HttpUtil.h"
 #include "workflow/WFTaskFactory.h"
 #include "workflow/WFFacilities.h"
-#include "workflow/WFHttpChunkedClient.h"
 
 #define REDIRECT_MAX    5
 #define RETRY_MAX       2
 
-void wget_callback(WFHttpChunkedTask *task)
+void wget_callback(WFHttpTask *task)
 {
 	protocol::HttpRequest *req = task->get_req();
 	protocol::HttpResponse *resp = task->get_resp();
@@ -107,7 +106,7 @@ void sig_handler(int signo)
 
 int main(int argc, char *argv[])
 {
-	WFHttpChunkedTask *task;
+	WFHttpTask *task;
 
 	if (argc != 2)
 	{
@@ -117,8 +116,6 @@ int main(int argc, char *argv[])
 
 	signal(SIGINT, sig_handler);
 
-	OPENSSL_init_ssl(0, NULL);
-
 	std::string url = argv[1];
 	if (strncasecmp(argv[1], "http://", 7) != 0 &&
 		strncasecmp(argv[1], "https://", 8) != 0)
@@ -126,16 +123,8 @@ int main(int argc, char *argv[])
 		url = "http://" + url;
 	}
 
-	task = WFHttpChunkedClient::create_chunked_task(url, REDIRECT_MAX,
-												[](const WFHttpChunkedTask *task) {
-													auto *chunk = task->get_chunk();
-													fprintf(stderr, "Chunked!\n");
-													const void *data;
-													size_t size;
-													chunk->get_chunk_data(&data, &size);
-													fprintf(stderr, "Chunk data:\n%s", (const char *)data);
-												},
-													wget_callback);
+	task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
+										   wget_callback);
 	protocol::HttpRequest *req = task->get_req();
 	req->add_header_pair("Accept", "*/*");
 	req->add_header_pair("User-Agent", "Wget/1.14 (linux-gnu)");

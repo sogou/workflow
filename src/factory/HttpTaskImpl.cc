@@ -937,7 +937,8 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 		return resp;
 	}
 
-	if (!task_->chunk_.get_chunk_data(&chunk_data, &size) || size == 0)
+	task_->chunk_.get_chunk_data(&chunk_data, &size);
+	if (size == 0)
 		return NULL;
 
 	size = task_->chunk_.get_size_limit() - size;

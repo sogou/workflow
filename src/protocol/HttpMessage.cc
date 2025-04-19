@@ -398,5 +398,201 @@ int HttpResponse::append(const void *buf, size_t *size)
 	return ret;
 }
 
+bool HttpMessageChunk::get_chunk_data(const void **data, size_t *size) const
+{
+	if (this->chunk_data && this->nreceived == this->chunk_size + 2)
+	{
+		*data = this->chunk_data;
+		*size = this->chunk_size;
+		return true;
+	}
+	else
+		return false;
+}
+
+bool HttpMessageChunk::move_chunk_data(void **data, size_t *size)
+{
+	if (this->chunk_data && this->nreceived == this->chunk_size + 2)
+	{
+		*data = this->chunk_data;
+		*size = this->chunk_size;
+		this->chunk_data = NULL;
+		this->nreceived = 0;
+		return true;
+	}
+	else
+		return false;
+}
+
+#define MIN(x, y)	((x) <= (y) ? (x) : (y))
+
+int HttpMessageChunk::append_chunk_line(const void *buf, size_t size)
+{
+	char *end;
+	size_t i;
+
+	size = MIN(size, sizeof this->chunk_line - this->nreceived);
+	memcpy(this->chunk_line + this->nreceived, buf, size);
+	for (i = 0; i + 1 < this->nreceived + size; i++)
+	{
+		if (this->chunk_line[i] == '\r')
+		{
+			if (this->chunk_line[i + 1] != '\n')
+			{
+				errno = EBADMSG;
+				return -1;
+			}
+
+			this->chunk_line[i] = '\0';
+			this->chunk_size = strtoul(this->chunk_line, &end, 16);
+			if (end == this->chunk_line)
+			{
+				errno = EBADMSG;
+				return -1;
+			}
+
+			if (this->chunk_size > 64 * 1024 * 1024 ||
+				this->chunk_size > this->size_limit)
+			{
+				errno = EMSGSIZE;
+				return -1;
+			}
+
+			this->chunk_data = malloc(this->chunk_size + 3);
+			if (!this->chunk_data)
+				return -1;
+
+			this->nreceived = i + 2;
+			return 1;
+		}
+	}
+
+	if (i == sizeof this->chunk_line - 1)
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
+	this->nreceived += size;
+	return 0;
+}
+
+int HttpMessageChunk::append(const void *buf, size_t *size)
+{
+	size_t nleft;
+	size_t n;
+	int ret;
+
+	if (!this->chunk_data)
+	{
+		n = this->nreceived;
+		ret = this->append_chunk_line(buf, *size);
+		if (ret <= 0)
+			return ret;
+
+		n = this->nreceived - n;
+		this->nreceived = 0;
+	}
+	else
+		n = 0;
+
+	if (this->chunk_size != 0)
+	{
+		nleft = this->chunk_size + 2 - this->nreceived;
+		if (*size - n > nleft)
+			*size = n + nleft;
+
+		buf = (const char *)buf + n;
+		n = *size - n;
+		memcpy((char *)this->chunk_data + this->nreceived, buf, n);
+		this->nreceived += n;
+		if (this->nreceived == this->chunk_size + 2)
+		{
+			((char *)this->chunk_data)[this->nreceived] = '\0';
+			return 1;
+		}
+	}
+	else
+	{
+		while (n < *size)
+		{
+			char c = ((const char *)buf)[n];
+
+			if (this->nreceived == 0)
+			{
+				if (c == '\r')
+					this->nreceived = 1;
+				else
+					this->nreceived = (size_t)-2;
+			}
+			else if (this->nreceived == 1)
+			{
+				if (c == '\n')
+				{
+					*size = n + 1;
+					this->nreceived = 2;
+					((char *)this->chunk_data)[0] = '\r';
+					((char *)this->chunk_data)[1] = '\n';
+					((char *)this->chunk_data)[2] = '\0';
+					return 1;
+				}
+				else
+					break;
+			}
+			else if (this->nreceived == (size_t)-2)
+			{
+				if (c == '\r')
+					this->nreceived = (size_t)-1;
+			}
+			else /* if (this->nreceived == (size_t)-1) */
+			{
+				if (c == '\n')
+					this->nreceived = 0;
+				else
+					break;
+			}
+
+			n++;
+		}
+
+		if (n < *size)
+		{
+			errno = EBADMSG;
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+HttpMessageChunk::HttpMessageChunk(HttpMessageChunk&& msg) :
+	ProtocolMessage(std::move(msg))
+{
+	memcpy(this->chunk_line, msg.chunk_line, sizeof this->chunk_line);
+	this->chunk_data = msg.chunk_data;
+	msg.chunk_data = NULL;
+	this->chunk_size = msg.chunk_size;
+	this->nreceived = msg.nreceived;
+	msg.nreceived = 0;
+}
+
+HttpMessageChunk& HttpMessageChunk::operator = (HttpMessageChunk&& msg)
+{
+	if (&msg != this)
+	{
+		*(ProtocolMessage *)this = std::move(msg);
+
+		memcpy(this->chunk_line, msg.chunk_line, sizeof this->chunk_line);
+		free(this->chunk_data);
+		this->chunk_data = msg.chunk_data;
+		msg.chunk_data = NULL;
+		this->chunk_size = msg.chunk_size;
+		this->nreceived = msg.nreceived;
+		msg.nreceived = 0;
+	}
+
+	return *this;
+}
+
 }
 

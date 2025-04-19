@@ -106,6 +106,7 @@ cc_library(
 		'src/protocol/HttpMessage.cc',
 		'src/protocol/HttpUtil.cc',
 		'src/protocol/http_parser.c',
+		'src/client/WFHttpChunkedClient.cc',
 	],
 	deps = [
 		':common',

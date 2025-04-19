@@ -27,7 +27,6 @@
 #include <atomic>
 #include <mutex>
 #include <openssl/ssl.h>
-#include "RedisMessage.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 
@@ -46,10 +45,7 @@ public:
 	void release()
 	{
 		if (this->flag.exchange(true))
-		{
-			this->task = NULL;
 			delete this;
-		}
 	}
 
 public:

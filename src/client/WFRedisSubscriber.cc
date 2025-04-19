@@ -35,7 +35,7 @@ int WFRedisSubscribeTask::sync_send(const std::string& command,
 		str += "$" + std::to_string(p.size()) + "\r\n" + p + "\r\n";
 
 	this->mutex.lock();
-	if (this->task->user_data)
+	if (this->task)
 	{
 		ret = this->task->push(str.c_str(), str.size());
 		if (ret == (int)str.size())
@@ -70,7 +70,7 @@ void WFRedisSubscribeTask::task_callback(WFRedisTask *task)
 	auto *t = (WFRedisSubscribeTask *)task->user_data;
 
 	t->mutex.lock();
-	task->user_data = NULL;
+	t->task = NULL;
 	t->mutex.unlock();
 
 	t->state = task->get_state();

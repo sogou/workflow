@@ -19,14 +19,14 @@
 #include "HttpTaskImpl.inl"
 #include "WFHttpChunkedClient.h"
 
-void WFHttpChunkedTask::task_chunked(protocol::HttpMessageChunk *chunk,
-									   WFHttpTask *task)
+void WFHttpChunkedTask::task_extract(protocol::HttpMessageChunk *chunk,
+									 WFHttpTask *task)
 {
 	auto *t = (WFHttpChunkedTask *)task->user_data;
 
 	t->chunk = chunk;
-	if (t->chunked)
-		t->chunked(t);
+	if (t->extract)
+		t->extract(t);
 }
 
 void WFHttpChunkedTask::task_callback(WFHttpTask *task)
@@ -46,26 +46,26 @@ void WFHttpChunkedTask::task_callback(WFHttpTask *task)
 WFHttpChunkedTask *
 WFHttpChunkedClient::create_chunked_task(const std::string& url,
 										 int redirect_max,
-										 chunked_t chunked,
+										 extract_t extract,
 										 callback_t callback)
 {
 	WFHttpTask *task = __WFHttpTaskFactory::create_chunked_task(url,
 										redirect_max,
-										WFHttpChunkedTask::task_chunked,
+										WFHttpChunkedTask::task_extract,
 										WFHttpChunkedTask::task_callback);
-	return new WFHttpChunkedTask(task, std::move(chunked), std::move(callback));
+	return new WFHttpChunkedTask(task, std::move(extract), std::move(callback));
 }
 
 WFHttpChunkedTask *
 WFHttpChunkedClient::create_chunked_task(const ParsedURI& uri,
 										 int redirect_max,
-										 chunked_t chunked,
+										 extract_t extract,
 										 callback_t callback)
 {
 	WFHttpTask *task = __WFHttpTaskFactory::create_chunked_task(uri,
 										redirect_max,
-										WFHttpChunkedTask::task_chunked,
+										WFHttpChunkedTask::task_extract,
 										WFHttpChunkedTask::task_callback);
-	return new WFHttpChunkedTask(task, std::move(chunked), std::move(callback));
+	return new WFHttpChunkedTask(task, std::move(extract), std::move(callback));
 }
 

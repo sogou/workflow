@@ -872,16 +872,16 @@ protected:
 protected:
 	HttpMessageChunk chunk_;
 	ChunkWrapper wrapper_;
-	std::function<void (HttpMessageChunk *, WFHttpTask *)> chunked_;
+	std::function<void (HttpMessageChunk *, WFHttpTask *)> extract_;
 
 public:
 	ComplexHttpChunkedTask(int redirect_max,
 						   std::function<void (HttpMessageChunk *,
-											   WFHttpTask *)>&& chunked,
+											   WFHttpTask *)>&& extract,
 						   http_callback_t&& callback) :
 		ComplexHttpTask(redirect_max, 0, std::move(callback)),
 		wrapper_(this),
-		chunked_(std::move(chunked))
+		extract_(std::move(extract))
 	{
 	}
 };
@@ -942,7 +942,7 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 		return NULL;
 
 	size = task_->chunk_.get_size_limit() - size;
-	task_->chunked_(&task_->chunk_, task_);
+	task_->extract_(&task_->chunk_, task_);
 
 	task_->chunk_.~HttpMessageChunk();
 	new(&task_->chunk_) HttpMessageChunk;
@@ -1021,11 +1021,11 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 
 WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const std::string& url,
 													 int redirect_max,
-													 chunked_t chunked,
+													 extract_t extract,
 													 http_callback_t callback)
 {
 	auto *task = new ComplexHttpChunkedTask(redirect_max,
-											std::move(chunked),
+											std::move(extract),
 											std::move(callback));
 	ParsedURI uri;
 
@@ -1037,11 +1037,11 @@ WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const std::string& url,
 
 WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const ParsedURI& uri,
 													 int redirect_max,
-													 chunked_t chunked,
+													 extract_t extract,
 													 http_callback_t callback)
 {
 	auto *task = new ComplexHttpChunkedTask(redirect_max,
-											std::move(chunked),
+											std::move(extract),
 											std::move(callback));
 
 	task->init(uri);

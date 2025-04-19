@@ -24,18 +24,18 @@
 class __WFHttpTaskFactory
 {
 private:
-	using chunked_t = std::function<void (protocol::HttpMessageChunk *,
+	using extract_t = std::function<void (protocol::HttpMessageChunk *,
 										  WFHttpTask *)>;
 
 public:
 	static WFHttpTask *create_chunked_task(const std::string& url,
 										   int redirect_max,
-										   chunked_t chunked,
+										   extract_t extract,
 										   http_callback_t callback);
 
 	static WFHttpTask *create_chunked_task(const ParsedURI& uri,
 										   int redirect_max,
-										   chunked_t chunked,
+										   extract_t extract,
 										   http_callback_t callback);
 };
 

@@ -86,9 +86,9 @@ public:
 	}
 
 public:
-	void set_chunked(std::function<void (const WFHttpChunkedTask *)> ch)
+	void set_extract(std::function<void (const WFHttpChunkedTask *)> ex)
 	{
-		this->chunked = std::move(ch);
+		this->extract = std::move(ex);
 	}
 
 	void set_callback(std::function<void (WFHttpChunkedTask *)> cb)
@@ -115,21 +115,21 @@ protected:
 	}
 
 protected:
-	static void task_chunked(protocol::HttpMessageChunk *chunk,
+	static void task_extract(protocol::HttpMessageChunk *chunk,
 							 WFHttpTask *task);
 	static void task_callback(WFHttpTask *task);
 
 protected:
 	WFHttpTask *task;
 	protocol::HttpMessageChunk *chunk;
-	std::function<void (const WFHttpChunkedTask *)> chunked;
+	std::function<void (const WFHttpChunkedTask *)> extract;
 	std::function<void (WFHttpChunkedTask *)> callback;
 
 protected:
 	WFHttpChunkedTask(WFHttpTask *task,
-					  std::function<void (const WFHttpChunkedTask *)>&& ch,
+					  std::function<void (const WFHttpChunkedTask *)>&& ex,
 					  std::function<void (WFHttpChunkedTask *)>&& cb) :
-		chunked(std::move(ch)),
+		extract(std::move(ex)),
 		callback(std::move(cb))
 	{
 		task->user_data = this;
@@ -148,18 +148,18 @@ protected:
 class WFHttpChunkedClient
 {
 public:
-	using chunked_t = std::function<void (const WFHttpChunkedTask *)>;
+	using extract_t = std::function<void (const WFHttpChunkedTask *)>;
 	using callback_t = std::function<void (WFHttpChunkedTask *)>;
 
 public:
 	static WFHttpChunkedTask *create_chunked_task(const std::string& url,
 												  int redirect_max,
-												  chunked_t chunked,
+												  extract_t extract,
 												  callback_t callback);
 
 	static WFHttpChunkedTask *create_chunked_task(const ParsedURI& uri,
 												  int redirect_max,
-												  chunked_t chunked,
+												  extract_t extract,
 												  callback_t callback);
 };
 

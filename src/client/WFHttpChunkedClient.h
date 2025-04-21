@@ -29,7 +29,7 @@
 class WFHttpChunkedTask : public WFGenericTask
 {
 public:
-	protocol::HttpMessageChunk *get_chunk() const
+	protocol::HttpMessageChunk *get_chunk()
 	{
 		return this->chunk;
 	}
@@ -41,16 +41,6 @@ public:
 	}
 
 	protocol::HttpResponse *get_resp()
-	{
-		return this->task->get_resp();
-	}
-
-	const protocol::HttpRequest *get_req() const
-	{
-		return this->task->get_req();
-	}
-
-	const protocol::HttpResponse *get_resp() const
 	{
 		return this->task->get_resp();
 	}
@@ -86,7 +76,7 @@ public:
 	}
 
 public:
-	void set_extract(std::function<void (const WFHttpChunkedTask *)> ex)
+	void set_extract(std::function<void (WFHttpChunkedTask *)> ex)
 	{
 		this->extract = std::move(ex);
 	}
@@ -122,12 +112,12 @@ protected:
 protected:
 	WFHttpTask *task;
 	protocol::HttpMessageChunk *chunk;
-	std::function<void (const WFHttpChunkedTask *)> extract;
+	std::function<void (WFHttpChunkedTask *)> extract;
 	std::function<void (WFHttpChunkedTask *)> callback;
 
 protected:
 	WFHttpChunkedTask(WFHttpTask *task,
-					  std::function<void (const WFHttpChunkedTask *)>&& ex,
+					  std::function<void (WFHttpChunkedTask *)>&& ex,
 					  std::function<void (WFHttpChunkedTask *)>&& cb) :
 		extract(std::move(ex)),
 		callback(std::move(cb))
@@ -148,7 +138,7 @@ protected:
 class WFHttpChunkedClient
 {
 public:
-	using extract_t = std::function<void (const WFHttpChunkedTask *)>;
+	using extract_t = std::function<void (WFHttpChunkedTask *)>;
 	using callback_t = std::function<void (WFHttpChunkedTask *)>;
 
 public:

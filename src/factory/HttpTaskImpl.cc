@@ -850,6 +850,16 @@ class ComplexHttpChunkedTask : public ComplexHttpTask
 protected:
 	virtual CommMessageIn *message_in();
 
+	virtual int keep_alive_timout()
+	{
+		return resp_is_keep_alive_ ? this->keep_alive_timeo : 0;
+	}
+
+	virtual bool finish_once()
+	{
+		return chunking_ ? true : ComplexHttpTask::finish_once();
+	}
+
 protected:
 	class ChunkWrapper : public PackageWrapper
 	{
@@ -870,6 +880,8 @@ protected:
 	};
 
 protected:
+	bool chunking_;
+	bool resp_is_keep_alive_;
 	HttpMessageChunk chunk_;
 	ChunkWrapper wrapper_;
 	std::function<void (HttpMessageChunk *, WFHttpTask *)> extract_;
@@ -883,6 +895,7 @@ public:
 		wrapper_(this),
 		extract_(std::move(extract))
 	{
+		chunking_ = false;
 	}
 };
 
@@ -909,6 +922,7 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 	{
 		int status_code = atoi(resp->get_status_code());
 
+		task_->resp_is_keep_alive_ = resp->is_keep_alive();
 		if (status_code / 100 == 1 || status_code == 204 || status_code == 304)
 			return NULL;
 
@@ -918,6 +932,7 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 			{
 				size = resp->get_size_limit();
 				task_->chunk_.set_size_limit(size);
+				task_->chunking_ = true;
 				return &task_->chunk_;
 			}
 		}
@@ -1059,9 +1074,7 @@ private:
 
 public:
 	WFHttpServerTask(CommService *service, std::function<void (TASK *)>& proc) :
-		WFServerTask(service, WFGlobal::get_scheduler(), proc),
-		req_is_alive_(false),
-		req_has_keep_alive_header_(false)
+		WFServerTask(service, WFGlobal::get_scheduler(), proc)
 	{}
 
 protected:
@@ -1069,7 +1082,7 @@ protected:
 	virtual CommMessageOut *message_out();
 
 protected:
-	bool req_is_alive_;
+	bool req_is_keep_alive_;
 	bool req_has_keep_alive_header_;
 	std::string req_keep_alive_;
 };
@@ -1078,8 +1091,8 @@ void WFHttpServerTask::handle(int state, int error)
 {
 	if (state == WFT_STATE_TOREPLY)
 	{
-		req_is_alive_ = this->req.is_keep_alive();
-		if (req_is_alive_ && this->req.has_keep_alive_header())
+		req_is_keep_alive_ = this->req.is_keep_alive();
+		if (req_is_keep_alive_ && this->req.has_keep_alive_header())
 		{
 			HttpHeaderCursor cursor(&this->req);
 			struct HttpMessageHeader header = {
@@ -1094,6 +1107,8 @@ void WFHttpServerTask::handle(int state, int error)
 										header.value_len);
 			}
 		}
+		else
+			req_has_keep_alive_header_ = false;
 	}
 
 	this->WFServerTask::handle(state, error);
@@ -1135,7 +1150,7 @@ CommMessageOut *WFHttpServerTask::message_out()
 	if (resp->has_connection_header())
 		is_alive = resp->is_keep_alive();
 	else
-		is_alive = req_is_alive_;
+		is_alive = req_is_keep_alive_;
 
 	if (!is_alive)
 		this->keep_alive_timeo = 0;

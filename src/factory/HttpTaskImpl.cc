@@ -850,7 +850,7 @@ class ComplexHttpChunkedTask : public ComplexHttpTask
 protected:
 	virtual CommMessageIn *message_in();
 
-	virtual int keep_alive_timout()
+	virtual int keep_alive_timeout()
 	{
 		return resp_is_keep_alive_ ? this->keep_alive_timeo : 0;
 	}

@@ -59,6 +59,7 @@ set(INCLUDE_HEADERS
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
+	src/client/WFHttpChunkedClient.h
 	src/client/WFMySQLConnection.h
 	src/client/WFRedisSubscriber.h
 	src/client/WFConsulClient.h
@@ -89,6 +90,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 	src/factory/WFResourcePool.h
 	src/factory/WFMessageQueue.h
+	src/factory/HttpTaskImpl.inl
 	src/factory/RedisTaskImpl.inl
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h

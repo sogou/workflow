@@ -32,6 +32,8 @@
 #include "WFGlobal.h"
 #include "HttpUtil.h"
 #include "SSLWrapper.h"
+#include "PackageWrapper.h"
+#include "HttpTaskImpl.inl"
 
 using namespace protocol;
 
@@ -841,6 +843,128 @@ bool ComplexHttpProxyTask::finish_once()
 	return true;
 }
 
+/*******Chunked Client******/
+
+class ComplexHttpChunkedTask : public ComplexHttpTask
+{
+protected:
+	virtual CommMessageIn *message_in();
+
+	virtual int keep_alive_timeout()
+	{
+		return resp_is_keep_alive_ ? this->keep_alive_timeo : 0;
+	}
+
+	virtual bool finish_once()
+	{
+		return chunking_ ? true : ComplexHttpTask::finish_once();
+	}
+
+protected:
+	class ChunkWrapper : public PackageWrapper
+	{
+	protected:
+		virtual ProtocolMessage *next_in(ProtocolMessage *msg);
+
+	protected:
+		ComplexHttpChunkedTask *task_;
+
+	public:
+		ChunkWrapper(ComplexHttpChunkedTask *task) :
+			PackageWrapper(NULL)
+		{
+			task_ = task;
+		}
+
+		friend class ComplexHttpChunkedTask;
+	};
+
+protected:
+	bool chunking_;
+	bool resp_is_keep_alive_;
+	HttpMessageChunk chunk_;
+	ChunkWrapper wrapper_;
+	std::function<void (HttpMessageChunk *, WFHttpTask *)> extract_;
+
+public:
+	ComplexHttpChunkedTask(int redirect_max,
+						   std::function<void (HttpMessageChunk *,
+											   WFHttpTask *)>&& extract,
+						   http_callback_t&& callback) :
+		ComplexHttpTask(redirect_max, 0, std::move(callback)),
+		wrapper_(this),
+		extract_(std::move(extract))
+	{
+		chunking_ = false;
+	}
+};
+
+CommMessageIn *ComplexHttpChunkedTask::message_in()
+{
+	HttpResponse *resp = this->get_resp();
+
+	if (strcmp(this->get_req()->get_method(), HttpMethodHead) == 0)
+		return ComplexHttpTask::message_in();
+
+	resp->parse_zero_body();
+	wrapper_.set_message(resp);
+	return &wrapper_;
+}
+
+ProtocolMessage *
+ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
+{
+	HttpResponse *resp = task_->get_resp();
+	const void *chunk_data;
+	size_t size;
+
+	if (msg == resp)
+	{
+		int status_code = atoi(resp->get_status_code());
+
+		task_->resp_is_keep_alive_ = resp->is_keep_alive();
+		if (status_code / 100 == 1 || status_code == 204 || status_code == 304)
+			return NULL;
+
+		if (resp->is_chunked())
+		{
+			if (status_code / 100 != 3)
+			{
+				size = resp->get_size_limit();
+				task_->chunk_.set_size_limit(size);
+				task_->chunking_ = true;
+				return &task_->chunk_;
+			}
+		}
+
+		http_parser_t *parser = (http_parser_t *)resp->get_parser();
+		if (parser->transfer_length != 0)
+			return NULL;
+
+		if (resp->is_chunked())
+			parser->transfer_length = (size_t)-1;
+		else if (parser->content_length != 0)
+			parser->transfer_length = parser->content_length;
+		else
+			return NULL;
+
+		parser->complete = 0;
+		return resp;
+	}
+
+	task_->chunk_.get_chunk_data(&chunk_data, &size);
+	if (size == 0)
+		return NULL;
+
+	size = task_->chunk_.get_size_limit() - size;
+	task_->extract_(&task_->chunk_, task_);
+
+	task_->chunk_.~HttpMessageChunk();
+	new(&task_->chunk_) HttpMessageChunk;
+	task_->chunk_.set_size_limit(size);
+	return &task_->chunk_;
+}
+
 /**********Client Factory**********/
 
 WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
@@ -909,6 +1033,37 @@ WFHttpTask *WFTaskFactory::create_http_task(const ParsedURI& uri,
 	return task;
 }
 
+
+WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const std::string& url,
+													 int redirect_max,
+													 extract_t extract,
+													 http_callback_t callback)
+{
+	auto *task = new ComplexHttpChunkedTask(redirect_max,
+											std::move(extract),
+											std::move(callback));
+	ParsedURI uri;
+
+	URIParser::parse(url, uri);
+	task->init(std::move(uri));
+	task->set_keep_alive(HTTP_KEEPALIVE_DEFAULT);
+	return task;
+}
+
+WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const ParsedURI& uri,
+													 int redirect_max,
+													 extract_t extract,
+													 http_callback_t callback)
+{
+	auto *task = new ComplexHttpChunkedTask(redirect_max,
+											std::move(extract),
+											std::move(callback));
+
+	task->init(uri);
+	task->set_keep_alive(HTTP_KEEPALIVE_DEFAULT);
+	return task;
+}
+
 /**********Server**********/
 
 class WFHttpServerTask : public WFServerTask<protocol::HttpRequest,
@@ -919,9 +1074,7 @@ private:
 
 public:
 	WFHttpServerTask(CommService *service, std::function<void (TASK *)>& proc) :
-		WFServerTask(service, WFGlobal::get_scheduler(), proc),
-		req_is_alive_(false),
-		req_has_keep_alive_header_(false)
+		WFServerTask(service, WFGlobal::get_scheduler(), proc)
 	{}
 
 protected:
@@ -929,7 +1082,7 @@ protected:
 	virtual CommMessageOut *message_out();
 
 protected:
-	bool req_is_alive_;
+	bool req_is_keep_alive_;
 	bool req_has_keep_alive_header_;
 	std::string req_keep_alive_;
 };
@@ -938,8 +1091,8 @@ void WFHttpServerTask::handle(int state, int error)
 {
 	if (state == WFT_STATE_TOREPLY)
 	{
-		req_is_alive_ = this->req.is_keep_alive();
-		if (req_is_alive_ && this->req.has_keep_alive_header())
+		req_is_keep_alive_ = this->req.is_keep_alive();
+		if (req_is_keep_alive_ && this->req.has_keep_alive_header())
 		{
 			HttpHeaderCursor cursor(&this->req);
 			struct HttpMessageHeader header = {
@@ -954,6 +1107,8 @@ void WFHttpServerTask::handle(int state, int error)
 										header.value_len);
 			}
 		}
+		else
+			req_has_keep_alive_header_ = false;
 	}
 
 	this->WFServerTask::handle(state, error);
@@ -995,7 +1150,7 @@ CommMessageOut *WFHttpServerTask::message_out()
 	if (resp->has_connection_header())
 		is_alive = resp->is_keep_alive();
 	else
-		is_alive = req_is_alive_;
+		is_alive = req_is_keep_alive_;
 
 	if (!is_alive)
 		this->keep_alive_timeo = 0;

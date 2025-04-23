@@ -21,7 +21,6 @@
 
 #include <utility>
 #include <functional>
-#include <openssl/ssl.h>
 #include "HttpMessage.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
@@ -64,15 +63,6 @@ public:
 	void set_keep_alive(int timeout)
 	{
 		this->task->set_keep_alive(timeout);
-	}
-
-public:
-	void set_ssl_ctx(SSL_CTX *ctx)
-	{
-		using HttpRequest = protocol::HttpRequest;
-		using HttpResponse = protocol::HttpResponse;
-		auto *t = (WFComplexClientTask<HttpRequest, HttpResponse> *)this->task;
-		t->set_ssl_ctx(ctx);
 	}
 
 public:

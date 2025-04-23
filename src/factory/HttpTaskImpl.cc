@@ -537,7 +537,6 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 	return &task_->chunk_;
 }
 
->>>>>>> c56986be74afe62ee63bc90585e2de5282f24f72
 /**********Client Factory**********/
 
 WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
@@ -600,7 +599,6 @@ WFHttpTask *__WFHttpTaskFactory::create_chunked_task(const ParsedURI& uri,
 	return task;
 }
 
->>>>>>> c56986be74afe62ee63bc90585e2de5282f24f72
 /**********Server**********/
 
 class WFHttpServerTask : public WFServerTask<protocol::HttpRequest,

@@ -3,6 +3,7 @@ project(client)
 
 set(SRC
 	WFDnsClient.cc
+	WFHttpChunkedClient.cc
 )
 
 if (NOT REDIS STREQUAL "n")

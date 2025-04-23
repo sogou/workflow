@@ -88,10 +88,12 @@ cc_library(
 cc_library(
 	name = 'http',
 	hdrs = [
+		'src/factory/HttpTaskImpl.inl',
 		'src/protocol/HttpMessage.h',
 		'src/protocol/HttpUtil.h',
 		'src/protocol/http_parser.h',
 		'src/server/WFHttpServer.h',
+		'src/client/WFHttpChunkedClient.h',
 	],
 	includes = [
 		'src/protocol',
@@ -102,6 +104,7 @@ cc_library(
 		'src/protocol/HttpMessage.cc',
 		'src/protocol/HttpUtil.cc',
 		'src/protocol/http_parser.c',
+		'src/client/WFHttpChunkedClient.cc',
 	],
 	deps = [
 		':common',

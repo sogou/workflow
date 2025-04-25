@@ -22,6 +22,7 @@
 #include <vector>
 #include <utility>
 #include <functional>
+#include <openssl/ssl.h>
 #include "json_parser.h"
 #include "StringUtil.h"
 #include "URIParser.h"
@@ -46,6 +47,7 @@ WFConsulTask::WFConsulTask(const std::string& proxy_url,
 	this->retry_max = retry_max;
 	this->finish = false;
 	this->consul_index = 0;
+	this->ssl_ctx = NULL;
 }
 
 void WFConsulTask::set_service(const struct protocol::ConsulService *service)
@@ -169,6 +171,9 @@ void WFConsulTask::dispatch()
 		this->subtask_done();
 		return;
 	}
+
+	auto *t = (WFComplexClientTask<HttpRequest, HttpResponse> *)task;
+	t->set_ssl_ctx(this->ssl_ctx);
 
 	series_of(this)->push_front(this);
 	series_of(this)->push_front(task);
@@ -395,7 +400,8 @@ void WFConsulTask::register_callback(WFHttpTask *task)
 	t->finish = true;
 }
 
-int WFConsulClient::init(const std::string& proxy_url, ConsulConfig config)
+int WFConsulClient::init(const std::string& proxy_url, ConsulConfig config,
+						 SSL_CTX *ssl_ctx)
 {
 	ParsedURI uri;
 
@@ -411,17 +417,13 @@ int WFConsulClient::init(const std::string& proxy_url, ConsulConfig config)
 		}
 
 		this->config = std::move(config);
+		this->ssl_ctx = ssl_ctx;
 		return 0;
 	}
 	else if (uri.state == URI_STATE_INVALID)
 		errno = EINVAL;
 
 	return -1;
-}
-
-int WFConsulClient::init(const std::string& proxy_url)
-{
-	return this->init(proxy_url, ConsulConfig());
 }
 
 WFConsulTask *WFConsulClient::create_discover_task(
@@ -435,6 +437,7 @@ WFConsulTask *WFConsulClient::create_discover_task(
 										  std::move(cb));
 	task->set_api_type(CONSUL_API_TYPE_DISCOVER);
 	task->set_config(this->config);
+	task->set_ssl_ctx(this->ssl_ctx);
 	return task;
 }
 
@@ -448,6 +451,7 @@ WFConsulTask *WFConsulClient::create_list_service_task(
 										  std::move(cb));
 	task->set_api_type(CONSUL_API_TYPE_LIST_SERVICE);
 	task->set_config(this->config);
+	task->set_ssl_ctx(this->ssl_ctx);
 	return task;
 }
 
@@ -463,6 +467,7 @@ WFConsulTask *WFConsulClient::create_register_task(
 										  std::move(cb));
 	task->set_api_type(CONSUL_API_TYPE_REGISTER);
 	task->set_config(this->config);
+	task->set_ssl_ctx(this->ssl_ctx);
 	return task;
 }
 
@@ -477,6 +482,7 @@ WFConsulTask *WFConsulClient::create_deregister_task(
 										  std::move(cb));
 	task->set_api_type(CONSUL_API_TYPE_DEREGISTER);
 	task->set_config(this->config);
+	task->set_ssl_ctx(this->ssl_ctx);
 	return task;
 }
 

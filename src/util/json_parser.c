@@ -23,7 +23,6 @@
 #include <ctype.h>
 #include <math.h>
 #include "list.h"
-#include "rbtree.h"
 #include "json_parser.h"
 
 #define JSON_DEPTH_LIMIT	1024
@@ -31,7 +30,6 @@
 struct __json_object
 {
 	struct list_head head;
-	struct rb_root root;
 	int size;
 };
 
@@ -56,7 +54,6 @@ struct __json_value
 struct __json_member
 {
 	struct list_head list;
-	struct rb_node rb;
 	json_value_t value;
 	char name[1];
 };
@@ -466,28 +463,6 @@ static int __parse_json_number(const char *cursor, const char **end,
 	return 0;
 }
 
-static void __insert_json_member(json_member_t *memb, struct list_head *pos,
-								 json_object_t *obj)
-{
-	struct rb_node **p = &obj->root.rb_node;
-	struct rb_node *parent = NULL;
-	json_member_t *entry;
-
-	while (*p)
-	{
-		parent = *p;
-		entry = rb_entry(*p, json_member_t, rb);
-		if (strcmp(memb->name, entry->name) < 0)
-			p = &(*p)->rb_left;
-		else
-			p = &(*p)->rb_right;
-	}
-
-	rb_link_node(&memb->rb, parent, p);
-	rb_insert_color(&memb->rb, &obj->root);
-	list_add(&memb->list, pos);
-}
-
 static int __parse_json_value(const char *cursor, const char **end,
 							  int depth, json_value_t *val);
 
@@ -558,7 +533,7 @@ static int __parse_json_members(const char *cursor, const char **end,
 			return ret;
 		}
 
-		__insert_json_member(memb, obj->head.prev, obj);
+		list_add_tail(&memb->list, &obj->head);
 		cnt++;
 
 		while (isspace(*cursor))
@@ -602,7 +577,6 @@ static int __parse_json_object(const char *cursor, const char **end,
 		return -3;
 
 	INIT_LIST_HEAD(&obj->head);
-	obj->root.rb_node = NULL;
 	ret = __parse_json_members(cursor, end, depth + 1, obj);
 	if (ret < 0)
 	{
@@ -852,7 +826,6 @@ static void __move_json_value(json_value_t *src, json_value_t *dest)
 	case JSON_VALUE_OBJECT:
 		INIT_LIST_HEAD(&dest->value.object.head);
 		list_splice(&src->value.object.head, &dest->value.object.head);
-		dest->value.object.root.rb_node = src->value.object.root.rb_node;
 		dest->value.object.size = src->value.object.size;
 		break;
 
@@ -896,7 +869,6 @@ static int __set_json_value(int type, va_list ap, json_value_t *val)
 
 	case JSON_VALUE_OBJECT:
 		INIT_LIST_HEAD(&val->value.object.head);
-		val->value.object.root.rb_node = NULL;
 		val->value.object.size = 0;
 		break;
 
@@ -958,7 +930,7 @@ static int __copy_json_members(const json_object_t *src, json_object_t *dest)
 		}
 
 		memcpy(memb->name, entry->name, len + 1);
-		__insert_json_member(memb, dest->head.prev, dest);
+		list_add_tail(&memb->list, &dest->head);
 	}
 
 	return src->size;
@@ -1013,7 +985,6 @@ static int __copy_json_value(const json_value_t *src, json_value_t *dest)
 
 	case JSON_VALUE_OBJECT:
 		INIT_LIST_HEAD(&dest->value.object.head);
-		dest->value.object.root.rb_node = NULL;
 		ret = __copy_json_members(&src->value.object, &dest->value.object);
 		if (ret < 0)
 		{
@@ -1104,19 +1075,13 @@ json_array_t *json_value_array(const json_value_t *val)
 const json_value_t *json_object_find(const char *name,
 									 const json_object_t *obj)
 {
-	struct rb_node *p = obj->root.rb_node;
+	struct list_head *pos;
 	json_member_t *memb;
-	int n;
 
-	while (p)
+	list_for_each(pos, &obj->head)
 	{
-		memb = rb_entry(p, json_member_t, rb);
-		n = strcmp(name, memb->name);
-		if (n < 0)
-			p = p->rb_left;
-		else if (n > 0)
-			p = p->rb_right;
-		else
+		memb = list_entry(pos, json_member_t, list);
+		if (strcmp(name, memb->name) == 0)
 			return &memb->value;
 	}
 
@@ -1218,7 +1183,7 @@ static const json_value_t *__json_object_insert(const char *name,
 		return NULL;
 	}
 
-	__insert_json_member(memb, pos, obj);
+	list_add(&memb->list, pos);
 	obj->size++;
 	return &memb->value;
 }
@@ -1284,7 +1249,6 @@ json_value_t *json_object_remove(const json_value_t *val,
 		return NULL;
 
 	list_del(&memb->list);
-	rb_erase(&memb->rb, &obj->root);
 	obj->size--;
 
 	__move_json_value(&memb->value, (json_value_t *)val);

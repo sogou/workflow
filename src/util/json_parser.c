@@ -30,13 +30,13 @@
 struct __json_object
 {
 	struct list_head head;
-	int size;
+	size_t size;
 };
 
 struct __json_array
 {
 	struct list_head head;
-	int size;
+	size_t size;
 };
 
 struct __json_value
@@ -499,7 +499,6 @@ static int __parse_json_members(const char *cursor, const char **end,
 								int depth, json_object_t *obj)
 {
 	json_member_t *memb;
-	int cnt = 0;
 	size_t len;
 	int ret;
 
@@ -534,7 +533,7 @@ static int __parse_json_members(const char *cursor, const char **end,
 		}
 
 		list_add_tail(&memb->list, &obj->head);
-		cnt++;
+		obj->size++;
 
 		while (isspace(*cursor))
 			cursor++;
@@ -552,7 +551,7 @@ static int __parse_json_members(const char *cursor, const char **end,
 	}
 
 	*end = cursor + 1;
-	return cnt;
+	return 0;
 }
 
 static void __destroy_json_members(json_object_t *obj)
@@ -577,22 +576,18 @@ static int __parse_json_object(const char *cursor, const char **end,
 		return -3;
 
 	INIT_LIST_HEAD(&obj->head);
+	obj->size = 0;
 	ret = __parse_json_members(cursor, end, depth + 1, obj);
 	if (ret < 0)
-	{
 		__destroy_json_members(obj);
-		return ret;
-	}
 
-	obj->size = ret;
-	return 0;
+	return ret;
 }
 
 static int __parse_json_elements(const char *cursor, const char **end,
 								 int depth, json_array_t *arr)
 {
 	json_element_t *elem;
-	int cnt = 0;
 	int ret;
 
 	while (isspace(*cursor))
@@ -618,7 +613,7 @@ static int __parse_json_elements(const char *cursor, const char **end,
 		}
 
 		list_add_tail(&elem->list, &arr->head);
-		cnt++;
+		arr->size++;
 
 		while (isspace(*cursor))
 			cursor++;
@@ -636,7 +631,7 @@ static int __parse_json_elements(const char *cursor, const char **end,
 	}
 
 	*end = cursor + 1;
-	return cnt;
+	return 0;
 }
 
 static void __destroy_json_elements(json_array_t *arr)
@@ -661,15 +656,12 @@ static int __parse_json_array(const char *cursor, const char **end,
 		return -3;
 
 	INIT_LIST_HEAD(&arr->head);
+	arr->size = 0;
 	ret = __parse_json_elements(cursor, end, depth + 1, arr);
 	if (ret < 0)
-	{
 		__destroy_json_elements(arr);
-		return ret;
-	}
 
-	arr->size = ret;
-	return 0;
+	return ret;
 }
 
 static int __parse_json_value(const char *cursor, const char **end,
@@ -1088,7 +1080,7 @@ const json_value_t *json_object_find(const char *name,
 	return NULL;
 }
 
-int json_object_size(const json_object_t *obj)
+size_t json_object_size(const json_object_t *obj)
 {
 	return obj->size;
 }
@@ -1256,7 +1248,7 @@ json_value_t *json_object_remove(const json_value_t *val,
 	return (json_value_t *)val;
 }
 
-int json_array_size(const json_array_t *arr)
+size_t json_array_size(const json_array_t *arr)
 {
 	return arr->size;
 }

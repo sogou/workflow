@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include <ctype.h>
 #include <math.h>
 #include "list.h"
 #include "json_parser.h"
@@ -66,6 +65,15 @@ struct __json_element
 
 typedef struct __json_member json_member_t;
 typedef struct __json_element json_element_t;
+
+static const int __whitespace_map[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	1,
+};
+
+#define isspace(c)	__whitespace_map[(unsigned char)(c)]
+#define isdigit(c)	((c) >= '0' && (c) <= '9')
 
 static int __json_string_length(const char *cursor, size_t *len)
 {
@@ -306,54 +314,102 @@ static const double __power_of_10[309] = {
 	1e305,	1e306,	1e307,	1e308
 };
 
-static double __evaluate_json_number(const char *integer,
-									 const char *fraction,
-									 int exp)
+static int __parse_json_number(const char *cursor, const char **end,
+							   double *num)
 {
+	const char *integer = cursor;
 	long long mant = 0;
 	int figures = 0;
-	double num;
-	int sign;
+	int exp = 0;
+	double n;
 
-	sign = (*integer == '-');
-	if (sign)
-		integer++;
+	if (*cursor == '-')
+		cursor++;
 
-	if (*integer != '0')
+	if (*cursor >= '1' && *cursor <= '9')
 	{
-		mant = *integer - '0';
-		integer++;
-		figures++;
-		while (isdigit(*integer) && figures < 18)
+		mant = *cursor - '0';
+		figures = 1;
+		cursor++;
+		while (isdigit(*cursor) && figures < 18)
 		{
 			mant *= 10;
-			mant += *integer - '0';
-			integer++;
+			mant += *cursor - '0';
 			figures++;
+			cursor++;
 		}
 
-		while (isdigit(*integer))
+		while (isdigit(*cursor))
 		{
 			exp++;
-			integer++;
+			cursor++;
 		}
 	}
+	else if (*cursor == '0')
+		cursor++;
 	else
+		return -2;
+
+	if (*cursor == '.')
 	{
-		while (*fraction == '0')
+		cursor++;
+		if (!isdigit(*cursor))
+			return -2;
+
+		if (figures == 0)
 		{
-			exp--;
-			fraction++;
+			while (*cursor == '0')
+			{
+				exp--;
+				cursor++;
+			}
 		}
+
+		while (isdigit(*cursor) && figures < 18)
+		{
+			mant *= 10;
+			mant += *cursor - '0';
+			figures++;
+			exp--;
+			cursor++;
+		}
+
+		while (isdigit(*cursor))
+			cursor++;
 	}
 
-	while (isdigit(*fraction) && figures < 18)
+	if (cursor - integer > 1000000)
+		return -2;
+
+	if (*cursor == 'E' || *cursor == 'e')
 	{
-		mant *= 10;
-		mant += *fraction - '0';
-		exp--;
-		fraction++;
-		figures++;
+		int neg;
+		int e;
+
+		cursor++;
+		neg = (*cursor == '-');
+		if (neg || *cursor == '+')
+			cursor++;
+
+		if (!isdigit(*cursor))
+			return -2;
+
+		e = *cursor - '0';
+		cursor++;
+		while (isdigit(*cursor) && e < 2000000)
+		{
+			e *= 10;
+			e += *cursor - '0';
+			cursor++;
+		}
+
+		while (isdigit(*cursor))
+			cursor++;
+
+		if (neg)
+			e = -e;
+
+		exp += e;
 	}
 
 	if (exp != 0 && figures != 0)
@@ -361,104 +417,40 @@ static double __evaluate_json_number(const char *integer,
 		while (exp > 0 && figures < 18)
 		{
 			mant *= 10;
-			exp--;
 			figures++;
+			exp--;
 		}
 
 		while (exp < 0 && mant % 10 == 0)
 		{
 			mant /= 10;
-			exp++;
 			figures--;
+			exp++;
 		}
 	}
 
-	num = mant;
+	n = mant;
 	if (exp != 0 && figures != 0)
 	{
 		if (exp > 291)
-			num = INFINITY;
+			n = INFINITY;
 		else if (exp > 0)
-			num *= __power_of_10[exp];
+			n *= __power_of_10[exp];
 		else if (exp > -309)
-			num /= __power_of_10[-exp];
+			n /= __power_of_10[-exp];
 		else if (exp > -324 - figures)
 		{
-			num /= __power_of_10[-exp - 308];
-			num /= __power_of_10[308];
+			n /= __power_of_10[-exp - 308];
+			n /= __power_of_10[308];
 		}
 		else
-			num = 0.0;
+			n = 0.0;
 	}
 
-	return sign ? -num : num;
-}
+	if (*integer == '-')
+		n = -n;
 
-static int __parse_json_number(const char *cursor, const char **end,
-							   double *num)
-{
-	const char *integer = cursor;
-	const char *fraction = "";
-	int exp = 0;
-	int sign;
-
-	if (*cursor == '-')
-		cursor++;
-
-	if (*cursor == '0')
-	{
-		if (isdigit(cursor[1]))
-			return -2;
-	}
-	else if (!isdigit(*cursor))
-		return -2;
-
-	cursor++;
-	while (isdigit(*cursor))
-		cursor++;
-
-	if (*cursor == '.')
-	{
-		cursor++;
-		fraction = cursor;
-		if (!isdigit(*cursor))
-			return -2;
-
-		cursor++;
-		while (isdigit(*cursor))
-			cursor++;
-	}
-
-	if (*cursor == 'E' || *cursor == 'e')
-	{
-		cursor++;
-		sign = (*cursor == '-');
-		if (sign || *cursor == '+')
-			cursor++;
-
-		if (!isdigit(*cursor))
-			return -2;
-
-		exp = *cursor - '0';
-		cursor++;
-		while (isdigit(*cursor) && exp < 2000000)
-		{
-			exp *= 10;
-			exp += *cursor - '0';
-			cursor++;
-		}
-
-		while (isdigit(*cursor))
-			cursor++;
-
-		if (sign)
-			exp = -exp;
-	}
-
-	if (cursor - integer > 1000000)
-		return -2;
-
-	*num = __evaluate_json_number(integer, fraction, exp);
+	*num = n;
 	*end = cursor;
 	return 0;
 }
@@ -579,9 +571,12 @@ static int __parse_json_object(const char *cursor, const char **end,
 	obj->size = 0;
 	ret = __parse_json_members(cursor, end, depth + 1, obj);
 	if (ret < 0)
+	{
 		__destroy_json_members(obj);
+		return ret;
+	}
 
-	return ret;
+	return 0;
 }
 
 static int __parse_json_elements(const char *cursor, const char **end,
@@ -659,9 +654,12 @@ static int __parse_json_array(const char *cursor, const char **end,
 	arr->size = 0;
 	ret = __parse_json_elements(cursor, end, depth + 1, arr);
 	if (ret < 0)
+	{
 		__destroy_json_elements(arr);
+		return ret;
+	}
 
-	return ret;
+	return 0;
 }
 
 static int __parse_json_value(const char *cursor, const char **end,
@@ -887,13 +885,11 @@ json_value_t *json_value_create(int type, ...)
 	va_start(ap, type);
 	ret = __set_json_value(type, ap, val);
 	va_end(ap);
-	if (ret < 0)
-	{
-		free(val);
-		return NULL;
-	}
+	if (ret >= 0)
+		return val;
 
-	return val;
+	free(val);
+	return NULL;
 }
 
 static int __copy_json_value(const json_value_t *src, json_value_t *dest);
@@ -923,9 +919,10 @@ static int __copy_json_members(const json_object_t *src, json_object_t *dest)
 
 		memcpy(memb->name, entry->name, len + 1);
 		list_add_tail(&memb->list, &dest->head);
+		dest->size++;
 	}
 
-	return src->size;
+	return 0;
 }
 
 static int __copy_json_elements(const json_array_t *src, json_array_t *dest)
@@ -950,9 +947,10 @@ static int __copy_json_elements(const json_array_t *src, json_array_t *dest)
 		}
 
 		list_add_tail(&elem->list, &dest->head);
+		dest->size++;
 	}
 
-	return src->size;
+	return 0;
 }
 
 static int __copy_json_value(const json_value_t *src, json_value_t *dest)
@@ -977,6 +975,7 @@ static int __copy_json_value(const json_value_t *src, json_value_t *dest)
 
 	case JSON_VALUE_OBJECT:
 		INIT_LIST_HEAD(&dest->value.object.head);
+		dest->value.object.size = 0;
 		ret = __copy_json_members(&src->value.object, &dest->value.object);
 		if (ret < 0)
 		{
@@ -984,11 +983,11 @@ static int __copy_json_value(const json_value_t *src, json_value_t *dest)
 			return ret;
 		}
 
-		dest->value.object.size = ret;
 		break;
 
 	case JSON_VALUE_ARRAY:
 		INIT_LIST_HEAD(&dest->value.array.head);
+		dest->value.array.size = 0;
 		ret = __copy_json_elements(&src->value.array, &dest->value.array);
 		if (ret < 0)
 		{
@@ -996,7 +995,6 @@ static int __copy_json_value(const json_value_t *src, json_value_t *dest)
 			return ret;
 		}
 
-		dest->value.array.size = ret;
 		break;
 	}
 
@@ -1012,13 +1010,11 @@ json_value_t *json_value_copy(const json_value_t *val)
 	if (!copy)
 		return NULL;
 
-	if (__copy_json_value(val, copy) < 0)
-	{
-		free(copy);
-		return NULL;
-	}
+	if (__copy_json_value(val, copy) >= 0)
+		return copy;
 
-	return copy;
+	free(copy);
+	return NULL;
 }
 
 void json_value_destroy(json_value_t *val)

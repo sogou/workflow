@@ -26,6 +26,7 @@
 #include <functional>
 #include <atomic>
 #include <mutex>
+#include "RedisMessage.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 

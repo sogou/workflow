@@ -286,7 +286,7 @@ int CommServiceTarget::shutdown()
 		else
 		{
 			__release_conn(entry);
-			this->decref();
+			__sync_sub_and_fetch(&this->ref, 1);
 		}
 
 		ret = 1;

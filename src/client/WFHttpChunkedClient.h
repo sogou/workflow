@@ -75,6 +75,11 @@ public:
 		t->set_ssl_ctx(ctx);
 	}
 
+	void extract_on_header(bool on)
+	{
+		this->extract_flag = on;
+	}
+
 public:
 	void set_extract(std::function<void (WFHttpChunkedTask *)> ex)
 	{
@@ -112,6 +117,7 @@ protected:
 protected:
 	WFHttpTask *task;
 	protocol::HttpMessageChunk *chunk;
+	bool extract_flag;
 	std::function<void (WFHttpChunkedTask *)> extract;
 	std::function<void (WFHttpChunkedTask *)> callback;
 
@@ -124,6 +130,7 @@ protected:
 	{
 		task->user_data = this;
 		this->task = task;
+		this->extract_flag = false;
 	}
 
 	virtual ~WFHttpChunkedTask()

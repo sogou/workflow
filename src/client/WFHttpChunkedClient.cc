@@ -26,7 +26,10 @@ void WFHttpChunkedTask::task_extract(protocol::HttpMessageChunk *chunk,
 
 	t->chunk = chunk;
 	if (t->extract)
-		t->extract(t);
+	{
+		if (chunk || t->extract_flag)
+			t->extract(t);
+	}
 }
 
 void WFHttpChunkedTask::task_callback(WFHttpTask *task)

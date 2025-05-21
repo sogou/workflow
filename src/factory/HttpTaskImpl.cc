@@ -503,6 +503,7 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 			if (status_code / 100 != 3)
 			{
 				size = resp->get_size_limit();
+				task_->extract_(NULL, task_);
 				task_->chunk_.set_size_limit(size);
 				task_->chunking_ = true;
 				return &task_->chunk_;

@@ -498,12 +498,12 @@ ComplexHttpChunkedTask::ChunkWrapper::next_in(ProtocolMessage *msg)
 		if (status_code / 100 == 1 || status_code == 204 || status_code == 304)
 			return NULL;
 
-		if (resp->is_chunked())
+		if (status_code / 100 == 2)
 		{
-			if (status_code / 100 != 3)
+			task_->extract_(NULL, task_);
+			if (resp->is_chunked())
 			{
 				size = resp->get_size_limit();
-				task_->extract_(NULL, task_);
 				task_->chunk_.set_size_limit(size);
 				task_->chunking_ = true;
 				return &task_->chunk_;

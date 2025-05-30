@@ -410,8 +410,10 @@ class HttpMessageChunk : public ProtocolMessage
 public:
 	bool get_chunk_data(const void **chunk_data, size_t *size) const;
 	bool move_chunk_data(void **chunk_data, size_t *size);
+	bool set_chunk_data(const void *chunk_data, size_t size);
 
 protected:
+	virtual int encode(struct iovec vectors[], int max);
 	virtual int append(const void *buf, size_t *size);
 
 private:

@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <utility>
 #include "HttpMessage.h"
@@ -422,6 +423,39 @@ bool HttpMessageChunk::move_chunk_data(void **data, size_t *size)
 	}
 	else
 		return false;
+}
+
+bool HttpMessageChunk::set_chunk_data(const void *data, size_t size)
+{
+	char *p = (char *)malloc(size + 3);
+
+	if (p)
+	{
+		memcpy(p, data, size);
+		p[size] = '\r';
+		p[size + 1] = '\n';
+		p[size + 2] = '\0';
+
+		free(this->chunk_data);
+		this->chunk_data = p;
+		this->chunk_size = size;
+		this->nreceived == size + 2;
+		return true;
+	}
+	else
+		return false;
+}
+
+int HttpMessageChunk::encode(struct iovec vectors[], int max)
+{
+	int len = sprintf(this->chunk_line, "%zx\r\n", this->chunk_size);
+
+	vectors[0].iov_base = this->chunk_line;
+	vectors[0].iov_len = len;
+	vectors[1].iov_base = this->chunk_data;
+	vectors[1].iov_len = this->chunk_size + 2;
+
+	return 2;
 }
 
 #define MIN(x, y)	((x) <= (y) ? (x) : (y))

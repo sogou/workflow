@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.6)
 
-if(ANDROID)
+if (ANDROID)
 	include_directories(${OPENSSL_INCLUDE_DIR})
 	link_directories(${OPENSSL_LINK_DIR})
-else()
+else ()
 	find_package(OpenSSL REQUIRED)
 endif ()
 
@@ -51,28 +51,34 @@ add_library(
 	$<TARGET_OBJECTS:client>
 )
 
-add_library(
-	${SHARED_LIB_NAME} SHARED
-	$<TARGET_OBJECTS:kernel>
-	$<TARGET_OBJECTS:util>
-	$<TARGET_OBJECTS:manager>
-	$<TARGET_OBJECTS:protocol>
-	$<TARGET_OBJECTS:factory>
-	$<TARGET_OBJECTS:nameservice>
-	$<TARGET_OBJECTS:server>
-	$<TARGET_OBJECTS:client>
-)
+if (NOT APPLE)
+	add_library(
+		${SHARED_LIB_NAME} SHARED
+		$<TARGET_OBJECTS:kernel>
+		$<TARGET_OBJECTS:util>
+		$<TARGET_OBJECTS:manager>
+		$<TARGET_OBJECTS:protocol>
+		$<TARGET_OBJECTS:factory>
+		$<TARGET_OBJECTS:nameservice>
+		$<TARGET_OBJECTS:server>
+		$<TARGET_OBJECTS:client>
+	)
+endif ()
 
-if(ANDROID)
+if (ANDROID)
 	target_link_libraries(${SHARED_LIB_NAME} ssl crypto c)
 	target_link_libraries(${STATIC_LIB_NAME} ssl crypto c)
-else()
+elseif (APPLE)
+	target_link_libraries(${STATIC_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
+else ()
 	target_link_libraries(${SHARED_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
 	target_link_libraries(${STATIC_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
 endif ()
 
 set_target_properties(${STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
-set_target_properties(${SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME} VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+if (NOT APPLE)
+	set_target_properties(${SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME} VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+endif ()
 
 if (KAFKA STREQUAL "y")
 	add_dependencies(client_kafka LINK_HEADERS)
@@ -88,23 +94,28 @@ if (KAFKA STREQUAL "y")
 		$<TARGET_OBJECTS:protocol_kafka>
 		$<TARGET_OBJECTS:factory_kafka>
 	)
+
 	set_target_properties(${KAFKA_STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka")
 
-	set(KAFKA_SHARED_LIB_NAME "wfkafka-shared")
-	add_library(
-		${KAFKA_SHARED_LIB_NAME} SHARED
-		$<TARGET_OBJECTS:client_kafka>
-		$<TARGET_OBJECTS:util_kafka>
-		$<TARGET_OBJECTS:protocol_kafka>
-		$<TARGET_OBJECTS:factory_kafka>
-	)
-	if (APPLE)
-		target_link_libraries(${KAFKA_SHARED_LIB_NAME}
-							  ${SHARED_LIB_NAME} z lz4 zstd ${SNAPPY_LIB})
-	else ()
+#	if (APPLE)
+#		target_link_libraries(${KAFKA_SHARED_LIB_NAME}
+#							  ${SHARED_LIB_NAME} z lz4 zstd ${SNAPPY_LIB})
+	if (NOT APPLE)
+		set(KAFKA_SHARED_LIB_NAME "wfkafka-shared")
+		add_library(
+			${KAFKA_SHARED_LIB_NAME} SHARED
+			$<TARGET_OBJECTS:client_kafka>
+			$<TARGET_OBJECTS:util_kafka>
+			$<TARGET_OBJECTS:protocol_kafka>
+			$<TARGET_OBJECTS:factory_kafka>
+		)
 		target_link_libraries(${KAFKA_SHARED_LIB_NAME} ${SHARED_LIB_NAME})
+		set_target_properties(
+			${KAFKA_SHARED_LIB_NAME} PROPERTIES
+			OUTPUT_NAME "wfkafka"
+			VERSION ${PROJECT_VERSION}
+			SOVERSION ${PROJECT_VERSION_MAJOR})
 	endif ()
-	set_target_properties(${KAFKA_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka" VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 endif ()
 
 install(
@@ -112,12 +123,13 @@ install(
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	COMPONENT devel
 )
-
-install(
-	TARGETS ${SHARED_LIB_NAME}
-	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	COMPONENT devel
-)
+if (NOT APPLE)
+	install(
+		TARGETS ${SHARED_LIB_NAME}
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		COMPONENT devel
+	)
+endif ()
 
 if (KAFKA STREQUAL "y")
 	install(
@@ -125,24 +137,32 @@ if (KAFKA STREQUAL "y")
 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		COMPONENT devel
 	)
-	install(
-		TARGETS ${KAFKA_SHARED_LIB_NAME}
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		COMPONENT devel
-	)
+	if (NOT APPLE)
+		install(
+			TARGETS ${KAFKA_SHARED_LIB_NAME}
+			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			COMPONENT devel
+		)
+	endif ()
 endif ()
 
 target_include_directories(${STATIC_LIB_NAME} BEFORE PUBLIC
 	"$<BUILD_INTERFACE:${INC_DIR}>"
 	"$<INSTALL_INTERFACE:${INC_DIR}>")
-target_include_directories(${SHARED_LIB_NAME} BEFORE PUBLIC
-	"$<BUILD_INTERFACE:${INC_DIR}>"
-	"$<INSTALL_INTERFACE:${INC_DIR}>")
+if (NOT APPLE)
+	target_include_directories(${SHARED_LIB_NAME} BEFORE PUBLIC
+		"$<BUILD_INTERFACE:${INC_DIR}>"
+		"$<INSTALL_INTERFACE:${INC_DIR}>")
+endif ()
+
 if (KAFKA STREQUAL "y")
 	target_include_directories(${KAFKA_STATIC_LIB_NAME} BEFORE PUBLIC
 		"$<BUILD_INTERFACE:${INC_DIR}>"
 		"$<INSTALL_INTERFACE:${INC_DIR}>")
-	target_include_directories(${KAFKA_SHARED_LIB_NAME} BEFORE PUBLIC
-		"$<BUILD_INTERFACE:${INC_DIR}>"
-		"$<INSTALL_INTERFACE:${INC_DIR}>")
+	if (NOT APPLE)
+		target_include_directories(${KAFKA_SHARED_LIB_NAME} BEFORE PUBLIC
+			"$<BUILD_INTERFACE:${INC_DIR}>"
+			"$<INSTALL_INTERFACE:${INC_DIR}>")
+	endif ()
 endif ()
+

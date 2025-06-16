@@ -439,7 +439,7 @@ bool HttpMessageChunk::set_chunk_data(const void *data, size_t size)
 		free(this->chunk_data);
 		this->chunk_data = p;
 		this->chunk_size = size;
-		this->nreceived == size + 2;
+		this->nreceived = size + 2;
 		return true;
 	}
 	else

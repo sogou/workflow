@@ -79,7 +79,7 @@ static int __json_isspace(char c)
 
 static int __json_isdigit(char c)
 {
-	return c >= '0' && c <= '9';
+	return (unsigned int)(c - '0') <= 9;
 }
 
 #define isspace(c)	__json_isspace(c)
@@ -110,24 +110,22 @@ static int __json_string_length(const char *cursor, size_t *len)
 
 	while (1)
 	{
-		if (__character_map[(unsigned char)*cursor])
+		if (__character_map[(unsigned char)cursor[n]])
 		{
-			cursor++;
 			n++;
 			continue;
 		}
 
-		if (*cursor == '\"')
+		if (cursor[n] == '\"')
 			break;
 
-		if (*cursor != '\\')
+		if (cursor[n] != '\\')
 			return -2;
 
 		cursor++;
-		if (*cursor == '\0')
+		if (cursor[n] == '\0')
 			return -2;
 
-		cursor++;
 		n++;
 	}
 
@@ -147,12 +145,14 @@ static int __parse_json_hex4(const char *cursor, const char **end,
 		hex = *cursor;
 		if (hex >= '0' && hex <= '9')
 			hex = hex - '0';
-		else if (hex >= 'A' && hex <= 'F')
-			hex = hex - 'A' + 10;
-		else if (hex >= 'a' && hex <= 'f')
-			hex = hex - 'a' + 10;
 		else
-			return -2;
+		{
+			hex |= 0x20;
+			if (hex >= 'a' && hex <= 'f')
+				hex = hex - 'a' + 10;
+			else
+				return -2;
+		}
 
 		*code = (*code << 4) + hex;
 		cursor++;
@@ -357,26 +357,33 @@ static const double __power_of_10[309] = {
 static int __parse_json_number(const char *cursor, const char **end,
 							   double *num)
 {
-	const char *integer = cursor;
-	long long mant = 0;
-	int figures = 0;
-	int exp = 0;
+	unsigned int digit;
+	long long exp = 0;
+	long long mant;
+	int figures;
+	int minus;
 	double n;
 
-	if (*cursor == '-')
+	minus = (*cursor == '-');
+	if (minus)
 		cursor++;
 
-	if (*cursor >= '1' && *cursor <= '9')
+	mant = *cursor - '0';
+	if (mant >= 1 && mant <= 9)
 	{
-		mant = *cursor - '0';
 		figures = 1;
 		cursor++;
-		while (isdigit(*cursor) && figures < 18)
+		while (1)
 		{
-			mant *= 10;
-			mant += *cursor - '0';
-			figures++;
-			cursor++;
+			digit = (unsigned int)(*cursor - '0');
+			if (digit <= 9 && figures < 18)
+			{
+				mant = 10 * mant + digit;
+				figures++;
+				cursor++;
+			}
+			else
+				break;
 		}
 
 		while (isdigit(*cursor))
@@ -385,50 +392,55 @@ static int __parse_json_number(const char *cursor, const char **end,
 			cursor++;
 		}
 	}
-	else if (*cursor == '0')
+	else if (mant == 0)
+	{
+		figures = 0;
 		cursor++;
+	}
 	else
 		return -2;
 
 	if (*cursor == '.')
 	{
+		const char *frac;
+
 		cursor++;
 		if (!isdigit(*cursor))
 			return -2;
 
+		frac = cursor;
 		if (figures == 0)
 		{
 			while (*cursor == '0')
+				cursor++;
+		}
+
+		while (1)
+		{
+			digit = (unsigned int)(*cursor - '0');
+			if (digit <= 9 && figures < 18)
 			{
-				exp--;
+				mant = 10 * mant + digit;
+				figures++;
 				cursor++;
 			}
+			else
+				break;
 		}
 
-		while (isdigit(*cursor) && figures < 18)
-		{
-			mant *= 10;
-			mant += *cursor - '0';
-			figures++;
-			exp--;
-			cursor++;
-		}
-
+		exp -= cursor - frac;
 		while (isdigit(*cursor))
 			cursor++;
 	}
 
-	if (cursor - integer > 1000000)
-		return -2;
-
 	if (*cursor == 'E' || *cursor == 'e')
 	{
-		int neg;
-		int e;
+		long long e;
+		char sign;
 
 		cursor++;
-		neg = (*cursor == '-');
-		if (neg || *cursor == '+')
+		sign = *cursor;
+		if (sign == '+' || sign == '-')
 			cursor++;
 
 		if (!isdigit(*cursor))
@@ -436,17 +448,22 @@ static int __parse_json_number(const char *cursor, const char **end,
 
 		e = *cursor - '0';
 		cursor++;
-		while (isdigit(*cursor) && e < 2000000)
+		while (1)
 		{
-			e *= 10;
-			e += *cursor - '0';
-			cursor++;
+			digit = (unsigned int)(*cursor - '0');
+			if (digit <= 9 && e < 100000000000000000)
+			{
+				e = 10 * e + digit;
+				cursor++;
+			}
+			else
+				break;
 		}
 
 		while (isdigit(*cursor))
 			cursor++;
 
-		if (neg)
+		if (sign == '-')
 			e = -e;
 
 		exp += e;
@@ -487,7 +504,7 @@ static int __parse_json_number(const char *cursor, const char **end,
 			n = 0.0;
 	}
 
-	if (*integer == '-')
+	if (minus)
 		n = -n;
 
 	*num = n;

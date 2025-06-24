@@ -53,8 +53,8 @@ struct __header_line
 	char *buf;
 };
 
-static int __add_message_header(const void *name, size_t name_len,
-								const void *value, size_t value_len,
+static int __add_message_header(const char *name, size_t name_len,
+								const char *value, size_t value_len,
 								http_parser_t *parser)
 {
 	size_t size = sizeof (struct __header_line) + name_len + value_len + 4;
@@ -79,8 +79,8 @@ static int __add_message_header(const void *name, size_t name_len,
 	return -1;
 }
 
-static int __set_message_header(const void *name, size_t name_len,
-								const void *value, size_t value_len,
+static int __set_message_header(const char *name, size_t name_len,
+								const char *value, size_t value_len,
 								http_parser_t *parser)
 {
 	struct __header_line *line;
@@ -738,7 +738,9 @@ int http_parser_add_header(const void *name, size_t name_len,
 						   const void *value, size_t value_len,
 						   http_parser_t *parser)
 {
-	if (__add_message_header(name, name_len, value, value_len, parser) >= 0)
+	if (__add_message_header((const char *)name, name_len,
+							 (const char *)value, value_len,
+							 parser) >= 0)
 	{
 		__check_message_header((const char *)name, name_len,
 							   (const char *)value, value_len,
@@ -753,7 +755,9 @@ int http_parser_set_header(const void *name, size_t name_len,
 						   const void *value, size_t value_len,
 						   http_parser_t *parser)
 {
-	if (__set_message_header(name, name_len, value, value_len, parser) >= 0)
+	if (__set_message_header((const char *)name, name_len,
+							 (const char *)value, value_len,
+							 parser) >= 0)
 	{
 		__check_message_header((const char *)name, name_len,
 							   (const char *)value, value_len,
@@ -819,7 +823,7 @@ int http_header_cursor_find(const void *name, size_t name_len,
 		line = list_entry(cursor->next, struct __header_line, list);
 		if (line->name_len == name_len)
 		{
-			if (strncasecmp(line->buf, name, name_len) == 0)
+			if (strncasecmp(line->buf, (const char *)name, name_len) == 0)
 			{
 				*value = line->buf + name_len + 2;
 				*value_len = line->value_len;

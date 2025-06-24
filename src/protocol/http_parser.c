@@ -53,8 +53,8 @@ struct __header_line
 	char *buf;
 };
 
-static int __add_message_header(const void *name, size_t name_len,
-								const void *value, size_t value_len,
+static int __add_message_header(const char *name, size_t name_len,
+								const char *value, size_t value_len,
 								http_parser_t *parser)
 {
 	size_t size = sizeof (struct __header_line) + name_len + value_len + 4;
@@ -79,8 +79,8 @@ static int __add_message_header(const void *name, size_t name_len,
 	return -1;
 }
 
-static int __set_message_header(const void *name, size_t name_len,
-								const void *value, size_t value_len,
+static int __set_message_header(const char *name, size_t name_len,
+								const char *value, size_t value_len,
 								http_parser_t *parser)
 {
 	struct __header_line *line;
@@ -452,7 +452,7 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 {
 	char chunk_line[HTTP_CHUNK_LINE_MAX];
 	size_t min = MIN(HTTP_CHUNK_LINE_MAX, len);
-	long chunk_size;
+	size_t chunk_size;
 	char *end;
 	size_t i;
 
@@ -467,8 +467,7 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 			if (ptr[i + 1] != '\n')
 				return -2;
 
-			chunk_line[i] = '\0';
-			chunk_size = strtol(chunk_line, &end, 16);
+			chunk_size = strtoul(chunk_line, &end, 16);
 			if (end == chunk_line)
 				return -2;
 
@@ -477,10 +476,10 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 				chunk_size = i + 2;
 				parser->chunk_state = CPS_TRAILER_PART;
 			}
-			else if ((unsigned long)chunk_size < CHUNK_SIZE_MAX)
+			else if (chunk_size < CHUNK_SIZE_MAX)
 			{
 				chunk_size += i + 4;
-				if (len < (size_t)chunk_size)
+				if (len < chunk_size)
 					return 0;
 			}
 			else
@@ -739,7 +738,9 @@ int http_parser_add_header(const void *name, size_t name_len,
 						   const void *value, size_t value_len,
 						   http_parser_t *parser)
 {
-	if (__add_message_header(name, name_len, value, value_len, parser) >= 0)
+	if (__add_message_header((const char *)name, name_len,
+							 (const char *)value, value_len,
+							 parser) >= 0)
 	{
 		__check_message_header((const char *)name, name_len,
 							   (const char *)value, value_len,
@@ -754,7 +755,9 @@ int http_parser_set_header(const void *name, size_t name_len,
 						   const void *value, size_t value_len,
 						   http_parser_t *parser)
 {
-	if (__set_message_header(name, name_len, value, value_len, parser) >= 0)
+	if (__set_message_header((const char *)name, name_len,
+							 (const char *)value, value_len,
+							 parser) >= 0)
 	{
 		__check_message_header((const char *)name, name_len,
 							   (const char *)value, value_len,
@@ -820,7 +823,7 @@ int http_header_cursor_find(const void *name, size_t name_len,
 		line = list_entry(cursor->next, struct __header_line, list);
 		if (line->name_len == name_len)
 		{
-			if (strncasecmp(line->buf, name, name_len) == 0)
+			if (strncasecmp(line->buf, (const char *)name, name_len) == 0)
 			{
 				*value = line->buf + name_len + 2;
 				*value_len = line->value_len;

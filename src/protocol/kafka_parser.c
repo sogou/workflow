@@ -16,13 +16,13 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
-#include <openssl/sha.h>
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <openssl/sha.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 #include "PlatformSocket.h"
 #include "kafka_parser.h"
 #ifdef WIN32
@@ -236,7 +236,8 @@ int kafka_api_version_is_queryable(const char *broker_version,
 
 static int kafka_api_version_key_cmp(const void *_a, const void *_b)
 {
-	const kafka_api_version_t *a = _a, *b = _b;
+	const kafka_api_version_t *a = (const kafka_api_version_t *)_a;
+	const kafka_api_version_t *b = (const kafka_api_version_t *)_b;
 
 	if (a->api_key > b->api_key)
 		return 1;
@@ -252,8 +253,8 @@ static int kafka_api_version_check(const kafka_api_version_t *apis,
 {
 	const kafka_api_version_t *api;
 
-	api = bsearch(match, apis, api_cnt, sizeof(*apis),
-				  kafka_api_version_key_cmp);
+	api = (const kafka_api_version_t *)bsearch(match, apis, api_cnt,
+						sizeof(*apis), kafka_api_version_key_cmp);
 	if (!api)
 		return 0;
 
@@ -287,10 +288,10 @@ int kafka_broker_get_api_version(const kafka_api_t *api, int api_key,
 								 int min_ver, int max_ver)
 {
 	kafka_api_version_t sk = { .api_key = api_key };
-	kafka_api_version_t *retp;
+	const kafka_api_version_t *retp;
 
-	retp = bsearch(&sk, api->api, api->elements,
-				   sizeof(*api->api), kafka_api_version_key_cmp);
+	retp = (const kafka_api_version_t *)bsearch(&sk, api->api, api->elements,
+						sizeof(*api->api), kafka_api_version_key_cmp);
 	if (!retp)
 		return -1;
 
@@ -541,7 +542,7 @@ void kafka_cgroup_init(kafka_cgroup_t *cgroup)
 	cgroup->member_elements = 0;
 	cgroup->generation_id = -1;
 	cgroup->group_name = NULL;
-	cgroup->protocol_type = "consumer";
+	cgroup->protocol_type = (char *)"consumer";
 	cgroup->protocol_name = NULL;
 	INIT_LIST_HEAD(&cgroup->group_protocol_list);
 }
@@ -765,7 +766,7 @@ static int scram_get_attr(const struct iovec *inbuf, char attr,
 	for (of = 0; of < inbuf->iov_len;)
 	{
 		ptr = (char *)inbuf->iov_base + of;
-		td = memchr(ptr, ',', inbuf->iov_len - of);
+		td = (char *)memchr(ptr, ',', inbuf->iov_len - of);
 		if (td)
 			len = (size_t)((char *)td - (char *)inbuf->iov_base - of);
 		else
@@ -795,7 +796,7 @@ static char *scram_base64_encode(const struct iovec *in)
 		return NULL;
 
 	max_len = (((in->iov_len + 2) / 3) * 4) + 1;
-	ret = malloc(max_len);
+	ret = (char *)malloc(max_len);
 	if (!ret)
 		return NULL;
 
@@ -854,7 +855,7 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 	unsigned char *saltplus;
 	int i, j;
 
-	saltplus = alloca(salt->iov_len + 4);
+	saltplus = (unsigned char *)alloca(salt->iov_len + 4);
 	if (!saltplus)
 		return -1;
 
@@ -948,8 +949,8 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 	char client_proof[EVP_MAX_MD_SIZE];
 	struct iovec password_iov = {conf->password, strlen(conf->password)};
 	struct iovec salted_pwd_iov = {salted_pwd, EVP_MAX_MD_SIZE};
-	struct iovec client_key_verbatim_iov = {"Client Key", 10};
-	struct iovec server_key_verbatim_iov = {"Server Key", 10};
+	struct iovec client_key_verbatim_iov = {(void *)"Client Key", 10};
+	struct iovec server_key_verbatim_iov = {(void *)"Server Key", 10};
 	struct iovec client_key_iov = {client_key, EVP_MAX_MD_SIZE};
 	struct iovec server_key_iov = {server_key, EVP_MAX_MD_SIZE};
 	struct iovec stored_key_iov = {stored_key, EVP_MAX_MD_SIZE};
@@ -979,7 +980,7 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 	auth_message_iov.iov_base = alloca(auth_message_iov.iov_len + 1);
 	if (auth_message_iov.iov_base)
 	{
-		snprintf(auth_message_iov.iov_base, auth_message_iov.iov_len + 1,
+		snprintf((char *)auth_message_iov.iov_base, auth_message_iov.iov_len + 1,
 				 "%.*s,%.*s,%.*s",
 				 (int)scram->first_msg.iov_len,
 				 (char *)scram->first_msg.iov_base,
@@ -1069,7 +1070,7 @@ static int scram_handle_server_first_message(const char *buf, size_t len,
 			if (ret == 0)
 			{
 				free(sasl->buf);
-				sasl->buf = out.iov_base;
+				sasl->buf = (char *)out.iov_base;
 				sasl->bsize = out.iov_len;
 			}
 		}
@@ -1155,7 +1156,7 @@ static int kafka_sasl_scram_client_new(void *p, kafka_sasl_t *sasl)
 	size_t ulen = strlen(conf->username);
 	size_t tlen = strlen("n,,n=,r=");
 	size_t olen = ulen + tlen + 32;
-	void *ptr;
+	char *ptr;
 
 	if (sasl->scram.state != KAFKA_SASL_SCRAM_STATE_CLIENT_FIRST_MESSAGE)
 		return -1;
@@ -1163,7 +1164,7 @@ static int kafka_sasl_scram_client_new(void *p, kafka_sasl_t *sasl)
 	if (scram_generate_nonce(&sasl->scram.cnonce) != 0)
 		return -1;
 
-	ptr = malloc(olen + 1);
+	ptr = (char *)malloc(olen + 1);
 	if (!ptr)
 		return -1;
 
@@ -1173,7 +1174,7 @@ static int kafka_sasl_scram_client_new(void *p, kafka_sasl_t *sasl)
 	sasl->buf = ptr;
 	sasl->bsize = olen;
 
-	sasl->scram.first_msg.iov_base = (char *)ptr + 3;
+	sasl->scram.first_msg.iov_base = ptr + 3;
 	sasl->scram.first_msg.iov_len = olen - 3;
 	sasl->scram.state = KAFKA_SASL_SCRAM_STATE_SERVER_FIRST_MESSAGE;
 	return 0;

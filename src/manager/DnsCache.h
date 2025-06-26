@@ -150,7 +150,7 @@ private:
 
 			if (ai)
 			{
-				if (ai->ai_flags)
+				if (ai->ai_flags & 1)
 					freeaddrinfo(ai);
 				else
 					protocol::DnsUtil::freeaddrinfo(ai);

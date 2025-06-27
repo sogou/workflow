@@ -19,6 +19,7 @@
 #ifndef _WFDNSSERVER_H_
 #define _WFDNSSERVER_H_
 
+#include "dns_types.h"
 #include "DnsMessage.h"
 #include "WFServer.h"
 #include "WFTaskFactory.h"

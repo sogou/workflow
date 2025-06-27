@@ -18,6 +18,7 @@
 
 #include <string>
 #include "PlatformSocket.h"
+#include "dns_types.h"
 #include "DnsUtil.h"
 
 namespace protocol
@@ -90,7 +91,7 @@ int DnsUtil::getaddrinfo(const DnsResponse *resp,
 		if (ai == NULL)
 		{
 			if (res)
-				freeaddrinfo(res);
+				DnsUtil::freeaddrinfo(res);
 			return EAI_MEMORY;
 		}
 

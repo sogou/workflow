@@ -65,6 +65,7 @@ set(INCLUDE_HEADERS
 	src/protocol/mysql_parser.h
 	src/protocol/mysql_types.h
 	src/protocol/mysql_byteorder.h
+	src/protocol/dns_types.h
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h

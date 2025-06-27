@@ -18,6 +18,7 @@
 
 #include <string>
 #include <atomic>
+#include "dns_types.h"
 #include "DnsMessage.h"
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"

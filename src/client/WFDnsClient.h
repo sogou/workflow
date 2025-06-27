@@ -22,14 +22,12 @@
 #include <string>
 #include <atomic>
 #include "WFTaskFactory.h"
+#include "dns_types.h"
 #include "DnsMessage.h"
 
 class WFDnsClient
 {
 public:
-	WFDnsClient() : params(NULL) { }
-	virtual ~WFDnsClient() { }
-
 	int init(const std::string& url);
 	int init(const std::string& url, const std::string& search_list,
 			 int ndots, int attempts, bool rotate);
@@ -41,6 +39,9 @@ public:
 private:
 	void *params;
 	std::atomic<size_t> id;
+
+public:
+	virtual ~WFDnsClient() { }
 };
 
 #endif

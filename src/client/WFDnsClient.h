@@ -22,6 +22,7 @@
 #include <string>
 #include <atomic>
 #include "WFTaskFactory.h"
+#include "dns_types.h"
 #include "DnsMessage.h"
 
 class WFDnsClient

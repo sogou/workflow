@@ -49,6 +49,7 @@ set(INCLUDE_HEADERS
 	src/protocol/mysql_byteorder.h
 	src/protocol/PackageWrapper.h
 	src/protocol/SSLWrapper.h
+	src/protocol/dns_types.h
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h

@@ -21,6 +21,8 @@
 #include <atomic>
 #include "URIParser.h"
 #include "StringUtil.h"
+#include "dns_types.h"
+#include "DnsMessage.h"
 #include "WFDnsClient.h"
 
 using namespace protocol;

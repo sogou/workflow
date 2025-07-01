@@ -22,8 +22,6 @@ link_directories(${WORKFLOW_LIB_DIR})
 find_library(WORKFLOW_LIB NAMES libworkflow.a workflow HINTS ${WORKFLOW_LIB_DIR})
 
 if (KAFKA STREQUAL "y")
-	find_path(SNAPPY_INCLUDE_PATH NAMES snappy.h)
-	include_directories(${SNAPPY_INCLUDE_PATH})
 	find_library(WFKAFKA_LIB NAMES libwfkafka.a wfkafka HINTS ${WORKFLOW_LIB_DIR})
 endif ()
 
@@ -108,7 +106,10 @@ endif()
 
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
-	target_link_libraries("kafka_cli" ${WFKAFKA_LIB} ${LIB} z snappy lz4 zstd)
+	find_library(SNAPPY_LIB NAMES snappy)
+	find_library(LZ4_LIB NAMES lz4)
+	find_library(ZSTD_LIB NAMES zstd)
+	target_link_libraries("kafka_cli" ${WFKAFKA_LIB} ${LIB} z ${SNAPPY_LIB} ${LZ4_LIB} ${ZSTD_LIB})
 endif ()
 
 set(DIR10 tutorial-10-user_defined_protocol)

@@ -100,7 +100,7 @@ int MySQLMessage::append(const void *buf, size_t *size)
 	size_t stream_len;
 	size_t nleft = *size;
 	size_t n;
-	int ret = 0;
+	int ret;
 
 	cur_size_ += *size;
 	if (cur_size_ > this->size_limit)
@@ -109,7 +109,7 @@ int MySQLMessage::append(const void *buf, size_t *size)
 		return -1;
 	}
 
-	while (nleft > 0)
+	do
 	{
 		n = nleft;
 		ret = mysql_stream_write(buf, &n, stream_);
@@ -125,9 +125,9 @@ int MySQLMessage::append(const void *buf, size_t *size)
 		if (ret < 0)
 			return -1;
 
-		nleft -= n;
 		buf = (const char *)buf + n;
-	}
+		nleft -= n;
+	} while (nleft > 0);
 
 	return ret;
 }
@@ -583,7 +583,7 @@ int MySQLRSAAuthRequest::encode(struct iovec vectors[], int max)
 	EVP_PKEY_CTX *pkey_ctx;
 	int ret = -1;
 
-	bio = BIO_new_mem_buf(public_key_.c_str(), public_key_.size());
+	bio = BIO_new_mem_buf((void *)public_key_.c_str(), public_key_.size());
 	if (bio)
 	{
 		pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);

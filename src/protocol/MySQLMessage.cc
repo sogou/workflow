@@ -108,7 +108,7 @@ int MySQLMessage::append(const void *buf, size_t *size)
 		return -1;
 	}
 
-	while (nleft > 0)
+	do
 	{
 		n = nleft;
 		ret = mysql_stream_write(buf, &n, stream_);
@@ -124,9 +124,9 @@ int MySQLMessage::append(const void *buf, size_t *size)
 		if (ret < 0)
 			return -1;
 
-		nleft -= n;
 		buf = (const char *)buf + n;
-	}
+		nleft -= n;
+	} while (nleft > 0);
 
 	return ret;
 }

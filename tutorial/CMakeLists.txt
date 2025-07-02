@@ -106,10 +106,11 @@ endif()
 
 if (KAFKA STREQUAL "y")
 	add_executable("kafka_cli" "tutorial-13-kafka_cli.cc")
+	find_package(ZLIB REQUIRED)
 	find_library(SNAPPY_LIB NAMES snappy)
 	find_library(LZ4_LIB NAMES lz4)
 	find_library(ZSTD_LIB NAMES zstd)
-	target_link_libraries("kafka_cli" ${WFKAFKA_LIB} ${LIB} z ${SNAPPY_LIB} ${LZ4_LIB} ${ZSTD_LIB})
+	target_link_libraries("kafka_cli" ${WFKAFKA_LIB} ${LIB} ZLIB::ZLIB ${SNAPPY_LIB} ${LZ4_LIB} ${ZSTD_LIB})
 endif ()
 
 set(DIR10 tutorial-10-user_defined_protocol)

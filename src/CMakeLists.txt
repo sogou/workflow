@@ -10,6 +10,9 @@ endif ()
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
 if (KAFKA STREQUAL "y")
+	find_package(ZLIB REQUIRED)
+	include_directories(${ZLIB_INCLUDE_DIRS})
+
 	find_path(SNAPPY_INCLUDE_PATH NAMES snappy.h)
 	find_library(SNAPPY_LIB NAMES snappy)
 	if ((NOT SNAPPY_INCLUDE_PATH) OR (NOT SNAPPY_LIB))
@@ -78,11 +81,11 @@ add_library(
 )
 
 if(ANDROID)
-	target_link_libraries(${SHARED_LIB_NAME} ssl crypto c)
-	target_link_libraries(${STATIC_LIB_NAME} ssl crypto c)
+	target_link_libraries(${SHARED_LIB_NAME} PUBLIC ssl crypto c)
+	target_link_libraries(${STATIC_LIB_NAME} PUBLIC ssl crypto c)
 else()
-	target_link_libraries(${SHARED_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
-	target_link_libraries(${STATIC_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
+	target_link_libraries(${SHARED_LIB_NAME} PUBLIC OpenSSL::SSL OpenSSL::Crypto pthread)
+	target_link_libraries(${STATIC_LIB_NAME} PUBLIC OpenSSL::SSL OpenSSL::Crypto pthread)
 endif ()
 
 set_target_properties(${STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
@@ -102,6 +105,8 @@ if (KAFKA STREQUAL "y")
 		$<TARGET_OBJECTS:protocol_kafka>
 		$<TARGET_OBJECTS:factory_kafka>
 	)
+	target_link_libraries(${KAFKA_STATIC_LIB_NAME} PUBLIC
+				${STATIC_LIB_NAME} ZLIB::ZLIB ${LZ4_LIB} ${ZSTD_LIB} ${SNAPPY_LIB})
 	set_target_properties(${KAFKA_STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka")
 
 	set(KAFKA_SHARED_LIB_NAME "wfkafka-shared")
@@ -112,12 +117,8 @@ if (KAFKA STREQUAL "y")
 		$<TARGET_OBJECTS:protocol_kafka>
 		$<TARGET_OBJECTS:factory_kafka>
 	)
-	if (APPLE)
-		target_link_libraries(${KAFKA_SHARED_LIB_NAME}
-							  ${SHARED_LIB_NAME} z ${LZ4_LIB} ${ZSTD_LIB} ${SNAPPY_LIB})
-	else ()
-		target_link_libraries(${KAFKA_SHARED_LIB_NAME} ${SHARED_LIB_NAME})
-	endif ()
+	target_link_libraries(${KAFKA_SHARED_LIB_NAME} PUBLIC
+				${SHARED_LIB_NAME} ZLIB::ZLIB ${LZ4_LIB} ${ZSTD_LIB} ${SNAPPY_LIB})
 	set_target_properties(${KAFKA_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka" VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 endif ()
 

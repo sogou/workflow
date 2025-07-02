@@ -144,15 +144,9 @@ CommTarget *CommSchedTarget::acquire(int wait_timeout)
 
 void CommSchedTarget::release()
 {
-	pthread_mutex_t *mutex = &this->mutex;
-
-	pthread_mutex_lock(mutex);
+	pthread_mutex_lock(&this->mutex);
 	if (this->group)
-	{
-		mutex = &this->group->mutex;
-		pthread_mutex_lock(mutex);
-		pthread_mutex_unlock(&this->mutex);
-	}
+		pthread_mutex_lock(&this->group->mutex);
 
 	this->cur_load--;
 	if (this->wait_cnt > 0)
@@ -165,9 +159,10 @@ void CommSchedTarget::release()
 			pthread_cond_signal(&this->group->cond);
 
 		this->group->heap_adjust(this->index, this->has_idle_conn());
+		pthread_mutex_unlock(&this->group->mutex);
 	}
 
-	pthread_mutex_unlock(mutex);
+	pthread_mutex_unlock(&this->mutex);
 }
 
 int CommSchedGroup::target_cmp(CommSchedTarget *target1,

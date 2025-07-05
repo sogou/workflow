@@ -1631,6 +1631,12 @@ int poller_del_timer(void *timer, poller_t *poller)
 	return -!node;
 }
 
+void poller_set_callback(void (*callback)(struct poller_result *, void *),
+						 poller_t *poller)
+{
+	poller->callback = callback;
+}
+
 void poller_stop(poller_t *poller)
 {
 	struct __poller_node *node;

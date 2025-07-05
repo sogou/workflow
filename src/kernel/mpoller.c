@@ -95,6 +95,15 @@ int mpoller_start(mpoller_t *mpoller)
 	return -1;
 }
 
+void mpoller_set_callback(void (*callback)(struct poller_result *, void *),
+						  mpoller_t *mpoller)
+{
+	size_t i;
+
+	for (i = 0; i < mpoller->nthreads; i++)
+		poller_set_callback(callback, mpoller->poller[i]);
+}
+
 void mpoller_stop(mpoller_t *mpoller)
 {
 	size_t i;

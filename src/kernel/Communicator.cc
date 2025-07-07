@@ -1075,49 +1075,48 @@ void Communicator::handle_aio_result(struct poller_result *res)
 	}
 }
 
+void Communicator::handle_poller_result(struct poller_result *res)
+{
+	switch (res->data.operation)
+	{
+	case PD_OP_TIMER:
+		this->handle_sleep_result(res);
+		break;
+	case PD_OP_READ:
+		this->handle_read_result(res);
+		break;
+	case PD_OP_WRITE:
+		this->handle_write_result(res);
+		break;
+	case PD_OP_CONNECT:
+		this->handle_connect_result(res);
+		break;
+	case PD_OP_LISTEN:
+		this->handle_listen_result(res);
+		break;
+	case PD_OP_RECVFROM:
+		this->handle_recvfrom_result(res);
+		break;
+	case PD_OP_EVENT:
+	case PD_OP_NOTIFY:
+		this->handle_aio_result(res);
+		break;
+	default:
+		free(res);
+		thrdpool_exit(this->thrdpool);
+		return;
+	}
+
+	free(res);
+}
+
 void Communicator::handler_thread_routine(void *context)
 {
 	Communicator *comm = (Communicator *)context;
-	struct poller_result *res;
+	void *msg;
 
-	while (1)
-	{
-		res = (struct poller_result *)msgqueue_get(comm->msgqueue);
-		if (!res)
-			break;
-
-		switch (res->data.operation)
-		{
-		case PD_OP_TIMER:
-			comm->handle_sleep_result(res);
-			break;
-		case PD_OP_READ:
-			comm->handle_read_result(res);
-			break;
-		case PD_OP_WRITE:
-			comm->handle_write_result(res);
-			break;
-		case PD_OP_CONNECT:
-			comm->handle_connect_result(res);
-			break;
-		case PD_OP_LISTEN:
-			comm->handle_listen_result(res);
-			break;
-		case PD_OP_RECVFROM:
-			comm->handle_recvfrom_result(res);
-			break;
-		case PD_OP_EVENT:
-		case PD_OP_NOTIFY:
-			comm->handle_aio_result(res);
-			break;
-		default:
-			free(res);
-			thrdpool_exit(comm->thrdpool);
-			return;
-		}
-
-		free(res);
-	}
+	while ((msg = msgqueue_get(comm->msgqueue)) != NULL)
+		comm->handle_poller_result((struct poller_result *)msg);
 }
 
 int Communicator::append_message(const void *buf, size_t *size,
@@ -1385,8 +1384,8 @@ void *Communicator::recvfrom(const struct sockaddr *addr, socklen_t addrlen,
 
 void Communicator::callback(struct poller_result *res, void *context)
 {
-	msgqueue_t *msgqueue = (msgqueue_t *)context;
-	msgqueue_put(res, msgqueue);
+	Communicator *comm = (Communicator *)context;
+	msgqueue_put(res, comm->msgqueue);
 }
 
 int Communicator::create_handler_threads(size_t handler_threads)
@@ -1421,6 +1420,7 @@ int Communicator::create_poller(size_t poller_threads)
 	struct poller_params params = {
 		.max_open_files		=	(size_t)sysconf(_SC_OPEN_MAX),
 		.callback			=	Communicator::callback,
+		.context			=	this
 	};
 
 	if ((ssize_t)params.max_open_files < 0)
@@ -1429,7 +1429,6 @@ int Communicator::create_poller(size_t poller_threads)
 	this->msgqueue = msgqueue_create(16 * 1024, sizeof (struct poller_result));
 	if (this->msgqueue)
 	{
-		params.context = this->msgqueue;
 		this->mpoller = mpoller_create(&params, poller_threads);
 		if (this->mpoller)
 		{
@@ -1457,6 +1456,7 @@ int Communicator::init(size_t poller_threads, size_t handler_threads)
 	{
 		if (this->create_handler_threads(handler_threads) >= 0)
 		{
+			this->event_handler = NULL;
 			this->stop_flag = 0;
 			return 0;
 		}
@@ -1473,6 +1473,9 @@ void Communicator::deinit()
 {
 	this->stop_flag = 1;
 	mpoller_stop(this->mpoller);
+	if (this->event_handler)
+		this->event_handler->wait();
+
 	msgqueue_set_nonblock(this->msgqueue);
 	thrdpool_destroy(NULL, this->thrdpool);
 	mpoller_destroy(this->mpoller);
@@ -1933,53 +1936,6 @@ int Communicator::unsleep(SleepSession *session)
 	return mpoller_del_timer(session->timer, session->index, this->mpoller);
 }
 
-int Communicator::is_handler_thread() const
-{
-	return thrdpool_in_pool(this->thrdpool);
-}
-
-extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,
-									thrdpool_t *);
-
-int Communicator::increase_handler_thread()
-{
-	void *buf = malloc(4 * sizeof (void *));
-
-	if (buf)
-	{
-		if (thrdpool_increase(this->thrdpool) >= 0)
-		{
-			struct thrdpool_task task = {
-				.routine	=	Communicator::handler_thread_routine,
-				.context	=	this
-			};
-			__thrdpool_schedule(&task, buf, this->thrdpool);
-			return 0;
-		}
-
-		free(buf);
-	}
-
-	return -1;
-}
-
-int Communicator::decrease_handler_thread()
-{
-	struct poller_result *res;
-	size_t size;
-
-	size = sizeof (struct poller_result) + sizeof (void *);
-	res = (struct poller_result *)malloc(size);
-	if (res)
-	{
-		res->data.operation = -1;
-		msgqueue_put_head(res, this->msgqueue);
-		return 0;
-	}
-
-	return -1;
-}
-
 #ifdef __linux__
 
 void Communicator::shutdown_io_service(IOService *service)
@@ -2088,4 +2044,81 @@ void Communicator::io_unbind(IOService *service)
 }
 
 #endif
+
+int Communicator::is_handler_thread() const
+{
+	return thrdpool_in_pool(this->thrdpool);
+}
+
+extern "C" void __thrdpool_schedule(const struct thrdpool_task *, void *,
+									thrdpool_t *);
+
+int Communicator::increase_handler_thread()
+{
+	void *buf = malloc(4 * sizeof (void *));
+
+	if (buf)
+	{
+		if (thrdpool_increase(this->thrdpool) >= 0)
+		{
+			struct thrdpool_task task = {
+				.routine	=	Communicator::handler_thread_routine,
+				.context	=	this
+			};
+			__thrdpool_schedule(&task, buf, this->thrdpool);
+			return 0;
+		}
+
+		free(buf);
+	}
+
+	return -1;
+}
+
+int Communicator::decrease_handler_thread()
+{
+	struct poller_result *res;
+	size_t size;
+
+	size = sizeof (struct poller_result) + sizeof (void *);
+	res = (struct poller_result *)malloc(size);
+	if (res)
+	{
+		res->data.operation = -1;
+		msgqueue_put_head(res, this->msgqueue);
+		return 0;
+	}
+
+	return -1;
+}
+
+void Communicator::event_handler_routine(void *context)
+{
+	struct poller_result *res = (struct poller_result *)context;
+	Communicator *comm = *(Communicator **)(res + 1);
+	comm->handle_poller_result(res);
+}
+
+void Communicator::callback_custom(struct poller_result *res, void *context)
+{
+	Communicator *comm = (Communicator *)context;
+	CommEventHandler *handler = comm->event_handler;
+
+	if (handler)
+	{
+		*(Communicator **)(res + 1) = comm;
+		handler->schedule(Communicator::event_handler_routine, res);
+	}
+	else
+		Communicator::callback(res, context);
+}
+
+void Communicator::customize_event_handler(CommEventHandler *handler)
+{
+	this->event_handler = handler;
+	if (handler)
+		mpoller_set_callback(Communicator::callback_custom, this->mpoller);
+	else
+		mpoller_set_callback(Communicator::callback, this->mpoller);
+}
 

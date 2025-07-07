@@ -237,6 +237,17 @@ public:
 # include "IOService_thread.h"
 #endif
 
+class CommEventHandler
+{
+private:
+	virtual void schedule(void (*routine)(void *), void *context) = 0;
+	virtual void wait() = 0;
+
+public:
+	virtual ~CommEventHandler() { }
+	friend class Communicator;
+};
+
 class Communicator
 {
 public:
@@ -265,11 +276,17 @@ public:
 	int increase_handler_thread();
 	int decrease_handler_thread();
 
+public:
+	void customize_event_handler(CommEventHandler *handler);
+
 private:
 	struct __mpoller *mpoller;
 	struct __msgqueue *msgqueue;
 	struct __thrdpool *thrdpool;
 	int stop_flag;
+
+private:
+	CommEventHandler *event_handler;
 
 private:
 	int create_poller(size_t poller_threads);
@@ -294,6 +311,8 @@ private:
 
 	int reply_reliable(CommSession *session, CommTarget *target);
 	int reply_unreliable(CommSession *session, CommTarget *target);
+
+	void handle_poller_result(struct poller_result *res);
 
 	void handle_incoming_request(struct poller_result *res);
 	void handle_incoming_reply(struct poller_result *res);
@@ -347,6 +366,11 @@ private:
 						  const void *buf, size_t size, void *context);
 
 	static void callback(struct poller_result *res, void *context);
+
+private:
+	static void event_handler_routine(void *context);
+
+	static void callback_custom(struct poller_result *res, void *context);
 
 public:
 	virtual ~Communicator() { }

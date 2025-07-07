@@ -31,6 +31,8 @@ extern "C"
 
 mpoller_t *mpoller_create(const struct poller_params *params, size_t nthreads);
 int mpoller_start(mpoller_t *mpoller);
+void mpoller_set_callback(void (*callback)(struct poller_result *, void *),
+						  mpoller_t *mpoller);
 void mpoller_stop(mpoller_t *mpoller);
 void mpoller_destroy(mpoller_t *mpoller);
 

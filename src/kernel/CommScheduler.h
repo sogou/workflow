@@ -188,6 +188,12 @@ public:
 		return this->comm.decrease_handler_thread();
 	}
 
+public:
+	void customize_event_handler(CommEventHandler *handler)
+	{
+		this->comm.customize_event_handler(handler);
+	}
+
 private:
 	Communicator comm;
 

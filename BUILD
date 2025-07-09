@@ -165,6 +165,7 @@ cc_library(
 		'src/protocol/mysql_byteorder.c',
 		'src/protocol/mysql_parser.c',
 		'src/protocol/mysql_stream.c',
+		'src/server/WFMySQLServer.cc',
 		'src/client/WFMySQLConnection.cc',
 	],
 	deps = [

@@ -104,17 +104,15 @@ static const int __character_map[256] = {
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 };
 
-static int __json_string_length(const char *cursor, size_t *len)
+static int __json_string_length(const char *cursor, size_t *escape, size_t *len)
 {
+	size_t esc = 0;
 	size_t n = 0;
 
 	while (1)
 	{
-		if (__character_map[(unsigned char)cursor[n]])
-		{
+		while (__character_map[(unsigned char)cursor[n]])
 			n++;
-			continue;
-		}
 
 		if (cursor[n] == '\"')
 			break;
@@ -126,9 +124,11 @@ static int __json_string_length(const char *cursor, size_t *len)
 		if (cursor[n] == '\0')
 			return -2;
 
+		esc++;
 		n++;
 	}
 
+	*escape = esc;
 	*len = n;
 	return 0;
 }
@@ -226,20 +226,20 @@ static int __parse_json_unicode(const char *cursor, const char **end,
 }
 
 static int __parse_json_string(const char *cursor, const char **end,
-							   char *str)
+							   size_t escape, char *str)
 {
 	int ret;
 
-	while (*cursor != '\"')
+	while (escape > 0)
 	{
-		if (*cursor != '\\')
+		while (*cursor != '\\')
 		{
 			*str = *cursor;
 			cursor++;
 			str++;
-			continue;
 		}
 
+		escape--;
 		cursor++;
 		switch (*cursor)
 		{
@@ -273,6 +273,9 @@ static int __parse_json_string(const char *cursor, const char **end,
 			if (ret < 0)
 				return ret;
 
+			if (ret == 4)
+				escape--;
+
 			str += ret;
 			continue;
 
@@ -280,6 +283,28 @@ static int __parse_json_string(const char *cursor, const char **end,
 			return -2;
 		}
 
+		cursor++;
+		str++;
+	}
+
+	while (cursor[0] != '\"' && cursor[1] != '\"' &&
+		   cursor[2] != '\"' && cursor[3] != '\"')
+	{
+		memcpy(str, cursor, 4);
+		cursor += 4;
+		str += 4;
+	}
+
+	if (cursor[0] != '\"' && cursor[1] != '\"')
+	{
+		memcpy(str, cursor, 2);
+		cursor += 2;
+		str += 2;
+	}
+
+	if (*cursor != '\"')
+	{
+		*str = *cursor;
 		cursor++;
 		str++;
 	}
@@ -489,19 +514,25 @@ static int __parse_json_number(const char *cursor, const char **end,
 	n = mant;
 	if (exp != 0 && figures != 0)
 	{
-		if (exp > 291)
-			n = INFINITY;
-		else if (exp > 0)
-			n *= __power_of_10[exp];
-		else if (exp > -309)
-			n /= __power_of_10[-exp];
-		else if (exp > -324 - figures)
+		if (exp > 0)
 		{
-			n /= __power_of_10[-exp - 308];
-			n /= __power_of_10[308];
+			if (exp > 291)
+				n = INFINITY;
+			else
+				n *= __power_of_10[exp];
 		}
 		else
-			n = 0.0;
+		{
+			if (exp > -309)
+				n /= __power_of_10[-exp];
+			else if (exp > -324 - figures)
+			{
+				n /= __power_of_10[-exp - 308];
+				n /= __power_of_10[308];
+			}
+			else
+				n = 0.0;
+		}
 	}
 
 	if (minus)
@@ -518,13 +549,23 @@ static int __parse_json_value(const char *cursor, const char **end,
 static void __destroy_json_value(json_value_t *val);
 
 static int __parse_json_member(const char *cursor, const char **end,
+							   size_t escape, size_t len,
 							   int depth, json_member_t *memb)
 {
 	int ret;
 
-	ret = __parse_json_string(cursor, &cursor, memb->name);
-	if (ret < 0)
-		return ret;
+	if (escape != 0)
+	{
+		ret = __parse_json_string(cursor, &cursor, escape, memb->name);
+		if (ret < 0)
+			return ret;
+	}
+	else
+	{
+		memcpy(memb->name, cursor, len);
+		memb->name[len] = '\0';
+		cursor += len + 1;
+	}
 
 	while (isspace(*cursor))
 		cursor++;
@@ -548,6 +589,7 @@ static int __parse_json_members(const char *cursor, const char **end,
 								int depth, json_object_t *obj)
 {
 	json_member_t *memb;
+	size_t escape;
 	size_t len;
 	int ret;
 
@@ -566,7 +608,7 @@ static int __parse_json_members(const char *cursor, const char **end,
 			return -2;
 
 		cursor++;
-		ret = __json_string_length(cursor, &len);
+		ret = __json_string_length(cursor, &escape, &len);
 		if (ret < 0)
 			return ret;
 
@@ -574,7 +616,7 @@ static int __parse_json_members(const char *cursor, const char **end,
 		if (!memb)
 			return -1;
 
-		ret = __parse_json_member(cursor, &cursor, depth, memb);
+		ret = __parse_json_member(cursor, &cursor, escape, len, depth, memb);
 		if (ret < 0)
 		{
 			free(memb);
@@ -722,6 +764,7 @@ static int __parse_json_array(const char *cursor, const char **end,
 static int __parse_json_value(const char *cursor, const char **end,
 							  int depth, json_value_t *val)
 {
+	size_t escape;
 	size_t len;
 	int ret;
 
@@ -729,7 +772,7 @@ static int __parse_json_value(const char *cursor, const char **end,
 	{
 	case '\"':
 		cursor++;
-		ret = __json_string_length(cursor, &len);
+		ret = __json_string_length(cursor, &escape, &len);
 		if (ret < 0)
 			return ret;
 
@@ -737,11 +780,20 @@ static int __parse_json_value(const char *cursor, const char **end,
 		if (!val->value.string)
 			return -1;
 
-		ret = __parse_json_string(cursor, end, val->value.string);
-		if (ret < 0)
+		if (escape != 0)
 		{
-			free(val->value.string);
-			return ret;
+			ret = __parse_json_string(cursor, end, escape, val->value.string);
+			if (ret < 0)
+			{
+				free(val->value.string);
+				return ret;
+			}
+		}
+		else
+		{
+			memcpy(val->value.string, cursor, len);
+			val->value.string[len] = '\0';
+			*end = cursor + len + 1;
 		}
 
 		val->type = JSON_VALUE_STRING;

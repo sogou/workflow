@@ -38,7 +38,7 @@ extern "C"
 {
 #endif
 
-json_value_t *json_value_parse(const char *text);
+json_value_t *json_value_parse(const char *json);
 json_value_t *json_value_create(int type, ...);
 json_value_t *json_value_copy(const json_value_t *val);
 void json_value_destroy(json_value_t *val);

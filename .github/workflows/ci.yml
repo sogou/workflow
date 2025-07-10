@@ -47,3 +47,23 @@ jobs:
     - name: make tutorial
       run: make tutorial
 
+  freebsd-cmake:
+    name: freebsd
+    runs-on: macos-latest
+    steps:
+    - name: Setup FreeBSD VM
+      uses: vmactions/freebsd-vm@v1.1.0
+      with:
+        release: '14.1'
+        sync: true
+        usesh: true
+        prepare: |
+          pkg update
+          pkg install -y cmake gcc gmake gtest openssl redis valgrind
+    - uses: actions/checkout@v3
+    - name: make
+      run: gmake
+    - name: make check
+      run: gmake check
+    - name: make tutorial
+      run: gmake tutorial

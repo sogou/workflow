@@ -66,9 +66,10 @@ public:
 		WaitGroup(int n);
 		~WaitGroup();
 
-		void done();
 		void wait() const;
 		std::future_status wait(int timeout) const;
+		void add(int n);
+		void done();
 
 	private:
 		static void __wait_group_callback(WFCounterTask *task);

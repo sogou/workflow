@@ -19,6 +19,8 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -181,6 +183,18 @@ WFConnection *WFServerBase::new_connection(int accept_fd)
 		int reuse = 1;
 		setsockopt(accept_fd, SOL_SOCKET, SO_REUSEADDR,
 				   &reuse, sizeof (int));
+
+		if (this->get_ssl_ctx())
+		{
+			if (this->params.transport_type == TT_TCP ||
+				this->params.transport_type == TT_TCP_SSL)
+			{
+				int nodelay = 1;
+				setsockopt(accept_fd, IPPROTO_TCP, TCP_NODELAY,
+						   &nodelay, sizeof (int));
+			}
+		}
+
 		return new WFServerConnection(&this->conn_count);
 	}
 

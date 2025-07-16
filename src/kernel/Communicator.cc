@@ -192,7 +192,9 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	if (ret <= 0)
 	{
 		ret = SSL_get_error(entry->ssl, ret);
-		if (ret != SSL_ERROR_SYSCALL)
+		if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_WRITE)
+			errno = EAGAIN;
+		else if (ret != SSL_ERROR_SYSCALL)
 			errno = -ret;
 
 		ret = -1;

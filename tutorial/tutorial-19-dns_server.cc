@@ -1,7 +1,8 @@
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <string>
 #include <stdio.h>
 #include <signal.h>
-#include <arpa/inet.h>
 
 #include "workflow/WFDnsServer.h"
 #include "workflow/WFFacilities.h"

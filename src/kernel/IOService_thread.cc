@@ -201,13 +201,6 @@ int IOService::request(IOSession *session)
 	return ret;
 }
 
-#if _POSIX_SYNCHRONIZED_IO <= 0
-static inline int fdatasync(int fd)
-{
-	return fsync(fd);
-}
-#endif
-
 void *IOService::io_routine(void *arg)
 {
 	IOSession *session = (IOSession *)arg;
@@ -223,11 +216,15 @@ void *IOService::io_routine(void *arg)
 	case IO_CMD_PWRITE:
 		ret = pwrite(fd, session->buf, session->count, session->offset);
 		break;
-	case IO_CMD_FSYNC:
 		ret = fsync(fd);
 		break;
 	case IO_CMD_FDSYNC:
+#if _POSIX_SYNCHRONIZED_IO > 0
 		ret = fdatasync(fd);
+		break;
+#endif
+	case IO_CMD_FSYNC:
+		ret = fsync(fd);
 		break;
 	case IO_CMD_PREADV:
 		ret = service->preadv(fd, (const struct iovec *)session->buf,

@@ -15,13 +15,13 @@ ifeq ($(DEBUG),y)
 else
 	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
 endif
-	make -C $(BUILD_DIR) -f Makefile
+	$(MAKE) -C $(BUILD_DIR) -f Makefile
 
 clean:
 ifeq ($(MAKE_FILE), $(wildcard $(MAKE_FILE)))
-	-make -f Makefile clean
+	-$(MAKE) -f Makefile clean
 else ifeq (build, $(wildcard build))
-	-make -C build clean
+	-$(MAKE) -C build clean
 endif
 	rm -rf build
 

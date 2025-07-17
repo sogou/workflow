@@ -11,18 +11,17 @@ CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake;
 all:
 	mkdir -p $(BUILD_DIR)
 	rm -rf $(DEFAULT_BUILD_DIR)/CMakeCache.txt
-
 ifeq ($(DEBUG),y)
 	cd $(BUILD_DIR) && $(CMAKE3) -D CMAKE_BUILD_TYPE=Debug -D CONSUL=$(CONSUL) -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) $(ROOT_DIR)
 else
 	cd $(BUILD_DIR) && $(CMAKE3) -D CONSUL=$(CONSUL) -D KAFKA=$(KAFKA) -D MYSQL=$(MYSQL) -D REDIS=$(REDIS) $(ROOT_DIR)
 endif
-	make -C $(BUILD_DIR) -f Makefile
+	$(MAKE) -C $(BUILD_DIR) -f Makefile
 
 clean:
 ifeq ($(MAKE_FILE), $(wildcard $(MAKE_FILE)))
-	-make -f Makefile clean
+	-$(MAKE) -f Makefile clean
 else ifeq ($(DEFAULT_BUILD_DIR), $(wildcard $(DEFAULT_BUILD_DIR)))
-	-make -C $(DEFAULT_BUILD_DIR) clean
+	-$(MAKE) -C $(DEFAULT_BUILD_DIR) clean
 endif
 	rm -rf $(DEFAULT_BUILD_DIR)

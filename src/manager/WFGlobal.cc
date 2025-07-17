@@ -18,6 +18,7 @@
            Liu Kai (liukaidx@sogou-inc.com)
 */
 
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <signal.h>

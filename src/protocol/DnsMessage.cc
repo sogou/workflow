@@ -16,8 +16,8 @@
   Author: Liu Kai (liukaidx@sogou-inc.com)
 */
 
-#include <errno.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include "dns_types.h"
 #include "dns_parser.h"
 #include "DnsMessage.h"

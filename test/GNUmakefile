@@ -15,16 +15,16 @@ ifeq ($(DEBUG),y)
 else
 	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
 endif
-	make -C $(BUILD_DIR) -f Makefile
+	$(MAKE) -C $(BUILD_DIR) -f Makefile
 
 check:
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
-	make -C $(BUILD_DIR) check CTEST_OUTPUT_ON_FAILURE=1
+	$(MAKE) -C $(BUILD_DIR) check CTEST_OUTPUT_ON_FAILURE=1
 
 clean:
 ifeq ($(MAKE_FILE), $(wildcard $(MAKE_FILE)))
-	-make -f Makefile clean
+	-$(MAKE) -f Makefile clean
 endif
 	rm -rf $(DEFAULT_BUILD_DIR)
 

@@ -9,7 +9,7 @@ CMAKE3 := $(shell if which cmake3>/dev/null ; then echo cmake3; else echo cmake;
 .PHONY: $(ALL_TARGETS)
 
 all: base
-	make -C $(BUILD_DIR) -f Makefile
+	$(MAKE) -C $(BUILD_DIR) -f Makefile
 
 base:
 	mkdir -p $(BUILD_DIR)
@@ -23,19 +23,19 @@ else
 endif
 
 tutorial: all
-	make -C tutorial
+	$(MAKE) -C tutorial
 
 check: all
-	make -C test check
+	$(MAKE) -C test check
 
 install preinstall: base
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && $(CMAKE3) $(ROOT_DIR)
-	make -C $(BUILD_DIR) -f Makefile $@
+	$(MAKE) -C $(BUILD_DIR) -f Makefile $@
 
 clean:
-	-make -C test clean
-	-make -C tutorial clean
+	-$(MAKE) -C test clean
+	-$(MAKE) -C tutorial clean
 	rm -rf $(DEFAULT_BUILD_DIR)
 	rm -rf _include
 	rm -rf _lib

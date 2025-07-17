@@ -47,3 +47,23 @@ jobs:
     - name: make tutorial
       run: make tutorial
 
+  freebsd-cmake:
+    name: freebsd
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build and test on FreeBSD
+      uses: vmactions/freebsd-vm@v1
+      with:
+        usesh: true
+        mem: 2048
+        copyback: false
+        prepare: |
+          pkg update -f
+          pkg install -y cmake gmake gcc pkgconf openssl
+        run: |
+          freebsd-version
+          gmake
+          gmake tutorial
+          cd tutorial
+          ./parallel_wget http://github.com/

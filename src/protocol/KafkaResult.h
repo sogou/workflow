@@ -45,10 +45,7 @@ public:
 public:
 	KafkaResult();
 
-	virtual ~KafkaResult()
-	{
-		delete []this->resp_vec;
-	}
+	virtual ~KafkaResult();
 
 	KafkaResult& operator= (KafkaResult&& move);
 

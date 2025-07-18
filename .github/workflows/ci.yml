@@ -16,15 +16,16 @@ jobs:
     - name: setup
       run: |
        sudo apt-get update
-       sudo apt-get install cmake g++ libgtest-dev make libssl-dev
-       sudo apt-get install redis valgrind
+       sudo apt-get install -y cmake g++ libgtest-dev make libssl-dev
+       sudo apt-get install -y redis valgrind
+       sudo apt-get install -y libsnappy-dev libzstd-dev liblz4-dev
     - uses: actions/checkout@v2
     - name: make
-      run: make
+      run: make KAFKA=y
     - name: make check
-      run: make check
+      run: make check KAFKA=y
     - name: make tutorial
-      run: make tutorial
+      run: make tutorial KAFKA=y
       
   fedora-cmake:
     name: fedora
@@ -37,15 +38,16 @@ jobs:
     - run: cat /etc/os-release
     - name: install dependencies
       run: |
-       dnf -y update
-       dnf -y install cmake gcc-c++ gtest-devel make
-       dnf -y install openssl-devel redis valgrind
+       sudo dnf -y update
+       sudo dnf install -y cmake gcc-c++ gtest-devel make
+       sudo dnf install -y openssl-devel redis valgrind
+       sudo dnf install -y snappy-devel libzstd-devel lz4-devel zlib-devel
     - name: make
-      run: make
+      run: make KAFKA=y
     - name: make check
-      run: make check
+      run: make check KAFKA=y
     - name: make tutorial
-      run: make tutorial
+      run: make tutorial KAFKA=y
 
   freebsd-cmake:
     name: freebsd
@@ -65,5 +67,3 @@ jobs:
           freebsd-version
           gmake
           gmake tutorial
-          cd tutorial
-          ./parallel_wget http://github.com/

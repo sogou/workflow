@@ -377,13 +377,11 @@ static int compress_buf(KafkaBlock *block, int compress_type, void *env)
 		}
 
 		*block = std::move(nblock);
-
 		break;
 
 	case Kafka_Snappy:
 		snappy_buffer = static_cast<KafkaBuffer *>(env);
 		snappy_buffer->append((const char *)block->get_block(), block->get_len());
-
 		break;
 
 	case Kafka_Lz4:

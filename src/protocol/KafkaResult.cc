@@ -33,6 +33,11 @@ KafkaResult::KafkaResult()
 	this->resp_num = 0;
 }
 
+KafkaResult::~KafkaResult()
+{
+	delete []this->resp_vec;
+}
+
 KafkaResult& KafkaResult::operator= (KafkaResult&& move)
 {
 	if (this != &move)

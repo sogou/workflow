@@ -210,6 +210,7 @@ cc_library(
 	srcs = [
 		'src/factory/KafkaTaskImpl.cc',
 		'src/protocol/KafkaMessage.cc',
+		'src/protocol/KafkaResult.cc',
 	],
 	copts = ['-fno-rtti'],
 	deps = [
@@ -235,7 +236,6 @@ cc_library(
 	srcs = [
 		'src/client/WFKafkaClient.cc',
 		'src/protocol/KafkaDataTypes.cc',
-		'src/protocol/KafkaResult.cc',
 		'src/protocol/kafka_parser.c',
 	],
 	deps = [

@@ -37,7 +37,8 @@ target("protocol")
 
 target("kafka_message")
     if has_config("kafka") then
-        add_files("KafkaMessage.cc")
+        add_files("KafkaMessage.cc",
+                  "KafkaResult.cc")
         set_kind("object")
         add_cxxflags("-fno-rtti")
         add_packages("lz4", "zstd", "zlib", "snappy")
@@ -49,8 +50,7 @@ target("kafka_protocol")
     if has_config("kafka") then
         set_kind("object")
         add_files("kafka_parser.c",
-                  "KafkaDataTypes.cc",
-                  "KafkaResult.cc")
+                  "KafkaDataTypes.cc")
         add_deps("kafka_message", "protocol")
         add_packages("zlib", "snappy", "zstd", "lz4")
     else

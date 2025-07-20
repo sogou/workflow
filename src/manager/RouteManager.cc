@@ -78,27 +78,7 @@ private:
 #endif
 };
 
-class RouteTargetTCP_SSL : public RouteTargetTCP
-{
-private:
-	virtual int create_connect_fd()
-	{
-		const struct sockaddr *addr;
-		socklen_t addrlen;
-		int sockfd;
-
-		this->get_addr(&addr, &addrlen);
-		sockfd = socket(addr->sa_family, SOCK_STREAM, 0);
-		if (sockfd >= 0)
-		{
-			int nodelay = 1;
-			setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY,
-					   &nodelay, sizeof (int));
-		}
-
-		return sockfd;
-	}
-};
+using RouteTargetTCP_SSL = RouteTargetTCP;
 
 /* To support TLS SNI. */
 class RouteTargetTCP_TLS_SNI : public RouteTargetTCP_SSL

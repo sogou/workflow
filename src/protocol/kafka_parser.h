@@ -19,7 +19,7 @@
 #ifndef _KAFKA_PARSER_H_
 #define _KAFKA_PARSER_H_
 
-#include <arpa/inet.h>
+#include <sys/uio.h>
 #include <stddef.h>
 #include <stdint.h>
 #include "list.h"

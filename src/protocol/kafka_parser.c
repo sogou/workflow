@@ -16,6 +16,7 @@
   Authors: Wang Zhulei (wangzhulei@sogou-inc.com)
 */
 
+#include <sys/uio.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <stdio.h>

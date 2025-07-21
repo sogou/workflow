@@ -27,12 +27,6 @@ enum
 	KAFKA_STATUS_END,
 };
 
-KafkaResult::KafkaResult()
-{
-	this->resp_vec = NULL;
-	this->resp_num = 0;
-}
-
 KafkaResult::~KafkaResult()
 {
 	delete []this->resp_vec;

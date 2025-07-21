@@ -664,4 +664,12 @@ const KafkaMeta *get_meta(const char *topic, KafkaMetaList *meta_list)
 	return NULL;
 }
 
+KafkaSnappySink::~KafkaSnappySink()
+{
+}
+
+KafkaSnappySource::~KafkaSnappySource()
+{
+}
+
 } /* namespace protocol */

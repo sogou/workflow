@@ -13,7 +13,6 @@ target("kafka_factory")
     if has_config("kafka") then
         add_files("KafkaTaskImpl.cc")
         set_kind("object")
-        add_cxxflags("-fno-rtti")
         add_deps("factory")
         add_packages("zlib", "snappy", "zstd", "lz4")
     else

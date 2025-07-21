@@ -1609,6 +1609,9 @@ public:
 
 private:
 	KafkaBuffer *buffer;
+
+public:
+	virtual ~KafkaSnappySink();
 };
 
 class KafkaSnappySource : public snappy::Source
@@ -1643,6 +1646,9 @@ private:
 	KafkaBuffer *buffer;
 	size_t buf_size;
 	size_t pos;
+
+public:
+	virtual ~KafkaSnappySource();
 };
 
 }

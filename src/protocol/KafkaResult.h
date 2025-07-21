@@ -43,7 +43,11 @@ public:
 	void set_resp(KafkaResponse&& resp, size_t i);
 
 public:
-	KafkaResult();
+	KafkaResult()
+	{
+		this->resp_vec = NULL;
+		this->resp_num = 0;
+	}
 
 	virtual ~KafkaResult();
 

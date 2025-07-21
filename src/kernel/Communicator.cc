@@ -119,6 +119,59 @@ static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
 	return -1;
 }
 
+#define SSL_WRITEV_BUFSIZE	2048
+
+static int __ssl_writev(SSL *ssl, struct iovec vectors[], int cnt)
+{
+	if (vectors[0].iov_len < SSL_WRITEV_BUFSIZE && cnt > 1)
+	{
+		char *p = (char *)SSL_get_app_data(ssl);
+		size_t nleft = SSL_WRITEV_BUFSIZE;
+		size_t n;
+		int i;
+
+		if (!p)
+		{
+			p = (char *)malloc(SSL_WRITEV_BUFSIZE);
+			if (!p)
+				return -1;
+
+			if (SSL_set_app_data(ssl, p) <= 0)
+			{
+				free(p);
+				return -1;
+			}
+		}
+
+		n = vectors[0].iov_len;
+		memcpy(p, vectors[0].iov_base, n);
+		vectors[0].iov_base = p;
+
+		p += n;
+		nleft -= n;
+		for (i = 1; i < cnt; i++)
+		{
+			if (vectors[i].iov_len < nleft)
+				n = vectors[i].iov_len;
+			else
+				n = nleft;
+
+			memcpy(p, vectors[i].iov_base, n);
+			vectors[i].iov_base = (char *)vectors[i].iov_base + n;
+			vectors[i].iov_len -= n;
+
+			p += n;
+			nleft -= n;
+			if (nleft == 0)
+				break;
+		}
+
+		vectors[0].iov_len = SSL_WRITEV_BUFSIZE - nleft;
+	}
+
+	return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
+}
+
 static void __release_conn(struct CommConnEntry *entry)
 {
 	delete entry->conn;
@@ -126,7 +179,10 @@ static void __release_conn(struct CommConnEntry *entry)
 		pthread_mutex_destroy(&entry->mutex);
 
 	if (entry->ssl)
+	{
+		free(SSL_get_app_data(entry->ssl));
 		SSL_free(entry->ssl);
+	}
 
 	close(entry->sockfd);
 	free(entry);
@@ -446,7 +502,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 		}
 		else if (vectors->iov_len > 0)
 		{
-			n = SSL_write(entry->ssl, vectors->iov_base, vectors->iov_len);
+			n = __ssl_writev(entry->ssl, vectors, cnt);
 			if (n <= 0)
 				return cnt;
 		}
@@ -457,12 +513,14 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 		{
 			if ((size_t)n >= vectors[i].iov_len)
 				n -= vectors[i].iov_len;
-			else
+			else if (n > 0)
 			{
 				vectors[i].iov_base = (char *)vectors[i].iov_base + n;
 				vectors[i].iov_len -= n;
-				break;
+				return cnt - i;
 			}
+			else
+				break;
 		}
 
 		vectors += i;

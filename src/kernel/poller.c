@@ -231,15 +231,17 @@ static int __poller_set_timerfd(int fd, const struct timespec *abstime,
 
 	if (abstime->tv_sec || abstime->tv_nsec)
 	{
+		flags = EV_ADD;
 		clock_gettime(CLOCK_MONOTONIC, &curtime);
 		nseconds = 1000000000LL * (abstime->tv_sec - curtime.tv_sec);
 		nseconds += abstime->tv_nsec - curtime.tv_nsec;
-		flags = EV_ADD;
+		if (nseconds < 0)
+			nseconds = 0;
 	}
 	else
 	{
-		nseconds = 0;
 		flags = EV_DELETE;
+		nseconds = 0;
 	}
 
 	EV_SET(&ev, fd, EVFILT_TIMER, flags, NOTE_NSECONDS, nseconds, NULL);

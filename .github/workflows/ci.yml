@@ -62,8 +62,10 @@ jobs:
         copyback: false
         prepare: |
           pkg update -f
-          pkg install -y cmake gmake gcc pkgconf openssl
+          pkg install -y cmake gmake gcc pkgconf openssl devel/googletest
+          pkg install -y snappy zstd liblz4
         run: |
           freebsd-version
-          gmake
-          gmake tutorial
+          gmake KAFKA=y
+          gmake check KAFKA=y
+          gmake tutorial KAFKA=y

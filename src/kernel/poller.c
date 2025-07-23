@@ -230,7 +230,7 @@ static int __poller_set_timerfd(int fd, const struct timespec *abstime,
 
 	if (abstime->tv_sec || abstime->tv_nsec)
 	{
-		flags = EV_ADD;
+		flags = EV_ADD | EV_ONESHOT;
 		clock_gettime(CLOCK_MONOTONIC, &curtime);
 		nseconds = 1000000000LL * (abstime->tv_sec - curtime.tv_sec);
 		nseconds += abstime->tv_nsec - curtime.tv_nsec;

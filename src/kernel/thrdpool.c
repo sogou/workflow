@@ -112,6 +112,8 @@ static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 	pthread_mutex_unlock(&pool->mutex);
 	if (!pthread_equal(pool->tid, __zero_tid))
 		pthread_join(pool->tid, NULL);
+
+	pthread_cond_destroy(&term);
 }
 
 static int __thrdpool_create_threads(size_t nthreads, thrdpool_t *pool)

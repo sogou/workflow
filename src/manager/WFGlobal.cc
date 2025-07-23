@@ -461,6 +461,8 @@ private:
 			kv.second->deinit();
 			delete kv.second;
 		}
+
+		pthread_rwlock_destroy(&rwlock_);
 	}
 
 private:

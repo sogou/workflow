@@ -141,5 +141,7 @@ WFNameService::~WFNameService()
 		rb_erase(&entry->rb, &this->root);
 		free(entry);
 	}
+
+	pthread_rwlock_destroy(&this->rwlock);
 }
 

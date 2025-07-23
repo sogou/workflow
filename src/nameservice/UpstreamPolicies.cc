@@ -38,6 +38,11 @@ public:
 		this->weight = 0;
 	}
 
+	~EndpointGroup()
+	{
+		pthread_mutex_destroy(&this->mutex);
+	}
+
 	EndpointAddress *get_one(WFNSTracing *tracing);
 	EndpointAddress *get_one_backup(WFNSTracing *tracing);
 

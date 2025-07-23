@@ -49,6 +49,8 @@ private:
 	{
 		for (UPSGroupPolicy *policy : this->upstream_policies)
 			delete policy;
+
+		pthread_mutex_destroy(&mutex);
 	}
 
 	pthread_mutex_t mutex;

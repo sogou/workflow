@@ -17,7 +17,7 @@ jobs:
       run: |
        sudo apt-get update
        sudo apt-get install -y cmake g++ libgtest-dev make libssl-dev
-       sudo apt-get install -y redis valgrind
+       sudo apt-get install -y valgrind
        sudo apt-get install -y libsnappy-dev libzstd-dev liblz4-dev
     - uses: actions/checkout@v2
     - name: make
@@ -40,7 +40,7 @@ jobs:
       run: |
        sudo dnf -y update
        sudo dnf install -y cmake gcc-c++ gtest-devel make
-       sudo dnf install -y openssl-devel redis valgrind
+       sudo dnf install -y openssl-devel valgrind
        sudo dnf install -y snappy-devel libzstd-devel lz4-devel zlib-devel
     - name: make
       run: make KAFKA=y
@@ -63,6 +63,7 @@ jobs:
         prepare: |
           pkg update -f
           pkg install -y cmake gmake gcc pkgconf openssl devel/googletest
+          pkg install -y valgrind
           pkg install -y snappy zstd liblz4
         run: |
           freebsd-version

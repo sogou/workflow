@@ -52,6 +52,9 @@ WFServiceGovernance::~WFServiceGovernance()
 {
 	for (EndpointAddress *addr : this->servers)
 		delete addr;
+
+	pthread_rwlock_destroy(&this->rwlock);
+	pthread_mutex_destroy(&this->breaker_lock);
 }
 
 PolicyAddrParams::PolicyAddrParams()

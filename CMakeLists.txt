@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "build type")
 set(CMAKE_SKIP_RPATH TRUE)

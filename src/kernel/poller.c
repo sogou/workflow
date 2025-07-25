@@ -453,10 +453,15 @@ static void __poller_handle_read(struct __poller_node *node,
 		else
 		{
 			nleft = SSL_read(node->data.ssl, p, POLLER_BUFSIZE);
-			if (nleft < 0)
+			if (nleft <= 0)
 			{
 				if (__poller_handle_ssl_error(node, nleft, poller) >= 0)
 					return;
+
+				if (errno == -SSL_ERROR_ZERO_RETURN)
+					nleft = 0;
+				else
+					nleft = -1;
 			}
 		}
 

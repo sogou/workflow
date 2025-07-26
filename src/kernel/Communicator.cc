@@ -97,96 +97,12 @@ static int __bind_sockaddr(int sockfd, const struct sockaddr *addr,
 	return 0;
 }
 
-<<<<<<< HEAD
-=======
-static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
-{
-	BIO *bio = BIO_new_socket(entry->sockfd, BIO_NOCLOSE);
-
-	if (bio)
-	{
-		entry->ssl = SSL_new(ssl_ctx);
-		if (entry->ssl)
-		{
-			SSL_set_bio(entry->ssl, bio, bio);
-			return 0;
-		}
-
-		BIO_free(bio);
-	}
-
-	return -1;
-}
-
-#define SSL_WRITEV_BUFSIZE	2048
-
-static int __ssl_writev(SSL *ssl, struct iovec vectors[], int cnt)
-{
-	if (vectors[0].iov_len < SSL_WRITEV_BUFSIZE && cnt > 1)
-	{
-		char *p = (char *)SSL_get_app_data(ssl);
-		size_t nleft = SSL_WRITEV_BUFSIZE;
-		size_t n;
-		int i;
-
-		if (!p)
-		{
-			p = (char *)malloc(SSL_WRITEV_BUFSIZE);
-			if (!p)
-				return -1;
-
-			if (SSL_set_app_data(ssl, p) <= 0)
-			{
-				free(p);
-				return -1;
-			}
-		}
-
-		n = vectors[0].iov_len;
-		memcpy(p, vectors[0].iov_base, n);
-		vectors[0].iov_base = p;
-
-		p += n;
-		nleft -= n;
-		for (i = 1; i < cnt; i++)
-		{
-			if (vectors[i].iov_len < nleft)
-				n = vectors[i].iov_len;
-			else
-				n = nleft;
-
-			memcpy(p, vectors[i].iov_base, n);
-			vectors[i].iov_base = (char *)vectors[i].iov_base + n;
-			vectors[i].iov_len -= n;
-
-			p += n;
-			nleft -= n;
-			if (nleft == 0)
-				break;
-		}
-
-		vectors[0].iov_len = SSL_WRITEV_BUFSIZE - nleft;
-	}
-
-	return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
-}
-
->>>>>>> f20375dbc48c543ec675560e134c375118d0438b
 static void __release_conn(struct CommConnEntry *entry)
 {
 	delete entry->conn;
 	if (!entry->service)
 		pthread_mutex_destroy(&entry->mutex);
 
-<<<<<<< HEAD
-=======
-	if (entry->ssl)
-	{
-		free(SSL_get_app_data(entry->ssl));
-		SSL_free(entry->ssl);
-	}
-
->>>>>>> f20375dbc48c543ec675560e134c375118d0438b
 	close(entry->sockfd);
 	free(entry);
 }
@@ -452,11 +368,7 @@ void Communicator::shutdown_service(CommService *service)
 }
 
 #ifndef IOV_MAX
-# ifdef UIO_MAXIOV
-#  define IOV_MAX	UIO_MAXIOV
-# else
-#  define IOV_MAX	1024
-# endif
+# define IOV_MAX	16
 #endif
 
 int Communicator::send_message_sync(struct iovec vectors[], int cnt,
@@ -470,26 +382,9 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 
 	while (cnt > 0)
 	{
-<<<<<<< HEAD
 		n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
 		if (n < 0)
 			return errno == EAGAIN ? cnt : -1;
-=======
-		if (!entry->ssl)
-		{
-			n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
-			if (n < 0)
-				return errno == EAGAIN ? cnt : -1;
-		}
-		else if (vectors->iov_len > 0)
-		{
-			n = __ssl_writev(entry->ssl, vectors, cnt);
-			if (n <= 0)
-				return cnt;
-		}
-		else
-			n = 0;
->>>>>>> f20375dbc48c543ec675560e134c375118d0438b
 
 		for (i = 0; i < cnt; i++)
 		{

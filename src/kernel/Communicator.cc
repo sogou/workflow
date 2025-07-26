@@ -476,11 +476,7 @@ void Communicator::shutdown_service(CommService *service)
 }
 
 #ifndef IOV_MAX
-# ifdef UIO_MAXIOV
-#  define IOV_MAX	UIO_MAXIOV
-# else
-#  define IOV_MAX	1024
-# endif
+# define IOV_MAX	16
 #endif
 
 int Communicator::send_message_sync(struct iovec vectors[], int cnt,

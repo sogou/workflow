@@ -506,11 +506,7 @@ static void __poller_handle_read(struct __poller_node *node,
 }
 
 #ifndef IOV_MAX
-# ifdef UIO_MAXIOV
-#  define IOV_MAX	UIO_MAXIOV
-# else
-#  define IOV_MAX	1024
-# endif
+# define IOV_MAX	16
 #endif
 
 static void __poller_handle_write(struct __poller_node *node,

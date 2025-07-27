@@ -16,16 +16,6 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-/*
- * This message queue originates from the project of Sogou C++ Workflow:
- * https://github.com/sogou/workflow
- *
- * The idea of this implementation is quite simple and obvious. When the
- * get_list is not empty, the consumer takes a message. Otherwise the consumer
- * waits till put_list is not empty, and swap two lists. This method performs
- * well when the queue is very busy, and the number of consumers is big.
- */
-
 #include <errno.h>
 #include <stdlib.h>
 #include <pthread.h>

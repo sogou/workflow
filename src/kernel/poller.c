@@ -137,13 +137,12 @@ static inline int __poller_close_timerfd(int fd)
 
 static inline int __poller_add_timerfd(int fd, poller_t *poller)
 {
-	struct epoll_event ev = {
-		.events		=	EPOLLIN | EPOLLET,
+	static struct poller_result node = {
 		.data		=	{
-			.ptr	=	NULL
+			.operation	=	PD_OP_TIMER
 		}
 	};
-	return epoll_ctl(poller->pfd, EPOLL_CTL_ADD, fd, &ev);
+	return __poller_add_fd(fd, EPOLLIN | EPOLLET, &node, poller);
 }
 
 static inline int __poller_set_timerfd(int fd, const struct timespec *abstime,
@@ -224,6 +223,11 @@ static inline int __poller_add_timerfd(int fd, poller_t *poller)
 static int __poller_set_timerfd(int fd, const struct timespec *abstime,
 								poller_t *poller)
 {
+	static struct poller_result node = {
+		.data		=	{
+			.operation	=	PD_OP_TIMER
+		}
+	};
 	struct timespec curtime;
 	long long nseconds;
 	struct kevent ev;
@@ -244,7 +248,7 @@ static int __poller_set_timerfd(int fd, const struct timespec *abstime,
 		nseconds = 0;
 	}
 
-	EV_SET(&ev, fd, EVFILT_TIMER, flags, NOTE_NSECONDS, nseconds, NULL);
+	EV_SET(&ev, fd, EVFILT_TIMER, flags, NOTE_NSECONDS, nseconds, &node);
 	return kevent(poller->pfd, &ev, 1, NULL, 0, NULL);
 }
 
@@ -1062,13 +1066,6 @@ static void *__poller_thread_routine(void *arg)
 		for (i = 0; i < nevents; i++)
 		{
 			node = (struct __poller_node *)__poller_event_data(&events[i]);
-			if (node <= (struct __poller_node *)1)
-			{
-				if (node == (struct __poller_node *)1)
-					has_pipe_event = 1;
-				continue;
-			}
-
 			switch (node->data.operation)
 			{
 			case PD_OP_READ:
@@ -1101,6 +1098,9 @@ static void *__poller_thread_routine(void *arg)
 			case PD_OP_NOTIFY:
 				__poller_handle_notify(node, poller);
 				break;
+			case -1:
+				has_pipe_event = 1;
+				break;
 			}
 		}
 
@@ -1118,11 +1118,16 @@ static void *__poller_thread_routine(void *arg)
 
 static int __poller_open_pipe(poller_t *poller)
 {
+	static struct poller_result node = {
+		.data		=	{
+			.operation	=	-1
+		}
+	};
 	int pipefd[2];
 
 	if (pipe(pipefd) >= 0)
 	{
-		if (__poller_add_fd(pipefd[0], EPOLLIN, (void *)1, poller) >= 0)
+		if (__poller_add_fd(pipefd[0], EPOLLIN, &node, poller) >= 0)
 		{
 			poller->pipe_rd = pipefd[0];
 			poller->pipe_wr = pipefd[1];

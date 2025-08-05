@@ -324,10 +324,12 @@ void WFServiceGovernance::check_breaker_locked(int64_t cur_time)
 
 void WFServiceGovernance::check_breaker()
 {
-	pthread_mutex_lock(&this->breaker_lock);
 	if (!list_empty(&this->breaker_list))
+	{
+		pthread_mutex_lock(&this->breaker_lock);
 		this->check_breaker_locked(GET_CURRENT_SECOND);
-	pthread_mutex_unlock(&this->breaker_lock);
+		pthread_mutex_unlock(&this->breaker_lock);
+	}
 }
 
 void WFServiceGovernance::try_clear_breaker()

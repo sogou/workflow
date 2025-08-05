@@ -144,23 +144,6 @@ void WFSGResolverTask::dispatch()
 		return;
 	}
 
-	if (sg_->pre_select_)
-	{
-		WFConditional *cond = sg_->pre_select_(this);
-		if (cond)
-		{
-			series_of(this)->push_front(cond);
-			this->set_has_next();
-			this->subtask_done();
-			return;
-		}
-		else if (this->state != WFT_STATE_UNDEFINED)
-		{
-			this->subtask_done();
-			return;
-		}
-	}
-
 	if (sg_->select(ns_params_.uri, tracing, &addr))
 	{
 		auto *tracing_data = (WFServiceGovernance::TracingData *)tracing->data;
@@ -324,10 +307,12 @@ void WFServiceGovernance::check_breaker_locked(int64_t cur_time)
 
 void WFServiceGovernance::check_breaker()
 {
-	pthread_mutex_lock(&this->breaker_lock);
 	if (!list_empty(&this->breaker_list))
+	{
+		pthread_mutex_lock(&this->breaker_lock);
 		this->check_breaker_locked(GET_CURRENT_SECOND);
-	pthread_mutex_unlock(&this->breaker_lock);
+		pthread_mutex_unlock(&this->breaker_lock);
+	}
 }
 
 void WFServiceGovernance::try_clear_breaker()

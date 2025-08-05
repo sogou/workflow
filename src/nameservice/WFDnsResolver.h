@@ -61,7 +61,6 @@ public:
 protected:
 	virtual void dispatch();
 	virtual SubTask *done();
-	void set_has_next() { has_next_ = true; }
 
 private:
 	void thread_dns_callback(void *thrd_dns_task);

@@ -144,23 +144,6 @@ void WFSGResolverTask::dispatch()
 		return;
 	}
 
-	if (sg_->pre_select_)
-	{
-		WFConditional *cond = sg_->pre_select_(this);
-		if (cond)
-		{
-			series_of(this)->push_front(cond);
-			this->set_has_next();
-			this->subtask_done();
-			return;
-		}
-		else if (this->state != WFT_STATE_UNDEFINED)
-		{
-			this->subtask_done();
-			return;
-		}
-	}
-
 	if (sg_->select(ns_params_.uri, tracing, &addr))
 	{
 		auto *tracing_data = (WFServiceGovernance::TracingData *)tracing->data;

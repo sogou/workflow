@@ -986,10 +986,6 @@ public:
 			__guard_map.unref(guards_);
 	}
 
-	SubTask *get_task() const { return this->task; }
-
-	void set_task(SubTask *task) { this->task = task; }
-
 protected:
 	virtual void dispatch();
 	virtual void signal(void *msg) { }
@@ -1100,12 +1096,11 @@ int WFTaskFactory::release_guard_safe(const std::string& name, void *msg)
 	if (!node)
 		return 0;
 
-	timer = WFTaskFactory::create_timer_task(0, 0, [](WFTimerTask *timer) {
-		series_of(timer)->push_front((SubTask *)timer->user_data);
+	timer = WFTaskFactory::create_timer_task(0, 0, [node](WFTimerTask *timer) {
+		node->guard->WFConditional::signal(timer->user_data);
 	});
-	timer->user_data = node->guard->get_task();
-	node->guard->set_task(timer);
-	node->guard->WFConditional::signal(msg);
+	timer->user_data = msg;
+	timer->start();
 	return 1;
 }
 

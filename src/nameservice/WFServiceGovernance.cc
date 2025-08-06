@@ -259,9 +259,13 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 	auto *v = &tracing_data->history;
 	EndpointAddress *server = (*v)[v->size() - 1];
 
-	pthread_rwlock_wrlock(&this->rwlock);
-	this->recover_server_from_breaker(server);
-	pthread_rwlock_unlock(&this->rwlock);
+	server->fail_count = 0;
+	if (server->entry.list.next)
+	{
+		pthread_rwlock_wrlock(&this->rwlock);
+		this->recover_server_from_breaker(server);
+		pthread_rwlock_unlock(&this->rwlock);
+	}
 
 	this->WFNSPolicy::success(result, tracing, target);
 }

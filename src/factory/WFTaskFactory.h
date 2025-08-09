@@ -219,21 +219,24 @@ public:
 	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
 										  timer_callback_t callback);
 
-	/* create a named timer. */
+	/* Create a named timer. */
 	static WFTimerTask *create_timer_task(const std::string& timer_name,
 										  time_t seconds, long nanoseconds,
 										  timer_callback_t callback);
 
-	/* cancel all timers under the name. */
+	/* Cancel all timers under the name. */
 	static int cancel_by_name(const std::string& timer_name)
 	{
 		return WFTaskFactory::cancel_by_name(timer_name, (size_t)-1);
 	}
 
-	/* cancel at most 'max' timers under the name. */
+	/* Cancel at most 'max' timers under the name. */
 	static int cancel_by_name(const std::string& timer_name, size_t max);
 
-	/* timer in microseconds (deprecated) */
+	/* Timer to be canceled immediately after started. */
+	static WFTimerTask *create_timer_task(timer_callback_t callback);
+
+	/* Timer in microseconds. (deprecated) */
 	static WFTimerTask *create_timer_task(unsigned int microseconds,
 										  timer_callback_t callback);
 

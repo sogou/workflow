@@ -52,11 +52,35 @@ public:
 	}
 };
 
+class __WFCanceledTimerTask : public __WFTimerTask
+{
+protected:
+	virtual void dispatch()
+	{
+		if (this->scheduler->sleep(this) >= 0)
+			this->cancel();
+		else
+			this->handle(WFT_STATE_SYS_ERROR, errno);
+	}
+
+public:
+	__WFCanceledTimerTask(CommScheduler *scheduler, timer_callback_t&& cb) :
+		__WFTimerTask(-1, 0, scheduler, std::move(cb))
+	{
+	}
+};
+
 WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
 											  timer_callback_t callback)
 {
 	return new __WFTimerTask(seconds, nanoseconds, WFGlobal::get_scheduler(),
 							 std::move(callback));
+}
+
+WFTimerTask *WFTaskFactory::create_timer_task(timer_callback_t callback)
+{
+	return new __WFCanceledTimerTask(WFGlobal::get_scheduler(),
+									 std::move(callback));
 }
 
 /* Deprecated. */
@@ -1096,7 +1120,7 @@ int WFTaskFactory::release_guard_safe(const std::string& name, void *msg)
 	if (!node)
 		return 0;
 
-	timer = WFTaskFactory::create_timer_task(0, 0, [node](WFTimerTask *timer) {
+	timer = WFTaskFactory::create_timer_task([node](WFTimerTask *timer) {
 		node->guard->WFConditional::signal(timer->user_data);
 	});
 	timer->user_data = msg;

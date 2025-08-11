@@ -1434,7 +1434,6 @@ int poller_add_timer(const struct timespec *value, void *context, void **timer,
 int poller_del_timer(void *timer, poller_t *poller)
 {
 	struct __poller_node *node = (struct __poller_node *)timer;
-	int stopped = 0;
 
 	pthread_mutex_lock(&poller->mutex);
 	if (!node->removed)
@@ -1448,9 +1447,6 @@ int poller_del_timer(void *timer, poller_t *poller)
 
 		node->error = 0;
 		node->state = PR_ST_DELETED;
-		stopped = poller->stopped;
-		if (!stopped)
-			write(poller->pipe_wr, &node, sizeof (void *));
 	}
 	else
 	{
@@ -1459,7 +1455,7 @@ int poller_del_timer(void *timer, poller_t *poller)
 	}
 
 	pthread_mutex_unlock(&poller->mutex);
-	if (stopped)
+	if (node)
 		poller->callback((struct poller_result *)node, poller->context);
 
 	return -!node;

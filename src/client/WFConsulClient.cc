@@ -71,7 +71,7 @@ static bool parse_list_service_result(const json_value_t *root,
 							std::vector<struct ConsulServiceTags>& result);
 
 bool WFConsulTask::get_discover_result(
-	std::vector<struct ConsulServiceInstance>& result)
+	std::vector<struct ConsulServiceInstance>& result) const
 {
 	json_value_t *root;
 	int errno_bak;
@@ -99,7 +99,7 @@ bool WFConsulTask::get_discover_result(
 }
 
 bool WFConsulTask::get_list_service_result(
-	std::vector<struct ConsulServiceTags>& result)
+	std::vector<struct ConsulServiceTags>& result) const
 {
 	json_value_t *root;
 	int errno_bak;

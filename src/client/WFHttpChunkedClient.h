@@ -34,6 +34,11 @@ public:
 		return this->chunk;
 	}
 
+	const protocol::HttpMessageChunk *get_chunk() const
+	{
+		return this->chunk;
+	}
+
 public:
 	protocol::HttpRequest *get_req()
 	{
@@ -41,6 +46,16 @@ public:
 	}
 
 	protocol::HttpResponse *get_resp()
+	{
+		return this->task->get_resp();
+	}
+
+	const protocol::HttpRequest *get_req() const
+	{
+		return this->task->get_req();
+	}
+
+	const protocol::HttpResponse *get_resp() const
 	{
 		return this->task->get_resp();
 	}

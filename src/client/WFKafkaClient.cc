@@ -1692,3 +1692,8 @@ KafkaMetaList *WFKafkaClient::get_meta_list()
 	return &this->member->meta_list;
 }
 
+const KafkaMetaList *WFKafkaClient::get_meta_list() const
+{
+	return &this->member->meta_list;
+}
+

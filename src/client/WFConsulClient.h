@@ -44,10 +44,10 @@ class WFConsulTask : public WFGenericTask
 {
 public:
 	bool get_discover_result(
-			std::vector<struct protocol::ConsulServiceInstance>& result);
+			std::vector<struct protocol::ConsulServiceInstance>& result) const;
 
 	bool get_list_service_result(
-			std::vector<struct protocol::ConsulServiceTags>& result);
+			std::vector<struct protocol::ConsulServiceTags>& result) const;
 
 public:
 	void set_service(const struct protocol::ConsulService *service);
@@ -71,6 +71,7 @@ public:
 	{
 		this->consul_index = consul_index;
 	}
+
 	long long get_consul_index() const { return this->consul_index; }
 
 	const protocol::HttpResponse *get_http_resp() const

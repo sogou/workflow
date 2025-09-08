@@ -101,6 +101,11 @@ public:
 		return &this->result;
 	}
 
+	const protocol::KafkaResult *get_result() const
+	{
+		return &this->result;
+	}
+
 	int get_kafka_error() const
 	{
 		return this->kafka_error;
@@ -170,7 +175,7 @@ public:
 public:
 	protocol::KafkaMetaList *get_meta_list();
 
-	protocol::KafkaBrokerList *get_broker_list();
+	const protocol::KafkaMetaList *get_meta_list() const;
 
 private:
 	class KafkaMember *member;

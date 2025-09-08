@@ -40,6 +40,11 @@ public:
 		return this->task->get_resp();
 	}
 
+	const protocol::RedisResponse *get_resp() const
+	{
+		return this->task->get_resp();
+	}
+
 public:
 	/* User needs to call 'release()' exactly once, anywhere. */
 	void release()

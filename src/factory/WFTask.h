@@ -67,6 +67,9 @@ public:
 	INPUT *get_input() { return &this->input; }
 	OUTPUT *get_output() { return &this->output; }
 
+	const INPUT *get_input() const { return &this->input; }
+	const OUTPUT *get_output() const { return &this->output; }
+
 public:
 	void *user_data;
 
@@ -132,6 +135,9 @@ public:
 public:
 	REQ *get_req() { return &this->req; }
 	RESP *get_resp() { return &this->resp; }
+
+	const REQ *get_req() const { return &this->req; }
+	const RESP *get_resp() const { return &this->resp; }
 
 public:
 	void *user_data;
@@ -329,6 +335,8 @@ public:
 
 public:
 	ARGS *get_args() { return &this->args; }
+
+	const ARGS *get_args() const { return &this->args; }
 
 	long get_retval() const
 	{

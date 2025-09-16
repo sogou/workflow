@@ -213,9 +213,6 @@ CommMessageOut *ComplexMySQLTask::message_out()
 		auth_switch_req->set_password(password_);
 		auth_switch_req->set_auth_plugin_name(std::move(conn->str));
 		auth_switch_req->set_seed(conn->seed);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-		WFGlobal::get_ssl_client_ctx();
-#endif
 		break;
 
 	case ST_SHA256_PUBLIC_KEY_REQUEST:

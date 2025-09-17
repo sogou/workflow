@@ -4,6 +4,7 @@ project(client)
 set(SRC
 	WFMySQLConnection.cc
 	WFDnsClient.cc
+	WFHttpChunkedClient.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

@@ -180,6 +180,13 @@ static int __ssl_connect(SSL_CTX *ssl_ctx, CommConnEntry *entry)
 	return -1;
 }
 
+void CommMessageIn::renew()
+{
+	CommSession *session = this->entry->session;
+	session->timeout = -1;
+	session->begin_time = -1;
+}
+
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 					 int connect_timeout, int response_timeout)
 {

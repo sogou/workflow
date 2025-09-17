@@ -18,6 +18,7 @@ set(SRC
 	TLVMessage.cc
 	HttpUtil.cc
 	SSLWrapper.cc
+	PackageWrapper.cc
 )
 
 add_library(${PROJECT_NAME} OBJECT ${SRC})

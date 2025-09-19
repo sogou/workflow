@@ -108,14 +108,14 @@ public:
 	   the task is started or in 'extract'. */
 
 	/* Timeout of waiting for each message. Very useful. If not set,
-	   the max waiting time will be the global 'response_timeout'*/
+	   the max waiting time will be the global 'response_timeout'. */
 	void set_watch_timeout(int timeout)
 	{
 		this->task->set_watch_timeout(timeout);
 	}
 
 	/* Timeout of receiving a complete message. */
-	void set_recv_timeout(int timeout)
+	void set_receive_timeout(int timeout)
 	{
 		this->task->set_receive_timeout(timeout);
 	}
@@ -132,6 +132,12 @@ public:
 	void set_keep_alive(int timeout)
 	{
 		this->task->set_keep_alive(timeout);
+	}
+
+	/* For compatibility purpose only. */
+	void set_recv_timeout(int timeout)
+	{
+		this->set_receive_timeout(timeout);
 	}
 
 public:

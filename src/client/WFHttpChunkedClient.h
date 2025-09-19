@@ -60,24 +60,35 @@ public:
 	}
 
 public:
+	/* Timeout of waiting for the first package of each chunk.  If not set,
+	   the max waiting time will be the global 'response_timeout'. */
 	void set_watch_timeout(int timeout)
 	{
 		this->task->set_watch_timeout(timeout);
 	}
 
-	void set_recv_timeout(int timeout)
+	/* Timeout of receiving a complete chunk. */
+	void set_receive_timeout(int timeout)
 	{
 		this->task->set_receive_timeout(timeout);
 	}
 
+	/* Timeout of sending the HTTP request. */
 	void set_send_timeout(int timeout)
-    {
-        this->task->set_send_timeout(timeout);
-    }
+	{
+		this->task->set_send_timeout(timeout);
+	}
 
+	/* Speicify HTTP keep alive timeout. */
 	void set_keep_alive(int timeout)
 	{
 		this->task->set_keep_alive(timeout);
+	}
+
+	/* Equal to 'set_receive_timeout()'. For compatibility purpose only. */
+	void set_recv_timeout(int timeout)
+	{
+		this->set_receive_timeout(timeout);
 	}
 
 public:

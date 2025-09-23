@@ -275,19 +275,30 @@ static int __parse_start_line(const char *ptr, size_t len,
 			if (ptr[i + 1] != '\n')
 				return -2;
 
-			start_line[i] = '\0';
+			len = i;
+			while (len > 0 && start_line[len - 1] == ' ')
+				len--;
+
+			start_line[len] = '\0';
 			p1 = start_line;
+			while (*p1 == ' ')
+				p1++;
+
 			p2 = strchr(p1, ' ');
-			if (p2)
-				*p2++ = '\0';
-			else
+			if (!p2)
 				return -2;
 
+			*p2++ = '\0';
+			while (*p2 == ' ')
+				p2++;
+
 			p3 = strchr(p2, ' ');
-			if (p3)
-				*p3++ = '\0';
-			else
+			if (!p3)
 				return -2;
+
+			*p3++ = '\0';
+			while (*p3 == ' ')
+				p3++;
 
 			if (parser->is_resp)
 				ret = __match_status_line(p1, p2, p3, parser);
@@ -302,7 +313,7 @@ static int __parse_start_line(const char *ptr, size_t len,
 			return 1;
 		}
 
-		if (start_line[i] == 0)
+		if (start_line[i] == '\0')
 			return -2;
 	}
 

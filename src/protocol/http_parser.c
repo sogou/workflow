@@ -119,23 +119,26 @@ static int __set_message_header(const char *name, size_t name_len,
 	return __add_message_header(name, name_len, value, value_len, parser);
 }
 
-static int __match_request_line(const char *method,
-								const char *uri,
-								const char *version,
+static int __match_request_line(const char *method, size_t method_len,
+								const char *uri, size_t uri_len,
+								const char *version, size_t version_len,
 								http_parser_t *parser)
 {
-	if (strcmp(version, "HTTP/1.0") == 0 || strncmp(version, "HTTP/0", 6) == 0)
-		parser->keep_alive = 0;
-
-	method = strdup(method);
+	method = strndup(method, method_len);
 	if (method)
 	{
-		uri = strdup(uri);
+		uri = strndup(uri, uri_len);
 		if (uri)
 		{
-			version = strdup(version);
+			version = strndup(version, version_len);
 			if (version)
 			{
+				if (strcmp(version, "HTTP/1.0") == 0 ||
+					strncmp(version, "HTTP/0", 6) == 0)
+				{
+					parser->keep_alive = 0;
+				}
+
 				free(parser->method);
 				free(parser->uri);
 				free(parser->version);
@@ -154,26 +157,32 @@ static int __match_request_line(const char *method,
 	return -1;
 }
 
-static int __match_status_line(const char *version,
-							   const char *code,
-							   const char *phrase,
+static int __match_status_line(const char *version, size_t version_len,
+							   const char *code, size_t code_len,
+							   const char *phrase, size_t phrase_len,
 							   http_parser_t *parser)
 {
-	if (strcmp(version, "HTTP/1.0") == 0 || strncmp(version, "HTTP/0", 6) == 0)
-		parser->keep_alive = 0;
-
-	if (*code == '1' || strcmp(code, "204") == 0 || strcmp(code, "304") == 0)
-		parser->transfer_length = 0;
-
-	version = strdup(version);
+	version = strndup(version, version_len);
 	if (version)
 	{
-		code = strdup(code);
+		code = strndup(code, code_len);
 		if (code)
 		{
-			phrase = strdup(phrase);
+			phrase = strndup(phrase, phrase_len);
 			if (phrase)
 			{
+				if (strcmp(version, "HTTP/1.0") == 0 ||
+					strncmp(version, "HTTP/0", 6) == 0)
+				{
+					parser->keep_alive = 0;
+				}
+
+				if (*code == '1' || strcmp(code, "204") == 0 ||
+					strcmp(code, "304") == 0)
+				{
+					parser->transfer_length = 0;
+				}
+
 				free(parser->version);
 				free(parser->code);
 				free(parser->phrase);
@@ -252,9 +261,9 @@ static void __check_message_header(const char *name, size_t name_len,
 static int __parse_start_line(const char *ptr, size_t len,
 							  http_parser_t *parser)
 {
-	char start_line[HTTP_START_LINE_MAX];
 	size_t min = MIN(HTTP_START_LINE_MAX, len);
-	char *p1, *p2, *p3;
+	const char *p1, *p2, *p3;
+	size_t l1, l2, l3;
 	size_t i;
 	int ret;
 
@@ -266,8 +275,7 @@ static int __parse_start_line(const char *ptr, size_t len,
 
 	for (i = 0; i < min; i++)
 	{
-		start_line[i] = ptr[i];
-		if (start_line[i] == '\r')
+		if (ptr[i] == '\r')
 		{
 			if (i == len - 1)
 				return 0;
@@ -276,44 +284,50 @@ static int __parse_start_line(const char *ptr, size_t len,
 				return -2;
 
 			len = i;
-			while (len > 0 && start_line[len - 1] == ' ')
+			while (len > 0 && ptr[len - 1] == ' ')
 				len--;
 
-			start_line[len] = '\0';
-			p1 = start_line;
+			p1 = ptr;
 			while (*p1 == ' ')
 				p1++;
 
-			p2 = strchr(p1, ' ');
-			if (!p2)
+			p2 = p1;
+			while (p2 < ptr + len && *p2 != ' ')
+				p2++;
+
+			if (p2 == ptr + len)
 				return -2;
 
-			*p2++ = '\0';
+			l1 = p2++ - p1;
 			while (*p2 == ' ')
 				p2++;
 
-			p3 = strchr(p2, ' ');
-			if (!p3)
+			p3 = p2;
+			while (p3 < ptr + len && *p3 != ' ')
+				p3++;
+
+			if (p3 == ptr + len)
 				return -2;
 
-			*p3++ = '\0';
+			l2 = p3++ - p2;
 			while (*p3 == ' ')
 				p3++;
 
+			l3 = ptr + len - p3;
 			if (parser->is_resp)
-				ret = __match_status_line(p1, p2, p3, parser);
+				ret = __match_status_line(p1, l1, p2, l2, p3, l3, parser);
 			else
-				ret = __match_request_line(p1, p2, p3, parser);
+				ret = __match_request_line(p1, l1, p2, l2, p3, l3, parser);
 
 			if (ret < 0)
-				return -1;
+				return ret;
 
 			parser->header_offset += i + 2;
 			parser->header_state = HPS_HEADER_NAME;
 			return 1;
 		}
 
-		if (start_line[i] == '\0')
+		if (ptr[i] == '\0')
 			return -2;
 	}
 
@@ -365,6 +379,7 @@ static int __parse_header_value(const char *ptr, size_t len,
 	const char *end = ptr + len;
 	const char *begin = ptr;
 	size_t i = 0;
+	int ret;
 
 	while (1)
 	{
@@ -421,9 +436,10 @@ static int __parse_header_value(const char *ptr, size_t len,
 	}
 
 	header_value[i] = '\0';
-	if (http_parser_add_header(parser->namebuf, strlen(parser->namebuf),
-							   header_value, i, parser) < 0)
-		return -1;
+	ret = http_parser_add_header(parser->namebuf, strlen(parser->namebuf),
+								 header_value, i, parser);
+	if (ret < 0)
+		return ret;
 
 	parser->header_offset += ptr - begin;
 	parser->header_state = HPS_HEADER_NAME;

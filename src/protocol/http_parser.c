@@ -354,13 +354,16 @@ static int __parse_header_name(const char *ptr, size_t len,
 	{
 		if (ptr[i] == ':')
 		{
+			if (i == 0)
+				return -2;
+
 			parser->namebuf[i] = '\0';
 			parser->header_offset += i + 1;
 			parser->header_state = HPS_HEADER_VALUE;
 			return 1;
 		}
 
-		if ((signed char)ptr[i] <= 0)
+		if ((signed char)ptr[i] <= ' ')
 			return -2;
 
 		parser->namebuf[i] = ptr[i];
@@ -406,7 +409,7 @@ static int __parse_header_value(const char *ptr, size_t len,
 			if (header_value[i] == '\r')
 				break;
 
-			if ((signed char)header_value[i] <= 0)
+			if ((signed char)header_value[i] < ' ' && header_value[i] != '\t')
 				return -2;
 
 			i++;
@@ -477,7 +480,6 @@ static int __parse_message_header(const void *message, size_t size,
 static int __parse_chunk_data(const char *ptr, size_t len,
 							  http_parser_t *parser)
 {
-	char chunk_line[HTTP_CHUNK_LINE_MAX];
 	size_t min = MIN(HTTP_CHUNK_LINE_MAX, len);
 	size_t chunk_size;
 	char *end;
@@ -485,8 +487,7 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 
 	for (i = 0; i < min; i++)
 	{
-		chunk_line[i] = ptr[i];
-		if (chunk_line[i] == '\r')
+		if (ptr[i] == '\r')
 		{
 			if (i == len - 1)
 				return 0;
@@ -494,8 +495,8 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 			if (ptr[i + 1] != '\n')
 				return -2;
 
-			chunk_size = strtoul(chunk_line, &end, 16);
-			if (end == chunk_line)
+			chunk_size = strtoul(ptr, &end, 16);
+			if (end == ptr)
 				return -2;
 
 			if (chunk_size == 0)

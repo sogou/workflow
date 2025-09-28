@@ -70,3 +70,58 @@ jobs:
           gmake KAFKA=y
           gmake check KAFKA=y
           gmake tutorial KAFKA=y
+
+  big-endian-test:
+    name: Big Endian Test (MIPS)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install QEMU and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static debootstrap binfmt-support
+        sudo update-binfmts --enable qemu-mips
+
+    - name: Create MIPS chroot environment
+      run: |
+        sudo mkdir -p /mips-chroot
+        sudo debootstrap --arch=mips --foreign sid /mips-chroot http://deb.debian.org/debian
+        sudo cp /usr/bin/qemu-mips-static /mips-chroot/usr/bin/
+        sudo chroot /mips-chroot /debootstrap/debootstrap --second-stage
+
+    - name: Install build dependencies in chroot
+      run: |
+        sudo chroot /mips-chroot /bin/bash -c "
+          apt-get update
+          apt-get install -y build-essential cmake make g++
+          apt-get install -y libgtest-dev libssl-dev
+          apt-get install -y libsnappy-dev libzstd-dev liblz4-dev
+          apt-get install -y git
+        "
+
+    - name: Copy source to chroot and build
+      run: |
+        sudo mkdir -p /mips-chroot/build
+        sudo cp -r $GITHUB_WORKSPACE/* /mips-chroot/build/
+        sudo chroot /mips-chroot /bin/bash -c "
+          cd /build
+          make KAFKA=y
+        "
+
+    - name: Run tests in big-endian environment
+      run: |
+        sudo chroot /mips-chroot /bin/bash -c "
+          cd /build
+          make check KAFKA=y
+        "
+      continue-on-error: true
+
+    - name: Build tutorial in big-endian environment
+      run: |
+        sudo chroot /mips-chroot /bin/bash -c "
+          cd /build
+          make tutorial KAFKA=y
+        "
+      continue-on-error: true

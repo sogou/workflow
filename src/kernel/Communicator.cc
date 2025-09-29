@@ -226,19 +226,16 @@ void CommTarget::deinit()
 int CommMessageIn::feedback(const void *buf, size_t size)
 {
 	struct CommConnEntry *entry = this->entry;
-	const struct sockaddr *addr;
-	socklen_t addrlen;
+	const struct sockaddr *addr = NULL;
+	socklen_t addrlen = 0;
 	int ret;
 
 	if (!entry->ssl)
 	{
 		if (entry->service)
-		{
 			entry->target->get_addr(&addr, &addrlen);
-			return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
-		}
-		else
-			return write(entry->sockfd, buf, size);
+
+		return sendto(entry->sockfd, buf, size, 0, addr, addrlen);
 	}
 
 	if (size == 0)

@@ -255,15 +255,15 @@ public:
 	size_t size() const { return this->subtasks_nr; }
 
 public:
-	SeriesWork **begin() { return this->all_series; }
-	SeriesWork **end() { return this->all_series + this->subtasks_nr; }
+	SeriesWork *const *begin() { return this->all_series; }
+	SeriesWork *const *end() { return this->all_series + this->subtasks_nr; }
 
-	const SeriesWork **begin() const
+	const SeriesWork *const *begin() const
 	{
 		return (const SeriesWork **)this->all_series;
 	}
 
-	const SeriesWork **end() const
+	const SeriesWork *const *end() const
 	{
 		return (const SeriesWork **)this->all_series + this->subtasks_nr;
 	}

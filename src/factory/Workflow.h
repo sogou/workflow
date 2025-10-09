@@ -245,17 +245,28 @@ public:
 			return NULL;
 	}
 
-	SeriesWork& operator[] (size_t index)
-	{
-		return *this->series_at(index);
-	}
+	SeriesWork& operator[] (size_t index) { return *this->all_series[index]; }
 
 	const SeriesWork& operator[] (size_t index) const
 	{
-		return *this->series_at(index);
+		return *this->all_series[index];
 	}
 
 	size_t size() const { return this->subtasks_nr; }
+
+public:
+	SeriesWork *const *begin() { return this->all_series; }
+	SeriesWork *const *end() { return this->all_series + this->subtasks_nr; }
+
+	const SeriesWork *const *begin() const
+	{
+		return (const SeriesWork **)this->all_series;
+	}
+
+	const SeriesWork *const *end() const
+	{
+		return (const SeriesWork **)this->all_series + this->subtasks_nr;
+	}
 
 public:
 	void set_callback(parallel_callback_t callback)

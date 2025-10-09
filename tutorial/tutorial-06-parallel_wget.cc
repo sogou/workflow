@@ -26,11 +26,10 @@ void callback(const ParallelWork *pwork)
 	tutorial_series_context *ctx;
 	const void *body;
 	size_t size;
-	size_t i;
 
-	for (i = 0; i < pwork->size(); i++)
+	for (const SeriesWork *series : *pwork)
 	{
-		ctx = (tutorial_series_context *)pwork->series_at(i)->get_context();
+		ctx = (tutorial_series_context *)series->get_context();
 		printf("%s\n", ctx->url.c_str());
 		if (ctx->state == WFT_STATE_SUCCESS)
 		{

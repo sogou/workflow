@@ -46,7 +46,6 @@ public:
 
 	class RouteTarget : public CommSchedTarget
 	{
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	public:
 		int init(const struct sockaddr *addr, socklen_t addrlen, SSL_CTX *ssl_ctx,
 				 int connect_timeout, int ssl_connect_timeout, int response_timeout,
@@ -70,7 +69,6 @@ public:
 			if (ssl_ctx)
 				SSL_CTX_free(ssl_ctx);
 		}
-#endif
 
 	public:
 		int state;

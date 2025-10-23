@@ -31,12 +31,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <openssl/ssl.h>
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-# include <openssl/err.h>
-# include <openssl/engine.h>
-# include <openssl/conf.h>
-# include <openssl/crypto.h>
-#endif
 #include "CommScheduler.h"
 #include "Executor.h"
 #include "WFResourcePool.h"
@@ -179,18 +173,6 @@ __WFGlobal::__WFGlobal()
 	sync_max_ = 0;
 }
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-static std::mutex *__ssl_mutex;
-
-static void ssl_locking_callback(int mode, int type, const char* file, int line)
-{
-	if (mode & CRYPTO_LOCK)
-		__ssl_mutex[type].lock();
-	else if (mode & CRYPTO_UNLOCK)
-		__ssl_mutex[type].unlock();
-}
-#endif
-
 class __SSLManager
 {
 public:
@@ -206,15 +188,6 @@ public:
 private:
 	__SSLManager()
 	{
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-		__ssl_mutex = new std::mutex[CRYPTO_num_locks()];
-		CRYPTO_set_locking_callback(ssl_locking_callback);
-		SSL_library_init();
-		SSL_load_error_strings();
-		//ERR_load_crypto_strings();
-		//OpenSSL_add_all_algorithms();
-#endif
-
 		ssl_client_ctx_ = SSL_CTX_new(SSLv23_client_method());
 		if (ssl_client_ctx_ == NULL)
 			abort();
@@ -223,29 +196,6 @@ private:
 	~__SSLManager()
 	{
 		SSL_CTX_free(ssl_client_ctx_);
-
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-		//free ssl to avoid memory leak
-		FIPS_mode_set(0);
-		CRYPTO_set_locking_callback(NULL);
-# ifdef CRYPTO_LOCK_ECDH
-		CRYPTO_THREADID_set_callback(NULL);
-# else
-		CRYPTO_set_id_callback(NULL);
-# endif
-		ENGINE_cleanup();
-		CONF_modules_unload(1);
-		ERR_free_strings();
-		EVP_cleanup();
-# ifdef CRYPTO_LOCK_ECDH
-		ERR_remove_thread_state(NULL);
-# else
-		ERR_remove_state(0);
-# endif
-		CRYPTO_cleanup_all_ex_data();
-		sk_SSL_COMP_free(SSL_COMP_get_compression_methods());
-		delete []__ssl_mutex;
-#endif
 	}
 
 private:

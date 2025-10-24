@@ -114,18 +114,15 @@ int WFServerBase::create_listen_fd()
 
 WFConnection *WFServerBase::new_connection(int accept_fd)
 {
-	if (++this->conn_count <= this->params.max_connections ||
-		this->drain(1) == 1)
+	if (++this->conn_count > this->params.max_connections &&
+		this->drain(1) <= 0)
 	{
-		int reuse = 1;
-		setsockopt(accept_fd, SOL_SOCKET, SO_REUSEADDR,
-				   &reuse, sizeof (int));
-		return new WFServerConnection(&this->conn_count);
+		this->conn_count--;
+		errno = EMFILE;
+		return NULL;
 	}
 
-	this->conn_count--;
-	errno = EMFILE;
-	return NULL;
+	return new WFServerConnection(&this->conn_count);
 }
 
 void WFServerBase::delete_connection(WFConnection *conn)

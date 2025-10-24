@@ -158,9 +158,9 @@ void sig_handler(int signo) { }
 
 int main(int argc, char *argv[])
 {
-	if (argc < 3)
+	if (argc != 3)
 	{
-		fprintf(stderr, "USAGE: %s url type(discover/register/deregister)<p/c> \n", argv[0]);
+		fprintf(stderr, "USAGE: %s <url> <discover | list_service | register | deregister>\n", argv[0]);
 		exit(1);
 	}
 
@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		fprintf(stderr, "USAGE: %s url <p/c> [compress_type/d]\n", argv[0]);
+		fprintf(stderr, "USAGE: %s <url> <discover | list_service | register | deregister>\n", argv[0]);
 		exit(1);
 	}
 

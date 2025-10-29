@@ -110,7 +110,7 @@ public:
 };
 ~~~
 无论是pread还是pwrite，返回的都是WFFileIOTask。这与不区分sort或psort，不区分client或server task是一个道理。  
-除这两个接口还有preadv和pwritev，返回WFFileVIOTask，以及fsync，fdsync，返回WFFileSyncTask。可以在头文件里查看。  
+除这两个接口还有preadv和pwritev，返回WFFileVIOTask，以及fsync，fdatasync，返回WFFileSyncTask。可以在头文件里查看。  
 示例用了task的user_data域保存服务的全局数据。但对于大服务，我们推荐使用series context。可以参考前面的[proxy示例](../tutorial/tutorial-05-http_proxy.cc)。
 
 # 处理读文件结果
@@ -195,5 +195,5 @@ Linux操作系统支持一套效率很高，CPU占用非常少的异步IO系统�
 我们曾经实现过一套posix aio接口用于支持其它UNIX系统，并使用线程的sigevent通知方式，但由于其效率太低，已经不再使用了。  
 目前，对于非Linux系统，异步IO一律是用多线程实现，在IO任务到达时，实时创建线程执行IO任务，callback回到handler线程池。  
 多线程IO也是macOS下的唯一选择，因为macOS没有良好的sigevent支持，posix aio行不通。  
-某些UNIX系统不支持fdatasync调用，这种情况下，fdsync任务将等价于fsync任务。
+某些UNIX系统不支持fdatasync调用，这种情况下，fdatasync任务将等价于fsync任务。
 

@@ -116,7 +116,7 @@ public:
 ~~~
 
 Both pread and pwrite return WFFileIOTask. We do not distinguish between sort and psort, and we do not distinguish between client and server task. They all follow the same principle.   
-In addition to these two interfaces, preadv and pwritev return WFFileVIOTask; fsync and fdsync return WFFileSyncTask. You can see the details in the header file.   
+In addition to these two interfaces, preadv and pwritev return WFFileVIOTask; fsync and fdatasync return WFFileSyncTask. You can see the details in the header file.   
 The example uses the user\_data field of the task to save the global data of the service. For larger services, we recommend to use series context. You can see the [proxy examples](/tutorial/tutorial-05-http_proxy.cc) for details.
 
 # Handling file reading results
@@ -199,4 +199,4 @@ Linux operating system supports a set of asynchronous IO system calls with high 
 We have implemented a set of posix aio interfaces to support other UNIX systems, and used the sigevent notification method of threads, but it is no longer in use because of its low efficiency.   
 Currently, for non-Linux systems, asynchronous IO is always simulated by multi-threading. When an IO task arrives, a thread is created in real time to execute IO tasks, and then a callback is used to return to the handler thread pool.   
 Multi-threaded IO is also the only choice in macOS, because macOS does not have good sigevent support and posix aio will not work in macOS.   
-Some UNIX systems do not support fdatasync. In this case, an fdsync task is equivalent to an fsync task.
+Some UNIX systems do not support fdatasync. In this case, an fdatasync task is equivalent to an fsync task.

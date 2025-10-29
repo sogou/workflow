@@ -184,10 +184,8 @@ public:
 	static WFFileSyncTask *create_fsync_task(int fd,
 											 fsync_callback_t callback);
 
-	/* On systems that do not support fdatasync(), like macOS,
-	 * fdsync task is equal to fsync task. */
-	static WFFileSyncTask *create_fdsync_task(int fd,
-											  fsync_callback_t callback);
+	static WFFileSyncTask *create_fdatasync_task(int fd,
+												 fsync_callback_t callback);
 
 	/* File tasks with path name. */
 public:

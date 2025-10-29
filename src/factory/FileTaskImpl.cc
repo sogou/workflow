@@ -128,10 +128,10 @@ protected:
 	}
 };
 
-class WFFilefdsyncTask : public WFFileSyncTask
+class WFFilefdatasyncTask : public WFFileSyncTask
 {
 public:
-	WFFilefdsyncTask(int fd, IOService *service, fsync_callback_t&& cb) :
+	WFFilefdatasyncTask(int fd, IOService *service, fsync_callback_t&& cb) :
 		WFFileSyncTask(service, std::move(cb))
 	{
 		this->args.fd = fd;
@@ -140,7 +140,7 @@ public:
 protected:
 	virtual int prepare()
 	{
-		this->prep_fdsync(this->args.fd);
+		this->prep_fdatasync(this->args.fd);
 		return 0;
 	}
 };
@@ -344,12 +344,12 @@ WFFileSyncTask *WFTaskFactory::create_fsync_task(int fd,
 							   std::move(callback));
 }
 
-WFFileSyncTask *WFTaskFactory::create_fdsync_task(int fd,
-												  fsync_callback_t callback)
+WFFileSyncTask *WFTaskFactory::create_fdatasync_task(int fd,
+													 fsync_callback_t callback)
 {
-	return new WFFilefdsyncTask(fd,
-								WFGlobal::get_io_service(),
-								std::move(callback));
+	return new WFFilefdatasyncTask(fd,
+								   WFGlobal::get_io_service(),
+								   std::move(callback));
 }
 
 /* Factory functions with path name. */

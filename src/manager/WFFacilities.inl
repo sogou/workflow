@@ -131,7 +131,7 @@ inline WFFuture<int> WFFacilities::async_fdatasync(int fd)
 {
 	auto *pr = new WFPromise<int>();
 	auto fr = pr->get_future();
-	auto *task = WFTaskFactory::create_fdsync_task(fd, __fsync_future_callback);
+	auto *task = WFTaskFactory::create_fdatasync_task(fd, __fsync_future_callback);
 
 	task->user_data = pr;
 	task->start();

@@ -43,7 +43,7 @@ protected:
 	void prep_pwritev(int fd, const struct iovec *iov, int iovcnt,
 					  long long offset);
 	void prep_fsync(int fd);
-	void prep_fdsync(int fd);
+	void prep_fdatasync(int fd);
 
 protected:
 	long get_res() const { return this->res; }

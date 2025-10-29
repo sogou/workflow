@@ -235,7 +235,7 @@ void IOSession::prep_fsync(int fd)
 	iocb->aio_lio_opcode = IO_CMD_FSYNC;
 }
 
-void IOSession::prep_fdsync(int fd)
+void IOSession::prep_fdatasync(int fd)
 {
 	struct iocb *iocb = (struct iocb *)this->iocb_buf;
 

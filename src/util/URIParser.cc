@@ -245,11 +245,11 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 {
 	uri.state = URI_STATE_INVALID;
 
-	int start_idx[URI_PART_ELEMENTS] = {0};
-	int end_idx[URI_PART_ELEMENTS] = {0};
+	size_t start_idx[URI_PART_ELEMENTS] = {0};
+	size_t end_idx[URI_PART_ELEMENTS] = {0};
 	int pre_state = URI_SCHEME;
 	bool in_ipv6 = false;
-	int i;
+	size_t i;
 
 	for (i = 0; str[i]; i++)
 	{

@@ -19,6 +19,7 @@
 #ifndef _EXECREQUEST_H_
 #define _EXECREQUEST_H_
 
+#include <errno.h>
 #include "SubTask.h"
 #include "Executor.h"
 

@@ -1,0 +1,131 @@
+name: Windows MSYS2 Build
+
+on:
+  push:
+    branches:
+      - master
+      - windows_msys2
+  pull_request:
+    branches:
+      - master
+      - windows_msys2
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: Windows MSYS2
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ucrt64
+          update: true
+          install: >-
+            wget
+            zip
+
+      - name: Update MSYS2 and Install Dependencies
+        shell: msys2 {0}
+        run: |
+          dependencies=(
+            "mingw-w64-ucrt-x86_64-cmake"
+            "mingw-w64-ucrt-x86_64-extra-cmake-modules"
+            "mingw-w64-ucrt-x86_64-ninja"
+            "mingw-w64-ucrt-x86_64-toolchain"
+            "mingw-w64-ucrt-x86_64-gcc"
+            "mingw-w64-ucrt-x86_64-openssl"
+            "mingw-w64-ucrt-x86_64-gtest"
+            "make"
+            "cmake"
+          )
+          pacman -Syu --noconfirm "${dependencies[@]}"
+
+      - name: Build Workflow
+        shell: msys2 {0}
+        run: |
+          mkdir -p build
+          cmake \
+            -B build \
+            -G Ninja \
+            -S . \
+            -DCMAKE_BUILD_TYPE=Release
+          ninja -C build
+
+      - name: Build Tutorial
+        shell: msys2 {0}
+        run: |
+          cd tutorial
+          mkdir -p build
+          cmake \
+            -B build \
+            -G Ninja \
+            -S . \
+            -DCMAKE_BUILD_TYPE=Release
+          ninja -C build
+
+      - name: Build and Run Tests (Optional)
+        shell: msys2 {0}
+        continue-on-error: true
+        run: |
+          cd test
+          mkdir -p build
+          cmake \
+            -B build \
+            -G Ninja \
+            -S . \
+            -DCMAKE_BUILD_TYPE=Release
+          ninja -C build check
+          cd build
+          ctest --output-on-failure
+
+      - name: Get Version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION=$(date +%Y%m%d-%H%M%S)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Package Workflow
+        shell: msys2 {0}
+        run: |
+          mkdir -p artifacts
+          VERSION="${{ steps.version.outputs.version }}"
+          if [ -d "_lib" ] && [ -d "_include" ]; then
+            mkdir -p workflow_windows_msys2_${VERSION}
+            cp -r _lib _include workflow_windows_msys2_${VERSION}/
+            zip -r artifacts/workflow_windows_msys2_${VERSION}.zip workflow_windows_msys2_${VERSION}
+            rm -rf workflow_windows_msys2_${VERSION}
+          fi
+
+      - name: Generate Checksums
+        shell: pwsh
+        run: |
+          cd artifacts
+          Get-ChildItem -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File -Append -Encoding utf8 SHA256SUMS.txt
+          }
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-windows-msys2
+          path: |
+            artifacts/workflow_windows_msys2_*.zip
+            artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+

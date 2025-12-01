@@ -36,3 +36,4 @@ _include
 _lib
 .vscode
 build.cmake
+build

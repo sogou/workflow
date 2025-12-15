@@ -63,3 +63,23 @@ if (NOT ${CMAKE_MEMORYCHECK_COMMAND} STREQUAL "CMAKE_MEMORYCHECK_COMMAND-NOTFOUN
 		add_test(${src}-memory-check ${memcheck_command} ./${src})
 	endforeach()
 endif ()
+# --- Cache Unit Test ---
+add_executable(cache_unittest cache_unittest.cc)
+
+# 链接 Workflow 库
+if (TARGET workflow-static)
+    target_link_libraries(cache_unittest workflow-static)
+else()
+    target_link_libraries(cache_unittest workflow)
+endif()
+
+# 链接 GTest (尝试标准名称)
+find_package(GTest REQUIRED)
+target_link_libraries(cache_unittest GTest::GTest GTest::Main pthread ssl crypto)
+
+# 头文件路径
+target_include_directories(cache_unittest PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/include
+    ${CMAKE_SOURCE_DIR}/src/util
+    ${CMAKE_SOURCE_DIR}/src/kernel
+)

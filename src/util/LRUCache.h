@@ -37,7 +37,8 @@ class LRUHandle
 {
 public:
 	VALUE value;
-
+	// [PR 修改点] 新增只读接口，允许外部获取 Key (用于 Hash 分片等场景)
+	const KEY& get_key() const { return this->key; }
 private:
 	LRUHandle(const KEY& k, const VALUE& v) :
 		value(v), key(k)
@@ -60,7 +61,7 @@ private:
 template<typename KEY, typename VALUE, class ValueDeleter>
 class LRUCache
 {
-protected:
+public:
 	typedef LRUHandle<KEY, VALUE>			Handle;
 
 public:

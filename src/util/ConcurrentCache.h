@@ -25,7 +25,8 @@
  * @brief  Thread-safe Wrapper for Cache Policy (LRU/LFU)
  */
 
-template<typename KEY, typename VALUE, class Policy>
+// [修改] 增加 Hash 模板参数，默认使用 std::hash
+template<typename KEY, typename VALUE, class Policy, class Hash = std::hash<KEY>>
 class ConcurrentCache
 {
 public:
@@ -57,6 +58,7 @@ public:
 
     const Handle *get(const KEY& key)
     {
+        // [修改] 使用 Hash 模板对象
         int idx = this->hash_func(key) % SHARD_COUNT;
         std::lock_guard<std::mutex> lock(this->locks_[idx]);
         return this->shards_[idx]->get(key);
@@ -88,7 +90,7 @@ private:
     static const int SHARD_COUNT = 16;
     Policy *shards_[SHARD_COUNT];
     std::mutex locks_[SHARD_COUNT];
-    std::hash<KEY> hash_func;
+    Hash hash_func; // [修改] 使用模板参数类型
 };
 
 #endif

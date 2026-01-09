@@ -140,11 +140,11 @@ protected:
 
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;
-			this->processor.task = (WFServerTask *)-1;
 		}
 		else
 			this->scheduler->shutdown(this);
 
+		this->processor.task = (WFServerTask *)-1;
 		this->subtask_done();
 	}
 

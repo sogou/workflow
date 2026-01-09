@@ -376,7 +376,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 
 	for (int i = 0; i < URI_QUERY; i++)
 	{
-		for (int j = start_idx[i]; j < end_idx[i]; j++)
+		for (size_t j = start_idx[i]; j < end_idx[i]; j++)
 		{
 			if (!valid_char[i][(unsigned char)str[j]])
 				return -1;//invalid char

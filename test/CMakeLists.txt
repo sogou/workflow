@@ -20,7 +20,7 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 
 enable_testing()
 
-set(CXX_STD "c++14")
+set(CXX_STD "c++17")
 
 find_package(GTest REQUIRED)
 

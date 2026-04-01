@@ -144,9 +144,9 @@ public:
 	}
 
 	// with specific SSL_CTX
-	int init(const std::string& proxy_url, SSL_CTX *ctx_ctx)
+	int init(const std::string& proxy_url, SSL_CTX *ctx)
 	{
-		return this->init(proxy_url, protocol::ConsulConfig(), ssl_ctx);
+		return this->init(proxy_url, protocol::ConsulConfig(), ctx);
 	}
 
 	int init(const std::string& proxy_url, protocol::ConsulConfig config,

@@ -277,8 +277,13 @@ static int __parse_json_string(const char *cursor, const char **end,
 		str++;
 	}
 
+	/* Note: 4-byte scan assumes cursor has at least 4 readable bytes
+	   until the closing quote. Valid JSON is guaranteed by the prior
+	   __json_string_length() pass, but we add a NUL guard for defense
+	   in depth against malformed input near page boundaries. */
 	while (cursor[0] != '\"' && cursor[1] != '\"' &&
-		   cursor[2] != '\"' && cursor[3] != '\"')
+		   cursor[2] != '\"' && cursor[3] != '\"' &&
+		   cursor[0] != '\0')
 	{
 		memcpy(str, cursor, 4);
 		cursor += 4;

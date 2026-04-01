@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include "list.h"
 #include "http_parser.h"
 
@@ -619,8 +620,23 @@ int http_parser_append_message(const void *buf, size_t *n,
 		size_t new_size = MAX(HTTP_MSGBUF_INIT_SIZE, 2 * parser->bufsize);
 		void *new_base;
 
+		/* Check for overflow in msgsize + *n + 1 */
+		if (parser->msgsize + *n < parser->msgsize ||
+			parser->msgsize + *n + 1 < parser->msgsize + *n)
+		{
+			errno = ENOMEM;
+			return -1;
+		}
+
 		while (new_size < parser->msgsize + *n + 1)
+		{
+			if (new_size > (size_t)-1 / 2)
+			{
+				errno = ENOMEM;
+				return -1;
+			}
 			new_size *= 2;
+		}
 
 		new_base = realloc(parser->msgbuf, new_size);
 		if (!new_base)

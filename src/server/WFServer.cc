@@ -177,6 +177,10 @@ int WFServerBase::create_listen_fd()
 
 WFConnection *WFServerBase::new_connection(int accept_fd)
 {
+	/* Note: conn_count is atomic, but the compound check+drain is not
+	   fully atomic. This is a benign TOCTOU race — worst case is a
+	   slightly imprecise connection limit. Using a mutex here would
+	   add contention on every new connection for minimal benefit. */
 	if (++this->conn_count > this->params.max_connections &&
 		this->drain(1) <= 0)
 	{

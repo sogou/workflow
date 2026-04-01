@@ -25,6 +25,7 @@
 #include <time.h>
 #include <stddef.h>
 #include <pthread.h>
+#include <atomic>
 #include <openssl/ssl.h>
 #include "list.h"
 #include "poller.h"
@@ -310,7 +311,7 @@ private:
 	struct __mpoller *mpoller;
 	struct __msgqueue *msgqueue;
 	struct __thrdpool *thrdpool;
-	int stop_flag;
+	std::atomic<int> stop_flag;
 
 private:
 	CommEventHandler *event_handler;

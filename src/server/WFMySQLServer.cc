@@ -32,9 +32,13 @@ WFConnection *WFMySQLServer::new_connection(int accept_fd)
 		resp.server_set(0x0a, "5.5", 1, (const uint8_t *)"12345678901234567890",
 						0, 33, 0);
 		count = resp.encode(vec, 8);
-		if (count >= 0)
+		if (count > 0)
 		{
-			if (writev(accept_fd, vec, count) >= 0)
+			ssize_t total = 0;
+			for (int i = 0; i < count; i++)
+				total += vec[i].iov_len;
+			ssize_t n = writev(accept_fd, vec, count);
+			if (n >= 0 && n == total)
 				return conn;
 		}
 

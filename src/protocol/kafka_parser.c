@@ -27,6 +27,10 @@
 #include <openssl/evp.h>
 #include "kafka_parser.h"
 
+/* Maximum allowed message size to prevent unbounded malloc from network data.
+ * 256 MiB is a practical upper bound for Kafka messages. */
+#define KAFKA_MESSAGE_SIZE_MAX	((size_t)256 * 1024 * 1024)
+
 static kafka_api_version_t kafka_api_version_queryable[] = {
 	{ Kafka_ApiVersions, 0, 0 }
 };
@@ -603,6 +607,11 @@ int kafka_parser_append_message(const void *buf, size_t *size,
 		parser->hsize = 4;
 		memcpy(&totaln, parser->headbuf, 4);
 		parser->message_size = ntohl(totaln);
+		if (parser->message_size > KAFKA_MESSAGE_SIZE_MAX)
+		{
+			errno = ENOMEM;
+			return -1;
+		}
 		parser->msgbuf = malloc(parser->message_size);
 		if (!parser->msgbuf)
 			return -1;
@@ -853,7 +862,7 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 	unsigned char *saltplus;
 	int i, j;
 
-	saltplus = (unsigned char *)alloca(salt->iov_len + 4);
+	saltplus = (unsigned char *)malloc(salt->iov_len + 4);
 	if (!saltplus)
 		return -1;
 
@@ -866,6 +875,7 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 	if (!HMAC(evp, (const unsigned char *)in->iov_base, (int)in->iov_len,
 			  saltplus, salt->iov_len + 4, tempres, &ressize))
 	{
+		free(saltplus);
 		return -1;
 	}
 
@@ -876,6 +886,7 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 		if (!HMAC(evp, (const unsigned char *)in->iov_base, (int)in->iov_len,
 				  tempres, ressize, tempdest, NULL))
 		{
+			free(saltplus);
 			return -1;
 		}
 
@@ -886,6 +897,7 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 		}
 	}
 
+	free(saltplus);
 	out->iov_len = ressize;
 	return 0;
 }
@@ -975,7 +987,7 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 
 	auth_message_iov.iov_len = scram->first_msg.iov_len + 1 +
 		server_first_msg->iov_len + 1 + client_final_msg_wo_proof_iov.iov_len;
-	auth_message_iov.iov_base = alloca(auth_message_iov.iov_len + 1);
+	auth_message_iov.iov_base = malloc(auth_message_iov.iov_len + 1);
 	if (auth_message_iov.iov_base)
 	{
 		snprintf((char *)auth_message_iov.iov_base, auth_message_iov.iov_len + 1,
@@ -1020,6 +1032,7 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 				}
 			}
 		}
+		free(auth_message_iov.iov_base);
 	}
 
 	free(client_proof_b64);

@@ -31,6 +31,30 @@
 
 using namespace protocol;
 
+static std::string url_encode_component(const std::string& s)
+{
+	std::string result;
+	result.reserve(s.size());
+
+	for (char c : s)
+	{
+		if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9') || c == '-' || c == '_' ||
+			c == '.' || c == '~')
+		{
+			result += c;
+		}
+		else
+		{
+			char hex[4];
+			snprintf(hex, sizeof(hex), "%%%02X", (unsigned char)c);
+			result += hex;
+		}
+	}
+
+	return result;
+}
+
 WFConsulTask::WFConsulTask(const std::string& proxy_url,
 						   const std::string& service_namespace,
 						   const std::string& service_name,
@@ -155,18 +179,15 @@ void WFConsulTask::dispatch()
 		if (task)
 			break;
 
-		if (1)
-		{
-			this->state = WFT_STATE_SYS_ERROR;
-			this->error = errno;
-		}
-		else
-		{
-	default:
-			this->state = WFT_STATE_TASK_ERROR;
-			this->error = WFT_ERR_CONSUL_API_UNKNOWN;
-		}
+		this->state = WFT_STATE_SYS_ERROR;
+		this->error = errno;
+		this->finish = true;
+		this->subtask_done();
+		return;
 
+	default:
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_CONSUL_API_UNKNOWN;
 		this->finish = true;
 		this->subtask_done();
 		return;
@@ -212,13 +233,13 @@ std::string WFConsulTask::generate_discover_request()
 {
 	std::string url = this->proxy_url;
 
-	url += "/v1/health/service/" + this->service.service_name;
-	url += "?dc=" + this->config.get_datacenter();
-	url += "&ns=" + this->service.service_namespace;
+	url += "/v1/health/service/" + url_encode_component(this->service.service_name);
+	url += "?dc=" + url_encode_component(this->config.get_datacenter());
+	url += "&ns=" + url_encode_component(this->service.service_namespace);
 	std::string passing = this->config.get_passing() ? "true" : "false";
 	url += "&passing=" + passing;
-	url += "&token=" + this->config.get_token();
-	url += "&filter=" + this->config.get_filter_expr();
+	url += "&token=" + url_encode_component(this->config.get_token());
+	url += "&filter=" + url_encode_component(this->config.get_filter_expr());
 
 	//consul blocking query
 	if (this->config.blocking_query())
@@ -246,9 +267,9 @@ WFHttpTask *WFConsulTask::create_list_service_task()
 {
 	std::string url = this->proxy_url;
 
-	url += "/v1/catalog/services?token=" + this->config.get_token();
-	url += "&dc=" + this->config.get_datacenter();
-	url += "&ns=" + this->service.service_namespace;
+	url += "/v1/catalog/services?token=" + url_encode_component(this->config.get_token());
+	url += "&dc=" + url_encode_component(this->config.get_datacenter());
+	url += "&ns=" + url_encode_component(this->service.service_namespace);
 	
 	WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, this->retry_max,
 													   list_service_callback);
@@ -306,8 +327,8 @@ WFHttpTask *WFConsulTask::create_deregister_task()
 {
 	std::string url = this->proxy_url;
 
-	url += "/v1/agent/service/deregister/" + this->service.service_id;
-	url += "?ns=" + this->service.service_namespace;
+	url += "/v1/agent/service/deregister/" + url_encode_component(this->service.service_id);
+	url += "?ns=" + url_encode_component(this->service.service_namespace);
 
 	WFHttpTask *task = WFTaskFactory::create_http_task(url, 0, this->retry_max,
 													   register_callback);

@@ -85,7 +85,7 @@ void SeriesWork::expand_queue()
 
 void SeriesWork::push_front(SubTask *task)
 {
-	this->mutex.lock();
+	std::lock_guard<std::mutex> lock(this->mutex);
 	if (--this->front == -1)
 		this->front = this->queue_size - 1;
 
@@ -93,13 +93,11 @@ void SeriesWork::push_front(SubTask *task)
 	this->queue[this->front] = task;
 	if (this->front == this->back)
 		this->expand_queue();
-
-	this->mutex.unlock();
 }
 
 void SeriesWork::push_back(SubTask *task)
 {
-	this->mutex.lock();
+	std::lock_guard<std::mutex> lock(this->mutex);
 	task->set_pointer(this);
 	this->queue[this->back] = task;
 	if (++this->back == this->queue_size)
@@ -107,8 +105,6 @@ void SeriesWork::push_back(SubTask *task)
 
 	if (this->front == this->back)
 		this->expand_queue();
-
-	this->mutex.unlock();
 }
 
 SubTask *SeriesWork::pop()

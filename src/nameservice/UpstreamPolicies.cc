@@ -406,11 +406,17 @@ EndpointAddress *UPSGroupPolicy::consistent_hash_with_group(unsigned int hash,
 	if (it == this->addr_hash.end())
 		it = this->addr_hash.begin();
 
+	size_t addr_hash_size = this->addr_hash.size();
+	size_t iterations = 0;
+
 	while (!this->is_alive(it->second))
 	{
 		it++;
 		if (it == this->addr_hash.end())
 			it = this->addr_hash.begin();
+
+		if (++iterations >= addr_hash_size)
+			return NULL;
 	}
 
 	return this->check_and_get(it->second, false, tracing);
@@ -612,9 +618,9 @@ void UPSWeightedRandomPolicy::fuse_one_server(const EndpointAddress *addr)
 EndpointAddress *UPSVNSWRRPolicy::first_strategy(const ParsedURI& uri,
 												 WFNSTracing *tracing)
 {
-	int idx = this->cur_idx.fetch_add(1);
-	int pos = 0;
-	for (int i = 0; i < this->total_weight; i++, idx++)
+	size_t idx = this->cur_idx.fetch_add(1);
+	size_t pos = 0;
+	for (size_t i = 0; i < (size_t)this->total_weight; i++, idx++)
 	{
 		pos = this->pre_generated_vec[idx % this->pre_generated_vec.size()];
 		if (WFServiceGovernance::in_select_history(tracing, this->servers[pos]))

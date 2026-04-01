@@ -17,6 +17,7 @@
 */
 
 #include "list.h"
+#include <mutex>
 #include "WFTask.h"
 #include "WFMessageQueue.h"
 
@@ -75,7 +76,7 @@ void WFMessageQueue::post(void *msg)
 	struct WFMessageQueue::Data *data = &this->data;
 	WFConditional *cond;
 
-	data->mutex.lock();
+	std::lock_guard<std::mutex> lock(data->mutex);
 	if (!list_empty(&data->wait_list))
 	{
 		cond = list_entry(data->wait_list.next, __MQConditional, list);
@@ -87,8 +88,28 @@ void WFMessageQueue::post(void *msg)
 		this->push(msg);
 	}
 
-	data->mutex.unlock();
 	if (cond)
 		cond->WFConditional::signal(msg);
+}
+
+WFMessageQueue::~WFMessageQueue()
+{
+	struct list_head *pos, *tmp;
+	struct MessageEntry *entry;
+	__MQConditional *cond;
+
+	list_for_each_safe(pos, tmp, &this->data.msg_list)
+	{
+		entry = list_entry(pos, struct MessageEntry, list);
+		list_del(pos);
+		delete entry;
+	}
+
+	list_for_each_safe(pos, tmp, &this->data.wait_list)
+	{
+		cond = list_entry(pos, __MQConditional, list);
+		list_del(pos);
+		delete cond;
+	}
 }
 

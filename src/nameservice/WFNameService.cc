@@ -31,6 +31,10 @@ struct WFNSPolicyEntry
 	char name[1];
 };
 
+/* Ownership: On success (return 0), 'policy' ownership is transferred to
+   WFNameService. On failure (return -1), the caller retains ownership of
+   'policy' and is responsible for freeing it. Duplicate name returns -1
+   with errno = EEXIST. */
 int WFNameService::add_policy(const char *name, WFNSPolicy *policy)
 {
 	struct rb_node **p = &this->root.rb_node;

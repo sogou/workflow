@@ -81,7 +81,7 @@ public:
 		this->data.queue = this;
 	}
 
-	virtual ~WFMessageQueue() { }
+	virtual ~WFMessageQueue();
 };
 
 #endif

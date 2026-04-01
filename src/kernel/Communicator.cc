@@ -180,6 +180,7 @@ static void __release_conn(struct CommConnEntry *entry)
 
 	if (entry->ssl)
 	{
+		SSL_shutdown(entry->ssl);
 		free(SSL_get_app_data(entry->ssl));
 		SSL_free(entry->ssl);
 	}
@@ -934,7 +935,8 @@ void Communicator::handle_write_result(struct poller_result *res)
 {
 	struct CommConnEntry *entry = (struct CommConnEntry *)res->data.context;
 
-	free(entry->write_iov);
+	if (entry->write_iov)
+		free(entry->write_iov);
 	if (entry->service)
 		this->handle_reply_result(res);
 	else
@@ -962,6 +964,7 @@ struct CommConnEntry *Communicator::accept_conn(CommServiceTarget *target,
 				entry->target = target;
 				entry->ssl = NULL;
 				entry->sockfd = target->sockfd;
+				entry->write_iov = NULL;
 				entry->state = CONN_STATE_CONNECTED;
 				entry->ref = 1;
 				return entry;
@@ -1407,6 +1410,12 @@ poller_message_t *Communicator::create_request(void *context)
 		in->entry = entry;
 		session->in = in;
 	}
+	else
+	{
+		entry->session = NULL;
+		((CommServiceTarget *)target)->decref();
+		delete session;
+	}
 
 	return in;
 }
@@ -1711,6 +1720,7 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 					entry->target = target;
 					entry->session = session;
 					entry->ssl = NULL;
+					entry->write_iov = NULL;
 					entry->sockfd = sockfd;
 					entry->state = CONN_STATE_CONNECTING;
 					entry->ref = 1;

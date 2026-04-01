@@ -151,7 +151,8 @@ protected:
 								 bool check_crcs, int msg_vers,
 								 struct list_head *record_list,
 								 KafkaBuffer *uncompressed,
-								 KafkaToppar *toppar);
+								 KafkaToppar *toppar,
+								 int depth = 0);
 
 	static int parse_message_record(void **buf, size_t *size,
 									kafka_record_t *kafka_record);

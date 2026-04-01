@@ -53,7 +53,8 @@ protected:
 
 	virtual void push(void *res)
 	{
-		this->data.res[--this->data.index] = res;
+		if (this->data.index > 0)
+			this->data.res[--this->data.index] = res;
 	}
 
 protected:
@@ -65,7 +66,7 @@ private:
 public:
 	WFResourcePool(void *const *res, size_t n);
 	WFResourcePool(size_t n);
-	virtual ~WFResourcePool() { delete []this->data.res; }
+	virtual ~WFResourcePool();
 };
 
 #endif

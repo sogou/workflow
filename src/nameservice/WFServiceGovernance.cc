@@ -150,6 +150,10 @@ void WFSGResolverTask::dispatch()
 		if (!tracing_data)
 		{
 			tracing_data = new WFServiceGovernance::TracingData;
+			/* Lifetime note: tracing_data->sg holds a raw pointer to the
+			   WFServiceGovernance object. The governance object must outlive
+			   all in-flight tasks that use this tracing_data, otherwise
+			   tracing_deleter will access a dangling pointer. */
 			tracing_data->sg = sg_;
 			tracing->data = tracing_data;
 			tracing->deleter = WFServiceGovernance::tracing_deleter;
@@ -260,12 +264,10 @@ void WFServiceGovernance::success(RouteManager::RouteResult *result,
 	EndpointAddress *server = (*v)[v->size() - 1];
 
 	server->fail_count = 0;
+	pthread_rwlock_wrlock(&this->rwlock);
 	if (server->entry.list.next)
-	{
-		pthread_rwlock_wrlock(&this->rwlock);
 		this->recover_server_from_breaker(server);
-		pthread_rwlock_unlock(&this->rwlock);
-	}
+	pthread_rwlock_unlock(&this->rwlock);
 
 	this->WFNSPolicy::success(result, tracing, target);
 }
@@ -311,12 +313,12 @@ void WFServiceGovernance::check_breaker_locked(int64_t cur_time)
 
 void WFServiceGovernance::check_breaker()
 {
+	pthread_mutex_lock(&this->breaker_lock);
 	if (!list_empty(&this->breaker_list))
 	{
-		pthread_mutex_lock(&this->breaker_lock);
 		this->check_breaker_locked(GET_CURRENT_SECOND);
-		pthread_mutex_unlock(&this->breaker_lock);
 	}
+	pthread_mutex_unlock(&this->breaker_lock);
 }
 
 void WFServiceGovernance::try_clear_breaker()

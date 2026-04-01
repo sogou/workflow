@@ -299,9 +299,10 @@ WFTimerTask *__NamedTimerMap::create(const std::string& name,
 {
 	auto *task = new __WFNamedTimerTask(seconds, nanoseconds, scheduler,
 										std::move(cb));
-	mutex_.lock();
-	task->push_to(__get_object_list<TimerList>(name, &root_, true));
-	mutex_.unlock();
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		task->push_to(__get_object_list<TimerList>(name, &root_, true));
+	}
 	return task;
 }
 
@@ -385,9 +386,10 @@ public:
 	{
 		bool erased;
 
-		mutex_.lock();
-		erased = counters->del(node, &root_);
-		mutex_.unlock();
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			erased = counters->del(node, &root_);
+		}
 		if (erased)
 			delete counters;
 	}
@@ -445,9 +447,10 @@ WFCounterTask *__NamedCounterMap::create(const std::string& name,
 		return new WFCounterTask(0, std::move(cb));
 
 	auto *task = new __WFNamedCounterTask(target_value, std::move(cb));
-	mutex_.lock();
-	task->push_to(__get_object_list<CounterList>(name, &root_, true));
-	mutex_.unlock();
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		task->push_to(__get_object_list<CounterList>(name, &root_, true));
+	}
 	return task;
 }
 
@@ -568,9 +571,10 @@ public:
 	{
 		bool erased;
 
-		mutex_.lock();
-		erased = mailboxes->del(node, &root_);
-		mutex_.unlock();
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			erased = mailboxes->del(node, &root_);
+		}
 		if (erased)
 			delete mailboxes;
 	}
@@ -766,9 +770,10 @@ public:
 	{
 		bool erased;
 
-		mutex_.lock();
-		erased = conds->del(node, &root_);
-		mutex_.unlock();
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			erased = conds->del(node, &root_);
+		}
 		if (erased)
 			delete conds;
 	}
@@ -827,9 +832,10 @@ WFConditional *__NamedConditionalMap::create(const std::string& name,
 											 SubTask *task, void **msgbuf)
 {
 	auto *cond = new __WFNamedConditional(task, msgbuf);
-	mutex_.lock();
-	cond->push_to(__get_object_list<ConditionalList>(name, &root_, true));
-	mutex_.unlock();
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		cond->push_to(__get_object_list<ConditionalList>(name, &root_, true));
+	}
 	return cond;
 }
 
@@ -837,9 +843,10 @@ WFConditional *__NamedConditionalMap::create(const std::string& name,
 											 SubTask *task)
 {
 	auto *cond = new __WFNamedConditional(task);
-	mutex_.lock();
-	cond->push_to(__get_object_list<ConditionalList>(name, &root_, true));
-	mutex_.unlock();
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		cond->push_to(__get_object_list<ConditionalList>(name, &root_, true));
+	}
 	return cond;
 }
 
@@ -1039,10 +1046,11 @@ WFConditional *__NamedGuardMap::create(const std::string& name,
 									   SubTask *task)
 {
 	auto *guard = new __WFNamedGuard(task);
-	mutex_.lock();
-	guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
-	guard->guards_->refcnt++;
-	mutex_.unlock();
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
+		guard->guards_->refcnt++;
+	}
 	return guard;
 }
 
@@ -1050,10 +1058,11 @@ WFConditional *__NamedGuardMap::create(const std::string& name,
 									   SubTask *task, void **msgbuf)
 {
 	auto *guard = new __WFNamedGuard(task, msgbuf);
-	mutex_.lock();
-	guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
-	guard->guards_->refcnt++;
-	mutex_.unlock();
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
+		guard->guards_->refcnt++;
+	}
 	return guard;
 }
 

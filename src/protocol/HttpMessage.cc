@@ -35,6 +35,9 @@ struct HttpMessageBlock
 
 bool HttpMessage::append_output_body(const void *buf, size_t size)
 {
+	if (size > (size_t)-1 - sizeof (struct HttpMessageBlock))
+		return false;
+
 	size_t n = sizeof (struct HttpMessageBlock) + size;
 	struct HttpMessageBlock *block = (struct HttpMessageBlock *)malloc(n);
 

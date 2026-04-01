@@ -612,7 +612,7 @@ static int snappy_decompress(void *buf, size_t n, KafkaBlock *block)
 	};
 	static const size_t snappy_java_hdrlen = 8 + 4 + 4;
 
-	if (!memcmp(buf, snappy_java_magic, 8))
+	if (inlen >= snappy_java_hdrlen && !memcmp(buf, snappy_java_magic, 8))
 	{
 		inbuf = inbuf + snappy_java_hdrlen;
 		inlen -= snappy_java_hdrlen;
@@ -1155,8 +1155,14 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 									bool check_crcs, int msg_vers,
 									struct list_head *record_list,
 									KafkaBuffer *uncompressed,
-									KafkaToppar *toppar)
+									KafkaToppar *toppar, int depth)
 {
+	if (depth > 16)
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
 	int64_t offset;
 	int32_t message_size;
 	int32_t crc;
@@ -1236,7 +1242,8 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 			void *uncompressed_ptr = block.get_block();
 			size_t uncompressed_len = block.get_len();
 			parse_message_set(&uncompressed_ptr, &uncompressed_len, check_crcs,
-							msg_vers, record_list, uncompressed, toppar);
+							msg_vers, record_list, uncompressed, toppar,
+							depth + 1);
 
 			uncompressed->add_item(std::move(block));
 
@@ -1264,7 +1271,8 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 	if (*size > 0)
 	{
 		return parse_message_set(buf, size, check_crcs, msg_vers,
-								 record_list, uncompressed, toppar);
+								 record_list, uncompressed, toppar,
+								 depth + 1);
 	}
 
 	return 0;
@@ -1444,6 +1452,9 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 	if (parse_i32(buf, size, &hdr.record_count) < 0)
 		return -1;
 
+	if (hdr.length < 61)
+		return -1;
+
 	if (*size < (size_t)(hdr.length - 61 + 12))
 		return 1;
 
@@ -1468,7 +1479,7 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 		n = block.get_len();
 	}
 
-	for (int i = 0; i < hdr.record_count; ++i)
+	for (int i = 0; i < hdr.record_count && i < 1000000; ++i)
 	{
 		KafkaRecord *record = new KafkaRecord;
 		record->set_offset(hdr.base_offset);
@@ -1548,7 +1559,7 @@ int KafkaMessage::parse_records(void **buf, size_t *size, bool check_crcs,
 
 		if (ret > 0)
 		{
-			*size -= msg_set_size;
+			*size -= msg_size;
 			*buf = (char *)*buf + msg_size;
 			return 0;
 		}
@@ -3156,8 +3167,8 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	{
 		int16_t error;
 		int32_t sessionid;
-		parse_i16(buf, size, &error);
-		parse_i32(buf, size, &sessionid);
+		CHECK_RET(parse_i16(buf, size, &error));
+		CHECK_RET(parse_i32(buf, size, &sessionid));
 	}
 
 	int32_t topic_cnt;

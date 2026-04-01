@@ -93,6 +93,21 @@ WFResourcePool::WFResourcePool(size_t n)
 	memset(this->data.res, 0, n * sizeof (void *));
 }
 
+WFResourcePool::~WFResourcePool()
+{
+	struct list_head *pos, *tmp;
+	__RPConditional *cond;
+
+	list_for_each_safe(pos, tmp, &this->data.wait_list)
+	{
+		cond = list_entry(pos, __RPConditional, list);
+		list_del(pos);
+		delete cond;
+	}
+
+	delete []this->data.res;
+}
+
 void WFResourcePool::post(void *res)
 {
 	struct WFResourcePool::Data *data = &this->data;

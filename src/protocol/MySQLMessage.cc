@@ -149,15 +149,14 @@ int MySQLMessage::encode(struct iovec vectors[], int max)
 		head = heads_[seqid];
 		int3store(head, length);
 		head[3] = seqid++;
+		if (i + 2 > max)//overflow
+			break;
 		vectors[i].iov_base = head;
 		vectors[i].iov_len = 4;
 		i++;
 		vectors[i].iov_base = const_cast<unsigned char *>(p);
 		vectors[i].iov_len = length;
 		i++;
-
-		if (i > max)//overflow
-			break;
 
 		if (nleft < MYSQL_PAYLOAD_MAX)
 			return i;

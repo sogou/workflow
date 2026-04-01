@@ -43,13 +43,23 @@ static int __mysql_stream_write_head(const void *buf, size_t *n,
 							  stream->head[0];
 	stream->payload_left = stream->payload_length;
 	stream->sequence_id = stream->head[3];
+	if (stream->length + stream->payload_left < stream->length)
+		return -1;
+
 	if (stream->bufsize < stream->length + stream->payload_left)
 	{
 		size_t new_size = MAX(2048, 2 * stream->bufsize);
 		void *new_base;
 
+		if (new_size / 2 != stream->bufsize && stream->bufsize > 0)
+			return -1;
+
 		while (new_size < stream->length + stream->payload_left)
+		{
+			if (new_size > (size_t)-1 / 2)
+				return -1;
 			new_size *= 2;
+		}
 
 		new_base = realloc(stream->buf, new_size);
 		if (!new_base)

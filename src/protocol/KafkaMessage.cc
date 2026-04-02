@@ -612,7 +612,7 @@ static int snappy_decompress(void *buf, size_t n, KafkaBlock *block)
 	};
 	static const size_t snappy_java_hdrlen = 8 + 4 + 4;
 
-	if (!memcmp(buf, snappy_java_magic, 8))
+	if (inlen >= snappy_java_hdrlen && !memcmp(buf, snappy_java_magic, 8))
 	{
 		inbuf = inbuf + snappy_java_hdrlen;
 		inlen -= snappy_java_hdrlen;
@@ -1444,7 +1444,14 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 	if (parse_i32(buf, size, &hdr.record_count) < 0)
 		return -1;
 
-	if (*size < (size_t)(hdr.length - 61 + 12))
+	if (hdr.length < 49)
+	{
+		errno = EBADMSG;
+		return -1;
+	}
+
+	size_t record_body_size = (size_t)(hdr.length - 49);
+	if (*size < record_body_size)
 		return 1;
 
 	KafkaBlock block;
@@ -1452,11 +1459,11 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 
 	if (compress_type != 0)
 	{
-		if (uncompress_buf(*buf, hdr.length - 61 + 12, &block, compress_type) < 0)
+		if (uncompress_buf(*buf, record_body_size, &block, compress_type) < 0)
 			return -1;
 
-		*buf = (char *)*buf + hdr.length - 61 + 12;
-		*size -= hdr.length - 61 + 12;
+		*buf = (char *)*buf + record_body_size;
+		*size -= record_body_size;
 	}
 
 	void *p = *buf;
@@ -3156,8 +3163,8 @@ int KafkaResponse::parse_fetch(void **buf, size_t *size)
 	{
 		int16_t error;
 		int32_t sessionid;
-		parse_i16(buf, size, &error);
-		parse_i32(buf, size, &sessionid);
+		CHECK_RET(parse_i16(buf, size, &error));
+		CHECK_RET(parse_i32(buf, size, &sessionid));
 	}
 
 	int32_t topic_cnt;

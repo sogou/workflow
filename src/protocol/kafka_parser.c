@@ -851,9 +851,10 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 	unsigned char tempres[EVP_MAX_MD_SIZE];
 	unsigned char tempdest[EVP_MAX_MD_SIZE];
 	unsigned char *saltplus;
+	unsigned char *p;
 	int i, j;
 
-	saltplus = (unsigned char *)alloca(salt->iov_len + 4);
+	saltplus = (unsigned char *)malloc(salt->iov_len + 4);
 	if (!saltplus)
 		return -1;
 
@@ -863,11 +864,11 @@ static int scram_hi(const EVP_MD *evp, int itcnt, const struct iovec *in,
 	saltplus[salt->iov_len + 2] = '\0';
 	saltplus[salt->iov_len + 3] = '\1';
 
-	if (!HMAC(evp, (const unsigned char *)in->iov_base, (int)in->iov_len,
-			  saltplus, salt->iov_len + 4, tempres, &ressize))
-	{
+	p = HMAC(evp, (const unsigned char *)in->iov_base, (int)in->iov_len,
+			 saltplus, salt->iov_len + 4, tempres, &ressize);
+	free(saltplus);
+	if (!p)
 		return -1;
-	}
 
 	memcpy(out->iov_base, tempres, ressize);
 
@@ -903,7 +904,6 @@ static int scram_hmac(const EVP_MD *evp, const struct iovec *key,
 	}
 
 	out->iov_len = outsize;
-
 	return 0;
 }
 
@@ -915,20 +915,21 @@ static void scram_h(kafka_scram_t *scram, const struct iovec *str,
 	out->iov_len = scram->scram_h_size;
 }
 
-static void scram_build_client_final_message_wo_proof(
+static int scram_build_client_final_message_wo_proof(
 		kafka_scram_t *scram, const struct iovec *snonce, struct iovec *out)
 {
 	const char *attr_c = "biws";
 
 	out->iov_len = 9 + scram->cnonce.iov_len + snonce->iov_len;
 	out->iov_base = malloc(out->iov_len + 1);
-	if (out->iov_base)
-	{
-		snprintf((char *)out->iov_base, out->iov_len + 1, "c=%s,r=%.*s%.*s",
-				 attr_c, (int)scram->cnonce.iov_len,
-				 (char *)scram->cnonce.iov_base, (int)snonce->iov_len,
-				 (char *)snonce->iov_base);
-	}
+	if (!out->iov_base)
+		return -1;
+
+	snprintf((char *)out->iov_base, out->iov_len + 1, "c=%s,r=%.*s%.*s",
+			 attr_c, (int)scram->cnonce.iov_len,
+			 (char *)scram->cnonce.iov_base, (int)snonce->iov_len,
+			 (char *)snonce->iov_base);
+	return 0;
 }
 
 static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
@@ -957,7 +958,8 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 	struct iovec client_proof_iov = {client_proof, EVP_MAX_MD_SIZE};
 	struct iovec client_final_msg_wo_proof_iov;
 	struct iovec auth_message_iov;
-	char *server_sign_b64, *client_proof_b64 = NULL;
+	char *server_sign_b64, *client_proof_b64;
+	int ret = -1;
 	int i;
 
 	if (scram_hi((const EVP_MD *)scram->evp, itcnt, &password_iov, salt,
@@ -970,61 +972,72 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 
 	scram_h(scram, &client_key_iov, &stored_key_iov);
 
-	scram_build_client_final_message_wo_proof(scram, server_nonce,
-											  &client_final_msg_wo_proof_iov);
+	if (scram_build_client_final_message_wo_proof(scram, server_nonce,
+									&client_final_msg_wo_proof_iov) == -1)
+		return -1;
 
 	auth_message_iov.iov_len = scram->first_msg.iov_len + 1 +
 		server_first_msg->iov_len + 1 + client_final_msg_wo_proof_iov.iov_len;
-	auth_message_iov.iov_base = alloca(auth_message_iov.iov_len + 1);
-	if (auth_message_iov.iov_base)
+	auth_message_iov.iov_base = malloc(auth_message_iov.iov_len + 1);
+	if (!auth_message_iov.iov_base)
 	{
-		snprintf((char *)auth_message_iov.iov_base, auth_message_iov.iov_len + 1,
-				 "%.*s,%.*s,%.*s",
-				 (int)scram->first_msg.iov_len,
-				 (char *)scram->first_msg.iov_base,
-				 (int)server_first_msg->iov_len,
-				 (char *)server_first_msg->iov_base,
-				 (int)client_final_msg_wo_proof_iov.iov_len,
-				 (char *)client_final_msg_wo_proof_iov.iov_base);
+		free(client_final_msg_wo_proof_iov.iov_base);
+		return -1;
+	}
 
-		if (scram_hmac((const EVP_MD *)scram->evp, &salted_pwd_iov,
-					   &server_key_verbatim_iov, &server_key_iov) == 0 &&
-			scram_hmac((const EVP_MD *)scram->evp, &server_key_iov,
-					   &auth_message_iov, &server_sign_iov) == 0)
+	snprintf((char *)auth_message_iov.iov_base, auth_message_iov.iov_len + 1,
+			 "%.*s,%.*s,%.*s",
+			 (int)scram->first_msg.iov_len,
+			 (char *)scram->first_msg.iov_base,
+			 (int)server_first_msg->iov_len,
+			 (char *)server_first_msg->iov_base,
+			 (int)client_final_msg_wo_proof_iov.iov_len,
+			 (char *)client_final_msg_wo_proof_iov.iov_base);
+
+	if (scram_hmac((const EVP_MD *)scram->evp, &salted_pwd_iov,
+				   &server_key_verbatim_iov, &server_key_iov) == 0 &&
+		scram_hmac((const EVP_MD *)scram->evp, &server_key_iov,
+				   &auth_message_iov, &server_sign_iov) == 0)
+	{
+		server_sign_b64 = scram_base64_encode(&server_sign_iov);
+		if (server_sign_b64 &&
+			scram_hmac((const EVP_MD *)scram->evp, &stored_key_iov,
+					   &auth_message_iov, &client_sign_iov) == 0 &&
+			client_key_iov.iov_len == client_sign_iov.iov_len)
 		{
-			server_sign_b64 = scram_base64_encode(&server_sign_iov);
-			if (server_sign_b64 &&
-				scram_hmac((const EVP_MD *)scram->evp, &stored_key_iov,
-						   &auth_message_iov, &client_sign_iov) ==0 &&
-				client_key_iov.iov_len == client_sign_iov.iov_len)
+			scram->server_signature_b64.iov_base = server_sign_b64;
+			scram->server_signature_b64.iov_len = strlen(server_sign_b64);
+			for (i = 0; i < (int)client_key_iov.iov_len; i++)
 			{
-				scram->server_signature_b64.iov_base = server_sign_b64;
-				scram->server_signature_b64.iov_len = strlen(server_sign_b64);
-				for (i = 0 ; i < (int)client_key_iov.iov_len; i++)
-					((char *)(client_proof_iov.iov_base))[i] =
-						((char *)(client_key_iov.iov_base))[i] ^
-						((char *)(client_sign_iov.iov_base))[i];
-				client_proof_iov.iov_len = client_key_iov.iov_len;
+				((char *)(client_proof_iov.iov_base))[i] =
+					((char *)(client_key_iov.iov_base))[i] ^
+					((char *)(client_sign_iov.iov_base))[i];
+			}
 
-				client_proof_b64 = scram_base64_encode(&client_proof_iov);
-				if (client_proof_b64)
+			client_proof_iov.iov_len = client_key_iov.iov_len;
+			client_proof_b64 = scram_base64_encode(&client_proof_iov);
+			if (client_proof_b64)
+			{
+				out->iov_len = client_final_msg_wo_proof_iov.iov_len + 3 +
+							   strlen(client_proof_b64);
+				out->iov_base = malloc(out->iov_len + 1);
+				if (out->iov_base)
 				{
-					out->iov_len = client_final_msg_wo_proof_iov.iov_len + 3 +
-						strlen(client_proof_b64);
-					out->iov_base = malloc(out->iov_len + 1);
-
 					snprintf((char *)out->iov_base, out->iov_len + 1, "%.*s,p=%s",
 							 (int)client_final_msg_wo_proof_iov.iov_len,
 							 (char *)client_final_msg_wo_proof_iov.iov_base,
 							 client_proof_b64);
+					ret = 0;
 				}
+
+				free(client_proof_b64);
 			}
 		}
 	}
 
-	free(client_proof_b64);
+	free(auth_message_iov.iov_base);
 	free(client_final_msg_wo_proof_iov.iov_base);
-	return 0;
+	return ret;
 }
 
 static int scram_handle_server_first_message(const char *buf, size_t len,

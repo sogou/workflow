@@ -958,7 +958,7 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 	struct iovec client_proof_iov = {client_proof, EVP_MAX_MD_SIZE};
 	struct iovec client_final_msg_wo_proof_iov;
 	struct iovec auth_message_iov;
-	char *server_sign_b64, *client_proof_b64 = NULL;
+	char *server_sign_b64, *client_proof_b64;
 	int ret = -1;
 	int i;
 
@@ -1019,7 +1019,7 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 			if (client_proof_b64)
 			{
 				out->iov_len = client_final_msg_wo_proof_iov.iov_len + 3 +
-					strlen(client_proof_b64);
+							   strlen(client_proof_b64);
 				out->iov_base = malloc(out->iov_len + 1);
 				if (out->iov_base)
 				{
@@ -1029,11 +1029,12 @@ static int scram_build_client_final_message(kafka_scram_t *scram, int itcnt,
 							 client_proof_b64);
 					ret = 0;
 				}
+
+				free(client_proof_b64);
 			}
 		}
 	}
 
-	free(client_proof_b64);
 	free(auth_message_iov.iov_base);
 	free(client_final_msg_wo_proof_iov.iov_base);
 	return ret;

@@ -1647,10 +1647,6 @@ void poller_stop(poller_t *poller)
 	poller->stopped = 1;
 
 	pthread_mutex_lock(&poller->mutex);
-	close(poller->pipe_wr);
-	__poller_handle_pipe(poller);
-	close(poller->pipe_rd);
-
 	poller->tree_first = NULL;
 	poller->tree_last = NULL;
 	while (poller->timeo_tree.rb_node)
@@ -1672,6 +1668,10 @@ void poller_stop(poller_t *poller)
 	}
 
 	pthread_mutex_unlock(&poller->mutex);
+	close(poller->pipe_wr);
+	__poller_handle_pipe(poller);
+	close(poller->pipe_rd);
+
 	list_for_each_safe(pos, tmp, &node_list)
 	{
 		node = list_entry(pos, struct __poller_node, list);

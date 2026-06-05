@@ -321,8 +321,7 @@ static void __poller_tree_insert(struct __poller_node *node, poller_t *poller)
 	rb_insert_color(&node->rb, &poller->timeo_tree);
 }
 
-static inline void __poller_tree_erase(struct __poller_node *node,
-									   poller_t *poller)
+static void __poller_tree_erase(struct __poller_node *node, poller_t *poller)
 {
 	if (&node->rb == poller->tree_first)
 		poller->tree_first = rb_next(&node->rb);
@@ -332,6 +331,34 @@ static inline void __poller_tree_erase(struct __poller_node *node,
 
 	rb_erase(&node->rb, &poller->timeo_tree);
 	node->in_rbtree = 0;
+}
+
+static void __poller_insert_node(struct __poller_node *node, poller_t *poller)
+{
+	struct __poller_node *end;
+
+	end = list_entry(poller->timeo_list.prev, struct __poller_node, list);
+	if (list_empty(&poller->timeo_list))
+	{
+		list_add(&node->list, &poller->timeo_list);
+		end = rb_entry(poller->tree_first, struct __poller_node, rb);
+	}
+	else if (__timeout_cmp(node, end) >= 0)
+	{
+		list_add_tail(&node->list, &poller->timeo_list);
+		return;
+	}
+	else
+	{
+		__poller_tree_insert(node, poller);
+		if (&node->rb != poller->tree_first)
+			return;
+
+		end = list_entry(poller->timeo_list.next, struct __poller_node, list);
+	}
+
+	if (!poller->tree_first || __timeout_cmp(node, end) < 0)
+		__poller_set_timerfd(poller->timerfd, &node->timeout, poller);
 }
 
 static int __poller_remove_node(struct __poller_node *node, poller_t *poller)
@@ -967,10 +994,7 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 			break;
 
 		if (node->data.fd >= 0)
-		{
 			poller->nodes[node->data.fd] = NULL;
-			__poller_del_fd(node->data.fd, node->event, poller);
-		}
 		else
 			node->removed = 1;
 
@@ -984,10 +1008,7 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 			break;
 
 		if (node->data.fd >= 0)
-		{
 			poller->nodes[node->data.fd] = NULL;
-			__poller_del_fd(node->data.fd, node->event, poller);
-		}
 		else
 			node->removed = 1;
 
@@ -1004,6 +1025,8 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 		node = list_entry(pos, struct __poller_node, list);
 		if (node->data.fd >= 0)
 		{
+			__poller_del_fd(node->data.fd, node->event, poller);
+
 			node->error = ETIMEDOUT;
 			node->state = PR_ST_ERROR;
 		}
@@ -1256,35 +1279,6 @@ int poller_start(poller_t *poller)
 
 	pthread_mutex_unlock(&poller->mutex);
 	return -poller->stopped;
-}
-
-static void __poller_insert_node(struct __poller_node *node,
-								 poller_t *poller)
-{
-	struct __poller_node *end;
-
-	end = list_entry(poller->timeo_list.prev, struct __poller_node, list);
-	if (list_empty(&poller->timeo_list))
-	{
-		list_add(&node->list, &poller->timeo_list);
-		end = rb_entry(poller->tree_first, struct __poller_node, rb);
-	}
-	else if (__timeout_cmp(node, end) >= 0)
-	{
-		list_add_tail(&node->list, &poller->timeo_list);
-		return;
-	}
-	else
-	{
-		__poller_tree_insert(node, poller);
-		if (&node->rb != poller->tree_first)
-			return;
-
-		end = list_entry(poller->timeo_list.next, struct __poller_node, list);
-	}
-
-	if (!poller->tree_first || __timeout_cmp(node, end) < 0)
-		__poller_set_timerfd(poller->timerfd, &node->timeout, poller);
 }
 
 static void __poller_node_set_timeout(int timeout, struct __poller_node *node)
@@ -1653,10 +1647,6 @@ void poller_stop(poller_t *poller)
 	poller->stopped = 1;
 
 	pthread_mutex_lock(&poller->mutex);
-	close(poller->pipe_wr);
-	__poller_handle_pipe(poller);
-	close(poller->pipe_rd);
-
 	poller->tree_first = NULL;
 	poller->tree_last = NULL;
 	while (poller->timeo_tree.rb_node)
@@ -1672,18 +1662,22 @@ void poller_stop(poller_t *poller)
 	{
 		node = list_entry(pos, struct __poller_node, list);
 		if (node->data.fd >= 0)
-		{
 			poller->nodes[node->data.fd] = NULL;
-			__poller_del_fd(node->data.fd, node->event, poller);
-		}
 		else
 			node->removed = 1;
 	}
 
 	pthread_mutex_unlock(&poller->mutex);
+	close(poller->pipe_wr);
+	__poller_handle_pipe(poller);
+	close(poller->pipe_rd);
+
 	list_for_each_safe(pos, tmp, &node_list)
 	{
 		node = list_entry(pos, struct __poller_node, list);
+		if (node->data.fd >= 0)
+			__poller_del_fd(node->data.fd, node->event, poller);
+
 		node->error = 0;
 		node->state = PR_ST_STOPPED;
 		free(node->res);

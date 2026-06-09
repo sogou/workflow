@@ -343,7 +343,10 @@ static int __parse_header_name(const char *ptr, size_t len,
 	size_t min = MIN(HTTP_HEADER_NAME_MAX, len);
 	size_t i;
 
-	if (len >= 2 && ptr[0] == '\r' && ptr[1] == '\n')
+	if (len < 2)
+		return 0;
+
+	if (ptr[0] == '\r' && ptr[1] == '\n')
 	{
 		parser->header_offset += 2;
 		parser->header_state = HPS_HEADER_COMPLETE;

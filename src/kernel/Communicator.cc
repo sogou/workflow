@@ -871,6 +871,9 @@ void Communicator::handle_reply_result(struct poller_result *res)
 		if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 		{
 			__release_conn(entry);
+			pthread_mutex_lock(&target->mutex);
+			/* do nothing */
+			pthread_mutex_unlock(&target->mutex);
 			((CommServiceTarget *)target)->decref();
 		}
 

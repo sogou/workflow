@@ -55,7 +55,7 @@ struct CommConnEntry
 	int error;
 	int ref;
 	struct iovec *write_iov;
-	SSL *ssl;
+	poller_ssl_t *ssl;
 	CommSession *session;
 	CommTarget *target;
 	CommService *service;
@@ -100,32 +100,13 @@ static int __bind_sockaddr(int sockfd, const struct sockaddr *addr,
 	return 0;
 }
 
-static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
-{
-	BIO *bio = BIO_new_socket(entry->sockfd, BIO_NOCLOSE);
-
-	if (bio)
-	{
-		entry->ssl = SSL_new(ssl_ctx);
-		if (entry->ssl)
-		{
-			SSL_set_bio(entry->ssl, bio, bio);
-			return 0;
-		}
-
-		BIO_free(bio);
-	}
-
-	return -1;
-}
-
 #define SSL_WRITEV_BUFSIZE	2048
 
-static int __ssl_writev(SSL *ssl, struct iovec vectors[], int cnt)
+static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 {
 	if (vectors[0].iov_len < SSL_WRITEV_BUFSIZE && cnt > 1)
 	{
-		char *p = (char *)SSL_get_app_data(ssl);
+		char *p = (char *)SSL_get_app_data(poller_ssl_get_ssl(ssl));
 		size_t nleft = SSL_WRITEV_BUFSIZE;
 		size_t n;
 		int i;
@@ -136,7 +117,7 @@ static int __ssl_writev(SSL *ssl, struct iovec vectors[], int cnt)
 			if (!p)
 				return -1;
 
-			if (SSL_set_app_data(ssl, p) <= 0)
+			if (SSL_set_app_data(poller_ssl_get_ssl(ssl), p) <= 0)
 			{
 				free(p);
 				return -1;
@@ -169,7 +150,7 @@ static int __ssl_writev(SSL *ssl, struct iovec vectors[], int cnt)
 		vectors[0].iov_len = SSL_WRITEV_BUFSIZE - nleft;
 	}
 
-	return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
+	return poller_ssl_write(vectors[0].iov_base, vectors[0].iov_len, &cnt, ssl);
 }
 
 static void __release_conn(struct CommConnEntry *entry)
@@ -180,8 +161,8 @@ static void __release_conn(struct CommConnEntry *entry)
 
 	if (entry->ssl)
 	{
-		free(SSL_get_app_data(entry->ssl));
-		SSL_free(entry->ssl);
+		free(SSL_get_app_data(poller_ssl_get_ssl(entry->ssl)));
+		poller_ssl_destroy(entry->ssl);
 	}
 
 	close(entry->sockfd);
@@ -228,6 +209,7 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	struct CommConnEntry *entry = this->entry;
 	const struct sockaddr *addr = NULL;
 	socklen_t addrlen = 0;
+	int error;
 	int ret;
 
 	if (!entry->ssl)
@@ -241,14 +223,13 @@ int CommMessageIn::feedback(const void *buf, size_t size)
 	if (size == 0)
 		return 0;
 
-	ret = SSL_write(entry->ssl, buf, size);
+	ret = poller_ssl_write(buf, size, &error, entry->ssl);
 	if (ret <= 0)
 	{
-		ret = SSL_get_error(entry->ssl, ret);
-		if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_WRITE)
+		if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE)
 			errno = EAGAIN;
-		else if (ret != SSL_ERROR_SYSCALL)
-			errno = -ret;
+		else if (error != SSL_ERROR_SYSCALL)
+			errno = -error;
 
 		ret = -1;
 	}
@@ -989,49 +970,52 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	struct CommConnEntry *entry = (struct CommConnEntry *)res->data.context;
 	CommSession *session = entry->session;
 	CommTarget *target = entry->target;
+	int ret = -1;
 	int timeout;
 	int state;
-	int ret;
 
 	switch (res->state)
 	{
 	case PR_ST_FINISHED:
 		if (target->ssl_ctx && !entry->ssl)
 		{
-			if (__create_ssl(target->ssl_ctx, entry) >= 0 &&
-				target->init_ssl(entry->ssl) >= 0)
+			entry->ssl = poller_ssl_create(entry->sockfd, target->ssl_ctx);
+			if (entry->ssl)
 			{
-				ret = 0;
-				res->data.operation = PD_OP_SSL_CONNECT;
-				res->data.ssl = entry->ssl;
-				timeout = target->ssl_connect_timeout;
-			}
-			else
-				ret = -1;
-		}
-		else if ((session->out = session->message_out()) != NULL)
-		{
-			ret = this->send_message(entry);
-			if (ret == 0)
-			{
-				res->data.operation = PD_OP_READ;
-				res->data.create_message = Communicator::create_reply;
-				res->data.message = NULL;
-				timeout = session->first_timeout();
-				if (timeout == 0)
-					timeout = Communicator::first_timeout_recv(session);
-				else
+				if (target->init_ssl(poller_ssl_get_ssl(entry->ssl)) >= 0)
 				{
-					session->timeout = -1;
-					session->begin_time.tv_sec = -1;
-					session->begin_time.tv_nsec = 0;
+					ret = 0;
+					res->data.operation = PD_OP_SSL_CONNECT;
+					res->data.ssl = entry->ssl;
+					timeout = target->ssl_connect_timeout;
 				}
 			}
-			else if (ret > 0)
-				break;
 		}
 		else
-			ret = -1;
+		{
+			session->out = session->message_out();
+			if (session->out)
+			{
+				ret = this->send_message(entry);
+				if (ret == 0)
+				{
+					res->data.operation = PD_OP_READ;
+					res->data.create_message = Communicator::create_reply;
+					res->data.message = NULL;
+					timeout = session->first_timeout();
+					if (timeout == 0)
+						timeout = Communicator::first_timeout_recv(session);
+					else
+					{
+						session->timeout = -1;
+						session->begin_time.tv_sec = -1;
+						session->begin_time.tv_nsec = 0;
+					}
+				}
+				else if (ret > 0)
+					break;
+			}
+		}
 
 		if (ret >= 0)
 		{
@@ -1076,11 +1060,14 @@ void Communicator::handle_listen_result(struct poller_result *res)
 			entry->mpoller = this->mpoller;
 			if (service->ssl_ctx)
 			{
-				if (__create_ssl(service->ssl_ctx, entry) >= 0 &&
-					service->init_ssl(entry->ssl) >= 0)
+				entry->ssl = poller_ssl_create(entry->sockfd, service->ssl_ctx);
+				if (entry->ssl)
 				{
-					res->data.operation = PD_OP_SSL_ACCEPT;
-					timeout = service->ssl_accept_timeout;
+					if (service->init_ssl(poller_ssl_get_ssl(entry->ssl)) >= 0)
+					{
+						res->data.operation = PD_OP_SSL_ACCEPT;
+						timeout = service->ssl_accept_timeout;
+					}
 				}
 			}
 			else

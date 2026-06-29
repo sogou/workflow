@@ -25,6 +25,7 @@
 #include <openssl/ssl.h>
 
 typedef struct __poller poller_t;
+typedef struct __poller_ssl poller_ssl_t;
 typedef struct __poller_message poller_message_t;
 
 struct __poller_message
@@ -51,7 +52,7 @@ struct poller_data
 	short operation;
 	unsigned short iovcnt;
 	int fd;
-	SSL *ssl;
+	poller_ssl_t *ssl;
 	union
 	{
 		poller_message_t *(*create_message)(void *);
@@ -111,9 +112,19 @@ void poller_set_callback(void (*callback)(struct poller_result *, void *),
 void poller_stop(poller_t *poller);
 void poller_destroy(poller_t *poller);
 
+poller_ssl_t *poller_ssl_create(int fd, SSL_CTX *ctx);
+int poller_ssl_write(const void *buf, int num, int *error, poller_ssl_t *ssl);
+void poller_ssl_destroy(poller_ssl_t *ssl);
+
+
 #ifdef __cplusplus
 }
 #endif
+
+static inline SSL *poller_ssl_get_ssl(poller_ssl_t *ssl)
+{
+	return *(SSL **)ssl;
+}
 
 #endif
 

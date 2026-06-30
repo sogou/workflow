@@ -487,7 +487,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 			if (n < 0)
 				return errno == EAGAIN ? cnt : -1;
 		}
-		else if (vectors->iov_len > 0)
+		else if (vectors[0].iov_len > 0)
 		{
 			n = __ssl_writev(entry->ssl, vectors, cnt);
 			if (n <= 0)

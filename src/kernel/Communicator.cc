@@ -500,14 +500,16 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 		{
 			if ((size_t)n >= vectors[i].iov_len)
 				n -= vectors[i].iov_len;
-			else if (n > 0)
-			{
-				vectors[i].iov_base = (char *)vectors[i].iov_base + n;
-				vectors[i].iov_len -= n;
-				return cnt - i;
-			}
 			else
+			{
+				if (n > 0)
+				{
+					vectors[i].iov_base = (char *)vectors[i].iov_base + n;
+					vectors[i].iov_len -= n;
+				}
+
 				break;
+			}
 		}
 
 		vectors += i;

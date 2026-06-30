@@ -106,12 +106,12 @@ static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 {
 	size_t remain = 0;
 	int i = 1;
+	size_t n;
 
 	if (vectors[0].iov_len < SSL_WRITEV_BUFSIZE && cnt > 1)
 	{
 		char *p = (char *)SSL_get_app_data(poller_ssl_get_ssl(ssl));
 		size_t nleft = SSL_WRITEV_BUFSIZE;
-		size_t n;
 
 		if (!p)
 		{
@@ -127,14 +127,14 @@ static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 		}
 
 		n = vectors[0].iov_len;
-		memcpy(p, vectors[0].iov_base, n);
+		memmove(p, vectors[0].iov_base, n);
 		vectors[0].iov_base = p;
 
 		p += n;
 		nleft -= n;
 		for (; i < cnt; i++)
 		{
-			if (vectors[i].iov_len < nleft)
+			if (vectors[i].iov_len <= nleft)
 				n = vectors[i].iov_len;
 			else
 				n = nleft;
@@ -159,11 +159,11 @@ static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 			break;
 	}
 
-	cnt = vectors[0].iov_len;
+	n = vectors[0].iov_len;
 	if (remain > 0 && remain < SSL_WRITEV_BUFSIZE)
-		cnt -= SSL_WRITEV_BUFSIZE - remain;
+		n -= SSL_WRITEV_BUFSIZE - remain;
 
-	return poller_ssl_write(vectors[0].iov_base, cnt, &i, ssl);
+	return poller_ssl_write(vectors[0].iov_base, n, &i, ssl);
 }
 
 static void __release_conn(struct CommConnEntry *entry)

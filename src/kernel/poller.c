@@ -35,6 +35,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include "list.h"
 #include "rbtree.h"
 #include "poller.h"

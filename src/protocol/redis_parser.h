@@ -52,9 +52,9 @@ typedef struct __redis_parser
 	struct list_head read_list;
 	size_t msgidx;
 	size_t findidx;
+	size_t nchar;
 	int nleft;
-	int nchar;
-	char cmd;
+	char type;
 	redis_reply_t reply;
 } redis_parser_t;
 

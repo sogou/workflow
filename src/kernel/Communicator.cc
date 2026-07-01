@@ -104,7 +104,6 @@ static int __bind_sockaddr(int sockfd, const struct sockaddr *addr,
 
 static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 {
-	size_t remain = 0;
 	int i = 1;
 	size_t n;
 
@@ -152,18 +151,19 @@ static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 		vectors[0].iov_len = SSL_WRITEV_BUFSIZE - nleft;
 	}
 
+	n = 0;
 	for (; i < cnt; i++)
 	{
-		remain += vectors[i].iov_len;
-		if (remain >= SSL_WRITEV_BUFSIZE)
+		n += vectors[i].iov_len;
+		if (n >= SSL_WRITEV_BUFSIZE)
 			break;
 	}
 
-	n = vectors[0].iov_len;
-	if (remain > 0 && remain < SSL_WRITEV_BUFSIZE)
-		n -= SSL_WRITEV_BUFSIZE - remain;
+	cnt = vectors[0].iov_len;
+	if (n > 0 && n < SSL_WRITEV_BUFSIZE)
+		cnt -= SSL_WRITEV_BUFSIZE - n;
 
-	return poller_ssl_write(vectors[0].iov_base, n, &i, ssl);
+	return poller_ssl_write(vectors[0].iov_base, cnt, &i, ssl);
 }
 
 static void __release_conn(struct CommConnEntry *entry)

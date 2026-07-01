@@ -120,7 +120,7 @@ void poller_ssl_destroy(poller_ssl_t *ssl);
 }
 #endif
 
-static inline SSL *poller_ssl_get_ssl(poller_ssl_t *ssl)
+static inline SSL *poller_ssl_get_SSL(poller_ssl_t *ssl)
 {
 	return *(SSL **)ssl;
 }

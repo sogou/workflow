@@ -110,7 +110,7 @@ static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 
 	if (vectors[0].iov_len < SSL_WRITEV_BUFSIZE && cnt > 1)
 	{
-		char *p = (char *)SSL_get_app_data(poller_ssl_get_ssl(ssl));
+		char *p = (char *)SSL_get_app_data(poller_ssl_get_SSL(ssl));
 		size_t nleft = SSL_WRITEV_BUFSIZE;
 
 		if (!p)
@@ -119,7 +119,7 @@ static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 			if (!p)
 				return -1;
 
-			if (SSL_set_app_data(poller_ssl_get_ssl(ssl), p) <= 0)
+			if (SSL_set_app_data(poller_ssl_get_SSL(ssl), p) <= 0)
 			{
 				free(p);
 				return -1;
@@ -174,7 +174,7 @@ static void __release_conn(struct CommConnEntry *entry)
 
 	if (entry->ssl)
 	{
-		free(SSL_get_app_data(poller_ssl_get_ssl(entry->ssl)));
+		free(SSL_get_app_data(poller_ssl_get_SSL(entry->ssl)));
 		poller_ssl_destroy(entry->ssl);
 	}
 
@@ -997,7 +997,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 			entry->ssl = poller_ssl_create(entry->sockfd, target->ssl_ctx);
 			if (entry->ssl)
 			{
-				if (target->init_ssl(poller_ssl_get_ssl(entry->ssl)) >= 0)
+				if (target->init_ssl(poller_ssl_get_SSL(entry->ssl)) >= 0)
 				{
 					ret = 0;
 					res->data.operation = PD_OP_SSL_CONNECT;
@@ -1078,7 +1078,7 @@ void Communicator::handle_listen_result(struct poller_result *res)
 				entry->ssl = poller_ssl_create(entry->sockfd, service->ssl_ctx);
 				if (entry->ssl)
 				{
-					if (service->init_ssl(poller_ssl_get_ssl(entry->ssl)) >= 0)
+					if (service->init_ssl(poller_ssl_get_SSL(entry->ssl)) >= 0)
 					{
 						res->data.operation = PD_OP_SSL_ACCEPT;
 						timeout = service->ssl_accept_timeout;

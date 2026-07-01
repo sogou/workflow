@@ -33,7 +33,7 @@
 enum
 {
 	//REDIS_PARSE_INIT = 0,
-	REDIS_GET_CMD = 1,
+	REDIS_GET_TYPE = 1,
 	REDIS_GET_CR,
 	REDIS_GET_LF,
 	REDIS_UNTIL_CRLF,
@@ -108,7 +108,7 @@ int redis_reply_set_array(size_t size, redis_reply_t *reply)
 	return 0;
 }
 
-static int __redis_parse_cmd(const char ch, redis_parser_t *parser)
+static int __redis_parse_type(char ch, redis_parser_t *parser)
 {
 	switch (ch)
 	{
@@ -117,7 +117,7 @@ static int __redis_parse_cmd(const char ch, redis_parser_t *parser)
 	case ':':
 	case '$':
 	case '*':
-		parser->cmd = ch;
+		parser->type = ch;
 		parser->status = REDIS_UNTIL_CRLF;
 		parser->findidx = parser->msgidx;
 		return 0;
@@ -126,7 +126,7 @@ static int __redis_parse_cmd(const char ch, redis_parser_t *parser)
 	return -2;
 }
 
-static int __redis_parse_cr(const char ch, redis_parser_t *parser)
+static int __redis_parse_cr(char ch, redis_parser_t *parser)
 {
 	if (ch != '\r')
 		return -2;
@@ -135,7 +135,7 @@ static int __redis_parse_cr(const char ch, redis_parser_t *parser)
 	return 0;
 }
 
-static int __redis_parse_lf(const char ch, redis_parser_t *parser)
+static int __redis_parse_lf(char ch, redis_parser_t *parser)
 {
 	if (ch != '\n')
 		return -2;
@@ -147,13 +147,14 @@ static int __redis_parse_line(redis_parser_t *parser)
 {
 	char *str = parser->msgbuf + parser->msgidx;
 	size_t slen = parser->findidx - parser->msgidx;
-	char data[32];
-	int i, n;
 	const char *offset = (const char *)parser->msgidx;
 	struct __redis_read_record *node;
+	char data[32];
+	size_t n;
+	size_t i;
 
 	parser->msgidx = parser->findidx + 2;
-	switch (parser->cmd)
+	switch (parser->type)
 	{
 	case '+':
 		redis_reply_set_status(offset, slen, parser->cur);
@@ -173,18 +174,20 @@ static int __redis_parse_line(redis_parser_t *parser)
 		return 1;
 
 	case '$':
-		n = atoi(str);
-		if (n < 0)
+		if (!isdigit(*str))
 		{
-			redis_reply_set_null(parser->cur);
-			return 1;
-		}
-		else if (n == 0)
-		{
-			/* "-0" not acceptable. */
-			if (!isdigit(*str))
-				return -2;
+			if (str[0] == '-' && str[1] == '1')
+			{
+				redis_reply_set_null(parser->cur);
+				return 1;
+			}
 
+			return -2;
+		}
+
+		n = atoll(str);
+		if (n == 0)
+		{
 			redis_reply_set_string(offset, 0, parser->cur);
 			parser->status = REDIS_GET_CR;
 			return 0;
@@ -195,16 +198,18 @@ static int __redis_parse_line(redis_parser_t *parser)
 		return 0;
 
 	case '*':
-		n = atoi(str);
-		if (n < 0)
+		if (!isdigit(*str))
 		{
-			redis_reply_set_null(parser->cur);
-			return 1;
+			if (str[0] == '-' && str[1] == '1')
+			{
+				redis_reply_set_null(parser->cur);
+				return 1;
+			}
+
+			return -2;
 		}
 
-		if (n == 0 && !isdigit(*str))
-			return -2;
-
+		n = atoll(str);
 		if (n > REDIS_ARRAY_SIZE_LIMIT)
 			return -2;
 
@@ -227,7 +232,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 		}
 
 		parser->cur = parser->cur->element[0];
-		parser->status = REDIS_GET_CMD;
+		parser->status = REDIS_GET_TYPE;
 		return 0;
 
 	}
@@ -273,8 +278,8 @@ static int __redis_parser_forward(redis_parser_t *parser)
 
 	switch (parser->status)
 	{
-	case REDIS_GET_CMD:
-		return __redis_parse_cmd(buf[parser->msgidx++], parser);
+	case REDIS_GET_TYPE:
+		return __redis_parse_type(buf[parser->msgidx++], parser);
 
 	case REDIS_GET_CR:
 		return __redis_parse_cr(buf[parser->msgidx++], parser);
@@ -299,14 +304,12 @@ void redis_parser_init(redis_parser_t *parser)
 	parser->msgbuf = NULL;
 	parser->msgsize = 0;
 	parser->bufsize = 0;
-	//parser->status = REDIS_PARSE_INIT;
-	//parser->nleft = 0;
-	parser->status = REDIS_GET_CMD;
+	parser->status = REDIS_GET_TYPE;
 	parser->nleft = 1;
 	parser->cur = &parser->reply;
 	INIT_LIST_HEAD(&parser->read_list);
 	parser->msgidx = 0;
-	parser->cmd = '\0';
+	parser->type = '\0';
 	parser->nchar = 0;
 	parser->findidx = 0;
 }
@@ -487,7 +490,7 @@ int redis_parser_append_message(const void *buf, size_t *size,
 			}
 
 			if (parser->nleft > 0)
-				parser->status = REDIS_GET_CMD;
+				parser->status = REDIS_GET_TYPE;
 			else
 			{
 				parser->parse_succ = 1;

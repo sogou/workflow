@@ -557,20 +557,17 @@ static void __poller_handle_write(struct __poller_node *node,
 								  poller_t *poller)
 {
 	struct iovec *iov = node->data.write_iov;
-	size_t count = 0;
+	size_t sum = 0;
 	ssize_t nleft;
-	int iovcnt;
+	int cnt;
 	int ret;
 
 	while (node->data.iovcnt > 0)
 	{
 		if (!node->data.ssl)
 		{
-			iovcnt = node->data.iovcnt;
-			if (iovcnt > IOV_MAX)
-				iovcnt = IOV_MAX;
-
-			nleft = writev(node->data.fd, iov, iovcnt);
+			cnt = node->data.iovcnt <= IOV_MAX ? node->data.iovcnt : IOV_MAX;
+			nleft = writev(node->data.fd, iov, cnt);
 			if (nleft < 0)
 			{
 				ret = errno == EAGAIN ? 0 : -1;
@@ -579,7 +576,8 @@ static void __poller_handle_write(struct __poller_node *node,
 		}
 		else if (iov->iov_len > 0)
 		{
-			nleft = SSL_write(node->data.ssl->ssl, iov->iov_base, iov->iov_len);
+			cnt = iov->iov_len <= INT_MAX ? iov->iov_len : INT_MAX;
+			nleft = SSL_write(node->data.ssl->ssl, iov->iov_base, cnt);
 			if (nleft <= 0)
 			{
 				ret = __poller_handle_ssl_error(node, nleft, poller);
@@ -589,7 +587,7 @@ static void __poller_handle_write(struct __poller_node *node,
 		else
 			nleft = 0;
 
-		count += nleft;
+		sum += nleft;
 		do
 		{
 			if (nleft >= iov->iov_len)
@@ -612,10 +610,10 @@ static void __poller_handle_write(struct __poller_node *node,
 	node->data.write_iov = iov;
 	if (node->data.iovcnt > 0 && ret >= 0)
 	{
-		if (count == 0)
+		if (sum == 0)
 			return;
 
-		if (node->data.partial_written(count, node->data.context) >= 0)
+		if (node->data.partial_written(sum, node->data.context) >= 0)
 			return;
 	}
 

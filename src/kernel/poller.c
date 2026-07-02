@@ -610,6 +610,9 @@ static void __poller_handle_write(struct __poller_node *node,
 	node->data.write_iov = iov;
 	if (node->data.iovcnt > 0 && ret >= 0)
 	{
+		if (sum == 0)
+			return;
+
 		if (node->data.partial_written(sum, node->data.context) >= 0)
 			return;
 	}

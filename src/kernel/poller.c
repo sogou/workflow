@@ -486,25 +486,22 @@ static void __poller_handle_write(struct __poller_node *node,
 								  poller_t *poller)
 {
 	struct iovec *iov = node->data.write_iov;
-	size_t count = 0;
+	size_t sum = 0;
 	ssize_t nleft;
-	int iovcnt;
+	int cnt;
 	int ret;
 
 	while (node->data.iovcnt > 0)
 	{
-		iovcnt = node->data.iovcnt;
-		if (iovcnt > IOV_MAX)
-			iovcnt = IOV_MAX;
-
-		nleft = writev(node->data.fd, iov, iovcnt);
+		cnt = iov->iov_len <= INT_MAX ? iov->iov_len : INT_MAX;
+		nleft = writev(node->data.fd, iov, cnt);
 		if (nleft < 0)
 		{
 			ret = errno == EAGAIN ? 0 : -1;
 			break;
 		}
 
-		count += nleft;
+		sum += nleft;
 		do
 		{
 			if (nleft >= iov->iov_len)
@@ -527,10 +524,7 @@ static void __poller_handle_write(struct __poller_node *node,
 	node->data.write_iov = iov;
 	if (node->data.iovcnt > 0 && ret >= 0)
 	{
-		if (count == 0)
-			return;
-
-		if (node->data.partial_written(count, node->data.context) >= 0)
+		if (node->data.partial_written(sum, node->data.context) >= 0)
 			return;
 	}
 

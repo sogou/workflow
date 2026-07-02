@@ -158,10 +158,12 @@ static int __ssl_writev(poller_ssl_t *ssl, struct iovec vectors[], int cnt)
 			break;
 	}
 
-	cnt = vectors[0].iov_len;
 	if (n > 0 && n < SSL_WRITEV_BUFSIZE)
-		cnt -= SSL_WRITEV_BUFSIZE - n;
+		n += vectors[0].iov_len - SSL_WRITEV_BUFSIZE;
+	else
+		n = vectors[0].iov_len;
 
+	cnt = n <= INT_MAX ? n : INT_MAX;
 	return poller_ssl_write(vectors[0].iov_base, cnt, &i, ssl);
 }
 

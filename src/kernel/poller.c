@@ -432,11 +432,11 @@ static int __poller_append_message(const void *buf, size_t *n,
 	return ret;
 }
 
-static int __poller_handle_ssl_error(struct __poller_node *node, int ret,
+static int __poller_handle_ssl_error(struct __poller_node *node, int error,
 									 poller_t *poller)
 {
-	int error = SSL_get_error(node->data.ssl->ssl, ret);
 	int event;
+	int ret;
 
 	switch (error)
 	{
@@ -475,6 +475,7 @@ static void __poller_handle_read(struct __poller_node *node,
 	ssize_t nleft;
 	size_t n;
 	char *p;
+	int error;
 
 	while (1)
 	{
@@ -490,23 +491,17 @@ static void __poller_handle_read(struct __poller_node *node,
 		}
 		else
 		{
-			pthread_mutex_lock(&node->data.ssl->mutex);
-			nleft = SSL_read(node->data.ssl->ssl, p, POLLER_BUFSIZE);
+			nleft = poller_ssl_read(p, POLLER_BUFSIZE, &error, node->data.ssl);
 			if (nleft <= 0)
 			{
-				if (__poller_handle_ssl_error(node, nleft, poller) >= 0)
-				{
-					pthread_mutex_unlock(&node->data.ssl->mutex);
+				if (__poller_handle_ssl_error(node, error, poller) >= 0)
 					return;
-				}
 
 				if (errno == -SSL_ERROR_ZERO_RETURN)
 					nleft = 0;
 				else
 					nleft = -1;
 			}
-
-			pthread_mutex_unlock(&node->data.ssl->mutex);
 		}
 
 		if (nleft <= 0)
@@ -556,31 +551,32 @@ static void __poller_handle_read(struct __poller_node *node,
 static void __poller_handle_write(struct __poller_node *node,
 								  poller_t *poller)
 {
-	struct iovec *iov = node->data.write_iov;
+	struct iovec *v = node->data.write_iov;
 	size_t sum = 0;
 	ssize_t nleft;
 	int cnt;
 	int ret;
+	int error;
 
 	while (node->data.iovcnt > 0)
 	{
 		if (!node->data.ssl)
 		{
 			cnt = node->data.iovcnt <= IOV_MAX ? node->data.iovcnt : IOV_MAX;
-			nleft = writev(node->data.fd, iov, cnt);
+			nleft = writev(node->data.fd, v, cnt);
 			if (nleft < 0)
 			{
 				ret = errno == EAGAIN ? 0 : -1;
 				break;
 			}
 		}
-		else if (iov->iov_len > 0)
+		else if (v->iov_len > 0)
 		{
-			cnt = iov->iov_len <= INT_MAX ? iov->iov_len : INT_MAX;
-			nleft = SSL_write(node->data.ssl->ssl, iov->iov_base, cnt);
+			cnt = v->iov_len <= INT_MAX ? v->iov_len : INT_MAX;
+			nleft = poller_ssl_write(v->iov_base, cnt, &error, node->data.ssl);
 			if (nleft <= 0)
 			{
-				ret = __poller_handle_ssl_error(node, nleft, poller);
+				ret = __poller_handle_ssl_error(node, error, poller);
 				break;
 			}
 		}
@@ -590,24 +586,24 @@ static void __poller_handle_write(struct __poller_node *node,
 		sum += nleft;
 		do
 		{
-			if (nleft >= iov->iov_len)
+			if (nleft >= v->iov_len)
 			{
-				nleft -= iov->iov_len;
-				iov->iov_base = (char *)iov->iov_base + iov->iov_len;
-				iov->iov_len = 0;
-				iov++;
+				nleft -= v->iov_len;
+				v->iov_base = (char *)v->iov_base + v->iov_len;
+				v->iov_len = 0;
+				v++;
 				node->data.iovcnt--;
 			}
 			else
 			{
-				iov->iov_base = (char *)iov->iov_base + nleft;
-				iov->iov_len -= nleft;
+				v->iov_base = (char *)v->iov_base + nleft;
+				v->iov_len -= nleft;
 				break;
 			}
 		} while (node->data.iovcnt > 0);
 	}
 
-	node->data.write_iov = iov;
+	node->data.write_iov = v;
 	if (node->data.iovcnt > 0 && ret >= 0)
 	{
 		if (sum == 0)
@@ -768,10 +764,12 @@ static void __poller_handle_ssl_accept(struct __poller_node *node,
 									   poller_t *poller)
 {
 	int ret = SSL_accept(node->data.ssl->ssl);
+	int error;
 
 	if (ret <= 0)
 	{
-		if (__poller_handle_ssl_error(node, ret, poller) >= 0)
+		error = SSL_get_error(node->data.ssl->ssl, ret);
+		if (__poller_handle_ssl_error(node, error, poller) >= 0)
 			return;
 	}
 
@@ -796,10 +794,12 @@ static void __poller_handle_ssl_connect(struct __poller_node *node,
 										poller_t *poller)
 {
 	int ret = SSL_connect(node->data.ssl->ssl);
+	int error;
 
 	if (ret <= 0)
 	{
-		if (__poller_handle_ssl_error(node, ret, poller) >= 0)
+		error = SSL_get_error(node->data.ssl->ssl, ret);
+		if (__poller_handle_ssl_error(node, error, poller) >= 0)
 			return;
 	}
 
@@ -824,10 +824,12 @@ static void __poller_handle_ssl_shutdown(struct __poller_node *node,
 										 poller_t *poller)
 {
 	int ret = SSL_shutdown(node->data.ssl->ssl);
+	int error;
 
 	if (ret <= 0)
 	{
-		if (__poller_handle_ssl_error(node, ret, poller) >= 0)
+		error = SSL_get_error(node->data.ssl->ssl, ret);
+		if (__poller_handle_ssl_error(node, error, poller) >= 0)
 			return;
 	}
 
@@ -1728,6 +1730,19 @@ poller_ssl_t *poller_ssl_create(int fd, SSL_CTX *ctx)
 	}
 
 	return NULL;
+}
+
+int poller_ssl_read(void *buf, int num, int *error, poller_ssl_t *ssl)
+{
+	int ret;
+
+	pthread_mutex_lock(&ssl->mutex);
+	ret = SSL_read(ssl->ssl, buf, num);
+	if (ret <= 0)
+		*error = SSL_get_error(ssl->ssl, ret);
+
+	pthread_mutex_unlock(&ssl->mutex);
+	return ret;
 }
 
 int poller_ssl_write(const void *buf, int num, int *error, poller_ssl_t *ssl)

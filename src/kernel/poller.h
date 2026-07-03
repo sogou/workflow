@@ -113,6 +113,7 @@ void poller_stop(poller_t *poller);
 void poller_destroy(poller_t *poller);
 
 poller_ssl_t *poller_ssl_create(int fd, SSL_CTX *ctx);
+int poller_ssl_read(void *buf, int num, int *error, poller_ssl_t *ssl);
 int poller_ssl_write(const void *buf, int num, int *error, poller_ssl_t *ssl);
 void poller_ssl_destroy(poller_ssl_t *ssl);
 

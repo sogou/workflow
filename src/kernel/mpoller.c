@@ -42,6 +42,7 @@ static int __mpoller_create(const struct poller_params *params,
 		if (i == mpoller->nthreads)
 		{
 			mpoller->nodes_buf = nodes_buf;
+			mpoller->acc = 0;
 			return 0;
 		}
 

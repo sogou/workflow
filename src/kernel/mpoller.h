@@ -44,6 +44,7 @@ struct __mpoller
 {
 	void **nodes_buf;
 	unsigned int nthreads;
+	unsigned long acc;
 	poller_t *poller[1];
 };
 
@@ -77,8 +78,7 @@ static inline int mpoller_add_timer(const struct timespec *value, void *context,
 									void **timer, int *index,
 									mpoller_t *mpoller)
 {
-	static unsigned int n = 0;
-	*index = n++ % mpoller->nthreads;
+	*index = __sync_fetch_and_add(&mpoller->acc, 1) % mpoller->nthreads;
 	return poller_add_timer(value, context, timer, mpoller->poller[*index]);
 }
 

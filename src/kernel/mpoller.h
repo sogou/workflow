@@ -77,8 +77,8 @@ static inline int mpoller_add_timer(const struct timespec *value, void *context,
 									void **timer, int *index,
 									mpoller_t *mpoller)
 {
-	static unsigned int n = 0;
-	*index = n++ % mpoller->nthreads;
+	static unsigned long n = 0;
+	*index = __sync_fetch_and_add(&n, 1) % mpoller->nthreads;
 	return poller_add_timer(value, context, timer, mpoller->poller[*index]);
 }
 

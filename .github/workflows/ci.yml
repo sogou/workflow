@@ -70,3 +70,55 @@ jobs:
           gmake KAFKA=y
           gmake check KAFKA=y
           gmake tutorial KAFKA=y
+
+  ubuntu-big-endian:
+    name: ubuntu-big-endian
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: s390x
+
+    - name: Test on s390x (Big-Endian)
+      run: |
+        docker run --rm --platform linux/s390x \
+          -v ${{ github.workspace }}:/workspace \
+          -w /workspace \
+          --entrypoint="" \
+          s390x/ubuntu:20.04 \
+          /bin/bash -c "
+            set -e
+            echo '=== IBM s390x Big Endian Test ==='
+
+            # Avoid conversation
+            export DEBIAN_FRONTEND=noninteractive
+            export TZ=UTC
+
+            echo '=== Install Dependencies ==='
+            apt-get update
+            apt-get install -y --no-install-recommends cmake g++ libgtest-dev make libssl-dev
+            apt-get install -y --no-install-recommends valgrind || echo 'skip valgrind'
+            apt-get install -y --no-install-recommends zlib1g-dev python3
+            apt-get install -y libc6-dev
+
+            echo '=== Test Byte Order and Architecture ==='
+            uname -m
+            python3 -c 'import sys; print(f\"Byte Order: {sys.byteorder} Endian\")' || echo 'Failed to check Byte Order!'
+
+            echo '=== Compile Workflow Library and Header ==='
+            make
+
+            echo '=== Run Test ==='
+            # Skip IO task and memory check
+            cd test && mkdir -p build.cmake && cd build.cmake && cmake .. && make task_unittest algo_unittest http_unittest redis_unittest mysql_unittest facilities_unittest graph_unittest memory_unittest upstream_unittest dns_unittest resource_unittest uriparser_unittest && GTEST_FILTER=\"-facilities_unittest.fileIO:task_unittest.WFFileIOTask:task_unittest.WFFilePathIOTask\" ctest -E \".*-memory-check\" --output-on-failure
+            cd ../../
+
+            echo '=== Compile Tutorial ==='
+            make tutorial
+
+            echo '=== Finish s390x Big Endian Test ==='
+          "

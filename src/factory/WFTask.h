@@ -538,20 +538,20 @@ protected:
 
 protected:
 	void **mailbox;
-	std::atomic<bool> flag;
+	std::atomic<int> flag;
 	std::function<void (WFMailboxTask *)> callback;
 
 public:
 	WFMailboxTask(void **mailbox,
 				  std::function<void (WFMailboxTask *)>&& cb) :
-		flag(false),
+		flag(0),
 		callback(std::move(cb))
 	{
 		this->mailbox = mailbox;
 	}
 
 	WFMailboxTask(std::function<void (WFMailboxTask *)>&& cb) :
-		flag(false),
+		flag(0),
 		callback(std::move(cb))
 	{
 		this->mailbox = &this->user_data;
@@ -636,7 +636,7 @@ protected:
 
 protected:
 	std::atomic<void *> message;
-	std::atomic<bool> flag;
+	std::atomic<int> flag;
 	std::atomic<size_t> nleft;
 	std::function<void (WFSelectorTask *)> callback;
 
@@ -644,7 +644,7 @@ public:
 	WFSelectorTask(size_t candidates,
 				   std::function<void (WFSelectorTask *)>&& cb) :
 		message(NULL),
-		flag(false),
+		flag(0),
 		nleft(candidates + 1),
 		callback(std::move(cb))
 	{
@@ -674,20 +674,20 @@ protected:
 	}
 
 protected:
-	std::atomic<bool> flag;
+	std::atomic<int> flag;
 	SubTask *task;
 	void **msgbuf;
 
 public:
 	WFConditional(SubTask *task, void **msgbuf) :
-		flag(false)
+		flag(0)
 	{
 		this->task = task;
 		this->msgbuf = msgbuf;
 	}
 
 	WFConditional(SubTask *task) :
-		flag(false)
+		flag(0)
 	{
 		this->task = task;
 		this->msgbuf = &this->user_data;

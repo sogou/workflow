@@ -448,7 +448,7 @@ static int gzip_decompress(void *compressed, size_t n, KafkaBlock *block)
 	for (int pass = 1; pass <= 2; pass++)
 	{
 		z_stream strm = {0};
-		gz_header hdr;
+		gz_header hdr = {};
 		char buf[512];
 		char *p;
 		int len;

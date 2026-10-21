@@ -500,7 +500,7 @@ public:
 	virtual void send(void *msg)
 	{
 		*this->mailbox = msg;
-		if (this->flag.exchange(true))
+		if (this->flag.exchange(1))
 		{
 			this->state = WFT_STATE_SUCCESS;
 			this->subtask_done();
@@ -518,7 +518,7 @@ public:
 protected:
 	virtual void dispatch()
 	{
-		if (this->flag.exchange(true))
+		if (this->flag.exchange(1))
 		{
 			this->state = WFT_STATE_SUCCESS;
 			this->subtask_done();
@@ -572,7 +572,7 @@ public:
 		if (this->message.compare_exchange_strong(tmp, msg) && msg)
 		{
 			ret = 1;
-			if (this->flag.exchange(true))
+			if (this->flag.exchange(1))
 			{
 				this->state = WFT_STATE_SUCCESS;
 				this->subtask_done();
@@ -605,7 +605,7 @@ public:
 protected:
 	virtual void dispatch()
 	{
-		if (this->flag.exchange(true))
+		if (this->flag.exchange(1))
 		{
 			this->state = WFT_STATE_SUCCESS;
 			this->subtask_done();
@@ -660,7 +660,7 @@ public:
 	virtual void signal(void *msg)
 	{
 		*this->msgbuf = msg;
-		if (this->flag.exchange(true))
+		if (this->flag.exchange(1))
 			this->subtask_done();
 	}
 
@@ -669,7 +669,7 @@ protected:
 	{
 		series_of(this)->push_front(this->task);
 		this->task = NULL;
-		if (this->flag.exchange(true))
+		if (this->flag.exchange(1))
 			this->subtask_done();
 	}
 

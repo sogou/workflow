@@ -14,6 +14,9 @@ link_directories(${WORKFLOW_LIB_DIR})
 find_library(WORKFLOW_LIB NAMES libworkflow.a workflow HINTS ${WORKFLOW_LIB_DIR})
 
 find_program(CMAKE_MEMORYCHECK_COMMAND valgrind)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    list(APPEND CMAKE_MEMORYCHECK_COMMAND_OPTIONS "--max-guard-pages=4096")
+endif()
 set(memcheck_command ${CMAKE_MEMORYCHECK_COMMAND} ${CMAKE_MEMORYCHECK_COMMAND_OPTIONS} --error-exitcode=1 --leak-check=full)
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})

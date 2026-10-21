@@ -207,7 +207,7 @@ public:
 					   CommScheduler *scheduler,
 					   timer_callback_t&& cb) :
 		__WFTimerTask(seconds, nanoseconds, scheduler, std::move(cb)),
-		flag_(false)
+		flag_(0)
 	{
 		node_.task = this;
 	}
@@ -241,7 +241,7 @@ protected:
 private:
 	struct __timer_node node_;
 	__NamedTimerMap::TimerList *timers_;
-	std::atomic<bool> flag_;
+	std::atomic<int> flag_;
 	std::mutex mutex_;
 	friend class __NamedTimerMap;
 };
@@ -252,7 +252,7 @@ void __WFNamedTimerTask::dispatch()
 
 	mutex_.lock();
 	ret = this->scheduler->sleep(this);
-	if (ret >= 0 && flag_.exchange(true))
+	if (ret >= 0 && flag_.exchange(1))
 		this->cancel();
 
 	mutex_.unlock();
@@ -325,7 +325,7 @@ int __NamedTimerMap::cancel(const std::string& name, size_t max)
 
 			node = list_entry(timers->head.next, struct __timer_node, list);
 			list_del(&node->list);
-			if (node->task->flag_.exchange(true))
+			if (node->task->flag_.exchange(1))
 				node->task->cancel();
 
 			node->task = NULL;

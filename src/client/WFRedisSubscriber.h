@@ -50,7 +50,7 @@ public:
 	/* User needs to call 'release()' exactly once, anywhere. */
 	void release()
 	{
-		if (this->flag.exchange(true))
+		if (this->flag.exchange(1))
 			delete this;
 	}
 
@@ -176,7 +176,7 @@ protected:
 protected:
 	WFRedisTask *task;
 	std::mutex mutex;
-	std::atomic<bool> flag;
+	std::atomic<int> flag;
 	std::function<void (WFRedisSubscribeTask *)> extract;
 	std::function<void (WFRedisSubscribeTask *)> callback;
 
@@ -184,7 +184,7 @@ protected:
 	WFRedisSubscribeTask(WFRedisTask *task,
 						 std::function<void (WFRedisSubscribeTask *)>&& ex,
 						 std::function<void (WFRedisSubscribeTask *)>&& cb) :
-		flag(false),
+		flag(0),
 		extract(std::move(ex)),
 		callback(std::move(cb))
 	{

@@ -95,7 +95,7 @@ public:
 	virtual void cancel() { this->canceled = true; }
 
 	/* Parallel work's callback may check the cancellation state of each
-	 * sub-series, and cancel it's super-series recursively. */
+	 * sub-series, and cancel its super-series recursively. */
 	bool is_canceled() const { return this->canceled; }
 
 	/* 'false' until the time of callback. Mainly for sub-class. */

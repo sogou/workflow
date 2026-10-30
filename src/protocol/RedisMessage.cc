@@ -494,34 +494,47 @@ RedisMessage& RedisMessage::operator= (RedisMessage &&move)
 bool RedisMessage::encode_reply(redis_reply_t *reply)
 {
 	EncodeStream& stream = *stream_;
+
 	switch (reply->type)
 	{
 	case REDIS_REPLY_TYPE_STATUS:
-		stream << "+" << std::make_pair(reply->str, reply->len) << "\r\n";
+		stream.append_copy("+" + std::string(reply->str, reply->len) + "\r\n");
 		break;
 
 	case REDIS_REPLY_TYPE_ERROR:
-		stream << "-" << std::make_pair(reply->str, reply->len) << "\r\n";
+		stream.append_copy("-" + std::string(reply->str, reply->len) + "\r\n");
 		break;
 
 	case REDIS_REPLY_TYPE_NIL:
-		stream << "$-1\r\n";
+		stream.append_nocopy("$-1\r\n", 5);
 		break;
 
 	case REDIS_REPLY_TYPE_INTEGER:
-		stream << ":" << reply->integer << "\r\n";
+		stream.append_copy(":" + std::to_string(reply->integer) + "\r\n");
 		break;
 
 	case REDIS_REPLY_TYPE_STRING:
-		stream << "$" << reply->len << "\r\n";
-		stream << std::make_pair(reply->str, reply->len) << "\r\n";
+		if (reply->len > 512)
+		{
+			stream.append_copy("$" + std::to_string(reply->len) + "\r\n");
+			stream.append_nocopy(reply->str, reply->len);
+			stream.append_nocopy("\r\n", 2);
+		}
+		else
+		{
+			stream.append_copy("$" + std::to_string(reply->len) + "\r\n" +
+							   std::string(reply->str, reply->len) + "\r\n");
+		}
+
 		break;
 
 	case REDIS_REPLY_TYPE_ARRAY:
-		stream << "*" << reply->elements << "\r\n";
+		stream.append_copy("*" + std::to_string(reply->elements) + "\r\n");
 		for (size_t i = 0; i < reply->elements; i++)
+		{
 			if (!encode_reply(reply->element[i]))
 				return false;
+		}
 
 		break;
 

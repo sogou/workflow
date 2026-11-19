@@ -287,6 +287,9 @@ static int __parse_start_line(const char *ptr, size_t len,
 			while (len > 0 && ptr[len - 1] == ' ')
 				len--;
 
+			if (len == 0)
+				return -2;
+
 			p1 = ptr;
 			while (*p1 == ' ')
 				p1++;

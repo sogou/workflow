@@ -781,8 +781,8 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 			break;
 		}
 
-		pthread_mutex_unlock(&target->mutex);
 		pthread_mutex_unlock(mutex);
+		pthread_mutex_unlock(&target->mutex);
 		break;
 	}
 
@@ -1137,6 +1137,9 @@ void Communicator::handle_recvfrom_result(struct poller_result *res)
 	switch (res->state)
 	{
 	case PR_ST_SUCCESS:
+		if (res->data.result == (void *)-1)
+			break;
+
 		entry = (struct CommConnEntry *)res->data.result;
 		session = entry->session;
 		target = entry->target;
@@ -1574,9 +1577,11 @@ void *Communicator::recvfrom(const struct sockaddr *addr, socklen_t addrlen,
 
 			target->decref();
 		}
+		else
+			return NULL;
 	}
 
-	return NULL;
+	return (void *)-1;
 }
 
 void Communicator::callback(struct poller_result *res, void *context)

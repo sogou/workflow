@@ -102,6 +102,9 @@ static int __dns_parser_parse_host(char *phost, dns_parser_t *parser)
 		// RFC 1035, 4.1.4 Message compression
 		else if ((len & 0xC0) == 0xC0)
 		{
+			if (*cur + 2 > msgend)
+				return -2;
+
 			pointer = __dns_parser_uint16(*cur) & 0x3FFF;
 
 			if (pointer >= parser->msgsize)
@@ -852,6 +855,9 @@ int dns_parser_append_message(const void *buf,
 	else
 	{
 		parser->msgbuf = malloc(*n);
+		if (!parser->msgbuf)
+			return -1;
+
 		memcpy(parser->msgbuf, buf, *n);
 		parser->msgbase = parser->msgbuf;
 		parser->msgsize = *n;

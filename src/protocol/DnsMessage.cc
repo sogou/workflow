@@ -473,6 +473,7 @@ int DnsResponse::append(const void *buf, size_t *size)
 		{
 			dns_parser_deinit(this->parser);
 			dns_parser_init(this->parser);
+			parser->single_packet = 1;
 			ret = 0;
 		}
 	}

@@ -386,7 +386,8 @@ bool ComplexHttpTask::finish_once()
 		ParsedURI new_uri;
 		if (this->need_redirect(uri_, new_uri))
 		{
-			if (uri_.userinfo && strcasecmp(uri_.host, new_uri.host) == 0)
+			if (uri_.userinfo && new_uri.host &&
+				strcasecmp(uri_.host, new_uri.host) == 0)
 			{
 				if (!new_uri.userinfo)
 				{

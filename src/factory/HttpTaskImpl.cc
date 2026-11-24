@@ -710,7 +710,10 @@ bool ComplexHttpProxyTask::init_success()
 
 	std::string info("http-proxy|remote:");
 	info += is_ssl_ ? "https://" : "http://";
-	info += user_uri_.host;
+
+	if (user_uri_.host && user_uri_.host[0])
+		info += user_uri_.host;
+
 	info += ":";
 	if (user_uri_.port)
 		info += user_uri_.port;
@@ -756,8 +759,11 @@ bool ComplexHttpProxyTask::init_success()
 
 	if ((is_ssl_ && user_port != 443) || (!is_ssl_ && user_port != 80))
 	{
-		header_host += ":";
-		header_host += uri_.port;
+		if (user_uri_.port && user_uri_.port[0])
+		{
+			header_host += ":";
+			header_host += user_uri_.port;
+		}
 	}
 
 	HttpRequest *client_req = this->get_req();

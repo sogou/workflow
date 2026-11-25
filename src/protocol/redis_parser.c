@@ -338,12 +338,9 @@ void redis_parser_deinit(redis_parser_t *parser)
 	free(parser->msgbuf);
 }
 
-static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
+static void __redis_parse_done(redis_reply_t *reply, char *buf)
 {
 	size_t i;
-
-	if (depth == REDIS_REPLY_DEPTH_LIMIT)
-		return -2;
 
 	switch (reply->type)
 	{
@@ -352,10 +349,7 @@ static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
 
 	case REDIS_REPLY_TYPE_ARRAY:
 		for (i = 0; i < reply->elements; i++)
-		{
-			if (__redis_parse_done(reply->element[i], buf, depth + 1) < 0)
-				return -2;
-		}
+			__redis_parse_done(reply->element[i], buf);
 
 		break;
 
@@ -365,8 +359,6 @@ static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
 		reply->str = buf + (size_t)reply->str;
 		break;
 	}
-
-	return 1;
 }
 
 static int __redis_split_inline_command(redis_parser_t *parser)
@@ -511,6 +503,7 @@ int redis_parser_append_message(const void *buf, size_t *size,
 	} while (parser->status != REDIS_PARSE_END);
 
 	*size = parser->msgidx - msgsize_bak;
-	return __redis_parse_done(&parser->reply, parser->msgbuf, 0);
+	__redis_parse_done(&parser->reply, parser->msgbuf);
+	return 1;
 }
 
